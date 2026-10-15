@@ -1,0 +1,1510 @@
+{
+  "auditedAt": "2026-10-15T21:35:28.383Z",
+  "scope": "Post-inspection verification-scope audit of all original unchanged predictions/Native windows. Chrome exposes an unnamed AXStrongStyleGroup around the sole text; Safari flattens it. Permit that observed style wrapper only, preserving complete children/name/content/state checks. This does not change the model or original first score and is not a fresh independent evaluation.",
+  "firstFixtureSha256": "6b96939d07ca171f0c7b03c28da60cd4a89519a9873b48ad9684cbf3c007f64a",
+  "verifierSha256": "aa1ecd2a77c2d69ad9cfecce7aa53c798cb40b0086c223d1640b66d13607e638",
+  "profiles": [
+    {
+      "browser": "safari",
+      "originalSummary": {
+        "planned": 14,
+        "nativeObserved": 14,
+        "inputVerified": 14,
+        "inputMismatch": 0,
+        "inputUnmeasured": 0,
+        "commandVerified": 14,
+        "inputEquivalent": 14,
+        "eligible": 14,
+        "issues": {},
+        "mainSpeechExact": {
+          "matched": 14,
+          "eligible": 14,
+          "conditionalRate": 1,
+          "allPlannedRate": 1
+        },
+        "fullSpeechExact": {
+          "matched": 14,
+          "eligible": 14,
+          "conditionalRate": 1,
+          "allPlannedRate": 1
+        },
+        "hintCandidateExact": {
+          "matched": 14,
+          "eligible": 14,
+          "conditionalRate": 1,
+          "allPlannedRate": 1
+        },
+        "scope": "Speech formatter on caller-owned fixed targets. Full Speech compares a main/hint candidate sequence, not a native queue scheduler. No Navigation, State Accuracy or Task Success evaluation. Bounded host receipt attribution does not prove native completion.",
+        "physicalTargets": {
+          "matched": 6,
+          "mismatch": 8,
+          "unmeasured": 0,
+          "planned": 14
+        },
+        "declaredStateFields": {
+          "matched": 14,
+          "mismatch": 0,
+          "unmeasured": 0,
+          "planned": 14
+        },
+        "declaredStateTransitions": {
+          "matched": 0,
+          "mismatch": 0,
+          "unmeasured": 0,
+          "planned": 0
+        },
+        "keyboardFocus": {
+          "matched": 14,
+          "mismatch": 0,
+          "unmeasured": 0,
+          "planned": 14
+        },
+        "tasks": {
+          "status": "not-applicable-reading-only",
+          "success": 0,
+          "planned": 0
+        },
+        "fixtureHealth": {
+          "passed": 2,
+          "planned": 2
+        },
+        "alignedCases": 2
+      },
+      "currentSummary": {
+        "planned": 14,
+        "nativeObserved": 14,
+        "inputVerified": 14,
+        "inputMismatch": 0,
+        "inputUnmeasured": 0,
+        "commandVerified": 14,
+        "inputEquivalent": 14,
+        "eligible": 14,
+        "issues": {},
+        "mainSpeechExact": {
+          "matched": 14,
+          "eligible": 14,
+          "conditionalRate": 1,
+          "allPlannedRate": 1
+        },
+        "fullSpeechExact": {
+          "matched": 14,
+          "eligible": 14,
+          "conditionalRate": 1,
+          "allPlannedRate": 1
+        },
+        "hintCandidateExact": {
+          "matched": 14,
+          "eligible": 14,
+          "conditionalRate": 1,
+          "allPlannedRate": 1
+        },
+        "scope": "Speech formatter on caller-owned fixed targets. Full Speech compares a main/hint candidate sequence, not a native queue scheduler. No Navigation, State Accuracy or Task Success evaluation. Bounded host receipt attribution does not prove native completion."
+      },
+      "rows": [
+        {
+          "caseId": "linked-heading-transfer-v1.wrapped-outer-link",
+          "step": 0,
+          "firstEligible": true,
+          "firstIssues": [],
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "heading",
+                "name": "Route overview",
+                "id": "first"
+              },
+              "observedPhysicalTarget": {
+                "role": "AXLink",
+                "id": "first"
+              },
+              "observedLinkedHeading": {
+                "level": 3,
+                "headingLink": true,
+                "headingLinkOrder": "link-heading"
+              },
+              "observedScopes": [],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied. Focus moves verify cell membership/table dimensions; consumed non-focus cell coordinates, column header and spans require independent Native ranges/references. Unused container counts remain unverified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "link heading level 3 Route overview",
+            "nativeHint": "You are currently on a link, inside of web content. To click this link, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "link heading level 3 Route overview",
+            "predictedHint": "You are currently on a link, inside of web content. To click this link, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "linked-heading-transfer-v1.wrapped-outer-link",
+          "step": 1,
+          "firstEligible": true,
+          "firstIssues": [],
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "After marker",
+                "id": "after"
+              },
+              "observedScopes": [],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied. Focus moves verify cell membership/table dimensions; consumed non-focus cell coordinates, column header and spans require independent Native ranges/references. Unused container counts remain unverified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "After marker button",
+            "nativeHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "After marker button",
+            "predictedHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "linked-heading-transfer-v1.wrapped-outer-link",
+          "step": 2,
+          "firstEligible": true,
+          "firstIssues": [],
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "heading",
+                "name": "Route overview",
+                "id": "first"
+              },
+              "observedPhysicalTarget": {
+                "role": "AXLink",
+                "id": "first"
+              },
+              "observedLinkedHeading": {
+                "level": 3,
+                "headingLink": true,
+                "headingLinkOrder": "link-heading"
+              },
+              "observedScopes": [],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied. Focus moves verify cell membership/table dimensions; consumed non-focus cell coordinates, column header and spans require independent Native ranges/references. Unused container counts remain unverified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "link heading level 3 Route overview",
+            "nativeHint": "You are currently on a link, inside of web content. To click this link, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "link heading level 3 Route overview",
+            "predictedHint": "You are currently on a link, inside of web content. To click this link, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "linked-heading-transfer-v1.wrapped-outer-link",
+          "step": 3,
+          "firstEligible": true,
+          "firstIssues": [],
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Before marker",
+                "id": "before"
+              },
+              "observedScopes": [],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied. Focus moves verify cell membership/table dimensions; consumed non-focus cell coordinates, column header and spans require independent Native ranges/references. Unused container counts remain unverified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Before marker button",
+            "nativeHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Before marker button",
+            "predictedHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "linked-heading-transfer-v1.wrapped-outer-link",
+          "step": 4,
+          "firstEligible": true,
+          "firstIssues": [],
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "heading",
+                "name": "Route overview",
+                "id": "first"
+              },
+              "observedPhysicalTarget": {
+                "role": "AXLink",
+                "id": "first"
+              },
+              "observedLinkedHeading": {
+                "level": 3,
+                "headingLink": true,
+                "headingLinkOrder": "link-heading"
+              },
+              "observedScopes": [],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied. Focus moves verify cell membership/table dimensions; consumed non-focus cell coordinates, column header and spans require independent Native ranges/references. Unused container counts remain unverified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "link heading level 3 Route overview",
+            "nativeHint": "You are currently on a link, inside of web content. To click this link, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "link heading level 3 Route overview",
+            "predictedHint": "You are currently on a link, inside of web content. To click this link, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "linked-heading-transfer-v1.wrapped-outer-link",
+          "step": 5,
+          "firstEligible": true,
+          "firstIssues": [],
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "After marker",
+                "id": "after"
+              },
+              "observedScopes": [],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied. Focus moves verify cell membership/table dimensions; consumed non-focus cell coordinates, column header and spans require independent Native ranges/references. Unused container counts remain unverified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "After marker button",
+            "nativeHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "After marker button",
+            "predictedHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "linked-heading-transfer-v1.wrapped-outer-link",
+          "step": 6,
+          "firstEligible": true,
+          "firstIssues": [],
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "heading",
+                "name": "Route overview",
+                "id": "first"
+              },
+              "observedPhysicalTarget": {
+                "role": "AXLink",
+                "id": "first"
+              },
+              "observedLinkedHeading": {
+                "level": 3,
+                "headingLink": true,
+                "headingLinkOrder": "link-heading"
+              },
+              "observedScopes": [],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied. Focus moves verify cell membership/table dimensions; consumed non-focus cell coordinates, column header and spans require independent Native ranges/references. Unused container counts remain unverified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "link heading level 3 Route overview",
+            "nativeHint": "You are currently on a link, inside of web content. To click this link, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "link heading level 3 Route overview",
+            "predictedHint": "You are currently on a link, inside of web content. To click this link, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "linked-heading-transfer-v1.wrapped-outer-heading",
+          "step": 0,
+          "firstEligible": true,
+          "firstIssues": [],
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "heading",
+                "name": "Route overview",
+                "id": "first"
+              },
+              "observedPhysicalTarget": {
+                "role": "AXHeading",
+                "id": "heading"
+              },
+              "observedLinkedHeading": {
+                "level": 4,
+                "headingLink": true,
+                "headingParts": [
+                  {
+                    "text": "Route overview",
+                    "link": true
+                  }
+                ]
+              },
+              "observedScopes": [],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied. Focus moves verify cell membership/table dimensions; consumed non-focus cell coordinates, column header and spans require independent Native ranges/references. Unused container counts remain unverified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "heading level 4 link Route overview",
+            "nativeHint": "You are currently on a heading level 4, inside of web content.  To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "heading level 4 link Route overview",
+            "predictedHint": "You are currently on a heading level 4, inside of web content.  To exit this web area, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "linked-heading-transfer-v1.wrapped-outer-heading",
+          "step": 1,
+          "firstEligible": true,
+          "firstIssues": [],
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "After marker",
+                "id": "after"
+              },
+              "observedScopes": [],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied. Focus moves verify cell membership/table dimensions; consumed non-focus cell coordinates, column header and spans require independent Native ranges/references. Unused container counts remain unverified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "After marker button",
+            "nativeHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "After marker button",
+            "predictedHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "linked-heading-transfer-v1.wrapped-outer-heading",
+          "step": 2,
+          "firstEligible": true,
+          "firstIssues": [],
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "heading",
+                "name": "Route overview",
+                "id": "first"
+              },
+              "observedPhysicalTarget": {
+                "role": "AXHeading",
+                "id": "heading"
+              },
+              "observedLinkedHeading": {
+                "level": 4,
+                "headingLink": true,
+                "headingParts": [
+                  {
+                    "text": "Route overview",
+                    "link": true
+                  }
+                ]
+              },
+              "observedScopes": [],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied. Focus moves verify cell membership/table dimensions; consumed non-focus cell coordinates, column header and spans require independent Native ranges/references. Unused container counts remain unverified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "heading level 4 link Route overview",
+            "nativeHint": "You are currently on a heading level 4, inside of web content.  To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "heading level 4 link Route overview",
+            "predictedHint": "You are currently on a heading level 4, inside of web content.  To exit this web area, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "linked-heading-transfer-v1.wrapped-outer-heading",
+          "step": 3,
+          "firstEligible": true,
+          "firstIssues": [],
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Before marker",
+                "id": "before"
+              },
+              "observedScopes": [],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied. Focus moves verify cell membership/table dimensions; consumed non-focus cell coordinates, column header and spans require independent Native ranges/references. Unused container counts remain unverified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Before marker button",
+            "nativeHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Before marker button",
+            "predictedHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "linked-heading-transfer-v1.wrapped-outer-heading",
+          "step": 4,
+          "firstEligible": true,
+          "firstIssues": [],
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "heading",
+                "name": "Route overview",
+                "id": "first"
+              },
+              "observedPhysicalTarget": {
+                "role": "AXHeading",
+                "id": "heading"
+              },
+              "observedLinkedHeading": {
+                "level": 4,
+                "headingLink": true,
+                "headingParts": [
+                  {
+                    "text": "Route overview",
+                    "link": true
+                  }
+                ]
+              },
+              "observedScopes": [],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied. Focus moves verify cell membership/table dimensions; consumed non-focus cell coordinates, column header and spans require independent Native ranges/references. Unused container counts remain unverified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "heading level 4 link Route overview",
+            "nativeHint": "You are currently on a heading level 4, inside of web content.  To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "heading level 4 link Route overview",
+            "predictedHint": "You are currently on a heading level 4, inside of web content.  To exit this web area, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "linked-heading-transfer-v1.wrapped-outer-heading",
+          "step": 5,
+          "firstEligible": true,
+          "firstIssues": [],
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "After marker",
+                "id": "after"
+              },
+              "observedScopes": [],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied. Focus moves verify cell membership/table dimensions; consumed non-focus cell coordinates, column header and spans require independent Native ranges/references. Unused container counts remain unverified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "After marker button",
+            "nativeHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "After marker button",
+            "predictedHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "linked-heading-transfer-v1.wrapped-outer-heading",
+          "step": 6,
+          "firstEligible": true,
+          "firstIssues": [],
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "heading",
+                "name": "Route overview",
+                "id": "first"
+              },
+              "observedPhysicalTarget": {
+                "role": "AXHeading",
+                "id": "heading"
+              },
+              "observedLinkedHeading": {
+                "level": 4,
+                "headingLink": true,
+                "headingParts": [
+                  {
+                    "text": "Route overview",
+                    "link": true
+                  }
+                ]
+              },
+              "observedScopes": [],
+              "observedHelp": "",
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied. Focus moves verify cell membership/table dimensions; consumed non-focus cell coordinates, column header and spans require independent Native ranges/references. Unused container counts remain unverified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "heading level 4 link Route overview",
+            "nativeHint": "You are currently on a heading level 4, inside of web content.  To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "heading level 4 link Route overview",
+            "predictedHint": "You are currently on a heading level 4, inside of web content.  To exit this web area, press Control -Option -Shift -Up Arrow."
+          }
+        }
+      ]
+    },
+    {
+      "browser": "chrome",
+      "originalSummary": {
+        "planned": 14,
+        "nativeObserved": 14,
+        "inputVerified": 10,
+        "inputMismatch": 0,
+        "inputUnmeasured": 4,
+        "commandVerified": 14,
+        "inputEquivalent": 10,
+        "eligible": 10,
+        "issues": {
+          "input-unmeasured": 4
+        },
+        "mainSpeechExact": {
+          "matched": 10,
+          "eligible": 10,
+          "conditionalRate": 1,
+          "allPlannedRate": 0.7142857142857143
+        },
+        "fullSpeechExact": {
+          "matched": 10,
+          "eligible": 10,
+          "conditionalRate": 1,
+          "allPlannedRate": 0.7142857142857143
+        },
+        "hintCandidateExact": {
+          "matched": 10,
+          "eligible": 10,
+          "conditionalRate": 1,
+          "allPlannedRate": 0.7142857142857143
+        },
+        "scope": "Speech formatter on caller-owned fixed targets. Full Speech compares a main/hint candidate sequence, not a native queue scheduler. No Navigation, State Accuracy or Task Success evaluation. Bounded host receipt attribution does not prove native completion.",
+        "physicalTargets": {
+          "matched": 6,
+          "mismatch": 8,
+          "unmeasured": 0,
+          "planned": 14
+        },
+        "declaredStateFields": {
+          "matched": 14,
+          "mismatch": 0,
+          "unmeasured": 0,
+          "planned": 14
+        },
+        "declaredStateTransitions": {
+          "matched": 0,
+          "mismatch": 0,
+          "unmeasured": 0,
+          "planned": 0
+        },
+        "keyboardFocus": {
+          "matched": 14,
+          "mismatch": 0,
+          "unmeasured": 0,
+          "planned": 14
+        },
+        "tasks": {
+          "status": "not-applicable-reading-only",
+          "success": 0,
+          "planned": 0
+        },
+        "fixtureHealth": {
+          "passed": 2,
+          "planned": 2
+        },
+        "alignedCases": 2
+      },
+      "currentSummary": {
+        "planned": 14,
+        "nativeObserved": 14,
+        "inputVerified": 14,
+        "inputMismatch": 0,
+        "inputUnmeasured": 0,
+        "commandVerified": 14,
+        "inputEquivalent": 14,
+        "eligible": 14,
+        "issues": {},
+        "mainSpeechExact": {
+          "matched": 14,
+          "eligible": 14,
+          "conditionalRate": 1,
+          "allPlannedRate": 1
+        },
+        "fullSpeechExact": {
+          "matched": 14,
+          "eligible": 14,
+          "conditionalRate": 1,
+          "allPlannedRate": 1
+        },
+        "hintCandidateExact": {
+          "matched": 14,
+          "eligible": 14,
+          "conditionalRate": 1,
+          "allPlannedRate": 1
+        },
+        "scope": "Speech formatter on caller-owned fixed targets. Full Speech compares a main/hint candidate sequence, not a native queue scheduler. No Navigation, State Accuracy or Task Success evaluation. Bounded host receipt attribution does not prove native completion."
+      },
+      "rows": [
+        {
+          "caseId": "linked-heading-transfer-v1.wrapped-outer-link",
+          "step": 0,
+          "firstEligible": true,
+          "firstIssues": [],
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "heading",
+                "name": "Route overview",
+                "id": "first"
+              },
+              "observedPhysicalTarget": {
+                "role": "AXLink",
+                "id": "first"
+              },
+              "observedLinkedHeading": {
+                "level": 3,
+                "headingLink": true,
+                "headingLinkOrder": "link-heading"
+              },
+              "observedScopes": [],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied. Focus moves verify cell membership/table dimensions; consumed non-focus cell coordinates, column header and spans require independent Native ranges/references. Unused container counts remain unverified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "link heading level 3 Route overview",
+            "nativeHint": "You are currently on a link, inside of web content. To click this link, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "link heading level 3 Route overview",
+            "predictedHint": "You are currently on a link, inside of web content. To click this link, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "linked-heading-transfer-v1.wrapped-outer-link",
+          "step": 1,
+          "firstEligible": true,
+          "firstIssues": [],
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "After marker",
+                "id": "after"
+              },
+              "observedScopes": [],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied. Focus moves verify cell membership/table dimensions; consumed non-focus cell coordinates, column header and spans require independent Native ranges/references. Unused container counts remain unverified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "After marker button",
+            "nativeHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "After marker button",
+            "predictedHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "linked-heading-transfer-v1.wrapped-outer-link",
+          "step": 2,
+          "firstEligible": true,
+          "firstIssues": [],
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "heading",
+                "name": "Route overview",
+                "id": "first"
+              },
+              "observedPhysicalTarget": {
+                "role": "AXLink",
+                "id": "first"
+              },
+              "observedLinkedHeading": {
+                "level": 3,
+                "headingLink": true,
+                "headingLinkOrder": "link-heading"
+              },
+              "observedScopes": [],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied. Focus moves verify cell membership/table dimensions; consumed non-focus cell coordinates, column header and spans require independent Native ranges/references. Unused container counts remain unverified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "link heading level 3 Route overview",
+            "nativeHint": "You are currently on a link, inside of web content. To click this link, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "link heading level 3 Route overview",
+            "predictedHint": "You are currently on a link, inside of web content. To click this link, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "linked-heading-transfer-v1.wrapped-outer-link",
+          "step": 3,
+          "firstEligible": true,
+          "firstIssues": [],
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Before marker",
+                "id": "before"
+              },
+              "observedScopes": [],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied. Focus moves verify cell membership/table dimensions; consumed non-focus cell coordinates, column header and spans require independent Native ranges/references. Unused container counts remain unverified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Before marker button",
+            "nativeHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Before marker button",
+            "predictedHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "linked-heading-transfer-v1.wrapped-outer-link",
+          "step": 4,
+          "firstEligible": true,
+          "firstIssues": [],
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "heading",
+                "name": "Route overview",
+                "id": "first"
+              },
+              "observedPhysicalTarget": {
+                "role": "AXLink",
+                "id": "first"
+              },
+              "observedLinkedHeading": {
+                "level": 3,
+                "headingLink": true,
+                "headingLinkOrder": "link-heading"
+              },
+              "observedScopes": [],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied. Focus moves verify cell membership/table dimensions; consumed non-focus cell coordinates, column header and spans require independent Native ranges/references. Unused container counts remain unverified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "link heading level 3 Route overview",
+            "nativeHint": "You are currently on a link, inside of web content. To click this link, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "link heading level 3 Route overview",
+            "predictedHint": "You are currently on a link, inside of web content. To click this link, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "linked-heading-transfer-v1.wrapped-outer-link",
+          "step": 5,
+          "firstEligible": true,
+          "firstIssues": [],
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "After marker",
+                "id": "after"
+              },
+              "observedScopes": [],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied. Focus moves verify cell membership/table dimensions; consumed non-focus cell coordinates, column header and spans require independent Native ranges/references. Unused container counts remain unverified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "After marker button",
+            "nativeHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "After marker button",
+            "predictedHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "linked-heading-transfer-v1.wrapped-outer-link",
+          "step": 6,
+          "firstEligible": true,
+          "firstIssues": [],
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "heading",
+                "name": "Route overview",
+                "id": "first"
+              },
+              "observedPhysicalTarget": {
+                "role": "AXLink",
+                "id": "first"
+              },
+              "observedLinkedHeading": {
+                "level": 3,
+                "headingLink": true,
+                "headingLinkOrder": "link-heading"
+              },
+              "observedScopes": [],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied. Focus moves verify cell membership/table dimensions; consumed non-focus cell coordinates, column header and spans require independent Native ranges/references. Unused container counts remain unverified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "link heading level 3 Route overview",
+            "nativeHint": "You are currently on a link, inside of web content. To click this link, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "link heading level 3 Route overview",
+            "predictedHint": "You are currently on a link, inside of web content. To click this link, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "linked-heading-transfer-v1.wrapped-outer-heading",
+          "step": 0,
+          "firstEligible": false,
+          "firstIssues": [
+            "input-unmeasured"
+          ],
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "heading",
+                "name": "Route overview",
+                "id": "first"
+              },
+              "observedPhysicalTarget": {
+                "role": "AXHeading",
+                "id": "heading"
+              },
+              "observedLinkedHeading": {
+                "level": 4,
+                "headingLink": true,
+                "headingParts": [
+                  {
+                    "text": "Route overview",
+                    "link": true
+                  }
+                ],
+                "nativeDisclosureLevel": 3
+              },
+              "observedScopes": [],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied. Focus moves verify cell membership/table dimensions; consumed non-focus cell coordinates, column header and spans require independent Native ranges/references. Unused container counts remain unverified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "heading level 4 level 3 link Route overview",
+            "nativeHint": "You are currently on a heading level 4, inside of web content.  To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "heading level 4 level 3 link Route overview",
+            "predictedHint": "You are currently on a heading level 4, inside of web content.  To exit this web area, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "linked-heading-transfer-v1.wrapped-outer-heading",
+          "step": 1,
+          "firstEligible": true,
+          "firstIssues": [],
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "After marker",
+                "id": "after"
+              },
+              "observedScopes": [],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied. Focus moves verify cell membership/table dimensions; consumed non-focus cell coordinates, column header and spans require independent Native ranges/references. Unused container counts remain unverified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "After marker button",
+            "nativeHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "After marker button",
+            "predictedHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "linked-heading-transfer-v1.wrapped-outer-heading",
+          "step": 2,
+          "firstEligible": false,
+          "firstIssues": [
+            "input-unmeasured"
+          ],
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "heading",
+                "name": "Route overview",
+                "id": "first"
+              },
+              "observedPhysicalTarget": {
+                "role": "AXHeading",
+                "id": "heading"
+              },
+              "observedLinkedHeading": {
+                "level": 4,
+                "headingLink": true,
+                "headingParts": [
+                  {
+                    "text": "Route overview",
+                    "link": true
+                  }
+                ],
+                "nativeDisclosureLevel": 3
+              },
+              "observedScopes": [],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied. Focus moves verify cell membership/table dimensions; consumed non-focus cell coordinates, column header and spans require independent Native ranges/references. Unused container counts remain unverified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "heading level 4 level 3 link Route overview",
+            "nativeHint": "You are currently on a heading level 4, inside of web content.  To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "heading level 4 level 3 link Route overview",
+            "predictedHint": "You are currently on a heading level 4, inside of web content.  To exit this web area, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "linked-heading-transfer-v1.wrapped-outer-heading",
+          "step": 3,
+          "firstEligible": true,
+          "firstIssues": [],
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "Before marker",
+                "id": "before"
+              },
+              "observedScopes": [],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied. Focus moves verify cell membership/table dimensions; consumed non-focus cell coordinates, column header and spans require independent Native ranges/references. Unused container counts remain unverified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "Before marker button",
+            "nativeHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "Before marker button",
+            "predictedHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "linked-heading-transfer-v1.wrapped-outer-heading",
+          "step": 4,
+          "firstEligible": false,
+          "firstIssues": [
+            "input-unmeasured"
+          ],
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "heading",
+                "name": "Route overview",
+                "id": "first"
+              },
+              "observedPhysicalTarget": {
+                "role": "AXHeading",
+                "id": "heading"
+              },
+              "observedLinkedHeading": {
+                "level": 4,
+                "headingLink": true,
+                "headingParts": [
+                  {
+                    "text": "Route overview",
+                    "link": true
+                  }
+                ],
+                "nativeDisclosureLevel": 3
+              },
+              "observedScopes": [],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied. Focus moves verify cell membership/table dimensions; consumed non-focus cell coordinates, column header and spans require independent Native ranges/references. Unused container counts remain unverified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "heading level 4 level 3 link Route overview",
+            "nativeHint": "You are currently on a heading level 4, inside of web content.  To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "heading level 4 level 3 link Route overview",
+            "predictedHint": "You are currently on a heading level 4, inside of web content.  To exit this web area, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "linked-heading-transfer-v1.wrapped-outer-heading",
+          "step": 5,
+          "firstEligible": true,
+          "firstIssues": [],
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "button",
+                "name": "After marker",
+                "id": "after"
+              },
+              "observedScopes": [],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied. Focus moves verify cell membership/table dimensions; consumed non-focus cell coordinates, column header and spans require independent Native ranges/references. Unused container counts remain unverified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "After marker button",
+            "nativeHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "After marker button",
+            "predictedHint": "You are currently on a button, inside of web content. To click this button, press Control -Option -Space. To exit this web area, press Control -Option -Shift -Up Arrow."
+          }
+        },
+        {
+          "caseId": "linked-heading-transfer-v1.wrapped-outer-heading",
+          "step": 6,
+          "firstEligible": false,
+          "firstIssues": [
+            "input-unmeasured"
+          ],
+          "evaluation": {
+            "nativeObserved": true,
+            "inputVerification": {
+              "status": "verified",
+              "reasons": [],
+              "observedTarget": {
+                "role": "heading",
+                "name": "Route overview",
+                "id": "first"
+              },
+              "observedPhysicalTarget": {
+                "role": "AXHeading",
+                "id": "heading"
+              },
+              "observedLinkedHeading": {
+                "level": 4,
+                "headingLink": true,
+                "headingParts": [
+                  {
+                    "text": "Route overview",
+                    "link": true
+                  }
+                ],
+                "nativeDisclosureLevel": 3
+              },
+              "observedScopes": [],
+              "scope": "Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied. Focus moves verify cell membership/table dimensions; consumed non-focus cell coordinates, column header and spans require independent Native ranges/references. Unused container counts remain unverified."
+            },
+            "commandVerification": {
+              "status": "verified"
+            },
+            "attribution": {
+              "status": "bounded-window",
+              "beforeRequest": 0,
+              "afterWindow": 0,
+              "completionVerified": false
+            },
+            "eligible": true,
+            "issues": [],
+            "mainSpeechExact": true,
+            "fullSpeechExact": true,
+            "hintCandidateExact": true,
+            "diagnosticMainMatch": true,
+            "nativeMain": "heading level 4 level 3 link Route overview",
+            "nativeHint": "You are currently on a heading level 4, inside of web content.  To exit this web area, press Control -Option -Shift -Up Arrow.",
+            "predictedMain": "heading level 4 level 3 link Route overview",
+            "predictedHint": "You are currently on a heading level 4, inside of web content.  To exit this web area, press Control -Option -Shift -Up Arrow."
+          }
+        }
+      ]
+    }
+  ]
+}

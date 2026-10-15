@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {readFileSync} from 'node:fs';
+import {createHash} from 'node:crypto';
 import {checkSpeechInput,observedSpeechInput,observedSpeechContext} from '../src/speech-input.js';
 import {observeVisualCursor} from '../src/cursor.js';
 import type {AxDump} from '../src/axdump.js';
@@ -43,4 +44,34 @@ test('compound input verification refuses incomplete, aliased, renamed or extra-
  const d=sample('safari','heading-outside'),node=target(d),observation=observedSpeechInput(d,'next_item');assert.equal(observation.status,'observed');
  if(observation.status!=='observed')throw new Error(observation.reason);
  const wrong=structuredClone(observation.input);wrong.target.identity=String(node.AXDOMIdentifier);assert.equal(checkSpeechInput(wrong,d).status,'mismatch');
+});
+
+test('reserved first predictions are preserved while a measured plain-text strong group is audited separately',()=>{
+ const transfer=JSON.parse(readFileSync(new URL('../../../tests/fixtures/voiceover-evidence/native-linked-heading-transfer-2026-10-16.json',import.meta.url),'utf8'));
+ for(const profile of transfer.profiles){
+  assert.equal(profile.summary.eligible,profile.browser==='safari'?14:10);
+  for(const row of profile.rows){
+   assert.equal(checkSpeechInput(row.verificationInput,row.nativeInputObservation.dump).status,'verified');
+   assert.equal(observedSpeechContext(row.nativeInputObservation.before).status,'observed');
+  }
+ }
+ const row=transfer.profiles[1].rows.find((r:any)=>r.caseId.endsWith('wrapped-outer-heading')),d=structuredClone(row.nativeInputObservation.dump),node=target(d),style=node.children![0]!.children![0]!;
+ assert.equal(style.AXSubrole,'AXStrongStyleGroup');
+ style.AXSubrole='AXUnmeasuredStyleGroup';assert.equal(checkSpeechInput(row.verificationInput,d).status,'unmeasured');
+ style.AXSubrole='AXStrongStyleGroup';style.AXTitle='Named group';assert.equal(checkSpeechInput(row.verificationInput,d).status,'unmeasured');
+});
+
+test('the separate input audit preserves first denominators and actual independently observed disclosure fields',()=>{
+ const raw=readFileSync(new URL('../../../tests/fixtures/voiceover-evidence/native-linked-heading-transfer-2026-10-16.json',import.meta.url)),transfer=JSON.parse(raw.toString()),audit=JSON.parse(readFileSync(new URL('linked-heading-transfer-input-audit.json',import.meta.url),'utf8'));
+ assert.equal(createHash('sha256').update(raw).digest('hex'),audit.firstFixtureSha256);
+ for(const [index,p]of transfer.profiles.entries()){
+  const corrected=audit.profiles[index];assert.deepEqual(corrected.originalSummary,p.summary);
+  assert.equal(p.summary.mainSpeechExact.matched,p.browser==='safari'?14:10);
+  assert.equal(corrected.currentSummary.mainSpeechExact.matched,14);assert.equal(corrected.currentSummary.fullSpeechExact.matched,14);
+  assert.equal(p.summary.tasks.planned,0);assert.equal(p.summary.declaredStateTransitions.planned,0);
+  for(const row of p.rows){assert.equal(row.nativeInputObservation.dump.schemaVersion,7);assert.equal(row.previousContext.status,'verified');}
+  if(p.browser==='chrome')for(const row of p.rows.filter((r:any)=>r.caseId.endsWith('wrapped-outer-heading')&&r.rendererDOMId==='first')){
+   assert.equal(target(row.nativeInputObservation.dump).AXDisclosureLevel,3);assert.equal(row.verificationInput.target.semantic.nativeDisclosureLevel,3);
+  }
+ }
 });

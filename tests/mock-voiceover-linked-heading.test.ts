@@ -26,3 +26,12 @@ it('keeps independently supplied disclosure level separate from heading level an
  delete input.target.semantic.nativeDisclosureLevel;
  expect(formatVoiceOverSpeech(input).speech).toBe('heading level 4 link Harbor itinerary');
 });
+
+const transfer=JSON.parse(readFileSync(new URL('./fixtures/voiceover-evidence/native-linked-heading-transfer-2026-10-16.json',import.meta.url),'utf8')) as typeof fixture;
+it.each(transfer.profiles)('$browser replays all reserved wrapper/reverse-entry receipts with unchanged actual inputs',p=>{
+ expect(p.rows).toHaveLength(14);
+ for(const row of p.rows){
+  const result=formatVoiceOverSpeech(row.verificationInput,row.diagnostic.events[0].previousContext);
+  expect([result.speech,...(result.usageHint?[result.usageHint]:[])],`${row.caseId} ${row.step}`).toEqual(row.utterances.map((u:{text:string})=>u.text));
+ }
+});

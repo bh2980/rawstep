@@ -532,3 +532,13 @@ results, with versions, actions, source hashes, attribution and unknown settings
 retained. See [evidence, changes and coverage limits](mock-voiceover-evidence.md).
 This is a composite simulation profile; activation speech, timing and native
 macOS/Safari behavior are not established by these lexical regression tests.
+
+## Linked-heading wording and caller inputs
+
+Safari v26 / Chrome v20 preserve the measured distinction between a link wrapping a heading and a heading wrapping
+one link. Supply `headingLinkOrder` or `headingParts` with the heading level; Chrome's latter projection additionally
+uses independently observed `semantic.nativeDisclosureLevel` (macOS zero-based). Keep the activation-link identity
+separate from the physical outer heading. The [linked-heading study](./voiceover-linked-heading-speech.md) records
+object next/previous scope, literal hint-role differences, the frozen h3/h4 reverse-entry results and the separate
+post-inspection style-wrapper input audit. Tab, heading jumps, h1/zero disclosure, mixed parts and compound help/state
+combinations are outside that measured scope. The formatter remains an approximation, not a coverage certificate.

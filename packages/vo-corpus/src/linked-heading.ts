@@ -14,7 +14,7 @@ export function nativeLinkedHeading(node:AxNode,ancestors:AxNode[],command:strin
   if(nodes.some(n=>n.childrenTruncated||!Number.isSafeInteger(n.AXElementId)||Number(n.AXElementId)<1)||new Set(nodes.map(n=>n.AXElementId)).size!==nodes.length)return unknown('complete unique Native linked-heading children required');
   const content=nodes.map(nativeCustomContent);
   if(content.some(c=>c.status!=='observed'||c.hasMoreContent)||nodes.some(n=>n.AXEnabled!==true||n.AXHelp||n.AXRequired||n.AXExpanded!==undefined||n.AXInvalid&&n.AXInvalid!==false||n.AXARIACurrent&&n.AXARIACurrent!=='false'))return unknown('linked-heading help, custom content or nondefault state requires separate calibration');
-  const transparent=(n:AxNode)=>n.AXRole==='AXGroup'&&n.AXRoleDescription==='group'&&!nativeNodeName(n);
+  const transparent=(n:AxNode)=>n.AXRole==='AXGroup'&&!nativeNodeName(n)&&(n.AXRoleDescription==='group'||n.AXRoleDescription==='strong'&&n.AXSubrole==='AXStrongStyleGroup');
   const children=(n:AxNode):AxNode[]=>(n.children??[]).flatMap(c=>transparent(c)?children(c):[c]);
   const inner=children(node),child=inner.length===1?inner[0]:undefined;
   const outerLink=node.AXRole==='AXLink',heading=outerLink?child:node,link=outerLink?node:child;

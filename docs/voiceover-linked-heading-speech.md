@@ -58,3 +58,41 @@ different seven-action history (14 actions per browser). They are fixture-health
 user tasks. Their HTML and action sequences stay fixed. Freeze the corrected model and actual inputs before Native;
 report first input equivalence, Main, Full and all-plan counts separately. Unknowns are not successes. These small
 synthetic cohorts cannot establish overall 90% web accuracy, logical-cursor Navigation Accuracy or speech timing.
+
+## First reserved results and separate input audit
+
+The clean c78533b package, 28 actual Rawstep input/prediction windows and acquisition sources were fixed before
+Native. Model artifact SHA-256 is `fdd7ad5cf1e10b6499fff25387705a2968a2a8c46b900345714b3bb5b887d90b`.
+Both profiles completed before analysis; the reservation's HTML/sequence fingerprint is unchanged.
+
+| First frozen evaluation, per browser | Safari | Chrome |
+| --- | ---: | ---: |
+| Planned / Native observed | 14 / 14 | 14 / 14 |
+| Verified input and previous context | 14 | 10 |
+| Main / literal Full exact | 14/14 / 14/14 | 10/10 / 10/10 |
+| Main and Full matches / all planned | 14/14 | 10/14 |
+| Compound targets among planned actions | 8 | 8 |
+| Verified compound matches | 8/8 | 4/8 |
+
+Six marker actions per profile remain in the full denominator and are identified above. The
+[first fixture](../tests/fixtures/voiceover-evidence/native-linked-heading-transfer-2026-10-16.json) retains every
+original input, prediction, outcome, Native AX and prior AX snapshot. Chrome exposes h4 AXValue=4 and
+AXDisclosureLevel=3, and says `heading level 4 level 3 link …`, matching the precomputed model.
+
+Chrome's four unmeasured targets contain an unnamed `AXStrongStyleGroup` around the sole text; Safari flattens it.
+The model already handled this wrapper and its original predictions matched. The first verifier treated the style
+group as a separate reading object. A later narrow verifier change accepts this independently observed strong-style
+wrapper only when the whole single-text unit still passes all name, identity, completeness, help and state checks.
+Unknown style subroles, named groups and extra content remain unmeasured.
+
+The [separate all-row input audit](../packages/vo-corpus/test/linked-heading-transfer-input-audit.json) verifies 14/14
+unchanged predictions and Main/Full receipts in each profile. It does not replace the first Chrome 10/14 result,
+change the engine, or constitute another independent evaluation. Physical primary role/DOM-ID joins report 6 matches
+and 8 differences per profile because compound units retain heading semantics and/or an inner activation link.
+Those physical differences do not establish navigation errors. Keyboard focus and 14 repeated disabled-state fields
+agree; there are no state transitions and no user tasks in this reading-only cohort. Two final enabled-state checks
+per profile are fixture health.
+
+Current browser regressions compare actual Rawstep formatter inputs to those preserved Native observations before
+checking literal receipts. Original calibration Chrome inner-link snapshots still lack disclosure level and remain
+unmeasured. The next independent site/task evaluation must use the corrected verifier from the outset.
