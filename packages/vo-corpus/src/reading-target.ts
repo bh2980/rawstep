@@ -6,6 +6,7 @@ import type {ModelCursorObservation} from './cursor-model.js';
 type Target={id:string;role:string;name:string};
 const nativeRoles:Record<string,string>={AXButton:'button',AXLink:'link',AXHeading:'heading',AXStaticText:'statictext',AXTextField:'textbox',AXTextArea:'textbox',AXCheckBox:'checkbox',AXRadioButton:'radio',AXSwitch:'switch',AXSlider:'slider',AXComboBox:'combobox'};
 const atomic=new Set(Object.values(nativeRoles));
+const nativeRole=(n:AxNode)=>n.AXRole==='AXCheckBox'&&['AXToggle','AXToggleButton'].includes(String(n.AXSubrole))?'button':nativeRoles[n.AXRole??'']??'';
 const name=(s:unknown)=>typeof s==='string'?s.replace(/\s+/g,' ').trim():'';
 const key=(t:Target)=>JSON.stringify([t.role,t.name]);
 const scope='Experimental visible atomic reading-target comparison. Container/end boundaries, caret positions and ambiguous identities are unmeasured; this is not full logical Navigation Accuracy.';
@@ -32,7 +33,7 @@ export function compareReadingTarget(dump:AxDump|undefined,model:ModelCursorObse
   if(inconsistent)return unknown('native alias identity changed during snapshot');
   const nativeNode=nodes.get(visible.candidates[0]!.axId);
   if(!nativeNode)return unknown('native geometry candidate missing from AX inventory');
-  const targetOf=(n:AxNode):Target=>({id:name(n.AXDOMIdentifier),role:nativeRoles[n.AXRole??'']??'',name:name(n.AXRole==='AXStaticText'?n.AXValue:nativeNodeName(n))});
+  const targetOf=(n:AxNode):Target=>({id:name(n.AXDOMIdentifier),role:nativeRole(n),name:name(n.AXRole==='AXStaticText'?n.AXValue:nativeNodeName(n))});
   const native=targetOf(nativeNode),predicted:Target={id:model.domId??'',role:cursor.role.toLowerCase(),name:name(cursor.name)};
   if(!atomic.has(native.role)||!atomic.has(predicted.role))return unknown('logical unit is outside the calibrated atomic-role observer');
   // AX node IDs are session-local; backend DOM node IDs join independently opened CDP sessions.

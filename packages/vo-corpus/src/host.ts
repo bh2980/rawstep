@@ -176,7 +176,7 @@ export async function openInBrowser(machine: Machine, browser: BrowserName, url:
 export async function navigateBrowser(machine: Machine, browser: BrowserName, url: string): Promise<void> {
   const quoted = JSON.stringify(url);
   const script = browser === "safari"
-    ? `tell application "Safari"\nif (count of documents) = 0 then make new document\nset URL of front document to ${quoted}\nend tell`
+    ? `tell application "Safari"\nif (count of windows) = 0 then make new document\nset URL of current tab of front window to ${quoted}\nend tell`
     : `tell application "Google Chrome"\nif (count of windows) = 0 then make new window\nset URL of active tab of front window to ${quoted}\nend tell`;
   await machine.exec("osascript", ["-e", script]);
   await activateBrowser(machine, browser);

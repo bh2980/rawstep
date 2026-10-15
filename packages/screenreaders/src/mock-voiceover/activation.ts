@@ -21,8 +21,13 @@ export function formatVoiceOverActivation(input:VoiceOverActivationInput,previou
   if(!before)return unsupported('Before target is unmeasured');
   const a=before.semantic,b=after.semantic;
   if(before.identity!==after.identity||a.role!==b.role||a.name!==b.name)return unsupported('Activation target changed');
-  if(a.protected||b.protected||a.disabled||b.disabled)return unsupported('Protected or disabled activation is not modeled');
   const changedExcept=(keys:string[])=>[...new Set([...Object.keys(a),...Object.keys(b)])].some(key=>!keys.includes(key)&&JSON.stringify(a[key as keyof typeof a])!==JSON.stringify(b[key as keyof typeof b]));
+  if(a.protected||b.protected||a.disabled)return unsupported('Protected or previously disabled activation is not modeled');
+  if(b.disabled){
+    const plain=(n:typeof a)=>n.protected===false&&n.required===false&&n.readonly===false&&n.multiline===false&&n.modal===false&&n.pressed===undefined&&n.expanded===undefined&&!n.hasPopup&&!n.value&&!n.description&&!n.help&&!n.hasMoreContent&&!n.invalid;
+    if(a.disabled===false&&b.disabled===true&&b.role==='button'&&a.tagName==='button'&&b.tagName==='button'&&input.command==='activate_form_control'&&plain(a)&&plain(b)&&!changedExcept(['disabled']))return {...provenance,status:'modeled',utterances:[],context};
+    return unsupported('Self-disable receipt needs an isolated plain native-button Space transition');
+  }
   if(b.role==='checkbox'){
     if(typeof a.checked!=='boolean'||typeof b.checked!=='boolean'||a.checked===b.checked||changedExcept(['checked']))return unsupported('Checkbox event needs an isolated boolean checked transition');
     const formatted=formatVoiceOverSpeech({target:after,command:input.command,referenceBrowser:browser,checkedStateChanged:true},previous);

@@ -37,7 +37,7 @@ it('reports unsupported activation evidence explicitly instead of guessing an ob
  const beforeTarget={identity:'options',semantic},base={beforeTarget,target:beforeTarget,command:'activate_form_control'};
  for(const input of [{...base,beforeTarget:undefined},{...base,command:'activate_button'},{...base,command:'read_current'},
   {...base,target:{...beforeTarget,identity:'another'}},{...base,target:{...beforeTarget,semantic:{...semantic,name:'Renamed'}}},
-  {...base,target:{...beforeTarget,semantic:{...semantic,disabled:true}}},
+  {...base,beforeTarget:{...beforeTarget,semantic:{...semantic,disabled:true}},target:{...beforeTarget,semantic:{...semantic,disabled:true}}},
   {...base,beforeTarget:{...beforeTarget,semantic:{...semantic,pressed:false}},target:{...beforeTarget,semantic:{...semantic,pressed:'mixed' as const}}},
  ]){
   const result=formatVoiceOverActivation(input);expect(result).toMatchObject({status:'unsupported',evidenceProvenance:'simulation',nativeParityEstablished:false});expect(result).not.toHaveProperty('utterances');

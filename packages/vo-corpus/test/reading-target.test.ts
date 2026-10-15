@@ -36,3 +36,10 @@ test('a DOM ID cannot certify a compound projection as a plain atomic reading un
  assert.equal(compareReadingTarget(snapshot([n]),m).status,'unmeasured');
  m.axNodes![0]!.role='heading';assert.equal(compareReadingTarget(snapshot([n]),m).status,'matched');
 });
+test('Native toggle-button subroles keep atomic role identity independent of pressed state',()=>{
+ const n={...text,AXRole:'AXCheckBox',AXSubrole:'AXToggleButton',AXTitle:'Use compact layout',AXDOMIdentifier:'compact'},m=model();
+ m.cursor!.target!.role='button';m.cursor!.target!.name='Use compact layout';m.axNodes![0]!.role='button';m.axNodes![0]!.name='Use compact layout';m.domId='compact';m.domIdCount=1;
+ assert.equal(compareReadingTarget(snapshot([n]),m).status,'matched');
+ n.AXSubrole='AXToggle';assert.equal(compareReadingTarget(snapshot([n]),m).status,'matched');
+ n.AXSubrole='';assert.equal(compareReadingTarget(snapshot([n]),m).status,'mismatch');
+});

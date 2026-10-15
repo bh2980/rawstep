@@ -118,10 +118,16 @@ console.log(result.utterances); // ['selected Options toggle button']; Safari re
 Supply independently observed before/after targets, not expected speech. `activate_form_control` means physical
 Space; `activate_button` means VO activation. The function models physical Space on a stable native HTML button
 with stable non-state semantics, and isolated boolean checkbox transitions for either command. Button VO activation,
-changed identity/name/other semantics, appearing/disappearing state attributes, protected/disabled controls, unknown
+changed identity/name/other semantics, appearing/disappearing state attributes, protected/initially disabled controls, unknown
 before state and transitions **to** mixed pressed state return `status: 'unsupported'` with a reason and no utterances.
 A mixed initial pressed state followed by a boolean state is supported. The existing target formatter remains available
 for an explicit object reading; it is not an activation-event fallback.
+
+Safari v27 / Chrome v21 also model silence when physical Space changes a plain native button from enabled to disabled,
+with the same identity/name and no other semantic changes. This does not permit activation of an already disabled
+button. Toggle/expanded/popup, description/help and other unmeasured self-disable combinations stay unsupported.
+The returned context is preserved; focus relocation and subsequent Tab behavior belong to Rawstep/browser integration.
+See the [practical task findings](./voiceover-practical-speech-tasks.md) for the original fallback error and remaining gaps.
 
 `status: 'modeled'` means an implemented guarded event rule returns ordered receipt candidates; it is not a Native
 match verdict. Both activation result branches have `evidenceProvenance: 'simulation'` and

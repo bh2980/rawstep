@@ -1,0 +1,9 @@
+{
+  "format": "gzip/json",
+  "fixture": "native-practical-speech-tasks-2026-10-16.json.gz",
+  "scope": "Lossless storage mirror of the first complete export; uncompressed bytes and all original scores/observations unchanged. Original JSON remains in the local acquisition archive.",
+  "uncompressedBytes": 18342476,
+  "uncompressedSha256": "0d51df52f7d6e83d10b7af00c6c79dc76e0fa8d93ebb6793a0961a7fb9198ec3",
+  "gzipBytes": 1584039,
+  "gzipSha256": "527685e5be84bd9c548b3d5647c32b440f6aede748e56d774102dd907a24e83c"
+}

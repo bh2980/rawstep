@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {createConnection} from 'node:net';
-import {assertResumeEnvironment,collectionBrowser,localMachine,requireFrontmost,serveDirectory,type MachineFacts} from '../src/host.js';
+import {assertResumeEnvironment,collectionBrowser,localMachine,requireFrontmost,serveDirectory,navigateBrowser,type MachineFacts} from '../src/host.js';
 import {dumpAxTree} from '../src/axdump.js';
 
 test('native collection resumes the captured browser and refuses a profile switch',()=>{
@@ -12,6 +12,14 @@ test('native collection resumes the captured browser and refuses a profile switc
   assert.throws(()=>collectionBrowser('safari','chrome'),/different browser/);
   assert.throws(()=>collectionBrowser('firefox'),/safari or chrome/);
   assert.throws(()=>collectionBrowser(undefined,'unknown'),/safari or chrome/);
+});
+
+test('Safari navigation addresses the visible current tab even when its document URL is missing',async()=>{
+ const calls:string[][]=[],machine={...localMachine,exec:async(file:string,args:string[])=>{calls.push([file,...args]);return '';}};
+ const url='http://fixture.test/pages/recovery.html';await navigateBrowser(machine,'safari',url);
+ assert.ok(calls[0]![2]!.includes('set URL of current tab of front window to '+JSON.stringify(url)));
+ assert.ok(calls[0]![2]!.includes('count of windows'));assert.ok(!calls[0]![2]!.includes('front document'));
+ await assert.rejects(navigateBrowser({...machine,exec:async()=>{throw new Error('navigation failed');}},'safari',url),/navigation failed/);
 });
 
 test('fixture shutdown completes even when a browser leaves an unrequested speculative socket',async()=>{
