@@ -163,9 +163,26 @@ regression: missing list-link set fields are now detected and constructed from c
 image-link outlines and failed preparations remain in the full denominator. These limited samples do not establish
 overall real-site accuracy.
 
+## Run a deterministic regression test
+
+After installing Rawstep and a compatible Chromium, run:
+
+```sh
+node --test node_modules/rawstep/examples/v2/voiceover-regression.test.mjs
+```
+
+From this repository, `npm run test:voiceover` builds and runs both the browser-free speech example and the keyboard
+workflow example. It needs no LLM, API key, native screen-reader server or model configuration. The four keyboard
+tests assert simulated object/live announcements and run the workflow in both reference profiles. They inject a
+disabled-control regression to prove that an unmet page outcome fails even when the scripted policy reports success.
+Both the working and deliberately broken expectations must pass for this test command to
+succeed. This tests the example workflow and verifier sensitivity, not universal VoiceOver fidelity or a WCAG rule.
+Use the [test source](../examples/v2/voiceover-regression.test.mjs) as a starting point for your own page and fixed
+commands. `runMockVoiceOverTask` returns a trace; assert its outcome so unsuccessful runs fail your CI process.
+
 ## Run the bundled browser fixture
 
-Install Node.js 22+ and a Playwright-compatible Chromium as described in the [README](../README.md). No macOS or screen-reader service is required, and a profile with `screenReader: "simulation"` (the default in `rawstep.config.json`) needs no AT Driver. A run profile with a screen reader executor must be configured in `rawstep.config.json` (via `npx rawstep ui`: a connection, then the model in the profile's executor; see [SystemOne](./systemone.md) and [config](./config.md)), and the connection's API key goes in `.env.local`.
+Install Node.js 22.12+ and a Playwright-compatible Chromium as described in the [README](../README.md). No macOS or screen-reader service is required, and a profile with `screenReader: "simulation"` (the default in `rawstep.config.json`) needs no AT Driver. A run profile with a screen reader executor must be configured in `rawstep.config.json` (via `npx rawstep ui`: a connection, then the model in the profile's executor; see [SystemOne](./systemone.md) and [config](./config.md)), and the connection's API key goes in `.env.local`.
 
 ```sh
 npx rawstep run examples/v2/mock-task.json --mode screenreader --profile PROFILE

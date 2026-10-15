@@ -21,6 +21,7 @@
     "check": "npm run build && npm run typecheck && npm run test:all && npm run test:package",
     "test:all": "npm test && npm run test:integration",
     "test:integration": "node scripts/test-browser.mjs",
+    "test:voiceover": "npm run build && node --test --test-concurrency=1 examples/v2/voiceover-speech.test.mjs examples/v2/voiceover-regression.test.mjs",
     "test:orca-native": "python3 -m unittest discover -s packages/screenreaders/native -p \"test_*.py\"",
     "test:source": "node scripts/smoke-source.mjs",
     "dashboard:dev": "corepack pnpm --filter @rawstep/dashboard dev",

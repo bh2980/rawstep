@@ -55,7 +55,7 @@ try {
   const pack = await packRawstep(directory, { environment });
   const unexpected = pack.files.filter(file => !/^(?:dist\/|native\/[^/]+\.py$|README(?:\.ko)?\.md$|LICENSE$|package\.json$|docs\/[^/]+\.md$|examples\/|fixtures\/)/.test(file.path) || /(?:node_modules|packages\/|\.safetensors$|\.gguf$|\.onnx$|\.node$|\.wasm$|__pycache__)/.test(file.path));
   assert.deepEqual(unexpected, [], 'unexpected files in the tarball');
-  for (const required of ['dist/index.js', 'dist/index.d.ts', 'dist/cli/bin.js', 'dist/dashboard-web/index.html', 'native/orca_bridge.py', 'docs/cli.md', 'fixtures/simple-cta.html', 'examples/v2/mock-task.json', 'examples/v2/voiceover-speech.test.mjs']) assert.ok(pack.files.some(file => file.path === required), `tarball is missing ${required}`);
+  for (const required of ['dist/index.js', 'dist/index.d.ts', 'dist/cli/bin.js', 'dist/dashboard-web/index.html', 'native/orca_bridge.py', 'docs/cli.md', 'fixtures/simple-cta.html', 'examples/v2/mock-task.json', 'examples/v2/voiceover-regression.test.mjs', 'examples/v2/voiceover-speech.test.mjs']) assert.ok(pack.files.some(file => file.path === required), `tarball is missing ${required}`);
   assert.ok(pack.files.some(file => /^dist\/dashboard-web\/assets\/.+\.js$/.test(file.path)), 'tarball is missing the dashboard JS bundle');
   assert.deepEqual(Object.keys(pack.manifest.dependencies).sort(), ['@ai-sdk/openai-compatible', 'ai', 'playwright', 'zod']);
   check('tarball contents and third-party-only dependency list');
@@ -111,13 +111,15 @@ try {
     import assert from 'node:assert/strict';
     import { runTask, aggregateHints, readTrace, formatVoiceOverSpeech as rootSpeech, formatVoiceOverActivation as rootActivation } from 'rawstep';
     import { runTask as lowLevelRunTask } from 'rawstep/runner';
-    import { MOCK_VOICEOVER_CHROME_PROFILE, runMockVoiceOverTask, formatVoiceOverSpeech, formatVoiceOverActivation } from 'rawstep/mock-voiceover';
+    import { MOCK_VOICEOVER_PROFILE, MOCK_VOICEOVER_CHROME_PROFILE, MockVoiceOverBackend, runMockVoiceOverTask, formatVoiceOverSpeech, formatVoiceOverActivation } from 'rawstep/mock-voiceover';
     import { ProjectStore } from 'rawstep/project';
     import { extractHints } from 'rawstep/hints';
     import { runCli } from 'rawstep/cli';
     assert.equal(typeof runTask, 'function'); assert.equal(typeof aggregateHints, 'function'); assert.equal(typeof readTrace, 'function');
     assert.notEqual(runTask, lowLevelRunTask);
-    assert.equal(MOCK_VOICEOVER_CHROME_PROFILE, 'english-chrome-navigation-evidence-v10');
+    assert.equal(MOCK_VOICEOVER_PROFILE, 'english-dom-navigation-evidence-v20');
+    assert.equal(MOCK_VOICEOVER_CHROME_PROFILE, 'english-chrome-navigation-evidence-v14');
+    assert.equal(typeof MockVoiceOverBackend.prototype.getSpeechInputObservation, 'function');
     assert.equal(typeof runMockVoiceOverTask, 'function'); assert.equal(typeof formatVoiceOverSpeech, 'function'); assert.equal(rootSpeech, formatVoiceOverSpeech); assert.equal(rootActivation, formatVoiceOverActivation);
     assert.equal(typeof ProjectStore, 'function'); assert.equal(typeof extractHints, 'function'); assert.equal(typeof runCli, 'function');
     for (const name of ${JSON.stringify(exportedModules)}) await import(name === '.' ? 'rawstep' : 'rawstep/' + name.slice(2));
@@ -125,6 +127,8 @@ try {
   check(`import { runTask, aggregateHints } from 'rawstep'; ${exportedModules.length} export-map entries import`);
   command(process.execPath,['--test',join(directory,'node_modules/rawstep/examples/v2/voiceover-speech.test.mjs')]);
   check('installed browser-free speech example preserves caller-owned context in both profiles');
+  command(process.execPath,['--test',join(directory,'node_modules/rawstep/examples/v2/voiceover-regression.test.mjs')]);
+  check('installed model-free VoiceOver keyboard regression example passes both profiles and detects disabled-control failures');
 
   // 6. A TypeScript consumer compiles against the bundled declarations.
   await writeFile(join(directory, 'consumer.ts'), [
@@ -132,7 +136,7 @@ try {
     'import { ScreenshotDecisionPolicy, type ScreenshotModelAdapter } from "rawstep/screenshot";',
     'import { DecisionClient, FakeSystemOneClient, SystemOneChoiceModel, SystemOneScreenshotAdapter, type SystemOneClient } from "rawstep/systemone";',
     'import { SpeechDecisionPolicy } from "rawstep/policy";',
-    'import { formatVoiceOverSpeech, formatVoiceOverActivation, type VoiceOverActivationResult, type VoiceOverSpeechContext, type MockVoiceOverRunOptions, type MockVoiceOverReferenceBrowser } from "rawstep/mock-voiceover";',
+    'import { MockVoiceOverBackend, formatVoiceOverSpeech, formatVoiceOverActivation, type MockVoiceOverSpeechInputObservation, type VoiceOverActivationResult, type VoiceOverSpeechContext, type MockVoiceOverRunOptions, type MockVoiceOverReferenceBrowser } from "rawstep/mock-voiceover";',
     'import { LlmTraceAnalyzer } from "rawstep/analyze";',
     'import { ProjectStore, type ProjectConfig } from "rawstep/project";',
     'import { extractHints, type Hint } from "rawstep/hints";',
@@ -140,6 +144,7 @@ try {
     'const referenceBrowser: MockVoiceOverReferenceBrowser = "chrome";',
     'const mockOptions: MockVoiceOverRunOptions = { policy, outDir: "./mock-output", referenceBrowser };',
     'void mockOptions;',
+    'const diagnostic: MockVoiceOverSpeechInputObservation | undefined = new MockVoiceOverBackend().getSpeechInputObservation(); void diagnostic;',
     'const speech = formatVoiceOverSpeech({ command: "next_item", target: { identity: "save", semantic: { role: "button", name: "Save", protected: false, disabled: false, readonly: false, required: false, multiline: false, modal: false } } });',
     'const speechContext: VoiceOverSpeechContext = speech.context; void speechContext;',
     'const activation: VoiceOverActivationResult = formatVoiceOverActivation({command: "activate_form_control", target: {identity: "save", semantic: {role: "button", tagName: "button", name: "Save", protected: false, disabled: false, readonly: false, required: false, multiline: false, modal: false}}}); void activation;',
