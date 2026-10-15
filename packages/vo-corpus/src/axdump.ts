@@ -66,6 +66,12 @@ export function nativeNodeName(node:AxNode|undefined):string{
   return [node?.AXTitle,node?.AXDescription].find((v):v is string=>typeof v==='string'&&!!v.trim())?.trim()??'';
 }
 
+/** Safari and Chrome expose ARIA toggle buttons with distinct subroles. Missing values stay unknown. */
+export function nativePressedState(node:AxNode):boolean|'mixed'|undefined{
+  if(!(node.AXRole==='AXCheckBox'&&['AXToggle','AXToggleButton'].includes(String(node.AXSubrole))||node.AXRole==='AXButton'&&node.AXRoleDescription==='toggle button'))return undefined;
+  return node.AXValue===2||node.AXValue==='mixed'?'mixed':node.AXValue===1||node.AXValue===true?true:node.AXValue===0||node.AXValue===false?false:undefined;
+}
+
 /** A retry has a new attempt ID; even repeated stages refuse to replace raw observations. */
 export async function saveAxSnapshot(runDir:string,attemptId:string,stage:string,dump:AxDump):Promise<string> {
   if(!/^[\w-]+$/.test(attemptId)||!/^[\w.-]+$/.test(stage))throw new Error("Invalid AX snapshot identity");

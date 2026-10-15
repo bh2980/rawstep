@@ -124,7 +124,8 @@ export function formatSimulatedSpeech(node: SimulatedSemanticNode, checkedStateC
     if ((radio && node.checked === true) || (tab && node.selected === true)) parts.push('selected');
     if (disclosure && node.expanded !== undefined) parts.push(node.expanded ? 'expanded' : 'collapsed');
     if (button && node.pressed !== undefined && node.pressed !== false) parts.push(node.pressed === 'mixed' ? 'mixed' : 'selected');
-    if (button && node.expanded !== undefined) parts.push(node.expanded ? 'expanded' : 'collapsed');
+    // Native toggle-button wording takes precedence when pressed and expanded coexist.
+    if (button && node.pressed === undefined && node.expanded !== undefined) parts.push(node.expanded ? 'expanded' : 'collapsed');
     if (textbox && node.required) parts.push('required');
     // Chromium's internal roles (PascalCase, e.g. LabelText) are not spoken role words; ARIA roles without wording are said as they are.
     const role = link || heading ? '' : disclosure ? 'summary' : button && node.pressed !== undefined ? 'toggle button' : roleNames[node.role] ?? (/^[A-Z]/.test(node.role) ? '' : node.role);

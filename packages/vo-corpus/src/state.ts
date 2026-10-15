@@ -1,7 +1,7 @@
 /** Independent evidence channel: state is recorded after actions and never used to choose the next command. */
-import { focusedAxNode, nativeNodeName, type AxDump, type AxNode } from "./axdump.js";
+import { focusedAxNode, nativeNodeName, nativePressedState, type AxDump, type AxNode } from "./axdump.js";
 import type { Page } from "playwright";
-type ControlState = { value?: string; checked?: boolean | "mixed"; selected?: boolean; expanded?: boolean; pressed?: boolean; disabled?: boolean; selectionStart?: number; selectionEnd?: number };
+type ControlState = { value?: string; checked?: boolean | "mixed"; selected?: boolean; expanded?: boolean; pressed?: boolean | 'mixed'; disabled?: boolean; selectionStart?: number; selectionEnd?: number };
 export interface StateObject { id: string; role: string; name: string; state: ControlState; focused: boolean; sourceId?: string }
 export interface PageState {
   focusId: string | null;
@@ -52,13 +52,13 @@ export function nativePageState(dump: AxDump): PageState | undefined {
     const s: PageState["controls"][string] = {};
     if (["AXTextField", "AXTextArea", "AXSlider", "AXComboBox", "AXIncrementor"].includes(n.AXRole ?? "") && n.AXSubrole !== "AXSecureTextField" && ["string", "number"].includes(typeof n.AXValue)) s.value = String(n.AXValue);
     if (["AXCheckBox", "AXRadioButton", "AXSwitch"].includes(n.AXRole ?? "")) {
-      if (n.AXSubrole === "AXToggle") s.pressed = n.AXValue === 1 || n.AXValue === true;
+      if (['AXToggle','AXToggleButton'].includes(String(n.AXSubrole))) { const pressed=nativePressedState(n);if(pressed!==undefined)s.pressed=pressed; }
       else if (n.AXRoleDescription === "tab") s.selected = n.AXSelected === true;
       else if (n.AXValue === 2 || n.AXValue === "mixed") s.checked = "mixed";
       else if ([0, 1, false, true].some(v => n.AXValue === v)) s.checked = n.AXValue === 1 || n.AXValue === true;
     }
     if (typeof n.AXExpanded === "boolean") s.expanded = n.AXExpanded;
-    if (n.AXRole === "AXButton" && n.AXRoleDescription === "toggle button" && typeof n.AXValue === "boolean") s.pressed = n.AXValue;
+    if (n.AXRole === "AXButton" && n.AXRoleDescription === "toggle button") {const pressed=nativePressedState(n);if(pressed!==undefined)s.pressed=pressed;}
     if (stateRoles.has(role) && typeof n.AXEnabled === "boolean") s.disabled = !n.AXEnabled;
     const range = n.AXSelectedTextRange as {location?:unknown;length?:unknown} | undefined;
     if (["AXTextField", "AXTextArea"].includes(n.AXRole ?? "") && n.AXSubrole !== "AXSecureTextField" && range && Number.isSafeInteger(range.location) && Number.isSafeInteger(range.length) && Number.isSafeInteger(Number(range.location) + Number(range.length)) && Number(range.location) >= 0 && Number(range.length) >= 0) {
@@ -88,7 +88,7 @@ function nativeStateRole(n: AxNode) {
   // Chrome exposes native summary as an AXButton with this role description; retain the raw role in its AX snapshot.
   if(n.AXRole==='AXButton'&&n.AXRoleDescription==='disclosure triangle')return 'disclosuretriangle';
   if (n.AXRoleDescription === "tab") return "tab";
-  if (n.AXSubrole === "AXToggle") return "button";
+  if (['AXToggle','AXToggleButton'].includes(String(n.AXSubrole))) return "button";
   return ({ AXTextField: "textbox", AXTextArea: "textbox", AXRadioButton: "radio", AXIncrementor: "spinbutton" } as Record<string,string>)[n.AXRole ?? ""] ?? (n.AXRole ?? "").replace(/^AX/, "").toLowerCase();
 }
 

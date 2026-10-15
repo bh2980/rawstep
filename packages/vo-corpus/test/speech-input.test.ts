@@ -44,3 +44,18 @@ test('description, help and more-content availability require independent Native
  assert.equal(checkSpeechInput(described,d).status,'unmeasured');node.AXHelp='Observed help';assert.equal(checkSpeechInput(described,d).status,'verified');
  node.AXHelp='Different help';assert.equal(checkSpeechInput(described,d).status,'mismatch');
 });
+
+test('toggle and expansion inputs require their independently observed Native states',()=>{
+ const d=dump(),node=d.root.children![0]!.children![0]!.children![0]!;
+ const toggle=structuredClone(input);toggle.target.semantic.pressed='mixed';
+ Object.assign(node,{AXRole:'AXCheckBox',AXSubrole:'AXToggleButton',AXValue:2});
+ assert.equal(checkSpeechInput(toggle,d).status,'verified');
+ assert.equal(checkSpeechInput(input,d).status,'mismatch');
+ node.AXValue=0;assert.equal(checkSpeechInput(toggle,d).status,'mismatch');
+ delete node.AXValue;assert.equal(checkSpeechInput(toggle,d).status,'unmeasured');
+ Object.assign(node,{AXRole:'AXButton'});delete node.AXSubrole;
+ const expanded=structuredClone(input);expanded.target.semantic.expanded=false;
+ assert.equal(checkSpeechInput(expanded,d).status,'unmeasured');
+ node.AXExpanded=false;assert.equal(checkSpeechInput(expanded,d).status,'verified');
+ node.AXExpanded=true;assert.equal(checkSpeechInput(expanded,d).status,'mismatch');
+});
