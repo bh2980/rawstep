@@ -6,6 +6,12 @@ Rawstep은 웹 페이지에서 키보드 또는 스크린리더 작업을 모델
 
 **실험용 도구이며 접근성 인증 도구가 아닙니다.** 목표 달성 여부, 모델 점수, 시뮬레이션 발화는 서로 다른 근거이고, 어느 것도 사이트 전체의 접근성이나 실제 보조공학과의 동등성을 증명하지 않습니다.
 
+Rawstep이 읽을 요소와 문맥을 전달하는 발화 테스트에는 `formatVoiceOverSpeech`를 사용합니다.
+`formatVoiceOverActivation`은 일부 활성화 반응을, `formatVoiceOverEditing`은 관측한 편집 전후 상태에서
+후보 발화를 계산합니다. 활성화·편집 API는 지원하지 않는 입력을 명시적으로 반환합니다. 세 함수는
+`rawstep/mock-voiceover`와 패키지 루트에서 브라우저 없이 호출할 수 있습니다.
+[API와 실행 예제](./docs/mock-voiceover.md)를 참고하세요. 영어 발화 근사이며 Native 대체 정확도를 보증하지 않습니다.
+
 ## Quick start
 
 ```sh
