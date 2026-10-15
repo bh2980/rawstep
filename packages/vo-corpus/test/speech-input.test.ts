@@ -20,6 +20,16 @@ test('ambiguous or incomplete native observations cannot become successful input
   const state=dump();delete state.root.children![0]!.children![0]!.children![0]!.AXEnabled;assert.equal(checkSpeechInput(input,state).status,'unmeasured');
 });
 
+test('an unmapped specific Native group cannot disappear as a transparent wrapper',()=>{
+ const d=dump(),region=d.root.children![0]!.children![0]!,node=region.children![0]!;
+ node.AXCustomContent={status:'no-value',errorCode:-25212};
+ const wrapper:AxNode={AXRole:'AXGroup',AXRoleDescription:'Unlabeled image',AXDescription:'Route map',children:[node]};region.children=[wrapper];
+ assert.equal(checkSpeechInput(input,d).status,'unmeasured');assert.equal(nativeSpeechInput(d,[0,0,0,0],'next_focusable_item').status,'unmeasured');
+ wrapper.AXDescription='A different map';assert.equal(checkSpeechInput(input,d).status,'unmeasured');
+ delete wrapper.AXDescription;wrapper.AXRoleDescription='unmeasured widget';assert.equal(checkSpeechInput(input,d).status,'unmeasured');
+ wrapper.AXRoleDescription='group';assert.equal(checkSpeechInput(input,d).status,'verified');
+});
+
 test('table dimensions require identifiable native rows and columns',()=>{
   const input=generateSpeechContexts().speechInputs['speech-contexts-v1.nested-table-2-columns']![0]!;
   const table:AxNode={AXRole:'AXTable',AXTitle:'Equipment slots',children:[

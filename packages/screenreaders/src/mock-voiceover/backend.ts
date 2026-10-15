@@ -7,8 +7,8 @@ import {formatVoiceOverSpeech,type VoiceOverSpeechInput, type VoiceOverSpeechCon
 
 export { formatSimulatedSpeech, type SimulatedSemanticNode } from './semantics.js';
 
-export const MOCK_VOICEOVER_PROFILE = 'english-dom-navigation-evidence-v25' as const;
-export const MOCK_VOICEOVER_CHROME_PROFILE = 'english-chrome-navigation-evidence-v19' as const;
+export const MOCK_VOICEOVER_PROFILE = 'english-dom-navigation-evidence-v26' as const;
+export const MOCK_VOICEOVER_CHROME_PROFILE = 'english-chrome-navigation-evidence-v20' as const;
 export type MockVoiceOverReferenceBrowser='safari'|'chrome';
 export const MOCK_VOICEOVER_LIMITATIONS = Object.freeze([
   'Simulation of an English DOM-navigation profile using Chromium accessibility semantics; not native VoiceOver speech or an accessibility conformance result.',
@@ -450,7 +450,11 @@ export class MockVoiceOverBackend implements Backend {
           semantic.role = role;
           if(recoveredLabel!==undefined)semantic.name=recoveredLabel;
           if(role==='article'||role==='dialog')semantic.name=name;
-          if(projection){semantic.level=projection.level;semantic.headingParts=projection.parts;semantic.headingLink=!!projection.target;if(projection.name)semantic.name=projection.name;if(projection.outer)semantic.headingLinkOrder='link-heading';}
+          if(projection){
+            semantic.level=projection.level;semantic.headingParts=projection.parts;semantic.headingLink=!!projection.target;
+            if(this.referenceBrowser==='chrome'&&projection.parts?.length===1&&projection.parts[0]!.link)semantic.nativeDisclosureLevel=Math.max(0,projection.level-1);
+            if(projection.name)semantic.name=projection.name;if(projection.outer)semantic.headingLinkOrder='link-heading';
+          }
           if(timeUnit){semantic.name=timeUnit.name;semantic.timeValueRepeated=timeUnit.repeated;}
           if(role==='listbox'&&this.referenceBrowser==='safari')semantic.listboxSummary={native:meta?.tag==='select',options:listboxOptions(node)};
           if (list) { semantic.setSize = children(node).filter(c => stringValue(c.role) === 'listitem').length; semantic.level = innerScopes.filter(c => c.role === 'list').length; }

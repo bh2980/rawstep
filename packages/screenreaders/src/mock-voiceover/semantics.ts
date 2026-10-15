@@ -40,6 +40,8 @@ export type SimulatedSemanticNode = {
   headingParts?: {text:string;link?:boolean}[];
   headingLinkOrder?: 'link-heading';
   headingLink?: boolean;
+  /** Independently supplied macOS AXDisclosureLevel (zero-based), separate from heading level. */
+  nativeDisclosureLevel?: number;
   timeValueRepeated?: boolean;
   listboxSummary?: {native:boolean;options:{name:string;selected:boolean}[]};
 };
@@ -66,7 +68,7 @@ export function formatSimulatedSpeech(node: SimulatedSemanticNode, checkedStateC
   }
   if (!node.protected && node.role==='heading' && node.level!==undefined && node.headingLinkOrder==='link-heading') return sourceCommand==='next_heading'
     ? `${node.name} link heading level ${node.level}` : `link heading level ${node.level} ${node.name}`;
-  if (!node.protected && node.role==='heading' && node.level!==undefined && node.headingParts?.length) return [`heading level ${node.level}`,...node.headingParts.map(p=>`${p.link?'link ':''}${p.text}`),node.headingParts.length>1?`${node.headingParts.length} items`:''].filter(Boolean).join(' ');
+  if (!node.protected && node.role==='heading' && node.level!==undefined && node.headingParts?.length) return [`heading level ${node.level}`,node.headingParts.length===1&&node.headingParts[0]!.link&&Number.isSafeInteger(node.nativeDisclosureLevel)&&Number(node.nativeDisclosureLevel)>0?`level ${node.nativeDisclosureLevel}`:'',...node.headingParts.map(p=>`${p.link?'link ':''}${p.text}`),node.headingParts.length>1?`${node.headingParts.length} items`:''].filter(Boolean).join(' ');
   if (!node.protected && node.role==='StaticText' && node.name==='.') return 'period';
   if (!node.protected && node.role==='StaticText' && node.timeValueRepeated) return `${node.name} ${node.name}`;
   if (!node.protected && node.tagName === 'button' && node.role === 'button' && node.disabled && node.pressed === undefined && node.expanded === undefined && !node.hasPopup && !node.description && !node.value && !node.required && !node.readonly && !node.modal) return [node.name,'dimmed','button'].filter(Boolean).join(partSeparator);

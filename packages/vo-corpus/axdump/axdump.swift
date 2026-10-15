@@ -158,7 +158,7 @@ let focused: AXUIElement? = { let f = attribute(application, "AXFocusedUIElement
 let wanted: [String] = [
   "AXRole", "AXSubrole", "AXRoleDescription", "AXTitle", "AXDescription", "AXValue", "AXHelp", "AXPlaceholderValue",
   "AXPosition", "AXSize", "AXDOMIdentifier", "AXDOMClassList", "AXEnabled", "AXFocused", "AXSelected", "AXSelectedTextRange", "AXExpanded", "AXRequired", "AXVisited",
-  "AXARIALive", "AXARIAAtomic", "AXARIASetSize", "AXARIAPosInSet", "AXARIALevel", "AXARIACurrent", "AXInvalid", "AXURL",
+  "AXARIALive", "AXARIAAtomic", "AXARIASetSize", "AXARIAPosInSet", "AXARIALevel", "AXDisclosureLevel", "AXARIACurrent", "AXInvalid", "AXURL",
   "AXRowIndexRange", "AXColumnIndexRange",
 ]
 
@@ -257,7 +257,7 @@ func dump(_ element: AXUIElement, depth: Int, path: [Int]) -> [String: Any] {
 
 let tree = dump(webArea, depth: 0, path: [])
 var result: [String: Any] = [
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "app": appName,
   "pid": Int(running.processIdentifier),
   "windowTitle": string(window, "AXTitle") ?? "",

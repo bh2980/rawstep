@@ -46,7 +46,8 @@ export function formatVoiceOverSpeech(input:VoiceOverSpeechInput, previous:Voice
   if(referenceBrowser==='chrome'&&checkboxChange&&command==='activate_button')return {...provenance,speech:node.semantic.checked?'checked':'unchecked',usageHint:undefined,context};
   const focusMove=['next_focusable_item','previous_focusable_item'].includes(command);
   const focusLink=focusMove&&node.semantic.role==='link';
-  let speech=formatSimulatedSpeech(focusLink?{...node.semantic,position:undefined,setSize:undefined}:node.semantic,checkedStateChanged,command,' ');
+  const semantic=referenceBrowser==='safari'&&node.semantic.nativeDisclosureLevel!==undefined?{...node.semantic,nativeDisclosureLevel:undefined}:node.semantic;
+  let speech=formatSimulatedSpeech(focusLink?{...semantic,position:undefined,setSize:undefined}:semantic,checkedStateChanged,command,' ');
   const focusEntry=focused&&edit?.value&&!node.semantic.protected&&input.focusEntry;
   if(focusEntry&&edit){
     const selection=edit.value.slice(edit.start,edit.end),role=edit.multiline?'text entry area':'edit text';
@@ -92,6 +93,7 @@ export function formatVoiceOverSpeech(input:VoiceOverSpeechInput, previous:Voice
   context.containers=(node.containers??[]).filter(c=>!transparent(c)).map(c=>c.id);context.focusContext=nearest?.id;
   const parent=[...(node.containers??[])].reverse().find(c=>c.id!==node.axId&&!transparent(c)&&(c.role!=='dialog'||!!c.name));
   const boundary=node.end?node.containers?.find(c=>c.id===node.axId):undefined;
-  const usageHint=checkboxChange?undefined:formatUsageHint(boundary?{...node.semantic,role:boundary.role}:node.semantic,{referenceBrowser,parentRole:parent?.role,dialogAsFocusContext:!!parent&&focusDialogs.has(parent.id),inCell:(node.hintInCell||!!node.cell)&&!(node.semantic.role==='checkbox'&&parent?.role==='group'&&parent.name),end:node.end,forward:!['previous_item','previous_heading','previous_focusable_item'].includes(command),textFragment:node.hintTextFragment});
+  const hintSemantic=boundary?{...node.semantic,role:boundary.role}:node.semantic.headingLinkOrder==='link-heading'?{...node.semantic,role:'link'}:node.semantic;
+  const usageHint=checkboxChange?undefined:formatUsageHint(hintSemantic,{referenceBrowser,parentRole:parent?.role,dialogAsFocusContext:!!parent&&focusDialogs.has(parent.id),inCell:(node.hintInCell||!!node.cell)&&!(node.semantic.role==='checkbox'&&parent?.role==='group'&&parent.name),end:node.end,forward:!['previous_item','previous_heading','previous_focusable_item'].includes(command),textFragment:node.hintTextFragment});
   return {...provenance,speech,usageHint,context};
 }

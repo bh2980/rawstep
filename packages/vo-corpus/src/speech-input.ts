@@ -3,6 +3,7 @@ import {nativeNodeName,nativePressedState,nativeHeadingLevel,type AxDump,type Ax
 import {observeVisualCursor} from './cursor.js';
 import {nativeCustomContent} from './native-content.js';
 import {nativeCellContext} from './table-context.js';
+import {nativeLinkedHeading} from './linked-heading.js';
 
 function nativeContainerPath(dump:AxDump,path:number[]){
   const unknown=(reason:string)=>({status:'unmeasured' as const,reason});
@@ -11,7 +12,7 @@ function nativeContainerPath(dump:AxDump,path:number[]){
   const ancestors:AxNode[]=[];
   const containers:NonNullable<VoiceOverSpeechInput['target']['containers']>[number][]=[];
   for(const [i,index]of path.entries()){
-    if(node.AXRole==='AXOutline'||node.AXRole==='AXList'&&node.AXSubrole!=='AXContentList'||unsupportedSpeechAncestor(node,i)||unmappedLandmark(node))return unknown('ancestor requires independently measured structural context not supplied by this probe');
+    if(node.AXRole==='AXOutline'||node.AXRole==='AXList'&&node.AXSubrole!=='AXContentList'||unsupportedSpeechAncestor(node,i)||unmappedLandmark(node)||unmappedGroup(node))return unknown('ancestor requires independently measured structural context not supplied by this probe');
     if(!Number.isSafeInteger(index)||index<0||!node.children?.[index])return unknown('Native target path missing');
     ancestors.push(node);
     const s=scope(node);
@@ -39,14 +40,8 @@ function observedContainerPath(dump:AxDump){
 export function observedSpeechContext(dump:AxDump){
   const frame=observedContainerPath(dump);if(frame.status!=='observed')return frame;
   if(!frame.singlePath&&!frame.tableAlias||scope(frame.node)||unmappedLandmark(frame.node)||['AXWebArea','AXGroup','AXTable','AXCell','AXList','AXOutline'].includes(frame.node.AXRole??''))return {status:'unmeasured' as const,reason:'previous structural boundary or alias context requires further observation'};
-  return {status:'observed' as const,context:{containers:frame.containers.map(c=>c.id),focusContext:frame.containers.filter(c=>c.role!=='list').at(-1)?.id},
+  return {status:'observed' as const,containers:frame.containers,context:{containers:frame.containers.map(c=>c.id),focusContext:frame.containers.filter(c=>c.role!=='list').at(-1)?.id},
     scope:'Visible previous object ancestor path after a declared focus/object move; model history projection, not a Native private speech-cache or navigation-accuracy measurement.'};
-}
-
-// A primary AX role alone cannot verify the formatter's compound heading/link projection.
-function compoundHeading(node:AxNode,ancestors:AxNode[]){
-  const contains=(n:AxNode,role:string):boolean=>(n.children??[]).some(c=>c.AXRole===role||contains(c,role));
-  return node.AXRole==='AXLink'&&(contains(node,'AXHeading')||ancestors.some(n=>n.AXRole==='AXHeading'))||node.AXRole==='AXHeading'&&contains(node,'AXLink');
 }
 
 /** Intended target input from Native attributes; this does not establish the VoiceOver reading position. */
@@ -55,14 +50,15 @@ export function nativeSpeechInput(dump:AxDump,path:number[],command:string){
   const frame=nativeContainerPath(dump,path);if(frame.status!=='observed')return frame;
   const {node,ancestors}=frame;
   const focusMove=['next_focusable_item','previous_focusable_item'].includes(command),containers=frame.containers.filter(c=>!(focusMove&&c.role==='form'&&!c.name));
-  if(compoundHeading(node,ancestors))return unknown('compound link/heading reading unit requires independent input verification');
-  const semanticRole=role(node);if(!semanticRole)return unknown('target role outside this input verifier');
+  const referenceBrowser=/chrome/i.test(dump.app)?'chrome' as const:'safari' as const,linked=nativeLinkedHeading(node,ancestors,command,referenceBrowser);
+  if(linked.status==='unmeasured')return linked;
+  const semanticRole=linked.status==='observed'?'heading':role(node);if(!semanticRole)return unknown('target role outside this input verifier');
   if(typeof node.AXEnabled!=='boolean')return unknown('enabled state missing');
   const content=nativeCustomContent(node);if(content.status!=='observed')return unknown('additional content not measured');
   if(typeof node.AXValue==='string'&&node.AXValue&&semanticRole==='button')return unknown('button value needs independent interpretation');
   const pressed=nativePressedState(node);
   if(semanticRole==='button'&&node.AXRole==='AXCheckBox'&&pressed===undefined)return unknown('pressed state missing');
-  if(semanticRole==='heading'&&nativeHeadingLevel(node)===undefined)return unknown('heading level missing');
+  if(semanticRole==='heading'&&linked.status!=='observed'&&nativeHeadingLevel(node)===undefined)return unknown('heading level missing');
   if(semanticRole==='checkbox'&&![0,1,2,false,true,'mixed'].includes(node.AXValue as never))return unknown('checked state missing');
   const focusLink=semanticRole==='link'&&['next_focusable_item','previous_focusable_item'].includes(command);
   if(focusLink&&containers.some(c=>c.role==='list'&&c.items<1))return unknown('Native list item count unmeasured');
@@ -74,12 +70,12 @@ export function nativeSpeechInput(dump:AxDump,path:number[],command:string){
   const table=containers.filter(c=>c.role==='table').at(-1);
   if(inCell&&!table)return unknown('Native cell has no complete table context');
   const description=content.entries.filter(e=>e.label==='description'&&e.importance===1).map(e=>e.value).join(' ');
-  const input:VoiceOverSpeechInput={command,target:{identity:String(node.AXDOMIdentifier||`target:${path.join('.')}`),containers,...(inCell?cell?.status==='observed'?{cell:{table:table!.id,...cell.cell}}:{hintInCell:true}:{}),semantic:{
+  const input:VoiceOverSpeechInput={command,...(linked.status==='observed'?{referenceBrowser}:{}),target:{identity:linked.status==='observed'?linked.identity:String(node.AXDOMIdentifier||`target:${path.join('.')}`),containers,...(inCell?cell?.status==='observed'?{cell:{table:table!.id,...cell.cell}}:{hintInCell:true}:{}),semantic:{
     role:semanticRole,name:nativeNodeName(node),protected:false,disabled:!node.AXEnabled,readonly:false,required:node.AXRequired===true,multiline:false,modal:false,
     hasMoreContent:content.hasMoreContent,...(description?{description}:{}),...(typeof node.AXHelp==='string'&&node.AXHelp?{help:node.AXHelp}:{}),
     ...(pressed!==undefined?{pressed}:{}),...(typeof node.AXExpanded==='boolean'?{expanded:node.AXExpanded}:{}),
     ...(semanticRole==='checkbox'?{checked:node.AXValue===2||node.AXValue==='mixed'?'mixed':node.AXValue===1||node.AXValue===true}:{}),
-    ...(semanticRole==='heading'?{level:nativeHeadingLevel(node)}:{}),...(semanticRole==='link'?{currentPage:node.AXARIACurrent==='page',containsImage:containsNativeImage(node),...(linkSet?.status==='observed'?{position:linkSet.position,setSize:linkSet.setSize}:{})}:{})
+    ...(linked.status==='observed'?linked.semantic:semanticRole==='heading'?{level:nativeHeadingLevel(node)}:{}),...(semanticRole==='link'?{currentPage:node.AXARIACurrent==='page',containsImage:containsNativeImage(node),...(linkSet?.status==='observed'?{position:linkSet.position,setSize:linkSet.setSize}:{})}:{})
   }}};
   return {status:'constructed' as const,input,unmeasuredFields:containers.flatMap((c,i)=>c.role==='dialog'||c.role==='list'&&c.items>0?[]:[`target.containers.${i}.items`]),scope:'Native target attributes and ancestry only; reading position remains unverified. Dialog/list counts use complete unique exposed Native children. Other unused counts remain placeholders. Focus-link wording uses list context/count rather than object-navigation ordinals.'};
 }
@@ -123,6 +119,7 @@ const isDialog=(n:AxNode)=>n.AXRole==='AXGroup'&&n.AXSubrole==='AXApplicationDia
 const dialogFirstChildName=(n:AxNode)=>n.children?.[0]&&measuredName(n.children[0])?nativeNodeName(n.children[0]):undefined;
 const unsupportedSpeechAncestor=(n:AxNode,index:number)=>n.AXRole==='AXWebArea'&&index>0||!isDialog(n)&&(['AXDialog','AXSheet'].includes(n.AXRole??'')||['AXApplicationDialog','AXApplicationAlertDialog'].includes(String(n.AXSubrole))||['dialog','web dialog','alertdialog','web alert dialog'].includes(String(n.AXRoleDescription)));
 const unmappedLandmark=(n:AxNode)=>String(n.AXSubrole??'').startsWith('AXLandmark')&&!scope(n);
+const unmappedGroup=(n:AxNode)=>n.AXRole==='AXGroup'&&typeof n.AXRoleDescription==='string'&&n.AXRoleDescription!=='group'&&!scope(n);
 function scope(n:AxNode){
   // Both browsers expose the same subrole; Safari calls it "content information", Chrome "footer".
   const description=n.AXSubrole==='AXLandmarkContentInfo'?'contentinfo':String(n.AXRoleDescription??'');
@@ -155,17 +152,22 @@ export function checkSpeechInput(input:VoiceOverSpeechInput,dump:AxDump|undefine
   const focusMove=['next_focusable_item','previous_focusable_item'].includes(input.command);
   if(options.buttonSpaceEvent&&(expected.role!=='button'||expected.tagName!=='button'||input.command!=='activate_form_control'))return unknown('button Space event verification requires the guarded native-button activation API');
   const transparentForm=focusMove||options.buttonSpaceEvent;
-  if(chains.some(c=>compoundHeading(c.node,c.ancestors))||expected.headingParts!==undefined||expected.headingLinkOrder!==undefined||expected.headingLink)return unknown('compound link/heading reading unit requires independent input verification');
+  const projections=chains.map(c=>nativeLinkedHeading(c.node,c.ancestors,input.command,input.referenceBrowser??'safari')),linked=projections[0]!;
+  if(projections.some(p=>p.status==='unmeasured'))return unknown(projections.find(p=>p.status==='unmeasured')!.reason!);
+  if(linked.status==='observed'&&chains.length!==1)return unknown('linked-heading aliases require independent unit verification');
+  if(linked.status!=='observed'&&(expected.headingParts!==undefined||expected.headingLinkOrder!==undefined||expected.headingLink||expected.nativeDisclosureLevel!==undefined))return unknown('compound metadata supplied for a non-compound Native target');
   if(chains.some(c=>c.ancestors.some((n,i)=>unsupportedSpeechAncestor(n,i))))return unknown('dialog or nested web-area context not independently verified');
   if(chains.some(c=>c.ancestors.some(unmappedLandmark)))return unknown('Native landmark role outside this input verifier');
+  if(chains.some(c=>c.ancestors.some(unmappedGroup)))return unknown('Native specific container role outside this input verifier');
   if(chains.some(c=>c.ancestors.some(n=>n.AXRole==='AXList'&&n.AXSubrole!=='AXContentList')))return unknown('Native list widget outside this input verifier');
   if(chains.some(c=>JSON.stringify([c.node.AXRole,c.node.AXSubrole,nativeNodeName(c.node),nativeHeadingLevel(c.node),c.node.AXValue,c.node.AXExpanded,c.node.AXEnabled])!==JSON.stringify([node.AXRole,node.AXSubrole,nativeNodeName(node),nativeHeadingLevel(node),node.AXValue,node.AXExpanded,node.AXEnabled])))return unknown('native alias attributes disagree');
   if(!['button','checkbox','link','heading'].includes(expected.role)||!role(node))return unknown('role outside this input verifier');
   if(typeof node.AXEnabled!=='boolean')return unknown('enabled state missing');
   const reasons:string[]=[];
-  if(role(node)!==expected.role)reasons.push('target role differs');
+  if((linked.status==='observed'?'heading':role(node))!==expected.role)reasons.push('target role differs');
   if(names(nativeNodeName(node))!==names(expected.name))reasons.push('target name differs');
-  if(node.AXDOMIdentifier&&node.AXDOMIdentifier!==input.target.identity)reasons.push('target DOM identity differs');
+  if((linked.status==='observed'?linked.identity:node.AXDOMIdentifier)&&String(linked.status==='observed'?linked.identity:node.AXDOMIdentifier)!==input.target.identity)reasons.push('target DOM identity differs');
+  if(linked.status==='observed')for(const key of ['headingLink','headingLinkOrder','headingParts','nativeDisclosureLevel'] as const)if(JSON.stringify(expected[key])!==JSON.stringify(linked.semantic[key as keyof typeof linked.semantic]))reasons.push('compound '+key+' differs');
   if(!node.AXEnabled!==expected.disabled)reasons.push('disabled state differs');
   if(typeof node.AXRequired==='boolean'&&node.AXRequired!==expected.required)reasons.push('required state differs');
   if(expected.required&&typeof node.AXRequired!=='boolean')return unknown('required state missing');
@@ -184,7 +186,7 @@ export function checkSpeechInput(input:VoiceOverSpeechInput,dump:AxDump|undefine
     }
   }
   if(expected.role==='heading'){
-    const level=nativeHeadingLevel(node);
+    const level=linked.status==='observed'?linked.semantic.level:nativeHeadingLevel(node);
     if(level===undefined||expected.level===undefined)return unknown('heading level unmeasured');
     if(level!==expected.level)reasons.push('heading level differs');
   }
@@ -269,6 +271,6 @@ export function checkSpeechInput(input:VoiceOverSpeechInput,dump:AxDump|undefine
       if(expected)for(const key of ['row','column','rows','columns','header','rowSpan','columnSpan'] as const)if(expected[key]!==observed.cell[key])reasons.push('cell '+key+' differs');
     }
   }
-  return {status:reasons.length?'mismatch' as const:'verified' as const,reasons,observedTarget:{role:role(node),name:nativeNodeName(node),id:String(node.AXDOMIdentifier??'')},observedScopes:observedScopes[0],observedHelp:typeof node.AXHelp==='string'?node.AXHelp:undefined,
+  return {status:reasons.length?'mismatch' as const:'verified' as const,reasons,observedTarget:{role:linked.status==='observed'?'heading':role(node),name:nativeNodeName(node),id:linked.status==='observed'?linked.identity:String(node.AXDOMIdentifier??'')},...(linked.status==='observed'?{observedPhysicalTarget:{role:node.AXRole,id:node.AXDOMIdentifier},observedLinkedHeading:linked.semantic}:{}),observedScopes:observedScopes[0],observedHelp:typeof node.AXHelp==='string'?node.AXHelp:undefined,
     scope:'Stable unique visible geometry candidate plus native target/state/ancestor observations; not a logical cursor API or Navigation Accuracy. Non-changing defaults remain caller supplied. Focus moves verify cell membership/table dimensions; consumed non-focus cell coordinates, column header and spans require independent Native ranges/references. Unused container counts remain unverified.'};
 }

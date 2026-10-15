@@ -1468,3 +1468,8 @@ rows, columns and cells. Header-reference quality distinguishes unsupported/no-v
 from an observed empty array. IDs remain snapshot-local CFEqual identities. Used cell fields can be verified from
 Native ranges and referenced source nodes; old snapshots without these fields remain unmeasured. New runs use
 `host-receipts-v9`; older run metadata and observations are preserved and incompatible resumes are rejected.
+
+AX schema v7 additionally captures `AXDisclosureLevel` independently of heading `AXValue`/`AXARIALevel`.
+`host-receipts-v10` identifies this observation change. Missing fields in earlier snapshots stay unknown.
+The [linked-heading study](../../docs/voiceover-linked-heading-speech.md) separates compound reading-unit semantics,
+physical outer-node identity and the actual activation link; it does not infer a logical cursor from AX focus.
