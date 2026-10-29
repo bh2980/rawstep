@@ -3,13 +3,14 @@ import type { PlanDocument, PlanDraft } from './plan-document.js';
 import type { Planner, PlanRequest, PlanResult } from './orchestration.js';
 
 const ref = z.string().regex(/^[A-Z][0-9]{1,3}$/);
+const ASSUMPTION_LIMIT = 10;
 /** A plan draft as a planner returns it and as a plan file holds it: criteria, assumptions, phases of tasks with their cues. */
 export const planDraftSchema = z.object({
   complete: z.boolean(),
   rationale: z.string().max(2000),
   strategy: z.string().max(500),
   criteria: z.array(z.object({ id: ref, text: z.string().min(1).max(300), status: z.enum(['open', 'met', 'unmet']).optional() }).strict()).max(10),
-  assumptions: z.array(z.object({ id: ref, text: z.string().min(1).max(300), status: z.enum(['open', 'held', 'broken']).optional() }).strict()).max(10),
+  assumptions: z.array(z.object({ id: ref, text: z.string().min(1).max(300), status: z.enum(['open', 'held', 'broken']).optional() }).strict()).max(ASSUMPTION_LIMIT),
   phases: z.array(z.object({
     title: z.string().min(1).max(200),
     criteria: z.array(ref).max(10).optional(),
@@ -19,6 +20,20 @@ export const planDraftSchema = z.object({
       serves: z.array(ref).max(10).optional(), relies: z.array(ref).max(10).optional() }).strict()).max(8),
   }).strict()).max(6),
 }).strict();
+/**
+ * A draft from a planner model. A long run piles up assumptions; past the limit, settled ones (held or broken) that no task relies on
+ * are left out, oldest first, instead of failing the run: the document keeps settled assumptions anyway.
+ */
+export const plannerDraftSchema = z.preprocess(trimSettledAssumptions, planDraftSchema);
+function trimSettledAssumptions(value: unknown): unknown {
+  const draft = value as { assumptions?: unknown; phases?: unknown } | null;
+  if (!draft || typeof draft !== 'object' || !Array.isArray(draft.assumptions) || draft.assumptions.length <= ASSUMPTION_LIMIT) return value;
+  const tasks = Array.isArray(draft.phases) ? draft.phases.flatMap(p => Array.isArray(p?.tasks) ? p.tasks : []) : [];
+  const relied = new Set(tasks.flatMap(t => Array.isArray(t?.relies) ? t.relies : []));
+  const settled = draft.assumptions.filter(a => (a?.status === 'held' || a?.status === 'broken') && !relied.has(a.id));
+  const dropped = new Set(settled.slice(0, draft.assumptions.length - ASSUMPTION_LIMIT));
+  return { ...draft, assumptions: draft.assumptions.filter(a => !dropped.has(a)) };
+}
 /** A plan file: the draft a run starts from, `complete` and `rationale` optional (a person writing a plan has neither to say). */
 export const planFileSchema = planDraftSchema.extend({ complete: z.literal(false).default(false), rationale: z.string().max(2000).default('') });
 

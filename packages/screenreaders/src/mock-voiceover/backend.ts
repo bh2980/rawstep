@@ -299,7 +299,8 @@ export class MockVoiceOverBackend implements Backend {
         else await this.enterText(action, signal);
         signal?.throwIfAborted();
         await this.refresh(signal);
-        this.announce(this.current());
+        // A document still loading has no objects yet: say nothing until its first one appears (the next look speaks it).
+        if (this.nodes.length) this.announce(this.current());
       }
       this.flushLive();
       this.lastCurrentFingerprint = this.currentFingerprint();
@@ -383,7 +384,7 @@ export class MockVoiceOverBackend implements Backend {
       await this.refresh(signal);
       signal?.throwIfAborted();
       if (this.lastCurrentFingerprint !== undefined && this.lastCurrentFingerprint !== this.currentFingerprint() && this.wording) this.sourceCommand = 'asynchronous_semantic_change';
-      if (this.lastCurrentFingerprint !== this.currentFingerprint()) this.announce(this.current(), 'No accessible content', false);
+      if (this.lastCurrentFingerprint !== this.currentFingerprint() && this.nodes.length) this.announce(this.current(), 'No accessible content', false);
       this.flushLive();
       this.lastCurrentFingerprint = this.currentFingerprint();
       signal?.throwIfAborted();

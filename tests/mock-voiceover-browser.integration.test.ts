@@ -55,6 +55,28 @@ describe('browser-backed simulated English VoiceOver profile in real Chromium', 
     expect((await f.backend.observe()).speech[0]).toBe('Cart');
   });
 
+  it('says nothing while a newly opened page has no objects yet, then reads its first one', async () => {
+    const context = await browser.newContext();
+    cleanup.push(() => context.close());
+    await context.route('http://fixture.test/**', route => route.fulfill({ contentType: 'text/html', body: route.request().url().endsWith('/next')
+      ? '<!doctype html><html lang="en"><title>Passports</title><body><script>setTimeout(() => { document.body.innerHTML = "<h1>Passports</h1>"; }, 400);</script></body></html>'
+      : '<!doctype html><html lang="en"><title>Home</title><a href="/next">Passports</a></html>' }));
+    const page = await context.newPage();
+    await page.goto('http://fixture.test/');
+    const backend = new MockVoiceOverBackend();
+    await backend.start();
+    backend.attachSession({ page });
+    cleanup.push(() => backend.close());
+    await backend.observe();
+    await backend.execute({ kind: 'intent', intent: 'activate' });
+    await page.waitForURL('**/next');
+    const opened = (await backend.observe()).speech;
+    expect(opened).not.toContain('No accessible content');
+    await page.waitForSelector('h1');
+    const heard = [...opened, ...(await backend.observe()).speech];
+    expect(heard).toContain('Passports');
+    expect(heard.join(' ')).toMatch(/Passports, heading/);
+  });
   it('reads list items without stopping on their markers, and skips an empty live region', async () => {
     const f = await fixture(`<ul><li><a href="#a">Home</a></li><li><a href="#b">Phones</a></li></ul><ol><li>First</li></ol><p role="status"></p><p>After</p>`);
     const actual = [...f.initial.speech];

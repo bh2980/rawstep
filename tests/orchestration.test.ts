@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  applyDraft, currentTask, matchCue, renderPlanMarkdown, OrchestratedSpeechPolicy, orchestratedPrompt, planTasks, verifyCue,
+  applyDraft, currentTask, matchCue, renderPlanMarkdown, OrchestratedSpeechPolicy, orchestratedPrompt, planTasks, plannerDraftSchema, verifyCue,
   type ChoiceModel, type ChoiceRequest, type PlanDraft, type PlanRequest, type Planner,
 } from '@rawstep/policies/policy';
 import type { DecisionPolicy, HistoryEntry } from '@rawstep/core/contracts';
@@ -51,6 +51,18 @@ describe('plan document', () => {
     expect(v3.assumptions[0]).toMatchObject({ status: 'broken' });
     expect(v3.revisions[2]).toMatchObject({ met: ['C1'] });
     expect(renderPlanMarkdown(v3)).toMatch(/## Success criteria\n\n- ✓ C1 The cart confirms the item[\s\S]*- ✕ A1[\s\S]*- \[~\] 1\.1 Use headings[\s\S]*← current[\s\S]*- v2 before step 5 · help\/no-cue · broken A1 — A1 was wrong\./);
+  });
+  it('keeps settled assumptions the planner leaves out, and drops settled ones before failing a draft over the limit', () => {
+    const v1 = applyDraft(undefined, draft({ Find: ['Find it'] }, '', { assumptions: [{ id: 'A1', text: 'Cart is in the header' }, { id: 'A2', text: 'The item is a link' }] }), { goal: 'g', step: 1, trigger: 'start' });
+    const v2 = applyDraft(v1, draft({ Find: ['Find it'] }, '', { assumptions: [{ id: 'A1', text: 'Cart is in the header', status: 'held' }, { id: 'A2', text: 'The item is a link', status: 'broken' }] }), { goal: 'g', step: 5, trigger: 'checkpoint' });
+    // The next draft lists only what the plan still relies on.
+    const v3 = applyDraft(v2, draft({ Find: ['Use headings'] }, '', { assumptions: [{ id: 'A3', text: 'Headings mark products' }] }), { goal: 'g', step: 9, trigger: 'help', help: 'no-cue' });
+    expect(v3.assumptions.map(a => [a.id, a.status])).toEqual([['A3', 'open'], ['A1', 'held'], ['A2', 'broken']]);
+    const many = Array.from({ length: 12 }, (_, i) => ({ id: `A${i + 1}`, text: `Assumption ${i + 1}`, ...(i < 4 ? { status: 'held' } : {}) }));
+    const over = draft({ Find: ['Find it'] }, '', { assumptions: many as PlanDraft['assumptions'] });
+    over.phases[0]!.tasks[0] = { ...over.phases[0]!.tasks[0]!, cue: 'it', relies: ['A1'] };
+    // A1 is relied on, so A2 and A3 (settled, oldest) go; the open ones stay.
+    expect(plannerDraftSchema.parse(over).assumptions.map(a => a.id)).toEqual(['A1', 'A4', 'A5', 'A6', 'A7', 'A8', 'A9', 'A10', 'A11', 'A12']);
   });
   it('tells a cue the way a listener would: role and state first, then all name words, else worth asking', () => {
     const button = { cue: 'Add to cart', cueRole: 'button' as const };
