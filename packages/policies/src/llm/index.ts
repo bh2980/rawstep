@@ -7,7 +7,7 @@ import { RawstepError } from '@rawstep/core/errors';
 import { modelBaseURL } from '../systemone/base-url.js';
 import type { ChoiceModel, ChoiceRequest, ChoiceResult } from '../policy/choice.js';
 import type { CueRequest, CueResult, ExecutorLatitude, Planner, PlanRequest, PlanResult } from '../policy/orchestration.js';
-import { planDraftSchema } from '../policy/fixed-plan.js';
+import { plannerDraftSchema } from '../policy/fixed-plan.js';
 import { AcpAgent, parseAgentJson } from '../acp/index.js';
 import { SPEECH_PLANNER_INSTRUCTIONS, TASK_SHAPE } from './rules.js';
 
@@ -185,7 +185,7 @@ export class LlmPlanner implements Planner {
     this.prompt = { id: 'rawstep-planner', version: sha256.slice(0, 12), sha256 };
   }
   async plan(request: PlanRequest, { signal }: { signal: AbortSignal }): Promise<PlanResult> {
-    const { object, modelId } = await generateStructured({ model: this.llm, signal, strictModel: true, system: this.instructions, user: JSON.stringify(request), schema: planDraftSchema });
+    const { object, modelId } = await generateStructured({ model: this.llm, signal, strictModel: true, system: this.instructions, user: JSON.stringify(request), schema: plannerDraftSchema });
     return { draft: object, model: { id: modelId, runtime: 'agent' in this.llm ? 'acp-agent-generative-plan' : 'openai-compatible-generative-plan' }, prompt: { ...this.prompt } };
   }
   async recognize(request: CueRequest, { signal }: { signal: AbortSignal }): Promise<CueResult> {
