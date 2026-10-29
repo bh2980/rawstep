@@ -59,14 +59,14 @@ export interface AtDriverListRoutine {
   nextList: readonly string[];
   nextItem: readonly string[];
   close: readonly string[];
-  /** Spoken when the wanted list is shown (English default speech). */
+  /** Spoken when the wanted list is shown (English or Korean speech). */
   listName: RegExp;
   maxLists: number;
   maxItems: number;
 }
 /** VoiceOver's rotor (VO+U) on its Headings list: Right/Left switch lists, Down reads the next item, Escape closes it. */
 const voiceoverRoutines: Readonly<Record<string, AtDriverListRoutine>> = Object.freeze({
-  "headings.list": { open: [...vo, "u"], nextList: [AT_DRIVER_KEYS.ArrowRight], nextItem: [AT_DRIVER_KEYS.ArrowDown], close: [AT_DRIVER_KEYS.Escape], listName: /\bheadings\b/i, maxLists: 12, maxItems: 100 },
+  "headings.list": { open: [...vo, "u"], nextList: [AT_DRIVER_KEYS.ArrowRight], nextItem: [AT_DRIVER_KEYS.ArrowDown], close: [AT_DRIVER_KEYS.Escape], listName: /\bheadings\b|머리말/i, maxLists: 12, maxItems: 100 },
 });
 
 export interface AtDriverProfile {
@@ -125,7 +125,7 @@ export function getAtDriverProfile(name: AtDriverProfileName): AtDriverProfile {
     assumptions: [
       "US keyboard layout and default key bindings; actual layout and bindings are unknown",
       ...(name === "voiceover" ? ["VoiceOver modifier is Control+Option", "Printable ASCII text only; punctuation uses Bocoup macOS server key names",
-        "headings.list opens the rotor (VO+U), presses Right until English speech names the Headings list, reads with Down until the list wraps to its start, stays on its last item or goes silent, then presses Escape; not yet checked against a live VoiceOver"] : [
+        "headings.list opens the rotor (VO+U), presses Right until English or Korean speech names the Headings list, reads with Down until the list wraps to its start, stays on its last item or goes silent, then presses Escape; not yet checked against a live VoiceOver"] : [
         "Navigation intents require NVDA browse mode; next/previous move by line",
         "No interact/stopInteracting mapping: NVDA mode toggling is not an idempotent semantic action",
         "Text is limited to ASCII letters, digits, spaces, shifted digits, semicolon, colon, equals and plus by the PAC server key parser",
