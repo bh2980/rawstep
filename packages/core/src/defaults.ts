@@ -11,8 +11,8 @@ export const RAWSTEP_DEFAULTS = Object.freeze({
   /** Decision-policy limits; screenshot policies use all three, speech policies use historyLimit. */
   policy: Object.freeze({ maxStateVisits: 5, maxUnchangedTransitions: 4, historyLimit: 12 }),
   focusGate: Object.freeze({ minimumProbability: 0.75, minimumMargin: 0.25 }),
-  /** Planner runs: new plans after the first, and actions on one small step before asking for a new plan. */
-  orchestration: Object.freeze({ maxReplans: 4, stepActionLimit: 12 }),
+  /** Planner runs: new plans after the first, actions on one small step before asking for a new plan, and past actions the planner remembers. */
+  orchestration: Object.freeze({ maxReplans: 4, stepActionLimit: 12, plannerHistoryLimit: 60 }),
 });
 
 /** Hostnames treated as this machine. `URL#hostname` keeps IPv6 brackets; bare `::1` is accepted too. */

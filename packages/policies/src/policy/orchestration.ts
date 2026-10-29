@@ -52,7 +52,7 @@ export type OrchestrationOptions = SpeechPolicyOptions & {
   failureLimit?: number;
   /** Actions in a row on one task that changed nothing before a new plan is requested (default 3). */
   noChangeLimit?: number;
-  /** Past actions the planner sees (default 60). */
+  /** Past actions the planner sees, each with what was heard before it (default 60); older ones are forgotten. */
   plannerHistoryLimit?: number;
   /**
    * Who decides that a task is finished or that the plan needs revising. `rawstep` (default): the executor only picks actions; a
@@ -89,7 +89,7 @@ export type OrchestrationOptions = SpeechPolicyOptions & {
 export type ExecutorLatitude = 'none' | 'direction' | 'method';
 /** The same move the other way: next ↔ previous, heading.next ↔ heading.previous. */
 const opposite = (move: string) => move.replace(/next|previous/, m => m === 'next' ? 'previous' : 'next');
-const DEFAULTS = { ...RAWSTEP_DEFAULTS.orchestration, failureLimit: 2, noChangeLimit: 3, plannerHistoryLimit: 60, historyLimit: RAWSTEP_DEFAULTS.policy.historyLimit, lowConfidenceSteps: 2, oscillationLimit: 4 };
+const DEFAULTS = { ...RAWSTEP_DEFAULTS.orchestration, failureLimit: 2, noChangeLimit: 3, historyLimit: RAWSTEP_DEFAULTS.policy.historyLimit, lowConfidenceSteps: 2, oscillationLimit: 4 };
 /** Executor calls in one runner step at most: finishing tasks or replanning never loops without an action. */
 const MAX_CALLS_PER_STEP = 8;
 /**
