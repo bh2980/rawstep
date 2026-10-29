@@ -147,6 +147,11 @@ export const runRulesSchema = z.object({
   /** With a planner: actions in a row on one task that changed nothing before a new plan is requested. */
   noChangeLimit: count(1, 100, 3),
   /**
+   * With a planner: past actions the planner is given when it plans, each with what was heard before it. Older ones are forgotten;
+   * the plan document it wrote stays. Lower it for a user who does not remember the whole page.
+   */
+  plannerHistoryLimit: count(1, 10000, RAWSTEP_DEFAULTS.orchestration.plannerHistoryLimit),
+  /**
    * With a planner: who ends tasks and asks for new plans. `rawstep`: the executor only picks actions; a task ends when its cue is
    * heard, and Rawstep's signals (including low executor confidence) ask for a new plan. `executor`: the executor may also claim a
    * task done and ask for help, as before (kept for comparison: decision models pick those options far too often).
@@ -180,6 +185,7 @@ export const runRulesOverrideSchema = z.object({
   stepActionLimit: z.number().int().min(1).max(1000).optional(),
   failureLimit: z.number().int().min(1).max(100).optional(),
   noChangeLimit: z.number().int().min(1).max(100).optional(),
+  plannerHistoryLimit: z.number().int().min(1).max(10000).optional(),
   taskControl: z.enum(['rawstep', 'executor']).optional(),
   confidenceFloor: z.number().min(0).max(1).optional(),
   survey: z.enum(['none', 'headings']).optional(),

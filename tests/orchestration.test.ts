@@ -157,6 +157,15 @@ describe('orchestrated speech policy', () => {
     expect(doc).toMatchObject({ version: 2, current: 't2', retired: [{ id: 't1', status: 'abandoned', actions: 3 }] });
     expect(doc.revisions[1]).toMatchObject({ trigger: 'help', help: 'no-cue', rationale: 'Not heard after 3 moves.' });
   });
+  it('gives the planner only the last plannerHistoryLimit attempts', async () => {
+    const p = planner(draft({ Find: ['Find the button'] }), draft({ Find: ['Move by form controls'] })), e = executor('intent:next', 'intent:next', 'intent:next', 'help:no-cue', 'intent:form.next');
+    const policy = new OrchestratedSpeechPolicy(p.planner, e.executor, { ...EXECUTOR_CLAIMS, plannerHistoryLimit: 2 });
+    await policy.decide(input());
+    await policy.decide(input({ history: [acted(1, 'next', 'Banner')], observation: said('Logo') }));
+    await policy.decide(input({ history: [acted(1, 'next', 'Banner'), acted(2, 'next', 'Logo')], observation: said('Search') }));
+    await policy.decide(input({ history: [acted(1, 'next', 'Banner'), acted(2, 'next', 'Logo'), acted(3, 'next', 'Search')], observation: said('Menu') }));
+    expect(p.requests[1]!.attempts.map(a => a.step)).toEqual([2, 3]);
+  });
   it('replans after repeated failures or no change on the current task', async () => {
     const failing = planner(draft({ Type: ['Type the term'] }), draft({ Type: ['Find the field first'] })), e1 = executor('intent:activate', 'intent:activate', 'intent:next');
     const p1 = new OrchestratedSpeechPolicy(failing.planner, e1.executor, EXECUTOR_CLAIMS);

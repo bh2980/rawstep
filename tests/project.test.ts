@@ -389,7 +389,7 @@ describe('first profile of a project', () => {
   });
   it('merges run rules as the profile\'s, then those of one run', () => {
     const profile = defaultProfile(); profile.runRules = resolveRunRules(profile, { maxReplans: 5, modelGiveUp: true });
-    expect(resolveRunRules(profile)).toMatchObject({ maxReplans: 5, modelGiveUp: true, failureLimit: 2, noChangeLimit: 3 });
+    expect(resolveRunRules(profile)).toMatchObject({ maxReplans: 5, modelGiveUp: true, failureLimit: 2, noChangeLimit: 3, plannerHistoryLimit: 60 });
     expect(resolveRunRules(profile, { maxReplans: 3, failureLimit: 4 }, undefined, { failureLimit: 7, modelGiveUp: false })).toMatchObject({ maxReplans: 3, failureLimit: 7, modelGiveUp: false, noChangeLimit: 3 });
     expect(() => resolveRunRules(profile, { maxReplans: -1 })).toThrow();
     expect(profile.runRules.maxReplans).toBe(5);

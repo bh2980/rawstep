@@ -18,7 +18,7 @@ type Group = { id: 'guard' | 'model' | 'planning'; keys: Key[] };
 const GROUPS: Group[] = [
   { id: 'guard', keys: ['repetitionGuard', 'maxStateVisits', 'maxUnchangedTransitions', 'confirmationGrace'] },
   { id: 'model', keys: ['modelGiveUp'] },
-  { id: 'planning', keys: ['survey', 'taskControl', 'maxReplans', 'stepActionLimit', 'failureLimit', 'noChangeLimit', 'confidenceFloor'] },
+  { id: 'planning', keys: ['survey', 'taskControl', 'maxReplans', 'stepActionLimit', 'failureLimit', 'noChangeLimit', 'plannerHistoryLimit', 'confidenceFloor'] },
 ];
 const GUARD = ['auto', 'on', 'off'] as const;
 const TASK_CONTROL = ['rawstep', 'executor'] as const;

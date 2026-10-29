@@ -160,6 +160,7 @@ API 키는 설정 파일에 들어가지 않습니다. 기본 제공자는 정�
 | `stepActionLimit` | 12 | 계획 모델이 있을 때 작업 하나에서 새로운 것을 못 들은 행동이 이 횟수만큼 쌓이면 새 계획을 요청합니다. 항목을 하나씩 새로 들으며 나아가는 동안은 세지 않고, 작업 하나가 이 값의 3배를 넘지는 않습니다 |
 | `failureLimit` | 2 | 계획 모델이 있을 때 한 작업에서 행동이 연달아 이만큼 실패하면 새 계획을 요청합니다 |
 | `noChangeLimit` | 3 | 계획 모델이 있을 때 한 작업에서 아무것도 바뀌지 않은 행동이 연달아 이만큼이면 새 계획을 요청합니다 |
+| `plannerHistoryLimit` | 60 | 계획 모델이 있을 때 계획을 세우며 받는 지난 행동 수. 행동마다 그 전에 들은 말이 함께 갑니다. 더 오래된 것은 잊고, 계획 모델이 써 둔 계획 문서는 남습니다. 낮추면 페이지를 다 기억하지 못하는 사용자가 됩니다 |
 | `taskControl` | `rawstep` | 계획 모델이 있을 때 작업 종료와 재계획을 누가 정하는지. `rawstep`: 실행 모델은 행동만 고르고, 작업은 cue가 들리면 끝나며, Rawstep의 신호(위 한도, 반복, 실행 모델의 낮은 확신 — `confidenceFloor` 참고)가 새 계획을 요청합니다. `executor`: 실행 모델이 작업 완료를 선언하거나 도움을 요청할 수도 있습니다. 비교용으로 남겨 둔 값입니다 |
 | `survey` | `headings` | 계획 모델이 있고 프로필의 허용 행동에 `headings.list`가 있으면(대시보드의 숙련 사용자 행동), 첫 계획 전에 제목 목록(VoiceOver 로터)을 먼저 듣고 행동 한 번으로 셉니다. 초보 사용자는 제목 목록을 쓰지 않고 처음부터 한 칸씩 걸어서 제목이 없어도 느려지지 않고, 숙련 사용자는 느려집니다. `none`이면 훑지 않습니다. 실제 VoiceOver 연결은 로터(VO+U)로 제목 목록을 읽습니다(실제 VoiceOver로는 아직 확인 전). NVDA 연결은 아직 지원하지 않습니다 |
 | `confirmationGrace` | 5 | 스크린리더 실행에서 목표에 도달했지만 사용자가 들은 말에 성공 문구가 없으면(화면에만 뜬 경우) 이만큼 더 진행한 뒤 끝납니다. 그 행동이 "됐는지 모름" 마찰이고, trace의 `goal.reached`에 도달 단계와 들었는지가 남습니다. 0이면 바로 끝납니다 |
@@ -168,7 +169,7 @@ API 키는 설정 파일에 들어가지 않습니다. 기본 제공자는 정�
 프로필이 빼 둔 필드는 위 기본값을 씁니다. 한 실행의 덮어쓰기는 이름을 적은 필드만 바꿉니다.
 
 ```json
-{ "repetitionGuard": "auto", "maxStateVisits": 5, "maxUnchangedTransitions": 4, "modelGiveUp": false, "maxReplans": 4, "stepActionLimit": 12, "failureLimit": 2, "noChangeLimit": 3, "taskControl": "rawstep", "confidenceFloor": 0.25, "survey": "headings", "confirmationGrace": 5 }
+{ "repetitionGuard": "auto", "maxStateVisits": 5, "maxUnchangedTransitions": 4, "modelGiveUp": false, "maxReplans": 4, "stepActionLimit": 12, "failureLimit": 2, "noChangeLimit": 3, "plannerHistoryLimit": 60, "taskControl": "rawstep", "confidenceFloor": 0.25, "survey": "headings", "confirmationGrace": 5 }
 ```
 
 ## 전체 예시

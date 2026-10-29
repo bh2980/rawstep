@@ -160,6 +160,7 @@ When a run stops early and, with a planner, when it plans again. Each profile ho
 | `stepActionLimit` | 12 | With a planner: actions on one task without hearing anything new before a new plan is requested. Walking a page item by item, each new item resets the count; one task never runs past three times this. |
 | `failureLimit` | 2 | With a planner: failed actions in a row on one task before a new plan is requested. |
 | `noChangeLimit` | 3 | With a planner: actions in a row on one task that changed nothing before a new plan is requested. |
+| `plannerHistoryLimit` | 60 | With a planner: past actions the planner is given when it plans, each with what was heard before it. Older ones are forgotten; the plan document it wrote stays. Lower it for a user who does not remember the whole page. |
 | `taskControl` | `rawstep` | With a planner: who ends tasks and asks for new plans. `rawstep`: the executor only picks actions; a task ends when its cue is heard, and Rawstep's own signals (the limits above, repetition, and low executor confidence, see `confidenceFloor`) ask for a new plan. `executor`: the executor may also claim a task is done or ask for help; kept for comparison. |
 | `survey` | `headings` | With a planner: `headings` lists the page's headings (the VoiceOver rotor) as the first action, before the first plan, counted as a step, when the profile's actions allow `headings.list` (the dashboard's practised-user actions do). A novice never lists headings and walks from the top, so missing headings do not slow them down, while they do slow a practised user. `none` never surveys. Native VoiceOver lists them through the rotor (VO+U; not yet checked against a live VoiceOver); NVDA cannot list headings in Rawstep yet. |
 | `confirmationGrace` | 5 | Screen reader runs: when the goal is reached but nothing the user heard said so (shown, not announced), the run goes on this many actions before it ends. Those actions are the user's not knowing whether it worked; `goal.reached` in the trace records the step and whether it was heard. 0 ends at once. |
@@ -168,7 +169,7 @@ When a run stops early and, with a planner, when it plans again. Each profile ho
 A field a profile leaves out takes the default above. An override for one run changes only the fields it names.
 
 ```json
-{ "repetitionGuard": "auto", "maxStateVisits": 5, "maxUnchangedTransitions": 4, "modelGiveUp": false, "maxReplans": 4, "stepActionLimit": 12, "failureLimit": 2, "noChangeLimit": 3, "taskControl": "rawstep", "confidenceFloor": 0.25, "survey": "headings", "confirmationGrace": 5 }
+{ "repetitionGuard": "auto", "maxStateVisits": 5, "maxUnchangedTransitions": 4, "modelGiveUp": false, "maxReplans": 4, "stepActionLimit": 12, "failureLimit": 2, "noChangeLimit": 3, "plannerHistoryLimit": 60, "taskControl": "rawstep", "confidenceFloor": 0.25, "survey": "headings", "confirmationGrace": 5 }
 ```
 
 ## Example
