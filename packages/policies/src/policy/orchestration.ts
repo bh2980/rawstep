@@ -358,9 +358,11 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
     const recent = spoken.slice(-this.limits.oscillationLimit);
     if (recent.length === this.limits.oscillationLimit && recent[0] && recent[1] && recent[0] !== recent[1] && recent.every((item, i) => item === recent[i % 2])) return 'oscillation';
     // The user heard something named as in the goal while the task was after something else: they notice it, so the plan is
-    // revisited from there, once per item. A task that is after it ends on its cue (or is recognized) instead.
+    // revisited from there, once per item. A task that is after it ends on its cue (or is recognized) instead. Only the first
+    // time in the run: walking back past an item already heard (the product just added, on the way to the cart) is not news.
     const item = currentItem(input.observation, []);
-    if (since.length && item && !this.noticed.has(item.trim()) && goalNamed(input.goal, item) && matchCue(task, item) === 'no') { this.noticed.add(item.trim()); return 'goal-heard'; }
+    const heardBefore = (text: string) => input.history.some(h => currentItem(h.observation, []) === text);
+    if (since.length && item && !this.noticed.has(item) && goalNamed(input.goal, item) && matchCue(task, item) === 'no' && !heardBefore(item)) { this.noticed.add(item); return 'goal-heard'; }
     // Counted since the task (re)started, so a task the planner keeps after the limit gets a fresh budget instead of tripping it again.
     // A task that keeps hearing new items is making its way (walking a long page item by item), not stuck: only actions since the
     // last newly heard item count, with a hard cap at three times the limit.

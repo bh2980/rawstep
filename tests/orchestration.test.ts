@@ -362,7 +362,8 @@ describe('orchestrated speech policy under Rawstep\'s task control (default)', (
     const p = planner(draft({ Order: ['Move to the Add Kimchi Fried Rice button'] }), draft({ Order: ['Move to the Add button'] }));
     const policy = new OrchestratedSpeechPolicy(p.planner, executor(...Array(6).fill('intent:next')).executor);
     const goal = 'Add one Kimchi Fried Rice to the cart.';
-    const walk = [acted(1, 'next', 'Fried rice and kimbap'), acted(2, 'next', 'Kimchi Fried Rice'), acted(3, 'next', 'Fried rice with aged kimchi.')];
+    // Each history entry holds what was heard before that action, as the runner records it.
+    const walk = [acted(1, 'next', 'Hanok Kitchen'), acted(2, 'next', 'Fried rice and kimbap'), acted(3, 'next', 'Kimchi Fried Rice')];
     await policy.decide(input({ goal, observation: said('Hanok Kitchen') }));
     await policy.decide(input({ goal, observation: said('Fried rice and kimbap'), history: walk.slice(0, 1) }));
     expect(p.requests.map(r => r.trigger)).toEqual(['start']);
@@ -376,6 +377,16 @@ describe('orchestrated speech policy under Rawstep\'s task control (default)', (
     const decision = await strict.decide(input({ goal, observation: said('Kimchi Fried Rice'), history: walk.slice(0, 2) }));
     expect(q.requests.map(r => r.trigger)).toEqual(['start', 'goal-heard']);
     expect(decision).not.toHaveProperty('stop');
+  });
+  it('does not tell the planner again when walking back past a goal item heard earlier in the run', async () => {
+    const p = planner(draft({ Cart: ['Move back to the Cart link'] }));
+    const policy = new OrchestratedSpeechPolicy(p.planner, executor(...Array(6).fill('intent:next')).executor);
+    const goal = 'Add one Kimchi Fried Rice to the cart, then open the cart.';
+    await policy.decide(input({ goal, observation: said('Hanok Kitchen') }));
+    // Already heard at step 2 (the item that was added); hearing it again on the way back is not news.
+    const history = [acted(1, 'next', 'Hanok Kitchen'), acted(2, 'next', 'Kimchi Fried Rice'), acted(3, 'next', 'Fried rice and kimbap')];
+    await policy.decide(input({ goal, observation: said('Kimchi Fried Rice'), history }));
+    expect(p.requests.map(r => r.trigger)).toEqual(['start']);
   });
   it('asks for a new plan when the cursor swings between the same two items', async () => {
     const p = planner(draft({ Find: ['Find the button'] }), draft({ Find: ['Press the item'] }));
