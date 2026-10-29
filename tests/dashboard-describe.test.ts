@@ -29,7 +29,10 @@ describe('describeHint', () => {
     ['early-stop stuck', hint('early-stop', { reason: 'policy-stuck' }), ['막혔다고']],
     ['early-stop uncertain', hint('early-stop', { reason: 'policy-uncertain' }), ['확신하지']],
     ['early-stop guard', hint('early-stop', { reason: 'policy-stuck', stopSource: 'exploration-guard' }), ['반복 감시']],
-    ['early-stop plan limit', hint('early-stop', { reason: 'policy-stuck', stopSource: 'orchestration-limit' }), ['계획을 다시 세울']],
+    ['early-stop plan limit', hint('early-stop', { reason: 'policy-uncertain', stopSource: 'orchestration-limit' }), ['계획 모델 호출 한도', '측정하지 못했습니다']],
+    ['early-stop user gave up', hint('early-stop', { reason: 'policy-stuck', stopSource: 'user-gave-up', giveUp: { reason: 'No add button anywhere', tried: ['A1'] } }), ['사용자가 포기', 'No add button anywhere']],
+    ['wanted to give up', hint('wanted-to-give-up', { reason: 'Too long' }), ['포기하려 했지만', 'Too long']],
+    ['goal word stretch', hint('goal-word-stretch', { moves: 40, from: 3, to: 42 }), ['3~42', '40번']],
     ['help-request', hint('help-request', { help: 'no-cue', version: 2 }), ['완료 단서를 찾을 수 없음', 'v2']],
     ['replan', hint('replan', { trigger: 'no-change', version: 3 }), ['바뀌지 않아', 'v3']],
     ['task-limit', hint('task-limit', { version: 2 }), ['행동 한도']],
@@ -51,7 +54,7 @@ describe('describeHint', () => {
     const covered = new Set(cases.map(([, input]) => input.kind));
     const all: HintKind[] = ['slow-run', 'excess-keystrokes', 'backtracking', 'repeated-state', 'focus-lost', 'focus-not-visible', 'modal-focus-outside',
       'missing-announcement', 'invisible-focus-change', 'model-hesitation', 'early-stop', 'goal-met-at-start', 'focus-left-page',
-      'replan', 'help-request', 'task-limit', 'unverified-done'];
+      'replan', 'help-request', 'task-limit', 'unverified-done', 'wanted-to-give-up', 'goal-word-stretch'];
     expect(Object.keys(core.hints.kinds).sort()).toEqual([...all].sort());
     for (const kind of all) expect(covered.has(kind)).toBe(true);
   });

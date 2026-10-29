@@ -42,8 +42,8 @@ describe("CLI argument contract", () => {
     expect(parseCliArguments(["run", "login", "--profile", "zoom", "--mode", "screenreader", "--repeat", "3", "--out", "out", "--json"])).toMatchObject({
       command: "run", positionals: ["login"], options: { profile: "zoom", mode: "screenreader", repeat: "3", out: "out", json: true },
     });
-    expect(parseCliArguments(["run", "login", "--profile=strict", "--rule", "maxReplans=0", "--rule=stepActionLimit=30", "--diagnose-stop"]).options)
-      .toEqual({ profile: "strict", rule: ["maxReplans=0", "stepActionLimit=30"], "diagnose-stop": true });
+    expect(parseCliArguments(["run", "login", "--profile=strict", "--rule", "maxPlannerCalls=1", "--rule=stepActionLimit=30", "--diagnose-stop"]).options)
+      .toEqual({ profile: "strict", rule: ["maxPlannerCalls=1", "stepActionLimit=30"], "diagnose-stop": true });
     expect(parseCliArguments(["analyze", "run-1", "--llm"]).options).toEqual({ llm: true });
     expect(() => parseCliArguments(["run", "login", "--combo", "zoom"])).toThrow(/Unknown option for run: --combo/);
     expect(() => parseCliArguments(["run", "login", "--agent", "zoom"])).toThrow(/Unknown option for run: --agent/);
@@ -56,8 +56,8 @@ describe("CLI argument contract", () => {
     ["init", "extra"], ["doctor", "--backend", "nvda"],
     ["run"], ["run", "a", "b"], ["run", "a", "--mode", "mock"], ["run", "a", "--repeat", "0"], ["run", "a", "--repeat", "101"], ["run", "a", "--repeat", "two"],
     ["run", "a", "--json=yes"], ["run", "a", "--model"], ["run", "a", "--model", "fast"], ["analyze", "run", "--model", "judge"], ["run", "a", "--out", "x", "--out", "y"],
-    ["run", "a", "--rule", "maxReplans=101"], ["run", "a", "--rule", "maxReplans=-1"], ["run", "a", "--rule", "stepActionLimit=0"], ["run", "a", "--rule", "stepActionLimit=many"],
-    ["run", "a", "--rule", "survey=wide"], ["run", "a", "--rule", "modelGiveUp=maybe"], ["run", "a", "--rule", "maxReplans"], ["run", "a", "--rule", "maxReplans="], ["run", "a", "--rule", "nope=1"], ["run", "a", "--max-replans", "1"], ["run", "a", "--max-task-actions", "5"], ["ui", "--rule", "maxReplans=1"],
+    ["run", "a", "--rule", "maxPlannerCalls=1001"], ["run", "a", "--rule", "maxPlannerCalls=-1"], ["run", "a", "--rule", "stepActionLimit=0"], ["run", "a", "--rule", "stepActionLimit=many"],
+    ["run", "a", "--rule", "survey=wide"], ["run", "a", "--rule", "modelGiveUp=maybe"], ["run", "a", "--rule", "maxPlannerCalls"], ["run", "a", "--rule", "maxPlannerCalls="], ["run", "a", "--rule", "nope=1"], ["run", "a", "--max-replans", "1"], ["run", "a", "--max-task-actions", "5"], ["ui", "--rule", "maxPlannerCalls=1"],
     ["run", "a", "--diagnose-stop=yes"], ["run", "a", "--profile"], ["run", "a", "--profile", "x", "--profile", "y"], ["run", "a", "--preset", "x"], ["run", "a", "--at", "nvda"], ["analyze", "run", "--combo", "x"], ["doctor", "--profile", "x"],
     // Options of the removed commands and of the environment-variable configuration are gone.
     ["run", "a", "--policy", "policy.mjs"], ["run", "a", "--script", "decisions.json"], ["run", "a", "--decision", "systemone"], ["run", "a", "--backend", "voiceover"],
@@ -143,13 +143,13 @@ describe("run", () => {
   });
   it("maps the profile flag and the run-rule flags to runTask options, and passes none that were not given", async () => {
     const directory = await temporaryDirectory(), io = output(directory), runTask = vi.fn(async (_task: string, _options?: unknown) => result);
-    expect(await runCli(["run", "t", "--profile", "strict", "--rule", "maxReplans=0", "--rule", "stepActionLimit=30", "--rule", "survey=headings", "--diagnose-stop"], { ...io, runTask })).toBe(0);
-    expect(runTask.mock.calls[0]![1]).toMatchObject({ profile: "strict", diagnoseStop: true, runRules: { maxReplans: 0, stepActionLimit: 30, survey: "headings" } });
+    expect(await runCli(["run", "t", "--profile", "strict", "--rule", "maxPlannerCalls=1", "--rule", "stepActionLimit=30", "--rule", "survey=headings", "--diagnose-stop"], { ...io, runTask })).toBe(0);
+    expect(runTask.mock.calls[0]![1]).toMatchObject({ profile: "strict", diagnoseStop: true, runRules: { maxPlannerCalls: 1, stepActionLimit: 30, survey: "headings" } });
     await runCli(["run", "t", "--rule", "stepActionLimit=5"], { ...io, runTask });
-    expect(runTask.mock.calls[1]![1]).toMatchObject({ runRules: { stepActionLimit: 5 } }); expect((runTask.mock.calls[1]![1] as { runRules: object }).runRules).not.toHaveProperty("maxReplans");
+    expect(runTask.mock.calls[1]![1]).toMatchObject({ runRules: { stepActionLimit: 5 } }); expect((runTask.mock.calls[1]![1] as { runRules: object }).runRules).not.toHaveProperty("maxPlannerCalls");
     // Each value is read as its rule's type, and the last of a repeated rule wins.
-    await runCli(["run", "t", "--rule", "maxReplans=2", "--rule", "modelGiveUp=true", "--rule", "confidenceFloor=0.5", "--rule", "survey=headings", "--rule", "maxReplans=3"], { ...io, runTask });
-    expect((runTask.mock.calls[2]![1] as { runRules: object }).runRules).toEqual({ maxReplans: 3, modelGiveUp: true, confidenceFloor: 0.5, survey: "headings" });
+    await runCli(["run", "t", "--rule", "maxPlannerCalls=2", "--rule", "modelGiveUp=true", "--rule", "confidenceFloor=0.5", "--rule", "survey=headings", "--rule", "maxPlannerCalls=3"], { ...io, runTask });
+    expect((runTask.mock.calls[2]![1] as { runRules: object }).runRules).toEqual({ maxPlannerCalls: 3, modelGiveUp: true, confidenceFloor: 0.5, survey: "headings" });
     await runCli(["run", "t"], { ...io, runTask });
     for (const key of ["profile", "diagnoseStop", "runRules"]) expect(runTask.mock.calls[3]![1]).not.toHaveProperty(key);
   });

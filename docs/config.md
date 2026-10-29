@@ -144,7 +144,7 @@ A keyboard executor needs image input and a `maxImages` of at least 2; a screen 
   },
   "page": "narrow",
   "screenReader": "voiceover",
-  "runRules": { "maxReplans": 6 }
+  "runRules": { "maxPlannerCalls": 60 }
 }
 ```
 
@@ -157,9 +157,10 @@ When a run stops early and, with a planner, when it plans again. Each profile ho
 | `repetitionGuard` | `auto` | `auto`: on in screen reader mode and for `llm` executors in keyboard mode, off for `decision` executors in keyboard mode. `on` or `off` forces it. |
 | `maxStateVisits` | 5 | Keyboard mode: visits to the same screen before the run stops as stuck. |
 | `maxUnchangedTransitions` | 4 | The same action producing the same speech or screen this many times in a row stops the run as stuck. |
-| `modelGiveUp` | `false` | Whether the executor may end a run by choosing `stop:stuck` or `stop:uncertain`. Off, the model is offered only `stop:success`, and a run ends at the goal, a limit or a guard. |
-| `maxReplans` | 4 | With a planner: corrections of the plan before the run stops (checkpoints do not count). |
-| `stepActionLimit` | 12 | With a planner: actions on one task without hearing anything new before a new plan is requested. Walking a page item by item, each new item resets the count; one task never runs past three times this. |
+| `modelGiveUp` | `false` | Keyboard mode: whether the executor may end a run by choosing `stop:stuck` or `stop:uncertain`. Off, the model is offered only `stop:success`, and a run ends at the goal, a limit or a guard. Screen reader runs never offer these to the executor: the user gives up only through the planner (see [How a run ends](#how-a-run-ends)). |
+| `maxPlannerCalls` | 40 | With a planner: planner calls a run may make: plans (the first included), questions about a heard item, and asking again after an unusable reply. A cost limit: a run that reaches it ends unmeasured (`orchestration-limit`), not as the user failing. |
+| `reviewEvery` | 60 | With a planner: moves since the planner last looked before it takes stock of the effort spent (`effort-review`): keep going, change the approach, or give up. |
+| `stepActionLimit` | 12 | With a planner: actions on one task without hearing anything new before a new plan is requested. Walking a page item by item, each new item resets the count. |
 | `failureLimit` | 2 | With a planner: failed actions in a row on one task before a new plan is requested. |
 | `noChangeLimit` | 3 | With a planner: actions in a row on one task that changed nothing before a new plan is requested. |
 | `plannerHistoryLimit` | 60 | With a planner: past actions the planner is given when it plans, each with what was heard before it. Older ones are forgotten; the plan document it wrote stays. Lower it for a user who does not remember the whole page. |
@@ -171,7 +172,7 @@ When a run stops early and, with a planner, when it plans again. Each profile ho
 A field a profile leaves out takes the default above. An override for one run changes only the fields it names.
 
 ```json
-{ "repetitionGuard": "auto", "maxStateVisits": 5, "maxUnchangedTransitions": 4, "modelGiveUp": false, "maxReplans": 4, "stepActionLimit": 12, "failureLimit": 2, "noChangeLimit": 3, "plannerHistoryLimit": 60, "taskControl": "rawstep", "confidenceFloor": 0.25, "survey": "headings", "confirmationGrace": 5 }
+{ "repetitionGuard": "auto", "maxStateVisits": 5, "maxUnchangedTransitions": 4, "modelGiveUp": false, "maxPlannerCalls": 40, "reviewEvery": 60, "stepActionLimit": 12, "failureLimit": 2, "noChangeLimit": 3, "plannerHistoryLimit": 60, "taskControl": "rawstep", "confidenceFloor": 0.25, "survey": "headings", "confirmationGrace": 5 }
 ```
 
 ## Example
@@ -212,7 +213,7 @@ A complete `rawstep.config.json` with two connections, a keyboard and a screen r
       },
       "page": "narrow",
       "screenReader": "voiceover",
-      "runRules": { "maxReplans": 6 }
+      "runRules": { "maxPlannerCalls": 60 }
     }
   ],
   "tasks": [
@@ -239,9 +240,17 @@ The plan document has:
 
 The executor sees the plan summary, its current task with the completion cue and its attempts on it, and can choose an action, **task done**, or **ask for help** with a reason: `no-cue` (no sign of completion can be found), `no-effect` (actions have no effect) or `already-done` (it seems done already). When the executor says a task is done, Rawstep checks whether the quoted words of the cue were heard now or just before; the result (`heard`, `not-heard`, `unchecked`) is recorded and shown to the planner, and the task moves on. When all tasks of a phase are done, the planner checks the phase's criteria at a **checkpoint**; when no tasks are left, it makes a final check and may declare the run complete.
 
-The planner plans again when the executor asks for help, at a checkpoint or final check, and when the run rules say so: `failureLimit` failed actions in a row, `noChangeLimit` actions in a row that changed nothing, or `stepActionLimit` actions on one task. It is given only what a person could hear, the actions the executor may use (input names, never secret values) and the attempts per task, never the accessibility tree.
+The planner plans again when the executor asks for help, at a checkpoint or final check, and when the run rules say so: `failureLimit` failed actions in a row, `noChangeLimit` actions in a row that changed nothing, `stepActionLimit` actions on one task without hearing anything new, or `reviewEvery` moves since it last looked. It is given only what a person could hear, the actions the executor may use (input names, never secret values) and the attempts per task, never the accessibility tree.
 
-A run stops with one of these sources, kept distinct in the trace: `model` (the executor), `planner` (the planner declared the goal reached; independent verification still decides), `exploration-guard` (the repetition guard) or `orchestration-limit` (more than `maxReplans` plans). Each screen reader run directory also holds `plan.json` and `plan.md` (checkbox form, for people), and the dashboard shows the plan live. Plans, task changes and the reason for each new plan are saved as policy evidence in the trace.
+### How a run ends
+
+A screen reader run asks whether a user who has never seen the page can do the task, and at what cost. It ends in one of three ways, each reported with what it cost (moves, detours, where the plan changed):
+
+- **Reached**: the run's checks hold. The planner may also declare the goal reached (`planner`); independent verification still decides.
+- **The user gave up** (`user-gave-up`): at a point where it looks again at the plan, the planner decides that nothing heard leaves another approach to try and sets `giveUp` with the assumptions it marked broken (the approaches that failed). A give-up that names no broken assumption is refused, recorded as a `wanted-to-give-up` hint, and the planner is asked again: many moves alone are not a reason. Giving up is never an executor choice; decision models picked such meta options far too often.
+- **Not measured** (`orchestration-limit`, `maxSteps`, timeout): a cost limit came first, so whether the task can be done is not known.
+
+The planner is told the effort spent in moves (`effort`: in all, since it last looked, and in a row without hearing any word of the goal). Rawstep sets no patience: each run records the longest stretch without a word of the goal (`goal-word-stretch`), and whoever reads the results decides how long a user would keep going. Moves, not time: time depends on the models. The repetition guard (`exploration-guard`) still stops a run that keeps hearing the same speech before the first plan. Each screen reader run directory also holds `plan.json` and `plan.md` (checkbox form, for people), and the dashboard shows the plan live. Plans, task changes and the reason for each new plan are saved as policy evidence in the trace.
 
 Replans, help requests, abandoned tasks, tasks whose cue was not heard, broken assumptions and unmet criteria are friction hints (`replan`, `help-request`, `task-limit`, `unverified-done`). They point at where a run needed to think again and do not say why: the page may have been hard, or the plan wrong.
 

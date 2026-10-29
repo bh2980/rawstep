@@ -10,7 +10,7 @@ export type AssumptionStatus = 'open' | 'held' | 'broken';
 /** Why the executor asked for help: the completion cue never came, actions had no effect, or the task already looks done. */
 export type HelpReason = 'no-cue' | 'no-effect' | 'already-done';
 /** Why the plan was (re)written. `checkpoint`: a phase finished and the planner reviews its criteria before going on. */
-export type PlanTrigger = 'start' | 'help' | 'failures' | 'no-change' | 'task-limit' | 'low-confidence' | 'oscillation' | 'goal-heard' | 'checkpoint' | 'plan-finished';
+export type PlanTrigger = 'start' | 'help' | 'failures' | 'no-change' | 'task-limit' | 'low-confidence' | 'oscillation' | 'goal-heard' | 'effort-review' | 'checkpoint' | 'plan-finished';
 /**
  * How a task ended. `verified` compares the task's cue with what the screen reader said: the executor's "done" is a claim, not a
  * fact. A claim whose cue was not heard is turned down, so a task only ends `not-heard` in plans written before that rule;
@@ -74,7 +74,11 @@ export type PlanRevision = {
   added: string[]; abandoned: string[];
   /** Assumptions found wrong and criteria found met in this revision. */
   broken: string[]; met: string[];
+  /** The planner gave up in this revision: why, and the broken assumptions (approaches tried) it rests on. */
+  giveUp?: GiveUp;
 };
+/** The simulated user's decision that nothing they can hear leaves another approach to try. */
+export type GiveUp = { reason: string; tried: string[] };
 export type PlanDocument = {
   goal: string; version: number;
   /** The planner judged every criterion met; the run stops and the independent verifier decides. */
@@ -98,6 +102,8 @@ export type PlanDraft = {
   criteria: { id: string; text: string; status?: CriterionStatus }[];
   assumptions: { id: string; text: string; status?: AssumptionStatus }[];
   phases: { title: string; criteria?: string[]; tasks: { keep?: string; goal: string; done: string; cue?: string | DraftCue; activates?: boolean; moves?: string[]; serves?: string[]; relies?: string[] }[] }[];
+  /** Set only when the user gives up instead of planning further (see `GiveUp`). */
+  giveUp?: GiveUp;
 };
 
 const open = (t: PlanTask) => t.status === 'pending' || t.status === 'active';
@@ -145,7 +151,7 @@ export function applyDraft(doc: PlanDocument | undefined, draft: PlanDraft, at: 
   const broken = assumptions.filter(a => a.status === 'broken' && before.get(a.id) !== 'broken').map(a => a.id);
   const met = criteria.filter(c => c.status === 'met' && before.get(c.id) !== 'met').map(c => c.id);
   const result: PlanDocument = { goal: at.goal, version, complete: draft.complete, criteria, strategy: draft.strategy, assumptions, phases, retired,
-    revisions: [...(doc?.revisions ?? []), { version, step: at.step, trigger: at.trigger, ...(at.help ? { help: at.help } : {}), rationale: draft.rationale, added, abandoned, broken, met }] };
+    revisions: [...(doc?.revisions ?? []), { version, step: at.step, trigger: at.trigger, ...(at.help ? { help: at.help } : {}), rationale: draft.rationale, added, abandoned, broken, met, ...(draft.giveUp ? { giveUp: structuredClone(draft.giveUp) } : {}) }] };
   return activateNext(result);
 }
 /** Makes the first open task current (and active); none left means the plan has run out. */
@@ -209,6 +215,11 @@ const tokens = (text: string) => text.toLowerCase().split(/[^\p{L}\p{N}]+/u).fil
 /** Name words: numbers count ("Cart, 1 item"), except a heading's level number. */
 const nameWords = (text: string) => new Set(tokens(text).filter((w, i, all) => (w.length > 1 || /\d/.test(w)) && !NOT_NAME.has(w) && all[i - 1] !== 'level')
   .map(w => w.replace(/(?<=..)s$/, '')));
+/** Whether a spoken item shares a name word with the goal: a hint, to a listener, that they are getting somewhere. */
+export function goalRelated(goal: string, item: string): boolean {
+  const wanted = nameWords(goal);
+  return [...nameWords(item)].some(w => wanted.has(w));
+}
 /**
  * How one spoken item compares with a task's cue, the way a person listening would tell. The role and state must be the ones the
  * cue expects ("Cart (0), link" is not the "Add to cart" button; "Special offers, checked" is not "Order updates" checked). Then:
@@ -284,6 +295,6 @@ export function renderPlanMarkdown(doc: PlanDocument): string {
     lines.push('');
   }
   if (doc.retired.length) lines.push('## Retired', '', ...doc.retired.map(t => `- ${box[t.status]} ${t.number} ${t.goal} (${t.phase}) · actions: ${t.actions}`), '');
-  lines.push('## Revisions', '', ...doc.revisions.map(r => `- v${r.version} before step ${r.step} · ${r.trigger}${r.help ? `/${r.help}` : ''}${r.broken.length ? ` · broken ${r.broken.join(', ')}` : ''}${r.met.length ? ` · met ${r.met.join(', ')}` : ''}${r.rationale ? ` — ${r.rationale}` : ''}`), '');
+  lines.push('## Revisions', '', ...doc.revisions.map(r => `- v${r.version} before step ${r.step} · ${r.trigger}${r.help ? `/${r.help}` : ''}${r.broken.length ? ` · broken ${r.broken.join(', ')}` : ''}${r.met.length ? ` · met ${r.met.join(', ')}` : ''}${r.giveUp ? ` · gave up (${r.giveUp.tried.join(', ')})` : ''}${r.rationale ? ` — ${r.rationale}` : ''}`), '');
   return lines.join('\n');
 }

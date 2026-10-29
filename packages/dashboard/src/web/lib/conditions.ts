@@ -97,7 +97,7 @@ export function environmentViewport(profile: unknown, presets: Record<string, un
 export function runRulesSummary(rules: RunRules): string {
   return t('conditions.summary.runRules', {
     guard: t(`conditions.runRules.guard.${rules.repetitionGuard}`), visits: rules.maxStateVisits, unchanged: rules.maxUnchangedTransitions,
-    giveUp: t(rules.modelGiveUp ? 'conditions.summary.giveUpOn' : 'conditions.summary.giveUpOff'), replans: rules.maxReplans, actions: rules.stepActionLimit,
+    giveUp: t(rules.modelGiveUp ? 'conditions.summary.giveUpOn' : 'conditions.summary.giveUpOff'), calls: rules.maxPlannerCalls, actions: rules.stepActionLimit,
   });
 }
 

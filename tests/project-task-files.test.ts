@@ -29,14 +29,14 @@ describe('task files for editing', () => {
     const dir = await mkdtemp(join(tmpdir(), 'rawstep-task-conditions-')); dirs.push(dir);
     const store = new ProjectStore(dir), initial = await store.initialize();
     const task = { url: 'https://example.com', goal: 'Pay', verify: { all: [{ textVisible: 'Paid' }] } };
-    const strict = { ...defaultProfile('strict', 'Strict'), runRules: runRulesSchema.parse({ maxReplans: 1, failureLimit: 5 }) };
+    const strict = { ...defaultProfile('strict', 'Strict'), runRules: runRulesSchema.parse({ maxPlannerCalls: 1, failureLimit: 5 }) };
     const config = { ...initial.config,
       profiles: [...initial.config.profiles, strict],
       tasks: [{ id: 'pay', name: 'Pay', file: 'tasks/pay.json' }] };
     await store.save(config, initial.revision, { file: 'tasks/pay.json', task });
     const saved = (await store.read()).config;
     expect(saved.tasks[0]).toEqual({ id: 'pay', name: 'Pay', file: 'tasks/pay.json' });
-    expect(saved.profiles.find(p => p.id === 'strict')?.runRules).toMatchObject({ maxReplans: 1, failureLimit: 5 });
+    expect(saved.profiles.find(p => p.id === 'strict')?.runRules).toMatchObject({ maxPlannerCalls: 1, failureLimit: 5 });
     // The task file holds only the task: the profile never leaks into it.
     expect(JSON.parse(await readFile(join(dir, 'tasks/pay.json'), 'utf8'))).toEqual(task);
     await store.deleteTask('pay', (await store.read()).revision);

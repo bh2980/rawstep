@@ -241,8 +241,8 @@ export const deterministicAnalyzer: TraceAnalyzer = {
       evidenceEventIds: speechGuard.map(event => event.id)
     });
     if (planLimit.length) findings.push({
-      id: 'orchestration-limit', title: 'The planner ran out of new plans', severity: 'warning',
-      description: 'The executor kept needing new plans until the replanning limit. Review where the plan changed and which assumptions turned out wrong before attributing a cause to the page or to the models.',
+      id: 'orchestration-limit', title: 'The run reached its planner-call limit (not measured)', severity: 'warning',
+      description: 'The run used up its planner calls before the user reached the goal or gave up, so whether the task can be done is not known. Review where the plan changed and which assumptions turned out wrong before attributing a cause to the page or to the models.',
       evidenceEventIds: [...planLimit, ...plans.slice(1)].map(event => event.id)
     });
     const unseenFocus = visual.modelFocusObservations.filter(item => item.visibility === 'not-visible');

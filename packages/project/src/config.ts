@@ -136,11 +136,19 @@ export const runRulesSchema = z.object({
    * but not announced). 0 stops at once, as before. The extra actions are the user's not knowing whether it worked.
    */
   confirmationGrace: count(0, 100, 5),
-  /** Whether the executor may end a run by choosing "stuck" or "uncertain". Off: a run ends at the goal, a limit or a guard. */
+  /**
+   * Keyboard mode: whether the executor may end a run by choosing "stuck" or "uncertain". Off: a run ends at the goal, a limit or a
+   * guard. Screen reader runs never offer these to the executor: there the user gives up only through the planner (`giveUp`).
+   */
   modelGiveUp: z.boolean().default(false),
-  /** With a planner: corrections of the plan before the run stops (checkpoints do not count). */
-  maxReplans: count(0, 100, RAWSTEP_DEFAULTS.orchestration.maxReplans),
-  /** With a planner: actions on one task without hearing anything new before a new plan is requested (never past three times this). */
+  /**
+   * With a planner: planner calls a run may make (plans, questions about a heard item, and asking again after an unusable reply). A cost limit: a run that reaches it ends unmeasured (it is
+   * not known whether the task can be done), never as the user failing. The user gives up only by the planner's own decision.
+   */
+  maxPlannerCalls: count(1, 1000, RAWSTEP_DEFAULTS.orchestration.maxPlannerCalls),
+  /** With a planner: moves since the planner last looked before it takes stock of the effort spent (keep going, change, or give up). */
+  reviewEvery: count(1, 10000, RAWSTEP_DEFAULTS.orchestration.reviewEvery),
+  /** With a planner: actions on one task without hearing anything new before a new plan is requested. */
   stepActionLimit: count(1, 1000, RAWSTEP_DEFAULTS.orchestration.stepActionLimit),
   /** With a planner: failed actions in a row on one task before a new plan is requested. */
   failureLimit: count(1, 100, 2),
@@ -181,7 +189,8 @@ export const runRulesOverrideSchema = z.object({
   maxUnchangedTransitions: z.number().int().min(1).max(10000).optional(),
   confirmationGrace: z.number().int().min(0).max(100).optional(),
   modelGiveUp: z.boolean().optional(),
-  maxReplans: z.number().int().min(0).max(100).optional(),
+  maxPlannerCalls: z.number().int().min(1).max(1000).optional(),
+  reviewEvery: z.number().int().min(1).max(10000).optional(),
   stepActionLimit: z.number().int().min(1).max(1000).optional(),
   failureLimit: z.number().int().min(1).max(100).optional(),
   noChangeLimit: z.number().int().min(1).max(100).optional(),

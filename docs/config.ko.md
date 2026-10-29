@@ -144,7 +144,7 @@ API 키는 설정 파일에 들어가지 않습니다. 기본 제공자는 정�
   },
   "page": "narrow",
   "screenReader": "voiceover",
-  "runRules": { "maxReplans": 6 }
+  "runRules": { "maxPlannerCalls": 60 }
 }
 ```
 
@@ -157,9 +157,10 @@ API 키는 설정 파일에 들어가지 않습니다. 기본 제공자는 정�
 | `repetitionGuard` | `auto` | `auto`는 스크린리더 모드와 키보드 모드의 `llm` 실행 모델에서 켜고, 키보드 모드의 `decision` 실행 모델에서는 끕니다. `on`·`off`로 고정할 수 있습니다 |
 | `maxStateVisits` | 5 | 키보드 모드에서 같은 화면을 이 횟수보다 많이 방문하면 막힌 것으로 보고 멈춥니다 |
 | `maxUnchangedTransitions` | 4 | 같은 행동이 같은 발화나 화면을 이 횟수만큼 연달아 만들면 막힌 것으로 보고 멈춥니다 |
-| `modelGiveUp` | `false` | 실행 모델이 `stop:stuck`·`stop:uncertain`을 골라 실행을 끝낼 수 있는지. 끄면 모델에는 `stop:success`만 제시하고, 실행은 목표, 한도, 감시로 끝납니다 |
-| `maxReplans` | 4 | 계획 모델이 있을 때 계획을 고치는 최대 횟수(체크포인트는 세지 않음). 넘으면 멈춥니다 |
-| `stepActionLimit` | 12 | 계획 모델이 있을 때 작업 하나에서 새로운 것을 못 들은 행동이 이 횟수만큼 쌓이면 새 계획을 요청합니다. 항목을 하나씩 새로 들으며 나아가는 동안은 세지 않고, 작업 하나가 이 값의 3배를 넘지는 않습니다 |
+| `modelGiveUp` | `false` | 키보드 모드에서 실행 모델이 `stop:stuck`·`stop:uncertain`을 골라 실행을 끝낼 수 있는지. 끄면 모델에는 `stop:success`만 제시하고, 실행은 목표, 한도, 감시로 끝납니다. 스크린리더 실행에서는 실행 모델에게 주지 않습니다. 포기는 계획 모델만 합니다([실행이 끝나는 방식](#실행이-끝나는-방식)) |
+| `maxPlannerCalls` | 40 | 계획 모델이 있을 때 한 실행에서 계획 모델을 부르는 최대 횟수(첫 계획, 들은 항목을 묻는 호출, 쓸 수 없는 응답 뒤 다시 묻기 포함). 비용 한도라서, 닿으면 사용자 실패가 아니라 측정 못 함(`orchestration-limit`)으로 끝납니다 |
+| `reviewEvery` | 60 | 계획 모델이 있을 때 마지막으로 계획을 본 뒤 이만큼 넘기면, 들인 노력을 알려 주고 계속·방법 바꾸기·포기를 묻습니다(`effort-review`) |
+| `stepActionLimit` | 12 | 계획 모델이 있을 때 작업 하나에서 새로운 것을 못 들은 행동이 이 횟수만큼 쌓이면 새 계획을 요청합니다. 항목을 하나씩 새로 들으며 나아가는 동안은 세지 않습니다 |
 | `failureLimit` | 2 | 계획 모델이 있을 때 한 작업에서 행동이 연달아 이만큼 실패하면 새 계획을 요청합니다 |
 | `noChangeLimit` | 3 | 계획 모델이 있을 때 한 작업에서 아무것도 바뀌지 않은 행동이 연달아 이만큼이면 새 계획을 요청합니다 |
 | `plannerHistoryLimit` | 60 | 계획 모델이 있을 때 계획을 세우며 받는 지난 행동 수. 행동마다 그 전에 들은 말이 함께 갑니다. 더 오래된 것은 잊고, 계획 모델이 써 둔 계획 문서는 남습니다. 낮추면 페이지를 다 기억하지 못하는 사용자가 됩니다 |
@@ -171,7 +172,7 @@ API 키는 설정 파일에 들어가지 않습니다. 기본 제공자는 정�
 프로필이 빼 둔 필드는 위 기본값을 씁니다. 한 실행의 덮어쓰기는 이름을 적은 필드만 바꿉니다.
 
 ```json
-{ "repetitionGuard": "auto", "maxStateVisits": 5, "maxUnchangedTransitions": 4, "modelGiveUp": false, "maxReplans": 4, "stepActionLimit": 12, "failureLimit": 2, "noChangeLimit": 3, "plannerHistoryLimit": 60, "taskControl": "rawstep", "confidenceFloor": 0.25, "survey": "headings", "confirmationGrace": 5 }
+{ "repetitionGuard": "auto", "maxStateVisits": 5, "maxUnchangedTransitions": 4, "modelGiveUp": false, "maxPlannerCalls": 40, "reviewEvery": 60, "stepActionLimit": 12, "failureLimit": 2, "noChangeLimit": 3, "plannerHistoryLimit": 60, "taskControl": "rawstep", "confidenceFloor": 0.25, "survey": "headings", "confirmationGrace": 5 }
 ```
 
 ## 전체 예시
@@ -212,7 +213,7 @@ API 키는 설정 파일에 들어가지 않습니다. 기본 제공자는 정�
       },
       "page": "narrow",
       "screenReader": "voiceover",
-      "runRules": { "maxReplans": 6 }
+      "runRules": { "maxPlannerCalls": 60 }
     }
   ],
   "tasks": [
@@ -239,9 +240,17 @@ API 키는 설정 파일에 들어가지 않습니다. 기본 제공자는 정�
 
 실행 모델은 계획 요약, 현재 작업과 완료 조건, 그 작업에서 한 시도를 보고, 행동을 고르거나 **작업 완료**, 또는 이유를 달아 **도움 요청**을 고릅니다. 이유는 `no-cue`(완료 단서를 찾을 수 없음), `no-effect`(행동이 먹히지 않음), `already-done`(이미 이뤄진 것 같음)입니다. 실행 모델이 작업 완료를 고르면 Rawstep이 완료 조건의 따옴표 문구가 지금이나 직전 발화에 있었는지 대조합니다. 결과(`heard`, `not-heard`, `unchecked`)는 기록하고 계획 모델에게 보여 주며, 작업은 다음으로 넘어갑니다. 단계의 작업이 모두 끝나면 계획 모델이 **체크포인트**에서 그 단계의 성공 기준을 점검하고, 남은 작업이 없으면 마지막 점검을 해 완료를 선언할 수 있습니다.
 
-계획 모델은 실행 모델이 도움을 요청할 때, 체크포인트와 마지막 점검에서, 그리고 실행 규칙이 정한 때에 다시 계획합니다. 한 작업에서 행동 실패가 `failureLimit`회 연속일 때, 변화 없는 행동이 `noChangeLimit`회 연속일 때, 행동 수가 `stepActionLimit`에 이를 때입니다. 계획 모델은 사람이 들을 수 있는 정보, 실행 모델이 쓸 수 있는 행동(입력은 이름만, 비밀값은 주지 않음), 작업별 시도 내역만 받고 접근성 트리는 받지 않습니다.
+계획 모델은 실행 모델이 도움을 요청할 때, 체크포인트와 마지막 점검에서, 그리고 실행 규칙이 정한 때에 다시 계획합니다. 한 작업에서 행동 실패가 `failureLimit`회 연속일 때, 변화 없는 행동이 `noChangeLimit`회 연속일 때, 한 작업에서 새로운 것을 못 들은 행동이 `stepActionLimit`에 이를 때, 마지막으로 본 뒤 `reviewEvery`번 넘겼을 때입니다. 계획 모델은 사람이 들을 수 있는 정보, 실행 모델이 쓸 수 있는 행동(입력은 이름만, 비밀값은 주지 않음), 작업별 시도 내역만 받고 접근성 트리는 받지 않습니다.
 
-멈춘 이유는 trace에 다음 중 하나로 구분해 남습니다. `model`(실행 모델), `planner`(계획 모델이 목표 도달을 선언함, 최종 판정은 독립 검증), `exploration-guard`(반복 감시), `orchestration-limit`(`maxReplans`를 넘음). 스크린리더 실행의 폴더에는 `plan.json`과 `plan.md`(사람이 읽는 체크박스 형식)도 저장되고, 대시보드는 실행 중에 계획 문서를 실시간으로 보여 줍니다. 계획, 작업 변경, 다시 계획한 이유는 정책 근거로 trace에 남습니다.
+### 실행이 끝나는 방식
+
+스크린리더 실행은 이 페이지를 처음 본 사용자가 이 작업을 해낼 수 있는지, 그 대가가 얼마인지를 봅니다. 실행은 셋 중 하나로 끝나고, 어느 쪽이든 대가(넘긴 횟수, 돌아간 길, 계획이 바뀐 곳)와 함께 남습니다.
+
+- **해냄**: 실행의 완료 확인이 맞습니다. 계획 모델이 목표 도달을 선언할 수도 있지만(`planner`) 판정은 독립 검증이 합니다.
+- **사용자가 포기함**(`user-gave-up`): 계획을 다시 보는 시점에 계획 모델이 "들은 것으로는 더 해볼 방법이 없다"고 판단하고, 틀린 것으로 표시한 가정(실패한 방법)을 근거로 `giveUp`을 냅니다. 근거 없는 포기는 받아들이지 않고 `wanted-to-give-up` 단서로 남긴 뒤 다시 묻습니다. 많이 넘겼다는 것만으로는 포기 이유가 되지 않습니다. 실행 모델은 포기를 고를 수 없습니다(결정 모델이 이런 선택지를 너무 자주 골랐습니다).
+- **측정 못 함**(`orchestration-limit`, `maxSteps`, 시간 초과): 비용 한도에 먼저 닿아, 해낼 수 있는지 알 수 없습니다.
+
+계획 모델은 들인 노력을 넘긴 횟수로 받습니다(`effort`: 전체, 마지막으로 본 뒤, 목표 낱말을 하나도 못 들은 채 연속으로). Rawstep은 인내심을 정하지 않습니다. 실행마다 목표 낱말 없이 넘긴 가장 긴 구간(`goal-word-stretch`)을 남기고, 사용자가 얼마나 버틸지는 결과를 읽는 사람이 판단합니다. 시간이 아니라 넘긴 횟수로 세는 이유는 시간이 모델에 따라 달라지기 때문입니다. 스크린리더 실행의 폴더에는 `plan.json`과 `plan.md`(사람이 읽는 체크박스 형식)도 저장되고, 대시보드는 실행 중에 계획 문서를 실시간으로 보여 줍니다. 계획, 작업 변경, 다시 계획한 이유는 정책 근거로 trace에 남습니다.
 
 다시 계획한 지점, 도움 요청, 포기한 작업, 완료 문구를 듣지 못한 작업, 틀린 가정, 미충족 성공 기준은 마찰 힌트(`replan`, `help-request`, `task-limit`, `unverified-done`)입니다. 실행이 다시 생각해야 했던 곳을 가리킬 뿐 이유는 단정하지 않습니다. 페이지가 어려웠을 수도, 계획이 틀렸을 수도 있습니다.
 

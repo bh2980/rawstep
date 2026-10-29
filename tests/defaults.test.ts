@@ -8,10 +8,10 @@ describe('shared runtime defaults', () => {
   it.each(['https://example.com/', 'http://127.0.0.2/', 'not a url'])('rejects %s as non-loopback', url => expect(isLoopbackUrl(url)).toBe(false));
   it('accepts a bare ::1 hostname', () => expect(isLoopbackHostname('::1')).toBe(true));
   it('keeps the project run rules in sync with the shared policy and orchestration defaults', () => {
-    const { repetitionGuard, modelGiveUp, maxStateVisits, maxUnchangedTransitions, maxReplans, stepActionLimit, failureLimit, noChangeLimit } = defaultConfig().profiles[0]!.runRules;
+    const { repetitionGuard, modelGiveUp, maxStateVisits, maxUnchangedTransitions, maxPlannerCalls, stepActionLimit, failureLimit, noChangeLimit } = defaultConfig().profiles[0]!.runRules;
     expect([repetitionGuard, modelGiveUp]).toEqual(['auto', false]);
     expect({ maxStateVisits, maxUnchangedTransitions }).toEqual({ maxStateVisits: RAWSTEP_DEFAULTS.policy.maxStateVisits, maxUnchangedTransitions: RAWSTEP_DEFAULTS.policy.maxUnchangedTransitions });
-    expect({ maxReplans, stepActionLimit }).toEqual({ maxReplans: RAWSTEP_DEFAULTS.orchestration.maxReplans, stepActionLimit: RAWSTEP_DEFAULTS.orchestration.stepActionLimit });
+    expect({ maxPlannerCalls, stepActionLimit }).toEqual({ maxPlannerCalls: RAWSTEP_DEFAULTS.orchestration.maxPlannerCalls, stepActionLimit: RAWSTEP_DEFAULTS.orchestration.stepActionLimit });
     expect([failureLimit, noChangeLimit]).toEqual([2, 3]);
     expect(runRulesSchema.parse({})).toEqual(defaultConfig().profiles[0]!.runRules);
   });

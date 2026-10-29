@@ -1,5 +1,6 @@
 import { dirname, join } from 'node:path';
 import { readTrace, screenshotSha256, traceFilePath, writeJsonAtomic, type RunOutcome, type RunTrace, type TraceEvent } from '@rawstep/core/trace';
+import { goalRelated } from '@rawstep/policies/policy';
 
 /**
  * Friction hints: places in a saved run worth a human look ("it succeeded, but took 23 Tabs").
@@ -11,7 +12,7 @@ export type HintKind =
   | 'slow-run' | 'excess-keystrokes' | 'backtracking' | 'repeated-state'
   | 'focus-lost' | 'focus-not-visible' | 'modal-focus-outside' | 'missing-announcement'
   | 'invisible-focus-change' | 'model-hesitation' | 'early-stop' | 'goal-met-at-start' | 'focus-left-page'
-  | 'replan' | 'help-request' | 'task-limit' | 'unverified-done';
+  | 'replan' | 'help-request' | 'task-limit' | 'unverified-done' | 'wanted-to-give-up' | 'goal-word-stretch';
 /**
  * Where a hint comes from. page: the page itself behaved this way (focus, announcements, dialogs, tab order).
  * model: the model hesitated or wandered, which may say more about the model than the page.
@@ -24,6 +25,7 @@ export type HintSource = 'page' | 'model' | 'run';
 export type HintTarget = { role: string; name?: string };
 export const HINT_SOURCES: Readonly<Record<HintKind, HintSource>> = Object.freeze({
   'slow-run': 'run', 'goal-met-at-start': 'run', 'replan': 'run', 'help-request': 'run', 'task-limit': 'run', 'unverified-done': 'run',
+  'wanted-to-give-up': 'run', 'goal-word-stretch': 'run',
   'excess-keystrokes': 'page', 'focus-lost': 'page', 'focus-left-page': 'page', 'focus-not-visible': 'page',
   'modal-focus-outside': 'page', 'missing-announcement': 'page', 'invisible-focus-change': 'page',
   'backtracking': 'model', 'repeated-state': 'model', 'model-hesitation': 'model', 'early-stop': 'model',
@@ -253,6 +255,31 @@ export function extractHints(trace: Readonly<RunTrace>, options: HintOptions = {
     kind: 'unverified-done', certainty: 'observed', steps: [item.step],
     summary: `The executor said task ${String(item.data.taskId)} was done, but its cue was not heard, so the task stayed open.`, detail: { taskId: item.data.taskId }, evidence: [item.id] }, focusBefore(item.step - 1));
 
+  // The user wanted to give up but named no approach that had failed: Rawstep asked for another plan. The wish itself is part of the cost.
+  for (const item of evidence.filter(e => e.data.kind === 'orchestration-give-up' && e.data.accepted === false)) add({
+    kind: 'wanted-to-give-up', certainty: 'observed', steps: [item.step],
+    summary: `The user wanted to give up (${String(item.data.reason ?? '')}), but ${String(item.data.refused ?? 'without a failed approach')}; the run went on.`,
+    detail: { reason: item.data.reason, refused: item.data.refused, effort: item.data.effort }, evidence: [item.id] });
+
+  // The longest stretch of moves without hearing a word of the goal: where a listener had nothing to go on. A measure, not a verdict:
+  // whoever reads it decides how long a user would keep going.
+  const goal = trace.task.goal;
+  if (goal) {
+    let after = 0, current: { from: number; to: number; ids: string[] } | undefined, longest: typeof current;
+    for (const event of trace.events as readonly TraceEvent[]) {
+      const data = record(event.data) ? event.data : {};
+      if (event.type === 'policy.decision' && typeof data.step === 'number') { after = data.step; continue; }
+      if ((event.type !== 'simulation.observation' && event.type !== 'screen-reader.observation') || after === 0) continue;
+      const item = Array.isArray(data.speech) ? [...data.speech].reverse().find((line): line is string => typeof line === 'string' && !!line.trim()) : undefined;
+      if (item && goalRelated(goal, item)) { current = undefined; continue; }
+      current = current ? { ...current, to: after, ids: [...current.ids, event.id] } : { from: after, to: after, ids: [event.id] };
+      if (!longest || current.to - current.from > longest.to - longest.from) longest = current;
+    }
+    if (longest) add({ kind: 'goal-word-stretch', certainty: 'observed', steps: [longest.from, longest.to],
+      summary: `${longest.to - longest.from + 1} moves in a row (steps ${longest.from}–${longest.to}) without hearing a word of the goal.`,
+      detail: { moves: longest.to - longest.from + 1, from: longest.from, to: longest.to }, evidence: longest.ids.slice(0, 20) });
+  }
+
   // Goal rules that already held before any action make "reached the goal" weak evidence. `not` rules hold at start by design.
   const baseline = (trace.events as readonly TraceEvent[]).find(e => e.type === 'verifier.baseline');
   const baseRules = baseline && record(baseline.data) && Array.isArray(baseline.data.rules) ? (baseline.data.rules as { ruleIndex?: number; ruleType?: string; passed?: boolean }[]).filter(r => r.passed === true && r.ruleType !== 'not') : [];
@@ -264,13 +291,16 @@ export function extractHints(trace: Readonly<RunTrace>, options: HintOptions = {
   }
 
   const outcome = trace.outcome;
-  const ruleStop = outcome?.policyStopSource === 'exploration-guard' || outcome?.policyStopSource === 'orchestration-limit';
+  const ruleStop = outcome?.policyStopSource === 'exploration-guard' || outcome?.policyStopSource === 'orchestration-limit' || outcome?.policyStopSource === 'user-gave-up';
+  const gaveUp = [...evidence].reverse().find(e => e.data.kind === 'orchestration-give-up' && e.data.accepted === true);
   if (outcome && (outcome.reason === 'policy-stuck' || outcome.reason === 'policy-uncertain' || ruleStop)) add({
     kind: 'early-stop', certainty: 'observed', steps: typeof outcome.step === 'number' ? [outcome.step] : [],
     summary: outcome.policyStopSource === 'exploration-guard' ? 'The repetition guard stopped the run.'
-      : outcome.policyStopSource === 'orchestration-limit' ? 'The run stopped after the planner ran out of new plans.'
+      : outcome.policyStopSource === 'orchestration-limit' ? 'The run reached its planner-call limit before the user reached the goal or gave up: not measured.'
+      : outcome.policyStopSource === 'user-gave-up' ? `The user gave up: ${String(gaveUp?.data.reason ?? '')}`
       : `The model stopped as ${outcome.reason === 'policy-stuck' ? 'stuck' : 'uncertain'}.`,
-    detail: { reason: outcome.reason, ...(outcome.policyStopSource ? { stopSource: outcome.policyStopSource } : {}) }, evidence: [] });
+    detail: { reason: outcome.reason, ...(outcome.policyStopSource ? { stopSource: outcome.policyStopSource } : {}),
+      ...(outcome.policyStopSource === 'user-gave-up' && gaveUp ? { giveUp: { reason: gaveUp.data.reason, tried: gaveUp.data.tried, effort: gaveUp.data.effort } } : {}) }, evidence: gaveUp ? [gaveUp.id] : [] });
 
   hints.sort((a, b) => (a.steps[0] ?? -1) - (b.steps[0] ?? -1));
   const limitations = ['Hints point to steps worth reviewing; they do not establish accessibility defects or conformance.'];

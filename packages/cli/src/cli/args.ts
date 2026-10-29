@@ -140,7 +140,7 @@ Configuration:
 
 Run defaults:
   --profile  <id|name>; the run profile to use: the task's own, else the project's first
-  --rule     <name>=<value>, repeatable; overrides one run rule for these runs (the profile's, then these), e.g. --rule maxReplans=2 --rule survey=headings;
+  --rule     <name>=<value>, repeatable; overrides one run rule for these runs (the profile's, then these), e.g. --rule maxPlannerCalls=20 --rule survey=headings;
              see the runRules section of docs/config.md for the rules
   --mode     keyboard
   --repeat   1; repeats are compared with the fastest run that reached the goal
