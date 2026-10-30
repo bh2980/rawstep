@@ -10,6 +10,7 @@ import { findRawstepError } from '@rawstep/core/errors';
 import { analyzeSavedTrace, readAnalysis } from '@rawstep/reports/analyze';
 import { writeReport } from '@rawstep/reports/report';
 import { HINTS_SCHEMA_VERSION, writeHints, type HintFinding, type HintReport } from '@rawstep/reports/hints';
+import { isStuck, isWrongGuess, runEnding, type RunEnding, type UnmeasuredBy } from '@rawstep/reports/endings';
 import { ProjectError } from '@rawstep/project/errors';
 import { agentOf, atEndpointOf, credentialRequirements } from '@rawstep/project/config';
 import { ProjectStore, initProject } from '@rawstep/project/store';
@@ -138,12 +139,33 @@ async function run(args: CliArguments, projectDir: string, cwd: string, dependen
   return 0;
 }
 
-const outcomeText = (outcome: RunTaskResult['runs'][number]['outcome']) => !outcome ? 'no outcome recorded'
-  : outcome.status === 'success' ? 'goal reached' : outcome.status === 'failure' ? `goal not reached${outcome.reason ? ` (${outcome.reason})` : ''}`
-  : outcome.status === 'aborted' ? 'aborted' : `inconclusive${outcome.reason ? ` (${outcome.reason})` : ''}`;
-const elementText = (finding: HintFinding) => finding.target ? `${finding.target.role}${finding.target.name ? ` "${finding.target.name}"` : ''}` : '(no element)';
+const ENDING_TEXT: Record<RunEnding, string> = { reached: 'reached the goal', 'gave-up': 'gave up', mistaken: 'said it was done, but the goal was not reached', unmeasured: 'not measured' };
+const BY_TEXT: Record<UnmeasuredBy, string> = { 'planner-calls': 'planner-call limit', 'max-steps': 'max steps', timeout: 'time limit', 'repetition-guard': 'repetition guard', 'model-uncertain': 'the model was unsure', other: 'stopped early' };
+/** "gave up", "not measured (max steps)": how a run ended, in the terms of the question Rawstep answers. */
+export function endingText(outcome: RunTaskResult['runs'][number]['outcome']): string {
+  if (!outcome) return 'no outcome recorded';
+  if (outcome.status === 'aborted') return 'aborted';
+  if (outcome.reason === 'error' || outcome.reason === 'trace-persistence-error') return 'ended on an error (says nothing about the page)';
+  const ended = runEnding(outcome, stopOf(outcome))!;
+  return ended.by ? `${ENDING_TEXT[ended.ending]} (${BY_TEXT[ended.by]})` : ENDING_TEXT[ended.ending];
+}
+/** Who stopped a run that stopped itself, as the trace recorded it. */
+const stopOf = (outcome: Record<string, unknown>) => typeof outcome.policyStopSource === 'string' ? outcome.policyStopSource : undefined;
+const elementText = (target: HintFinding['target']) => target ? `${target.role}${target.name ? ` "${target.name}"` : ''}` : '(no element)';
+const median = (values: number[]) => { const s = [...values].sort((a, b) => a - b), m = s.length >> 1; return s.length % 2 ? s[m]! : (s[m - 1]! + s[m]!) / 2; };
+/** Hints shown in their own lines of a run's block rather than as summaries. */
+const STRUCTURED: readonly string[] = ['early-stop', 'goal-word-stretch'];
+/** Hints that say the planner wrote a new plan, counted per run by why. */
+const PLAN_KINDS: readonly string[] = ['replan', 'help-request', 'task-limit'];
+const PLAN_REASONS: Record<string, string> = { failures: 'actions kept failing', 'no-change': 'actions changed nothing', 'low-confidence': 'the executor was unsure', oscillation: 'going back and forth' };
+const planReason = (hint: { kind: string; detail: Record<string, unknown> }) => hint.kind === 'help-request' ? 'the executor asked' : hint.kind === 'task-limit' ? 'a task ran out of actions'
+  : PLAN_REASONS[String(hint.detail.trigger)] ?? String(hint.detail.trigger);
+const countBy = (values: string[]) => values.reduce((counts, value) => counts.set(value, (counts.get(value) ?? 0) + 1), new Map<string, number>());
 
-/** One block per run, then the findings gathered across runs: Page findings first, then Model. */
+/**
+ * One block per run (how it ended, why a user gave up and on what, the cost), then across the runs: could a first-time user do it,
+ * what reaching the goal cost, where pressing something did not respond as expected, and the other findings, Page before Model.
+ */
 export function formatRunResult(result: RunTaskResult): string {
   const lines: string[] = [];
   const c = result.conditions as { profile?: { name?: string }; combo?: { name?: string; structure?: string; executor?: string; planner?: string; planFile?: string }; pageEnvironment?: { profile?: unknown }; atEnvironment?: { backend?: string } };
@@ -154,20 +176,54 @@ export function formatRunResult(result: RunTaskResult): string {
     lines.push('');
   }
   result.runs.forEach((run, index) => {
-    lines.push(`Run ${index + 1} of ${result.runs.length}: ${outcomeText(run.outcome)} · ${run.hints.steps} steps`);
-    for (const hint of run.hints.hints.filter(h => h.source === 'run')) lines.push(`  ${hint.summary}`);
+    const hints = run.hints.hints, find = (kind: string) => hints.find(hint => hint.kind === kind);
+    lines.push(`Run ${index + 1} of ${result.runs.length}: ${endingText(run.outcome)} · ${run.hints.steps} moves`);
+    const giveUp = find('early-stop')?.detail.giveUp as { reason?: unknown; tried?: unknown } | undefined;
+    if (giveUp && run.outcome?.policyStopSource === 'user-gave-up') {
+      lines.push(`  Why: "${String(giveUp.reason ?? '')}"`);
+      for (const id of Array.isArray(giveUp.tried) ? giveUp.tried : []) {
+        const broke = hints.find(hint => hint.kind === 'expectation-broken' && (hint.detail.assumption as { id?: unknown } | undefined)?.id === id);
+        const text = (broke?.detail.assumption as { text?: unknown } | undefined)?.text;
+        lines.push(`  Rests on ${String(id)}${typeof text === 'string' ? ` "${text}"` : ''}${broke ? ` · broke at step ${broke.steps[0]}${isStuck(broke) ? ` after pressing ${elementText(broke.target)}` : ''}` : ''}`);
+      }
+    }
+    const stretch = find('goal-word-stretch')?.detail.moves, guesses = hints.filter(hint => hint.kind === 'expectation-broken' && isWrongGuess(hint)).length;
+    const costs = [typeof stretch === 'number' ? `longest without a goal word: ${stretch} moves` : undefined, hints.some(hint => hint.kind === 'expectation-broken') || guesses ? `wrong guesses about where something is: ${guesses}` : undefined].filter(Boolean);
+    if (costs.length) lines.push(`  ${costs.join(' · ')}`);
+    // New plans are counted by why, not listed one by one: how often the user had to rethink is the cost.
+    const replans = hints.filter(h => PLAN_KINDS.includes(h.kind));
+    if (replans.length) lines.push(`  new plans: ${replans.length} (${[...countBy(replans.map(h => planReason(h)))].map(([why, n]) => `${why} ${n}`).join(', ')})`);
+    for (const hint of hints.filter(h => h.source === 'run' && !STRUCTURED.includes(h.kind) && !PLAN_KINDS.includes(h.kind))) lines.push(`  ${hint.summary}`);
     lines.push(`  ${run.outDir}`);
   });
   lines.push('');
-  const groups: [string, HintFinding['source']][] = [['Page', 'page'], ['Run', 'run'], ['Model', 'model']];
-  if (!result.findings.length) lines.push('No findings.');
-  for (const [title, source] of groups) {
-    const findings = result.findings.filter(f => f.source === source);
-    if (!findings.length) continue;
-    lines.push(title);
-    for (const f of findings) lines.push(`  ${elementText(f)} · ${f.kind} · ${f.runs} of ${f.totalRuns} runs`);
+  // Across the runs, never judged: counts only.
+  const endings = result.runs.map(run => run.outcome && run.outcome.reason !== 'error' && run.outcome.reason !== 'trace-persistence-error' && run.outcome.status !== 'aborted' ? runEnding(run.outcome, stopOf(run.outcome)) : undefined);
+  const counted = endings.filter((ended): ended is NonNullable<typeof ended> => !!ended), count = (ending: RunEnding) => counted.filter(ended => ended.ending === ending).length;
+  const others = (['gave-up', 'mistaken', 'unmeasured'] as const).filter(ending => count(ending)).map(ending => `${ENDING_TEXT[ending]} ${count(ending)}`);
+  lines.push(`Could a first-time user do it? reached the goal in ${count('reached')} of ${counted.length} runs${others.length ? ` · ${others.join(' · ')}` : ''}`);
+  const reachedSteps = result.runs.filter((run, index) => endings[index]?.ending === 'reached').map(run => run.hints.steps);
+  if (reachedSteps.length) lines.push(`Cost of reaching it: ${median(reachedSteps)} moves${reachedSteps.length > 1 ? ` (${Math.min(...reachedSteps)}–${Math.max(...reachedSteps)})` : ''}`);
+  const stuck = result.findings.filter(f => f.kind === 'expectation-broken' && f.target).map(f => ({ f, hits: f.occurrences.filter(isStuck) })).filter(item => item.hits.length);
+  if (stuck.length) {
+    lines.push('', 'Stuck: pressed, and it did not respond as the user expected');
+    for (const { f, hits } of stuck) {
+      const runs = new Set(hits.map(o => o.runId)).size, gaveUp = new Set(hits.filter(o => o.detail.gaveUpOn === true).map(o => o.runId)).size;
+      const expected = (hits[0]!.detail.assumption as { text?: unknown } | undefined)?.text;
+      lines.push(`  ${elementText(f.target)} · ${runs} of ${f.totalRuns} runs${gaveUp ? ` · ${gaveUp} give-up${gaveUp > 1 ? 's' : ''} rest on it` : ''}${typeof expected === 'string' ? `\n    expected: ${expected}` : ''}`);
+    }
   }
-  lines.push('', `Details: npx rawstep hints <run-dir>, npx rawstep report <run-dir>`);
+  const groups: [string, HintFinding['source']][] = [['Page', 'page'], ['Model', 'model']];
+  // How each run ended is said above; an early stop is not listed again as a finding.
+  const rest = result.findings.filter(f => f.kind !== 'expectation-broken' && f.kind !== 'early-stop');
+  if (!stuck.length && !rest.length) lines.push('', 'No findings.');
+  for (const [title, source] of groups) {
+    const findings = rest.filter(f => f.source === source);
+    if (!findings.length) continue;
+    lines.push('', title);
+    for (const f of findings) lines.push(`  ${elementText(f.target)} · ${f.kind} · ${f.runs} of ${f.totalRuns} runs`);
+  }
+  lines.push('', 'Stuck places are the user model\'s judgement: whether the page or the expectation is wrong is for you to decide.', `Details: npx rawstep hints <run-dir>, npx rawstep report <run-dir>`);
   return lines.join('\n') + '\n';
 }
 

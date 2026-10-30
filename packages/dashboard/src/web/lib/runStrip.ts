@@ -1,7 +1,7 @@
 import type { RunRecord, RunState } from '../../shared/config.js';
 import { t } from '../i18n/index.js';
 import { runStateLabel } from '../i18n/labels.js';
-import { runEnding, type RunEnding } from '../../shared/results.js';
+import { runEnding, type RunEnding } from '@rawstep/reports/endings';
 
 /** What a run is drawn as: a filled square when the goal was reached, a striped one when not, a hollow one when it is undecided or ended early. */
 export type RunGlyphKind = 'reached' | 'missed' | 'inconclusive' | 'live';
@@ -28,7 +28,7 @@ export function displayState(run: Pick<RunRecord, 'state' | 'outcome'>): RunStat
 export function finishedEnding(run: Pick<RunRecord, 'state' | 'outcome'>): ReturnType<typeof runEnding> {
   const reason = run.outcome?.reason;
   if (!['success', 'failure', 'inconclusive'].includes(run.state) || reason === 'error' || reason === 'trace-persistence-error') return undefined;
-  return runEnding(run.outcome);
+  return runEnding(run.outcome, run.outcome?.stopSource);
 }
 export const endingGlyph = (ending: RunEnding): RunGlyphKind => ending === 'reached' ? 'reached' : ending === 'unmeasured' ? 'inconclusive' : 'missed';
 

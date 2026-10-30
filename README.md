@@ -20,15 +20,24 @@ Everything lives in `rawstep.config.json` in your project. The dashboard, the CL
 Example output:
 
 ```text
-Run 1 of 2: goal reached · 7 steps
-Run 2 of 2: goal reached · 12 steps
-  slow run: 12 steps against 7 in the fastest run
-  .rawstep/runs/2026-10-06T09-12-44-3f2a/run-2
+Run 1 of 2: gave up · 34 moves
+  Why: "Add to cart never says the item was added, and nothing else heard can add it."
+  Rests on A3 "Pressing Add to cart announces that the item was added" · broke at step 17 after pressing StaticText "Add to cart"
+  longest without a goal word: 9 moves · wrong guesses about where something is: 1
+  <run 1 folder>
+Run 2 of 2: reached the goal · 84 moves
+  longest without a goal word: 21 moves · wrong guesses about where something is: 0
+  <run 2 folder>
+
+Could a first-time user do it? reached the goal in 1 of 2 runs · gave up 1
+Cost of reaching it: 84 moves
+
+Stuck: pressed, and it did not respond as the user expected
+  StaticText "Add to cart" · 1 of 2 runs · 1 give-up rest on it
+    expected: Pressing Add to cart announces that the item was added
 
 Page
-  link "Skip to content" · focus not visible · 2 of 2 runs
-Model
-  button "Pay now" · backtracking · 1 of 2 runs
+  button "Checkout" · focus-lost · 1 of 2 runs
 ```
 
 Use the same call in a test. It resolves when the runs complete, whatever the outcome. The threshold is your own.
