@@ -92,7 +92,9 @@ describe('task findings and summary', () => {
     const { app, runs } = await launch([
       { status: 'failure', steps: 34, reason: 'policy-stuck', stopSource: 'user-gave-up', hints: [broke('A3', true),
         { ...hint('early-stop', undefined, { stopSource: 'user-gave-up', giveUp: { reason: 'Nothing adds it', tried: ['A3'] } }), steps: [34] }, hint('goal-word-stretch', undefined, { moves: 9 })] },
-      { status: 'success', steps: 290, hints: [broke('A1'), hint('goal-word-stretch', undefined, { moves: 58 })] },
+      { status: 'success', steps: 290, hints: [broke('A1'), hint('goal-word-stretch', undefined, { moves: 58 }),
+        // Coming upon the goal while after something else breaks an expectation at no cost: not a stuck place.
+        { ...hint('expectation-broken', { role: 'heading', name: 'Hammer' }, { assumption: { id: 'A2', text: 'The name is a link' }, trigger: 'goal-heard' }), steps: [40] }] },
     ], 'screenreader');
     const findings = await (await fetch(app.url + '/api/tasks/task/findings')).json() as TaskFindings;
     expect(findings.results.map(r => [r.ending, r.steps, r.stretch, r.stuck])).toEqual([['gave-up', 34, 9, [{ place: 0, step: 17 }]], ['reached', 290, 58, [{ place: 0, step: 17 }]]]);

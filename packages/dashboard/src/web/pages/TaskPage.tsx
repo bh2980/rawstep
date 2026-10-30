@@ -10,6 +10,7 @@ import { TaskChecks } from '../components/TaskChecks';
 import { TaskEditSheet, type BasicsSave, type TaskBasics } from '../components/TaskEditSheet';
 import { TaskHeader } from '../components/TaskHeader';
 import { TaskOverview } from '../components/TaskOverview';
+import { batchLabel } from '../components/BatchCompare';
 import { TaskSettings } from '../components/TaskSettings';
 import { Button } from '../components/ui/button';
 import { SaveBar } from '../components/conditions/SaveBar';
@@ -131,7 +132,10 @@ export function TaskPage({ taskId, tab, pageProps, runs, navigate, onRun }: Prop
       <TabsContent value="runs">
         <section aria-label={t('taskPage.tabs.runs')} className="grid gap-2">
           {taskRuns.length > 0
-            ? <RunsTable runs={taskRuns} config={config} navigate={navigate} hideTask numbers={numbers} showConditions showHints />
+            ? <div className="grid gap-5">{batchesOf(taskRuns).map(group => <section key={group.experiment.id} aria-label={batchLabel(group.batch, t)} className="grid gap-2">
+              <h3 className="text-sm font-semibold">{batchLabel(group.batch, t)}</h3>
+              <RunsTable runs={group.runs} config={config} navigate={navigate} hideTask numbers={numbers} showConditions showHints />
+            </section>)}</div>
             : <EmptyState compact title={t('taskPage.runsTabEmpty')} action={<Button variant="outline" size="sm" onClick={onRun}>{t('empty.taskRuns.action')}</Button>} />}
         </section>
       </TabsContent>
@@ -148,4 +152,14 @@ export function TaskPage({ taskId, tab, pageProps, runs, navigate, onRun }: Prop
     />
     <DeleteTaskDialog open={deleting} onOpenChange={setDeleting} name={saved.name} file={saved.file} runCount={taskRuns.length} activeCount={active.length} onConfirm={remove} />
   </div>;
+}
+
+/** The runs of a task by batch, newest batch first, each named as the batch pickers name it. */
+function batchesOf(runs: readonly RunRef[]) {
+  const groups = new Map<string, RunRef[]>();
+  for (const ref of runs) groups.set(ref.experiment.id, [...groups.get(ref.experiment.id) ?? [], ref]);
+  return [...groups.values()].map(list => {
+    const experiment = list[0]!.experiment;
+    return { experiment, runs: list, batch: { experimentId: experiment.id, createdAt: experiment.createdAt, ...(experiment.request.note ? { note: experiment.request.note } : {}), runs: list.length, finished: 0 } };
+  }).sort((a, b) => b.experiment.createdAt.localeCompare(a.experiment.createdAt));
 }

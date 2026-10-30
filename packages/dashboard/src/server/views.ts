@@ -139,7 +139,11 @@ export class RunViews {
     const pageOf = [...done].reverse().find(entry => facts.get(entry.run.id)?.startPage);
     const startPage = pageOf ? { ...facts.get(pageOf.run.id)!.startPage!, experimentId: pageOf.experimentId, runId: pageOf.run.id } : undefined;
     const screenReaderRuns = done.filter(entry => entry.run.mode === 'screenreader');
-    const broken = cached.findings.filter(finding => finding.kind === 'expectation-broken' && finding.target);
+    // An expectation that broke because the user came upon the goal while after something else (goal-heard) cost them nothing:
+    // they found it another way than they expected. Only the ones that broke while an approach was failing are stuck places.
+    const costly = (hint: { detail: Record<string, unknown> }) => hint.detail.trigger !== 'goal-heard';
+    const broken = cached.findings.filter(finding => finding.kind === 'expectation-broken' && finding.target)
+      .map(finding => ({ ...finding, occurrences: finding.occurrences.filter(costly) })).filter(finding => finding.occurrences.length > 0);
     const stuck: StuckPlace[] = broken.map(finding => {
       const runIds = new Set(finding.occurrences.map(o => o.runId)), counts = new Map<string, number>(), byProfile = new Map<string, StuckPlace['byProfile'][number]>();
       for (const o of finding.occurrences) { const text = record(o.detail.assumption) && typeof o.detail.assumption.text === 'string' ? o.detail.assumption.text : undefined; if (text) counts.set(text, (counts.get(text) ?? 0) + 1); }
@@ -163,12 +167,12 @@ export class RunViews {
       const run = entry.run, early = hintsOf(run.id, 'early-stop')[0];
       const stopSource = run.outcome?.stopSource ?? (typeof early?.detail.stopSource === 'string' ? early.detail.stopSource : undefined);
       const end = runEnding(run.outcome, stopSource)!, give = record(early?.detail.giveUp) ? early.detail.giveUp : undefined;
-      const breaks = hintsOf(run.id, 'expectation-broken'), stretch = hintsOf(run.id, 'goal-word-stretch')[0]?.detail.moves;
+      const allBreaks = hintsOf(run.id, 'expectation-broken'), breaks = allBreaks.filter(costly), stretch = hintsOf(run.id, 'goal-word-stretch')[0]?.detail.moves;
       const tried = Array.isArray(give?.tried) ? give.tried.filter((id): id is string => typeof id === 'string') : [];
       return {
         experimentId: entry.experimentId, runId: run.id, profileId: run.profileId, mode: run.mode, ...end, steps: steps(run) ?? null,
         ...(end.ending === 'gave-up' && give ? { giveUp: { reason: String(give.reason ?? ''), ...(typeof run.outcome?.step === 'number' ? { step: run.outcome.step } : {}),
-          tried: tried.map(id => { const at = breaks.find(hint => record(hint.detail.assumption) && hint.detail.assumption.id === id), text = at && record(at.detail.assumption) ? at.detail.assumption.text : undefined;
+          tried: tried.map(id => { const at = allBreaks.find(hint => record(hint.detail.assumption) && hint.detail.assumption.id === id), text = at && record(at.detail.assumption) ? at.detail.assumption.text : undefined;
             return { id, ...(typeof text === 'string' ? { text } : {}), ...(at?.steps[0] !== undefined ? { step: at.steps[0] } : {}), ...(at?.target ? { target: at.target } : {}) }; }) } } : {}),
         stretch: typeof stretch === 'number' ? stretch : null,
         unheard: end.ending === 'reached' && facts.get(run.id)!.unheard,
