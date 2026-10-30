@@ -183,6 +183,8 @@ export type ProfileFacts = {
   unheard: number;
   /** The longest run of moves without a goal word that still meant something, and the run it was in. */
   longestStretch: { moves: number; runId: string } | null;
+  /** Median, over the runs, of the user's guesses about where something is that turned out wrong; null without runs. */
+  wrongGuesses: number | null;
   /** The page element the most runs of this profile got stuck on, if any. */
   topTarget: { role: string; name?: string } | null;
   /** What the newest run of the profile ran with (combination and screen reader environment names). */
@@ -200,6 +202,8 @@ export type RunResult = {
   giveUp?: { reason: string; step?: number; tried: { id: string; text?: string; step?: number; target?: HintTarget }[] };
   /** The longest run of moves without a goal word that still meant something. */
   stretch: number | null;
+  /** The user's guesses about where something is that turned out wrong (expectations broken while moving, not after a press). */
+  wrongGuesses: number;
   /** Reached the goal while nothing the user heard said so. */
   unheard: boolean;
   /** The `stuck` places (by index) this run's expectations broke at, with the step. */
@@ -208,7 +212,7 @@ export type RunResult = {
   differs: boolean;
 };
 
-/** One page object where the simulated user's expectations broke, across a task's runs. */
+/** One page object that did not respond as the simulated user expected when they pressed it, across a task's runs. */
 export type StuckPlace = {
   target: HintTarget;
   /** Runs whose expectations broke here, out of the task's finished screen reader runs. */

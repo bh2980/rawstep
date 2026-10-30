@@ -139,9 +139,11 @@ export class RunViews {
     const pageOf = [...done].reverse().find(entry => facts.get(entry.run.id)?.startPage);
     const startPage = pageOf ? { ...facts.get(pageOf.run.id)!.startPage!, experimentId: pageOf.experimentId, runId: pageOf.run.id } : undefined;
     const screenReaderRuns = done.filter(entry => entry.run.mode === 'screenreader');
-    // An expectation that broke because the user came upon the goal while after something else (goal-heard) cost them nothing:
-    // they found it another way than they expected. Only the ones that broke while an approach was failing are stuck places.
-    const costly = (hint: { detail: Record<string, unknown> }) => hint.detail.trigger !== 'goal-heard';
+    // A stuck place is an object that did not respond as the user expected when they pressed it. An expectation that broke while
+    // moving was a guess about where something is: it broke wherever the cursor happened to be, so it is counted per run instead.
+    // One that broke because the user came upon the goal while after something else (goal-heard) cost them nothing.
+    const costly = (hint: { detail: Record<string, unknown> }) => hint.detail.trigger !== 'goal-heard' && typeof hint.detail.pressed === 'number';
+    const wrongGuess = (hint: { detail: Record<string, unknown> }) => hint.detail.trigger !== 'goal-heard' && typeof hint.detail.pressed !== 'number';
     const broken = cached.findings.filter(finding => finding.kind === 'expectation-broken' && finding.target)
       .map(finding => ({ ...finding, occurrences: finding.occurrences.filter(costly) })).filter(finding => finding.occurrences.length > 0);
     const stuck: StuckPlace[] = broken.map(finding => {
@@ -175,6 +177,7 @@ export class RunViews {
           tried: tried.map(id => { const at = allBreaks.find(hint => record(hint.detail.assumption) && hint.detail.assumption.id === id), text = at && record(at.detail.assumption) ? at.detail.assumption.text : undefined;
             return { id, ...(typeof text === 'string' ? { text } : {}), ...(at?.steps[0] !== undefined ? { step: at.steps[0] } : {}), ...(at?.target ? { target: at.target } : {}) }; }) } } : {}),
         stretch: typeof stretch === 'number' ? stretch : null,
+        wrongGuesses: allBreaks.filter(wrongGuess).length,
         unheard: end.ending === 'reached' && facts.get(run.id)!.unheard,
         // Two expectations broken at once on one object are one place passed, not two.
         stuck: [...new Map(breaks.map(hint => ({ place: placeOf(hint.target), step: hint.steps[0] ?? 0 })).filter(item => item.place >= 0).map(item => [`${item.place}:${item.step}`, item])).values()],
@@ -197,6 +200,7 @@ export class RunViews {
         medianSteps: median(counts), minSteps: counts.length ? Math.min(...counts) : null, maxSteps: counts.length ? Math.max(...counts) : null,
         unheard: own.filter(result => result.unheard).length,
         longestStretch: longest ? { moves: longest.stretch!, runId: longest.runId } : null,
+        wrongGuesses: median(own.map(result => result.wrongGuesses)),
         topTarget: top?.finding.target ?? null,
         conditions: { ...(typeof newest.combo?.name === 'string' ? { combo: newest.combo.name } : {}), ...(typeof newest.atEnvironment?.name === 'string' ? { at: newest.atEnvironment.name } : {}) },
         differing: own.filter(result => result.differs).length,

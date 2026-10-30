@@ -7,7 +7,7 @@ import { goalLeads } from '@rawstep/policies/policy';
  * Hints are pointers with evidence, never verdicts; reaching the goal is one signal among them.
  * Pure over the saved trace, so they can be recomputed later or extended with custom extractors.
  */
-export const HINTS_SCHEMA_VERSION = '2.1' as const;
+export const HINTS_SCHEMA_VERSION = '2.2' as const;
 export type HintKind =
   | 'slow-run' | 'excess-keystrokes' | 'backtracking' | 'repeated-state'
   | 'focus-lost' | 'focus-not-visible' | 'modal-focus-outside' | 'missing-announcement'
@@ -74,6 +74,8 @@ export const DEFAULT_HINT_THRESHOLDS: Readonly<HintThresholds> = Object.freeze({
 });
 export type HintOptions = { reference?: Readonly<RunTrace>; thresholds?: Partial<HintThresholds> };
 
+/** A press this many actions or fewer before an expectation broke is what broke it: the user may move a little to check first. */
+const PRESS_WINDOW = 3;
 const NAVIGATION_KEYS = ['Tab', 'Shift+Tab', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 'PageUp', 'PageDown'];
 const FORWARD = ['Tab', 'ArrowDown', 'ArrowRight', 'next'], BACKWARD = ['Shift+Tab', 'ArrowUp', 'ArrowLeft', 'previous'];
 const ANNOUNCING_SURFACES = ['alert', 'alertdialog', 'dialog', 'status', 'log'];
@@ -263,14 +265,18 @@ export function extractHints(trace: Readonly<RunTrace>, options: HintOptions = {
     summary: `The user wanted to give up (${String(item.data.reason ?? '')}), but ${String(item.data.refused ?? 'without a failed approach')}; the run went on.`,
     detail: { reason: item.data.reason, refused: item.data.refused, effort: item.data.effort }, evidence: [item.id] });
 
-  // Where the user's expectations broke: each assumption the planner marked broken, on the object the screen reader cursor was on
-  // when it did, with where that object sat on the page. The run's give-up names the broken assumptions it rests on.
+  // Where the user's expectations broke: each assumption the planner marked broken. When the user had pressed something in the few
+  // actions before (`pressed`), the expectation was about how that object responds, and the hint is on it, with where it sat on the
+  // page. Otherwise it was a guess about where something is, broken wherever the cursor happened to be. The run's give-up names the
+  // broken assumptions it rests on.
   const finalGiveUp = [...evidence].reverse().find(e => e.data.kind === 'orchestration-give-up' && e.data.accepted === true);
   const triedIds = new Set(Array.isArray(finalGiveUp?.data.tried) ? finalGiveUp.data.tried.filter((id): id is string => typeof id === 'string') : []);
   let cursorObject: { role?: string; name?: string } | undefined, cursorAt: Record<string, unknown> | undefined, observedAt = 0;
+  // The object under the cursor, and where it was, when each step's action was decided: what a press acted on.
+  const cursorAtDecision = new Map<number, { object: typeof cursorObject; at: typeof cursorAt }>();
   for (const event of trace.events as readonly TraceEvent[]) {
     const data = record(event.data) ? event.data : {};
-    if (event.type === 'policy.decision' && typeof data.step === 'number') observedAt = data.step;
+    if (event.type === 'policy.decision' && typeof data.step === 'number') { observedAt = data.step; cursorAtDecision.set(data.step, { object: cursorObject, at: cursorAt }); }
     else if (event.type === 'backend.output' && record(data.output) && record(data.output.raw) && record(data.output.raw.semantic)) {
       const semantic = data.output.raw.semantic;
       cursorObject = { ...(typeof semantic.role === 'string' ? { role: semantic.role } : {}), ...(typeof semantic.name === 'string' && semantic.name ? { name: semantic.name } : {}) };
@@ -279,12 +285,14 @@ export function extractHints(trace: Readonly<RunTrace>, options: HintOptions = {
       const revision = record(data.evidence.revision) ? data.evidence.revision : undefined, doc = record(data.evidence.document) ? data.evidence.document : undefined;
       const broken = Array.isArray(revision?.broken) ? revision.broken.filter((id): id is string => typeof id === 'string') : [];
       const assumptions = Array.isArray(doc?.assumptions) ? doc.assumptions.filter(record) : [];
+      const step = data.step, press = actions.filter(a => a.step < step).slice(-PRESS_WINDOW).reverse().find(isActivation);
+      const on = press ? cursorAtDecision.get(press.step) : { object: cursorObject, at: cursorAt };
       for (const id of broken) {
         const text = assumptions.find(a => a.id === id)?.text;
         add({ kind: 'expectation-broken', certainty: 'observed', steps: [data.step],
-          summary: `The user's expectation ${id} broke${typeof text === 'string' ? `: "${text}"` : ''}; the planner wrote plan v${String(revision?.version ?? '')}.`,
+          summary: `The user's expectation ${id} broke${typeof text === 'string' ? `: "${text}"` : ''}${press ? ` after pressing at step ${press.step}` : ''}; the planner wrote plan v${String(revision?.version ?? '')}.`,
           detail: { assumption: { id, ...(typeof text === 'string' ? { text } : {}) }, version: revision?.version, trigger: revision?.trigger, ...(triedIds.has(id) ? { gaveUpOn: true } : {}),
-            ...(cursorAt ? { location: cursorAt } : {}) }, evidence: [event.id] }, cursorObject);
+            ...(press ? { pressed: press.step } : {}), ...(on?.at ? { location: on.at } : {}) }, evidence: [event.id, ...(press ? [press.eventId] : [])] }, on?.object);
       }
     }
   }
