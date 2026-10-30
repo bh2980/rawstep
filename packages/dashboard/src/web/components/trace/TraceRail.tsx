@@ -116,9 +116,9 @@ function tick(kind: StepGlyph, current: boolean): string {
   }
 }
 
-/** Under a step's number on the detail rail: the plan was revised here (↻) or the run hit the replanning limit (■). */
-export function PlanMark({ kind }: { kind: 'replan' | 'limit' }) {
-  return <span aria-hidden="true" className={cn('font-mono text-[11px] leading-3', kind === 'limit' ? 'text-inspect' : 'text-model')}>{kind === 'limit' ? '■' : '↻'}</span>;
+/** Under a step's number on the detail rail: the plan was revised here (↻), an expectation of the user broke (◇), or the run hit the planner-call limit (■). */
+export function PlanMark({ kind }: { kind: 'replan' | 'limit' | 'broken' }) {
+  return <span aria-hidden="true" className={cn('font-mono text-[11px] leading-3', kind === 'replan' ? 'text-model' : kind === 'broken' ? 'text-missed' : 'text-inspect')}>{kind === 'limit' ? '■' : kind === 'broken' ? '◇' : '↻'}</span>;
 }
 
 /** What each glyph on the rails means. The low-certainty mark only exists for Decision models, the not-run mark only while live, the plan marks only with a planner. */
@@ -135,6 +135,7 @@ export function RailLegend({ modelKind, live, planned }: { modelKind: ModelKind;
   return <ul aria-label={t('runPage.legendLabel')} className="flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted-foreground">
     {items.map(item => <li key={item.kind} className="flex items-center gap-1.5"><GlyphMark kind={item.kind} className="scale-90" />{item.text}</li>)}
     {planned && <li className="flex items-center gap-1.5"><PlanMark kind="replan" />{t('runPage.legendReplan')}</li>}
+    {planned && <li className="flex items-center gap-1.5"><PlanMark kind="broken" />{t('runPage.legendBroken')}</li>}
     {planned && <li className="flex items-center gap-1.5"><PlanMark kind="limit" />{t('runPage.legendLimit')}</li>}
   </ul>;
 }

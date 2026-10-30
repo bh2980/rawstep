@@ -65,8 +65,9 @@ export function taskName(plan: RunPlanView, taskId: string | undefined): string 
 }
 
 /** Whether a step holds a new plan version that corrected the plan, or the stop at the replanning limit. */
-export function planMark(step: Pick<StepView, 'plan'>): 'replan' | 'limit' | undefined {
+export function planMark(step: Pick<StepView, 'plan' | 'hints'>): 'replan' | 'limit' | 'broken' | undefined {
   const events = step.plan?.events ?? [];
   if (events.some(event => event.kind === 'limit')) return 'limit';
+  if (step.hints.includes('expectation-broken')) return 'broken';
   return events.some(event => event.kind === 'plan' && event.reason !== 'start' && event.reason !== 'checkpoint') ? 'replan' : undefined;
 }

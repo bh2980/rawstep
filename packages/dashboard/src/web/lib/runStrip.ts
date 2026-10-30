@@ -1,6 +1,7 @@
 import type { RunRecord, RunState } from '../../shared/config.js';
 import { t } from '../i18n/index.js';
 import { runStateLabel } from '../i18n/labels.js';
+import { runEnding, type RunEnding } from '../../shared/results.js';
 
 /** What a run is drawn as: a filled square when the goal was reached, a striped one when not, a hollow one when it is undecided or ended early. */
 export type RunGlyphKind = 'reached' | 'missed' | 'inconclusive' | 'live';
@@ -23,9 +24,18 @@ export function displayState(run: Pick<RunRecord, 'state' | 'outcome'>): RunStat
   return run.state === 'failure' && (reason === 'error' || reason === 'trace-persistence-error') ? 'inconclusive' : run.state;
 }
 
-/** The result of a run in words: the goal was reached or not, or, for a run that stopped on an error, that it ended on an error. */
-export function resultLabel(run: Pick<RunRecord, 'state' | 'outcome'>): string {
+/** How a finished run ended (reached, gave up, mistaken, not measured); undefined while it runs or when it stopped on an error. */
+export function finishedEnding(run: Pick<RunRecord, 'state' | 'outcome'>): ReturnType<typeof runEnding> {
   const reason = run.outcome?.reason;
+  if (!['success', 'failure', 'inconclusive'].includes(run.state) || reason === 'error' || reason === 'trace-persistence-error') return undefined;
+  return runEnding(run.outcome);
+}
+export const endingGlyph = (ending: RunEnding): RunGlyphKind => ending === 'reached' ? 'reached' : ending === 'unmeasured' ? 'inconclusive' : 'missed';
+
+/** The result of a run in words: how it ended, or, for a run that stopped on an error, that it ended on an error. */
+export function resultLabel(run: Pick<RunRecord, 'state' | 'outcome'>): string {
+  const reason = run.outcome?.reason, ended = finishedEnding(run);
+  if (ended) return t(`taskPage.results.endings.${ended.ending}`) + (ended.by ? ` (${t(`taskPage.results.by.${ended.by}`)})` : '');
   return run.state === 'failure' && (reason === 'error' || reason === 'trace-persistence-error') ? t('runStrip.errored') : runStateLabel(run.state);
 }
 

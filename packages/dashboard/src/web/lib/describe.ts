@@ -119,6 +119,10 @@ export function describeHint(hint: Pick<Hint, 'kind' | 'summary' | 'detail'> & P
     case 'unverified-done': return t('hints.text.unverifiedDone', { task: str(d.taskId) ?? '' });
     case 'wanted-to-give-up': return t('hints.text.wantedToGiveUp', { reason: str(d.reason) ?? '' });
     case 'goal-word-stretch': return t('hints.text.goalWordStretch', { from: String(d.from ?? ''), to: String(d.to ?? ''), moves: String(d.moves ?? '') });
+    case 'expectation-broken': {
+      const assumption = d.assumption && typeof d.assumption === 'object' ? d.assumption as Record<string, unknown> : {};
+      return t(str(assumption.text) ? 'hints.text.expectationBroken' : 'hints.text.expectationBrokenUnnamed', { id: str(assumption.id) ?? '', text: str(assumption.text) ?? '', version: String(d.version ?? '') });
+    }
     case 'focus-left-page': {
       const action = str(d.action);
       return action ? t('hints.text.focusLeftPageAfter', { action }) : t('hints.text.focusLeftPage');

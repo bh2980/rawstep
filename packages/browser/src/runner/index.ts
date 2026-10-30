@@ -49,6 +49,8 @@ export type RunOptions = {
   personCheck?: { userDataDir?: string; timeoutMs?: number };
 };
 const PERSON_CHECK_TIMEOUT_MS = 5 * 60_000, PERSON_CHECK_POLL_MS = 1000, PERSON_CHECK_CLEAR_MS = 3000;
+/** Chromium cannot capture taller images reliably, and pins far down a page are found from the step screenshots instead. */
+const START_PAGE_MAX_HEIGHT = 16_000;
 /** Text entry found no editable focused field; recorded as the `not-editable` failure the model may see. */
 class NotEditableError extends Error { constructor() { super('Text entry requires an editable focused field.'); this.name = 'NotEditableError'; } }
 class BudgetExceeded extends Error { constructor() { super('Run time budget exceeded.'); this.name = 'BudgetExceeded'; } }
@@ -297,7 +299,8 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
       const title = pageTitle && heardTitles.has(pageTitle) ? pageTitle : undefined;
       const observation: Observation = { kind: 'screenreader', ...(options.backend.evidenceProvenance ? { provenance: options.backend.evidenceProvenance } : {}), speech: [...collected.speech], outputEventIds: ids, window: { id: collected.windowId, startedAt: collected.startedAt, endedAt: collected.endedAt, reason: collected.reason },
         ...(title ? { title: title.slice(0, 300) } : {}) };
-      append(`${speechSource}.observation`, { ...observation, ...(inputTainted ? { speech: ['[REDACTED]'], ...(title ? { title: '[REDACTED]' } : {}) } : {}), association: 'temporal-only', speechCompletionKnown: false }, { source: speechSource, redacted: inputTainted, collectionWindow: { startedAt: collected.startedAt, endedAt: collected.endedAt } });
+      // Where the cursor sat is for people reading the run: it goes into the trace, never into the observation a policy gets.
+      append(`${speechSource}.observation`, { ...observation, ...(inputTainted ? { speech: ['[REDACTED]'], ...(title ? { title: '[REDACTED]' } : {}) } : collected.cursor ? { cursor: collected.cursor } : {}), association: 'temporal-only', speechCompletionKnown: false }, { source: speechSource, redacted: inputTainted, collectionWindow: { startedAt: collected.startedAt, endedAt: collected.endedAt } });
       return observation;
     };
     let observation = await observe();
@@ -310,6 +313,15 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
       const path = join(options.outDir, 'diagnostics', `step-${step}.png`);
       await withinBudget(() => browser!.page.screenshot({ path }));
       append('browser.screenshot', { step, path: `diagnostics/step-${step}.png`, policyVisible: false }, { source: 'browser-diagnostic' });
+    };
+    /** The whole start page, to show where on it runs got stuck. Very long pages are cut at START_PAGE_MAX_HEIGHT. */
+    const startPageScreenshot = async () => {
+      if (!options.diagnosticScreenshots || inputTainted || typeof browser!.page.evaluate !== 'function' || typeof browser!.page.url !== 'function') return;
+      const size = await withinBudget(() => browser!.page.evaluate(() => ({ width: document.documentElement.scrollWidth, height: document.documentElement.scrollHeight })).catch(() => undefined));
+      if (!size) return;
+      const height = Math.min(size.height, START_PAGE_MAX_HEIGHT), path = join(options.outDir, 'diagnostics', 'start-page.png');
+      await withinBudget(() => browser!.page.screenshot({ path, fullPage: true, clip: { x: 0, y: 0, width: size.width, height } }));
+      append('browser.start-page', { path: 'diagnostics/start-page.png', width: size.width, height, pageHeight: size.height, url: browser!.page.url(), policyVisible: false }, { source: 'browser-diagnostic' });
     };
     const verify = async (step: number): Promise<VerificationRecord> => {
       stage = 'verification';
@@ -340,6 +352,7 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
       append('verifier.baseline', { error: error instanceof Error ? error.name : 'Error' }, { source: 'verifier' });
     }
     await diagnosticScreenshot(0);
+    await startPageScreenshot();
     const grace = observation.kind === 'screenreader' ? Math.max(0, Math.floor(options.confirmationGrace ?? 0)) : 0;
     let reached: { step: number; heard: boolean | undefined } | undefined;
     for (let step = 1; step <= task.maxSteps!; step++) {

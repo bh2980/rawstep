@@ -130,7 +130,12 @@ export type InputDescriptor = { sensitive: boolean; description?: string; value?
 export type BackendAction = { kind: 'intent'; intent: string } | { kind: 'key'; key: string } | { kind: 'typeText' | 'replaceText'; text: string; sensitive?: boolean };
 export type BackendCapabilities = { intents: readonly string[]; keys: readonly string[]; textEntry: boolean; replaceText: boolean };
 export type BackendOutput = { sequence: number; receivedAt: string; text: string; raw: unknown };
-export type BackendSpeechObservation = { kind?: 'screenreader'; windowId: string; startedAt: string; endedAt: string; reason: string; outputs: readonly BackendOutput[]; speech: readonly string[] };
+/**
+ * Where the screen reader cursor sits on screen, for people reading a run: its box in viewport CSS pixels, how far the page was
+ * scrolled and the viewport size. It is recorded in the trace and never given to a policy.
+ */
+export type CursorLocation = { rect: { x: number; y: number; width: number; height: number }; scroll: { x: number; y: number }; viewport: { width: number; height: number }; url: string };
+export type BackendSpeechObservation = { kind?: 'screenreader'; windowId: string; startedAt: string; endedAt: string; reason: string; outputs: readonly BackendOutput[]; speech: readonly string[]; cursor?: CursorLocation };
 export type BackendKeyboardObservation = { kind: 'keyboard'; windowId: string; startedAt: string; endedAt: string; reason: string; screenshot: ScreenshotObservation; previousScreenshot?: ScreenshotObservation };
 export type BackendObservation = BackendSpeechObservation | BackendKeyboardObservation;
 /** Generic backend boundary: transport and platform semantics belong in adapters. */

@@ -23,7 +23,7 @@ const checkout = { role: 'button', name: 'Checkout' };
  * Sequential runs of one task with the given outcomes (keyboard mode unless told); each run's hints.json is then replaced by a fake
  * report. `heard` records a `goal.reached` event saying whether the user heard the goal.
  */
-async function launch(outcomes: { status: 'success' | 'failure'; steps: number; hints: Hint[]; heard?: boolean }[], mode: 'keyboard' | 'screenreader' = 'keyboard') {
+async function launch(outcomes: { status: 'success' | 'failure'; steps: number; hints: Hint[]; heard?: boolean; reason?: 'policy-stuck'; stopSource?: 'user-gave-up' }[], mode: 'keyboard' | 'screenreader' = 'keyboard') {
   const dir = await mkdtemp(join(tmpdir(), 'rawstep-findings-')); dirs.push(dir);
   const store = new ProjectStore(dir), initial = await store.initialize(), config = defaultConfig();
   config.connections.push(connection('a'), connection('llm', { kind: 'llm' })); config.profiles[0] = plannedWith(profileWith('default', 'a', 'm-a', 'Default', mode), 'llm');
@@ -33,7 +33,7 @@ async function launch(outcomes: { status: 'success' | 'failure'; steps: number; 
     const trace = new TraceRecorder({ ...actual, id: 'fixture' }, out); await trace.initialize();
     const outcome = outcomes[run.repeat - 1]!;
     if (outcome.heard !== undefined) trace.append('goal.reached', { step: outcome.steps, heard: outcome.heard, grace: 0 });
-    return trace.finalize({ status: outcome.status, steps: outcome.steps });
+    return trace.finalize({ status: outcome.status, steps: outcome.steps, ...(outcome.reason ? { reason: outcome.reason, step: outcome.steps } : {}), ...(outcome.stopSource ? { policyStopSource: outcome.stopSource } : {}) });
   } }); apps.push(app);
   const experiment = await app.queue.create({ taskIds: ['task'], profileIds: ['default'], repeats: outcomes.length });
   await waitFor(() => experiment.runs.every(run => run.reportStatus === 'complete'));
@@ -58,7 +58,10 @@ describe('task findings and summary', () => {
     const { app, experiment, runs } = await launch(outcomes);
     const findings = await (await fetch(app.url + '/api/tasks/task/findings')).json() as TaskFindings;
     expect(findings.facts).toEqual({ runs: 4, reached: 3, medianSteps: 9, fastest: { experimentId: experiment.id, runId: runs[1]!.id, steps: 2 },
-      byProfile: [{ profileId: 'default', mode: 'keyboard', runs: 4, reached: 3, medianSteps: 9, minSteps: 2, maxSteps: 20, unheard: 0, topTarget: checkout }] });
+      byProfile: [{ profileId: 'default', mode: 'keyboard', runs: 4, reached: 3, endings: { reached: 3, 'gave-up': 0, mistaken: 0, unmeasured: 1 }, unmeasuredBy: { other: 1 },
+        medianSteps: 7, minSteps: 2, maxSteps: 11, unheard: 0, topTarget: checkout, conditions: { combo: 'Default', at: 'Default' }, differing: 0, longestStretch: null }] });
+    // Reaching the goal is what the cost is counted over; a run that ended another way is counted by how it ended.
+    expect(findings.results.map(r => [r.ending, r.steps])).toEqual([['reached', 11], ['reached', 2], ['unmeasured', 20], ['reached', 7]]);
     // Run-level hints (slow-run) are not findings; findings are ordered by how many runs show them.
     expect(findings.findings.map(f => [f.kind, f.source, f.runs, f.totalRuns])).toEqual([['model-hesitation', 'model', 4, 4], ['excess-keystrokes', 'page', 3, 4], ['focus-lost', 'page', 1, 4]]);
     const keystrokes = findings.findings[1]!;
@@ -69,7 +72,7 @@ describe('task findings and summary', () => {
   it('answers with empty facts for a task that has no runs', async () => {
     const { app } = await launch(outcomes.slice(0, 1));
     const none = await (await fetch(app.url + '/api/tasks/ghost/findings')).json() as TaskFindings;
-    expect(none).toEqual({ taskId: 'ghost', facts: { runs: 0, reached: 0, medianSteps: null, fastest: null, byProfile: [] }, findings: [] });
+    expect(none).toEqual({ taskId: 'ghost', facts: { runs: 0, reached: 0, medianSteps: null, fastest: null, byProfile: [] }, findings: [], results: [], stuck: [] });
   });
 
   it('counts screen reader runs that reached the goal without the user hearing it', async () => {
@@ -79,7 +82,23 @@ describe('task findings and summary', () => {
       { status: 'failure', steps: 12, hints: [] },
     ], 'screenreader');
     const findings = await (await fetch(app.url + '/api/tasks/task/findings')).json() as TaskFindings;
-    expect(findings.facts.byProfile).toEqual([{ profileId: 'default', mode: 'screenreader', runs: 3, reached: 2, medianSteps: 9, minSteps: 5, maxSteps: 12, unheard: 1, topTarget: null }]);
+    expect(findings.facts.byProfile).toEqual([{ profileId: 'default', mode: 'screenreader', runs: 3, reached: 2, endings: { reached: 2, 'gave-up': 0, mistaken: 0, unmeasured: 1 }, unmeasuredBy: { other: 1 },
+      medianSteps: 7, minSteps: 5, maxSteps: 9, unheard: 1, topTarget: null, conditions: { combo: 'Default', at: 'Default' }, differing: 0, longestStretch: null }]);
+  });
+
+  it('tells how each run ended and where the user\'s expectations broke, with the give-ups that rest on them', async () => {
+    const text = { role: 'StaticText', name: 'Add to cart' };
+    const broke = (id: string, gaveUpOn?: boolean) => ({ ...hint('expectation-broken', text, { assumption: { id, text: 'The add control is a button' }, ...(gaveUpOn ? { gaveUpOn } : {}) }), steps: [17] });
+    const { app, runs } = await launch([
+      { status: 'failure', steps: 34, reason: 'policy-stuck', stopSource: 'user-gave-up', hints: [broke('A3', true),
+        { ...hint('early-stop', undefined, { stopSource: 'user-gave-up', giveUp: { reason: 'Nothing adds it', tried: ['A3'] } }), steps: [34] }, hint('goal-word-stretch', undefined, { moves: 9 })] },
+      { status: 'success', steps: 290, hints: [broke('A1'), hint('goal-word-stretch', undefined, { moves: 58 })] },
+    ], 'screenreader');
+    const findings = await (await fetch(app.url + '/api/tasks/task/findings')).json() as TaskFindings;
+    expect(findings.results.map(r => [r.ending, r.steps, r.stretch, r.stuck])).toEqual([['gave-up', 34, 9, [{ place: 0, step: 17 }]], ['reached', 290, 58, [{ place: 0, step: 17 }]]]);
+    expect(findings.results[0]!.giveUp).toEqual({ reason: 'Nothing adds it', step: 34, tried: [{ id: 'A3', text: 'The add control is a button', step: 17, target: text }] });
+    expect(findings.stuck).toEqual([{ target: text, runs: 2, totalRuns: 2, byProfile: [{ profileId: 'default', mode: 'screenreader', runs: 2 }], gaveUpOn: 1, assumptions: ['The add control is a button'] }]);
+    expect(findings.facts.byProfile[0]).toMatchObject({ endings: { reached: 1, 'gave-up': 1 }, medianSteps: 290, longestStretch: { moves: 58, runId: runs[1]!.id } });
   });
 
   it('keeps findings until the set of finished runs changes', async () => {

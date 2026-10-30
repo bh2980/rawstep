@@ -2,7 +2,7 @@ import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import type { Decision, DecisionPolicy, HistoryEntry } from '@rawstep/core/contracts';
 import type { ChoiceCandidate, ChoiceModel, ModelFailure } from './choice.js';
 import { modelHistory, type ModelHistoryEntry } from './history.js';
-import { applyDraft, cueText, currentTask, failCurrent, finishCurrent, goalNamed, goalRelated, markCheckpoint, needsCheckpoint, phaseOf, matchCue, planOutline, planTasks, verifyCue,
+import { applyDraft, cueText, currentTask, failCurrent, finishCurrent, goalLeads, goalNamed, markCheckpoint, needsCheckpoint, phaseOf, matchCue, planOutline, planTasks, verifyCue,
   type GiveUp, type HelpReason, type PlanDocument, type PlanDraft, type PlanTask, type PlanTrigger } from './plan-document.js';
 import { currentItem, currentItemState, speechChoices, speechGuardStop, type SpeechPolicyOptions } from './speech.js';
 
@@ -39,8 +39,9 @@ export type PlanRequest = {
 export type Effort = { moves: number; sinceLastLook: number; withoutGoalWords: number; longestWithoutGoalWords: number };
 /** Moves in a row without hearing a word of the goal, now and at most, from what each action left the cursor on. */
 export function goalWordStretch(goal: string, items: readonly (string | undefined)[]): { current: number; longest: number } {
+  const lead = goalLeads(goal);
   let current = 0, longest = 0;
-  for (const item of items) { current = item && goalRelated(goal, item) ? 0 : current + 1; longest = Math.max(longest, current); }
+  for (const item of items) { current = lead(item) ? 0 : current + 1; longest = Math.max(longest, current); }
   return { current, longest };
 }
 /** `prompt` fingerprints the planner's full instructions, so runs with different planner instructions stay apart. */

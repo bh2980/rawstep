@@ -1,5 +1,5 @@
 import type { CDPSession, Page } from '@rawstep/browser/types';
-import type { Backend, BackendAction, BackendOperationOptions, BackendOutput, BackendSession, BackendSpeechObservation } from '@rawstep/core/contracts';
+import type { Backend, BackendAction, BackendOperationOptions, BackendOutput, BackendSession, BackendSpeechObservation, CursorLocation } from '@rawstep/core/contracts';
 import { formatSimulatedSpeech, type SimulatedSemanticNode } from './semantics.js';
 
 export { formatSimulatedSpeech, type SimulatedSemanticNode } from './semantics.js';
@@ -374,6 +374,36 @@ export class MockVoiceOverBackend implements Backend {
     } finally { await originalFocus.dispose().catch(() => {}); }
   }
 
+  /**
+   * Scrolls the cursor's object into view, as VoiceOver keeps its cursor on screen, and says where it is. For people reading
+   * the run (screenshots, the start page); nothing here reaches a policy. Undefined when the object has no box.
+   */
+  private async locate(signal?: AbortSignal): Promise<CursorLocation | undefined> {
+    const node = this.current();
+    if (node?.backendDOMNodeId === undefined) return undefined;
+    const session = await this.cdp(signal);
+    const { object } = await session.send('DOM.resolveNode', { backendNodeId: node.backendDOMNodeId }).catch(() => ({ object: { objectId: undefined } }));
+    if (!object.objectId) return undefined;
+    try {
+      const result = await session.send('Runtime.callFunctionOn', {
+        objectId: object.objectId,
+        functionDeclaration: `function() {
+          const element = this.nodeType === Node.TEXT_NODE ? this.parentElement : this;
+          if (!(element instanceof Element) || !element.isConnected) return null;
+          const box = () => { if (this.nodeType !== Node.TEXT_NODE) return element.getBoundingClientRect(); const range = document.createRange(); range.selectNodeContents(this); return range.getBoundingClientRect(); };
+          let r = box();
+          if (r.width === 0 && r.height === 0) return null;
+          if (r.bottom < 0 || r.top > innerHeight || r.right < 0 || r.left > innerWidth) { element.scrollIntoView({ block: 'center', inline: 'nearest' }); r = box(); }
+          return { rect: { x: r.x, y: r.y, width: r.width, height: r.height }, scroll: { x: scrollX, y: scrollY }, viewport: { width: innerWidth, height: innerHeight }, url: location.href };
+        }`,
+        returnByValue: true,
+      });
+      signal?.throwIfAborted();
+      return result.exceptionDetails ? undefined : (result.result.value as CursorLocation | null) ?? undefined;
+    } catch { signal?.throwIfAborted(); return undefined; }
+    finally { await session.send('Runtime.releaseObject', { objectId: object.objectId }).catch(() => {}); }
+  }
+
   async observe({ signal }: BackendOperationOptions = {}): Promise<BackendSpeechObservation> {
     signal?.throwIfAborted();
     this.getPage();
@@ -388,10 +418,11 @@ export class MockVoiceOverBackend implements Backend {
       this.flushLive();
       this.lastCurrentFingerprint = this.currentFingerprint();
       signal?.throwIfAborted();
+      const cursor = await this.locate(signal);
       const observation = {
         kind: 'screenreader' as const, evidenceProvenance: 'simulation' as const, profile: this.wording?.profile ?? MOCK_VOICEOVER_PROFILE,
         windowId: window.id, startedAt: window.startedAt, endedAt: new Date().toISOString(), reason: 'simulation-snapshot',
-        outputs: [...window.outputs], speech: window.outputs.map(output => output.text),
+        outputs: [...window.outputs], speech: window.outputs.map(output => output.text), ...(cursor ? { cursor } : {}),
       };
       this.window = undefined;
       return observation;

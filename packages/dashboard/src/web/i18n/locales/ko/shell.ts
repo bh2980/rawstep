@@ -108,5 +108,6 @@ export const shell = {
     combobox: '콤보박스', listbox: '목록 상자', slider: '슬라이더', spinbutton: '숫자 입력', tab: '탭', menuitem: '메뉴 항목',
     dialog: '대화상자', alertdialog: '경고 대화상자', alert: '경고', status: '상태 안내', log: '로그', heading: '제목',
     navigation: '탐색 영역', main: '본문', banner: '머리글', contentinfo: '바닥글', complementary: '보조 영역', search: '검색 영역', form: '폼', region: '영역',
+    StaticText: '글자', image: '이미지', img: '이미지', paragraph: '문단', listitem: '목록 항목', list: '목록', option: '선택지', group: '묶음',
   },
 } as const;

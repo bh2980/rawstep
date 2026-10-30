@@ -29,6 +29,7 @@ export function publicOutcome(outcome: unknown): RunRecord['outcome'] {
     ...(typeof o.steps === 'number' ? { steps: o.steps } : {}),
     ...(typeof o.stage === 'string' ? { stage: o.stage } : {}),
     ...(typeof o.step === 'number' ? { step: o.step } : {}),
+    ...(typeof o.policyStopSource === 'string' ? { stopSource: o.policyStopSource } : {}),
   };
 }
 const DETAIL_LIMIT = 600;

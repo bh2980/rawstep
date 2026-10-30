@@ -83,7 +83,7 @@ export function dotLabel(step: StepView, unsure: boolean): string {
   if (step.hints.length) parts.push(t('runPage.dotHints'));
   if (unsure) parts.push(t('runPage.dotUnsure'));
   const mark = planMark(step);
-  if (mark) parts.push(t(mark === 'replan' ? 'runPage.dotReplan' : 'runPage.dotLimit'));
+  if (mark) parts.push(t(mark === 'replan' ? 'runPage.dotReplan' : mark === 'broken' ? 'runPage.dotBroken' : 'runPage.dotLimit'));
   return parts.join(', ');
 }
 

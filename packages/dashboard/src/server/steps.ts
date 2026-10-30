@@ -17,8 +17,14 @@ const viewportOf = (screenshot: unknown): { w: number; h: number } | undefined =
     ? { w: screenshot.viewport.w, h: screenshot.viewport.h } : undefined;
 const rules = (value: unknown) => Array.isArray(value) ? value.filter(record).map(r => ({ ruleIndex: Number(r.ruleIndex), ruleType: String(r.ruleType), passed: r.passed === true })) : [];
 
+/** The screen reader cursor's box in a step's screenshot, when the observation recorded one. */
+function cursorOf(value: unknown): StepView['cursor'] {
+  if (!record(value) || !record(value.rect) || !record(value.viewport)) return undefined;
+  const { x, y, width, height } = value.rect, { width: w, height: h } = value.viewport;
+  return [x, y, width, height, w, h].every(n => typeof n === 'number' && Number.isFinite(n)) ? { rect: { x: x as number, y: y as number, width: width as number, height: height as number }, viewport: { w: w as number, h: h as number } } : undefined;
+}
 /** Where the runner writes a screen reader run's diagnostic screenshots, relative to the run directory. */
-export const DIAGNOSTIC_PATH = /^diagnostics\/step-\d{1,5}\.png$/;
+export const DIAGNOSTIC_PATH = /^diagnostics\/(step-\d{1,5}|start-page)\.png$/;
 /** Hosts and markers of bot checks a run cannot get past; Rawstep never tries to. */
 const BOT_CHECK = /(^|\.)(challenges\.cloudflare\.com|hcaptcha\.com|recaptcha\.net)$|^www\.google\.com$/;
 const hostOf = (url: unknown) => { try { return typeof url === 'string' ? new URL(url).hostname : undefined; } catch { return undefined; } };
@@ -220,6 +226,8 @@ export function buildSteps({ experimentId, runId, events, hints = [], live }: St
         const provenance = data.provenance === 'native' || data.provenance === 'simulation' ? data.provenance : event.type === 'simulation.observation' ? 'simulation' : 'unspecified';
         target.speech = { lines: [...(target.speech?.lines ?? []), ...lines], provenance };
       }
+      const cursor = cursorOf(data.cursor);
+      if (cursor) target.cursor = cursor;
     } else if (event.type === 'policy.evidence') {
       const e = record(data.evidence) ? data.evidence : {};
       const call = callOf(record(data.evidence) ? data.evidence : record(data.summary) ? data.summary : {});

@@ -1,7 +1,8 @@
-import { aggregateHints, extractHints, selectReference, type HintFinding } from '@rawstep/reports/hints';
+import { aggregateHints, extractHints, HINTS_SCHEMA_VERSION, selectReference, type Hint, type HintFinding, type HintTarget } from '@rawstep/reports/hints';
 import { readTrace, type RunTrace, type TraceEvent } from '@rawstep/core/trace';
 import type { AnalysisReport } from '@rawstep/reports';
-import type { HintReport, RunExplanation, RunHintsView, RunStepsView, TaskFindings, TaskSummary } from '../shared/api.js';
+import type { HintReport, ProfileFacts, RunExplanation, RunHintsView, RunResult, RunStepsView, StuckPlace, TaskFindings, TaskSummary } from '../shared/api.js';
+import { runEnding } from '../shared/results.js';
 import type { RunRecord } from '../shared/config.js';
 import { readOptional, type ProjectStore } from '@rawstep/project/store';
 import { HttpError } from './http.js';
@@ -10,14 +11,23 @@ import { buildPlan, buildSteps, eventSteps } from './steps.js';
 
 const live = (run: RunRecord) => run.state === 'queued' || run.state === 'running';
 const finished = (run: RunRecord) => run.state === 'success' || run.state === 'failure' || run.state === 'inconclusive';
+const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
+type RunFacts = { unheard: boolean; startPage?: { eventId: string; width: number; height: number; url: string } };
+/** Where a recorded cursor location sat on the start page, in page pixels; undefined when it was on another page. */
+function pageBox(location: unknown, startUrl: string): StuckPlace['location'] {
+  if (!record(location) || !record(location.rect) || !record(location.scroll) || typeof location.url !== 'string') return undefined;
+  const sameDocument = (a: string, b: string) => a.split('#')[0] === b.split('#')[0];
+  const { x, y, width, height } = location.rect, { x: sx, y: sy } = location.scroll;
+  if (!sameDocument(location.url, startUrl) || ![x, y, width, height, sx, sy].every(n => typeof n === 'number')) return undefined;
+  return { x: (x as number) + (sx as number), y: (y as number) + (sy as number), width: width as number, height: height as number };
+}
 const median = (values: number[]) => { if (!values.length) return null; const s = [...values].sort((a, b) => a - b), m = s.length >> 1; return s.length % 2 ? s[m]! : (s[m - 1]! + s[m]!) / 2; };
 
 /** Read-only projections of saved run files for the dashboard UI. */
 export class RunViews {
-  /** Findings per task, valid while the task's set of finished runs is the one they were computed from. */
-  private readonly findingsCache = new Map<string, { key: string; findings: HintFinding[] }>();
-  /** Whether a finished run reached its goal unheard; a finished run's journal does not change. */
-  private readonly unheardCache = new Map<string, boolean>();
+  /** Findings and hint reports per task, valid while the task's set of finished runs is the one they were computed from. */
+  private readonly findingsCache = new Map<string, { key: string; findings: HintFinding[]; reports: Map<string, HintReport> }>();
+  private readonly factsCache = new Map<string, RunFacts>();
   constructor(private readonly store: ProjectStore, private readonly queue: ExperimentQueue) {}
   private dir(experimentId: string, runId: string) { return this.store.file('.rawstep/experiments/' + experimentId + '/' + runId); }
   /** trace.jsonl is append-only, so a partly written last line of a live run is skipped rather than failing the request. */
@@ -78,6 +88,15 @@ export class RunViews {
       .flatMap(experiment => experiment.runs.filter(run => run.taskId === taskId).map(run => ({ experimentId: experiment.id, run, at: run.startedAt ?? experiment.createdAt })))
       .sort((a, b) => a.at.localeCompare(b.at) || a.run.repeat - b.run.repeat);
   }
+  /**
+   * The hints of a finished run: its hints.json, or the hints worked out again from its trace when they were saved by an older
+   * Rawstep (they would lack kinds added since).
+   */
+  private async currentHints(experimentId: string, runId: string): Promise<HintReport | undefined> {
+    const saved = await this.savedHints(experimentId, runId);
+    if (!saved?.schemaVersion || saved.schemaVersion === HINTS_SCHEMA_VERSION) return saved;
+    return await this.trace(experimentId, runId).then(t => t && extractHints(t)) ?? saved;
+  }
   private async taskData(taskId: string) {
     // A run that never got going (the browser or model could not start) is not evidence about the page.
     const entries = this.taskEntries(taskId), done = entries.filter(entry => finished(entry.run) && entry.run.outcome?.reason !== 'error');
@@ -88,56 +107,113 @@ export class RunViews {
     let cached = this.findingsCache.get(taskId);
     if (cached?.key !== key) {
       // hints.json names the trace's run id; findings must point at the dashboard run so links and run numbers resolve.
-      const reports = (await Promise.all(done.map(async entry => {
-        const report = await this.savedHints(entry.experimentId, entry.run.id);
+      const reports = await Promise.all(done.map(async entry => {
+        const report = await this.currentHints(entry.experimentId, entry.run.id);
         return report ? { ...report, runId: entry.run.id } : undefined;
-      }))).filter((report): report is HintReport => !!report);
-      cached = { key, findings: aggregateHints(reports) };
+      }));
+      const readable = reports.filter((report): report is HintReport => !!report);
+      cached = { key, findings: aggregateHints(readable), reports: new Map(readable.map(report => [report.runId, report])) };
       // A missing hints.json may still be written; only a complete set is kept.
-      if (reports.length === done.length) this.findingsCache.set(taskId, cached); else this.findingsCache.delete(taskId);
+      if (readable.length === done.length) this.findingsCache.set(taskId, cached); else this.findingsCache.delete(taskId);
     }
-    const unheard = new Set<string>();
-    for (const entry of reached) if (await this.unheard(entry.experimentId, entry.run.id)) unheard.add(entry.run.id);
+    const reports = cached.reports;
+    const facts = new Map<string, RunFacts>();
+    for (const entry of done) facts.set(entry.run.id, await this.runFacts(entry.experimentId, entry.run.id));
+    const hintsOf = (runId: string, kind: Hint['kind']) => reports.get(runId)?.hints.filter(hint => hint.kind === kind) ?? [];
+
+    // The start page to place stuck objects on: the newest screen reader run that recorded one.
+    const pageOf = [...done].reverse().find(entry => facts.get(entry.run.id)?.startPage);
+    const startPage = pageOf ? { ...facts.get(pageOf.run.id)!.startPage!, experimentId: pageOf.experimentId, runId: pageOf.run.id } : undefined;
+    const screenReaderRuns = done.filter(entry => entry.run.mode === 'screenreader');
+    const broken = cached.findings.filter(finding => finding.kind === 'expectation-broken' && finding.target);
+    const stuck: StuckPlace[] = broken.map(finding => {
+      const runIds = new Set(finding.occurrences.map(o => o.runId)), counts = new Map<string, number>(), byProfile = new Map<string, StuckPlace['byProfile'][number]>();
+      for (const o of finding.occurrences) { const text = record(o.detail.assumption) && typeof o.detail.assumption.text === 'string' ? o.detail.assumption.text : undefined; if (text) counts.set(text, (counts.get(text) ?? 0) + 1); }
+      for (const entry of done.filter(entry => runIds.has(entry.run.id))) {
+        const group = `${entry.run.profileId}\u0000${entry.run.mode}`, item = byProfile.get(group) ?? { profileId: entry.run.profileId, mode: entry.run.mode, runs: 0 };
+        item.runs++; byProfile.set(group, item);
+      }
+      const location = startPage && finding.occurrences.map(o => pageBox(o.detail.location, startPage.url)).find(Boolean);
+      return { target: finding.target!, runs: runIds.size, totalRuns: screenReaderRuns.length, byProfile: [...byProfile.values()],
+        gaveUpOn: new Set(finding.occurrences.filter(o => o.detail.gaveUpOn === true).map(o => o.runId)).size,
+        assumptions: [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([text]) => text).slice(0, 3), ...(location ? { location } : {}) };
+    }).sort((a, b) => b.runs - a.runs || b.gaveUpOn - a.gaveUpOn);
+    const placeOf = (target: HintTarget | undefined) => target ? stuck.findIndex(place => place.target.role === target.role && place.target.name === target.name) : -1;
+
+    // Conditions as the run recorded them, without the profile itself: a profile edited between runs shows as differing runs.
+    const conditionsKey = (run: RunRecord) => { const { profile: _profile, ...rest } = (run.snapshot.spec.conditions ?? {}) as Record<string, unknown>; return JSON.stringify(rest); };
     const groups = new Map<string, typeof done>();
     for (const entry of done) { const group = `${entry.run.profileId}\u0000${entry.run.mode}`; groups.set(group, [...groups.get(group) ?? [], entry]); }
+    const newestKey = new Map([...groups].map(([group, list]) => [group, conditionsKey(list.at(-1)!.run)]));
+    const results: RunResult[] = done.map(entry => {
+      const run = entry.run, early = hintsOf(run.id, 'early-stop')[0];
+      const stopSource = run.outcome?.stopSource ?? (typeof early?.detail.stopSource === 'string' ? early.detail.stopSource : undefined);
+      const end = runEnding(run.outcome, stopSource)!, give = record(early?.detail.giveUp) ? early.detail.giveUp : undefined;
+      const breaks = hintsOf(run.id, 'expectation-broken'), stretch = hintsOf(run.id, 'goal-word-stretch')[0]?.detail.moves;
+      const tried = Array.isArray(give?.tried) ? give.tried.filter((id): id is string => typeof id === 'string') : [];
+      return {
+        experimentId: entry.experimentId, runId: run.id, profileId: run.profileId, mode: run.mode, ...end, steps: steps(run) ?? null,
+        ...(end.ending === 'gave-up' && give ? { giveUp: { reason: String(give.reason ?? ''), ...(typeof run.outcome?.step === 'number' ? { step: run.outcome.step } : {}),
+          tried: tried.map(id => { const at = breaks.find(hint => record(hint.detail.assumption) && hint.detail.assumption.id === id), text = at && record(at.detail.assumption) ? at.detail.assumption.text : undefined;
+            return { id, ...(typeof text === 'string' ? { text } : {}), ...(at?.steps[0] !== undefined ? { step: at.steps[0] } : {}), ...(at?.target ? { target: at.target } : {}) }; }) } } : {}),
+        stretch: typeof stretch === 'number' ? stretch : null,
+        unheard: end.ending === 'reached' && facts.get(run.id)!.unheard,
+        // Two expectations broken at once on one object are one place passed, not two.
+        stuck: [...new Map(breaks.map(hint => ({ place: placeOf(hint.target), step: hint.steps[0] ?? 0 })).filter(item => item.place >= 0).map(item => [`${item.place}:${item.step}`, item])).values()],
+        differs: conditionsKey(run) !== newestKey.get(`${run.profileId}\u0000${run.mode}`),
+      };
+    });
+    const resultOf = new Map(results.map(result => [result.runId, result]));
     const byProfile = [...groups.values()].map(group => {
-      const counts = group.flatMap(entry => steps(entry.run) ?? []), ids = new Set(group.map(entry => entry.run.id));
+      const counts = group.filter(entry => entry.run.outcome?.status === 'success').flatMap(entry => steps(entry.run) ?? []), ids = new Set(group.map(entry => entry.run.id));
       // The element the most of this group's runs got stuck on: findings count runs, so restrict them to this group's runs.
       const top = cached.findings.filter(finding => finding.source === 'page' && finding.target)
         .map(finding => ({ finding, runs: new Set(finding.occurrences.filter(occurrence => ids.has(occurrence.runId)).map(occurrence => occurrence.runId)).size }))
         .filter(item => item.runs > 0).sort((a, b) => b.runs - a.runs)[0];
+      const own = group.map(entry => resultOf.get(entry.run.id)!), endings: ProfileFacts['endings'] = { reached: 0, 'gave-up': 0, mistaken: 0, unmeasured: 0 }, unmeasuredBy: ProfileFacts['unmeasuredBy'] = {};
+      for (const result of own) { endings[result.ending]++; if (result.by) unmeasuredBy[result.by] = (unmeasuredBy[result.by] ?? 0) + 1; }
+      const longest = own.filter(result => result.stretch !== null).sort((a, b) => b.stretch! - a.stretch!)[0];
+      const newest = (group.at(-1)!.run.snapshot.spec.conditions ?? {}) as { combo?: { name?: unknown }; atEnvironment?: { name?: unknown } };
       return {
-        profileId: group[0]!.run.profileId, mode: group[0]!.run.mode, runs: group.length,
-        reached: group.filter(entry => entry.run.outcome?.status === 'success').length,
+        profileId: group[0]!.run.profileId, mode: group[0]!.run.mode, runs: group.length, reached: endings.reached, endings, unmeasuredBy,
         medianSteps: median(counts), minSteps: counts.length ? Math.min(...counts) : null, maxSteps: counts.length ? Math.max(...counts) : null,
-        unheard: group.filter(entry => unheard.has(entry.run.id)).length,
+        unheard: own.filter(result => result.unheard).length,
+        longestStretch: longest ? { moves: longest.stretch!, runId: longest.runId } : null,
         topTarget: top?.finding.target ?? null,
+        conditions: { ...(typeof newest.combo?.name === 'string' ? { combo: newest.combo.name } : {}), ...(typeof newest.atEnvironment?.name === 'string' ? { at: newest.atEnvironment.name } : {}) },
+        differing: own.filter(result => result.differs).length,
       };
     });
-    const facts: TaskFindings['facts'] = {
+    const taskFacts: TaskFindings['facts'] = {
       runs: done.length, reached: reached.length, medianSteps: median(done.flatMap(entry => steps(entry.run) ?? [])),
       fastest: fastest ? { experimentId: fastest.experimentId, runId: fastest.run.id, steps: steps(fastest.run)! } : null,
       byProfile,
     };
-    return { entries, done, facts, findings: cached.findings, steps };
+    const page = startPage ? { experimentId: startPage.experimentId, runId: startPage.runId, eventId: startPage.eventId, width: startPage.width, height: startPage.height } : undefined;
+    return { entries, done, facts: taskFacts, findings: cached.findings, results, stuck, ...(page ? { startPage: page } : {}), steps };
   }
-  /** True when the run's last `goal.reached` says the user did not hear it (and no `goal.lost` came after it). */
-  private async unheard(experimentId: string, runId: string): Promise<boolean> {
-    const known = this.unheardCache.get(runId);
-    if (known !== undefined) return known;
-    let heard: unknown;
+  /**
+   * What a finished run's journal says beyond its hints: whether its last `goal.reached` was unheard (and no `goal.lost` came after
+   * it), and the whole start page if it recorded one. A finished run's journal does not change.
+   */
+  private async runFacts(experimentId: string, runId: string): Promise<RunFacts> {
+    const known = this.factsCache.get(runId);
+    if (known) return known;
+    let heard: unknown, startPage: RunFacts['startPage'];
     for (const event of await this.events(experimentId, runId)) {
       if (event.type === 'goal.reached') heard = (event.data as { heard?: unknown } | null)?.heard;
       else if (event.type === 'goal.lost') heard = undefined;
+      else if (event.type === 'browser.start-page' && record(event.data) && typeof event.data.width === 'number' && typeof event.data.height === 'number' && typeof event.data.url === 'string')
+        startPage = { eventId: event.id, width: event.data.width, height: event.data.height, url: event.data.url };
     }
-    const result = heard === false;
-    this.unheardCache.set(runId, result);
+    const result = { unheard: heard === false, ...(startPage ? { startPage } : {}) };
+    this.factsCache.set(runId, result);
     return result;
   }
   /** Hint findings and facts over one task's finished runs. */
   async findings(taskId: string): Promise<TaskFindings> {
-    const { facts, findings } = await this.taskData(taskId);
-    return { taskId, facts, findings };
+    const { facts, findings, results, stuck, startPage } = await this.taskData(taskId);
+    return { taskId, facts, findings, results, stuck, ...(startPage ? { startPage } : {}) };
   }
   /** One row per task that has runs, for the task table. */
   async taskSummaries(): Promise<TaskSummary[]> {
