@@ -220,6 +220,22 @@ export function goalRelated(goal: string, item: string): boolean {
   const wanted = nameWords(goal);
   return [...nameWords(item)].some(w => wanted.has(w));
 }
+/** A goal word heard on more different items than this has stopped telling a listener anything ("Add … to cart" on every card). */
+const COMMON_GOAL_WORD = 3;
+/**
+ * Whether each spoken item, in the order heard, sounds like a lead toward the goal: it shares a goal word that has not yet been said
+ * on more than a few different items. So a product list's "Add … to cart" stops counting after the first cards, while the
+ * product's own name still does.
+ */
+export function goalLeads(goal: string): (item: string | undefined) => boolean {
+  const wanted = nameWords(goal), heardOn = new Map<string, Set<string>>();
+  return item => {
+    if (!item) return false;
+    const shared = [...nameWords(item)].filter(w => wanted.has(w));
+    for (const w of shared) { const items = heardOn.get(w) ?? new Set<string>(); items.add(item); heardOn.set(w, items); }
+    return shared.some(w => heardOn.get(w)!.size <= COMMON_GOAL_WORD);
+  };
+}
 /**
  * How one spoken item compares with a task's cue, the way a person listening would tell. The role and state must be the ones the
  * cue expects ("Cart (0), link" is not the "Add to cart" button; "Special offers, checked" is not "Order updates" checked). Then:

@@ -1,24 +1,26 @@
 import { dirname, join } from 'node:path';
 import { readTrace, screenshotSha256, traceFilePath, writeJsonAtomic, type RunOutcome, type RunTrace, type TraceEvent } from '@rawstep/core/trace';
-import { goalRelated } from '@rawstep/policies/policy';
+import { goalLeads } from '@rawstep/policies/policy';
 
 /**
  * Friction hints: places in a saved run worth a human look ("it succeeded, but took 23 Tabs").
  * Hints are pointers with evidence, never verdicts; reaching the goal is one signal among them.
  * Pure over the saved trace, so they can be recomputed later or extended with custom extractors.
  */
-export const HINTS_SCHEMA_VERSION = '2.0' as const;
+export const HINTS_SCHEMA_VERSION = '2.1' as const;
 export type HintKind =
   | 'slow-run' | 'excess-keystrokes' | 'backtracking' | 'repeated-state'
   | 'focus-lost' | 'focus-not-visible' | 'modal-focus-outside' | 'missing-announcement'
   | 'invisible-focus-change' | 'model-hesitation' | 'early-stop' | 'goal-met-at-start' | 'focus-left-page'
-  | 'replan' | 'help-request' | 'task-limit' | 'unverified-done' | 'wanted-to-give-up' | 'goal-word-stretch';
+  | 'replan' | 'help-request' | 'task-limit' | 'unverified-done' | 'wanted-to-give-up' | 'goal-word-stretch' | 'expectation-broken';
 /**
  * Where a hint comes from. page: the page itself behaved this way (focus, announcements, dialogs, tab order).
  * model: the model hesitated or wandered, which may say more about the model than the page.
  * run: about the run as a whole (length against the fastest run, goal already met at start), and orchestration events — a new
  * plan, a help request, a task running out of actions, a completion claim turned down because its cue was not heard. These mark where the executor
  * needed the planner; the page may have made that point hard, or the plan may have been wrong.
+ * expectation-broken is a model hint too: the simulated user expected something of the page that did not hold. Whether the page
+ * or the expectation was wrong is for a person to judge.
  */
 export type HintSource = 'page' | 'model' | 'run';
 /** The page element a hint is about, as the accessibility tree named it; name is absent when unnamed or redacted. */
@@ -28,7 +30,7 @@ export const HINT_SOURCES: Readonly<Record<HintKind, HintSource>> = Object.freez
   'wanted-to-give-up': 'run', 'goal-word-stretch': 'run',
   'excess-keystrokes': 'page', 'focus-lost': 'page', 'focus-left-page': 'page', 'focus-not-visible': 'page',
   'modal-focus-outside': 'page', 'missing-announcement': 'page', 'invisible-focus-change': 'page',
-  'backtracking': 'model', 'repeated-state': 'model', 'model-hesitation': 'model', 'early-stop': 'model',
+  'backtracking': 'model', 'repeated-state': 'model', 'model-hesitation': 'model', 'early-stop': 'model', 'expectation-broken': 'model',
 });
 export type Hint = {
   kind: HintKind;
@@ -261,17 +263,44 @@ export function extractHints(trace: Readonly<RunTrace>, options: HintOptions = {
     summary: `The user wanted to give up (${String(item.data.reason ?? '')}), but ${String(item.data.refused ?? 'without a failed approach')}; the run went on.`,
     detail: { reason: item.data.reason, refused: item.data.refused, effort: item.data.effort }, evidence: [item.id] });
 
-  // The longest stretch of moves without hearing a word of the goal: where a listener had nothing to go on. A measure, not a verdict:
-  // whoever reads it decides how long a user would keep going.
+  // Where the user's expectations broke: each assumption the planner marked broken, on the object the screen reader cursor was on
+  // when it did, with where that object sat on the page. The run's give-up names the broken assumptions it rests on.
+  const finalGiveUp = [...evidence].reverse().find(e => e.data.kind === 'orchestration-give-up' && e.data.accepted === true);
+  const triedIds = new Set(Array.isArray(finalGiveUp?.data.tried) ? finalGiveUp.data.tried.filter((id): id is string => typeof id === 'string') : []);
+  let cursorObject: { role?: string; name?: string } | undefined, cursorAt: Record<string, unknown> | undefined, observedAt = 0;
+  for (const event of trace.events as readonly TraceEvent[]) {
+    const data = record(event.data) ? event.data : {};
+    if (event.type === 'policy.decision' && typeof data.step === 'number') observedAt = data.step;
+    else if (event.type === 'backend.output' && record(data.output) && record(data.output.raw) && record(data.output.raw.semantic)) {
+      const semantic = data.output.raw.semantic;
+      cursorObject = { ...(typeof semantic.role === 'string' ? { role: semantic.role } : {}), ...(typeof semantic.name === 'string' && semantic.name ? { name: semantic.name } : {}) };
+    } else if (event.type === 'simulation.observation' || event.type === 'screen-reader.observation') cursorAt = record(data.cursor) ? { ...data.cursor, step: observedAt } : undefined;
+    else if (event.type === 'policy.evidence' && typeof data.step === 'number' && record(data.evidence) && data.evidence.kind === 'orchestration-plan') {
+      const revision = record(data.evidence.revision) ? data.evidence.revision : undefined, doc = record(data.evidence.document) ? data.evidence.document : undefined;
+      const broken = Array.isArray(revision?.broken) ? revision.broken.filter((id): id is string => typeof id === 'string') : [];
+      const assumptions = Array.isArray(doc?.assumptions) ? doc.assumptions.filter(record) : [];
+      for (const id of broken) {
+        const text = assumptions.find(a => a.id === id)?.text;
+        add({ kind: 'expectation-broken', certainty: 'observed', steps: [data.step],
+          summary: `The user's expectation ${id} broke${typeof text === 'string' ? `: "${text}"` : ''}; the planner wrote plan v${String(revision?.version ?? '')}.`,
+          detail: { assumption: { id, ...(typeof text === 'string' ? { text } : {}) }, version: revision?.version, trigger: revision?.trigger, ...(triedIds.has(id) ? { gaveUpOn: true } : {}),
+            ...(cursorAt ? { location: cursorAt } : {}) }, evidence: [event.id] }, cursorObject);
+      }
+    }
+  }
+
+  // The longest stretch of moves without hearing a word of the goal that still means something (one said on every card does not):
+  // where a listener had nothing to go on. A measure, not a verdict: whoever reads it decides how long a user would keep going.
   const goal = trace.task.goal;
   if (goal) {
+    const lead = goalLeads(goal);
     let after = 0, current: { from: number; to: number; ids: string[] } | undefined, longest: typeof current;
     for (const event of trace.events as readonly TraceEvent[]) {
       const data = record(event.data) ? event.data : {};
       if (event.type === 'policy.decision' && typeof data.step === 'number') { after = data.step; continue; }
       if ((event.type !== 'simulation.observation' && event.type !== 'screen-reader.observation') || after === 0) continue;
       const item = Array.isArray(data.speech) ? [...data.speech].reverse().find((line): line is string => typeof line === 'string' && !!line.trim()) : undefined;
-      if (item && goalRelated(goal, item)) { current = undefined; continue; }
+      if (lead(item)) { current = undefined; continue; }
       current = current ? { ...current, to: after, ids: [...current.ids, event.id] } : { from: after, to: after, ids: [event.id] };
       if (!longest || current.to - current.from > longest.to - longest.from) longest = current;
     }

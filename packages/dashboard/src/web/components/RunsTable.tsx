@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { useHintSummaries, useRequestHintSummaries } from '../hooks/useHintSummaries';
 import type { RouteChange } from '../hooks/useRoute';
 import { formatDate } from '../lib/format';
-import { displayState, resultLabel, runGlyphKind } from '../lib/runStrip';
+import { displayState, endingGlyph, finishedEnding, resultLabel, runGlyphKind } from '../lib/runStrip';
 import type { ProjectConfig } from '@rawstep/project/config';
 import { isFinished, isLive, runConditions, runStartedAt, runStepCount, durationSeconds, type RunRef, taskNameOf, runModelsName } from '../lib/runs';
 import { HintBadge } from './HintBadge';
@@ -79,7 +79,7 @@ export function RunsTable({ runs, config, navigate, hideTask, numbers, showHints
           </TableCell>}
           <TableCell className={cell + ' max-w-72 whitespace-nowrap'}>{showConditions ? <span className="grid"><span className="truncate">{runModelsName(run)}</span><ConditionsNote run={run} config={config} /></span> : runModelsName(run)}</TableCell>
           <TableCell className={cell + ' whitespace-nowrap'}>{t(`sidebar.modes.${run.snapshot.spec.mode}`)}</TableCell>
-          <TableCell className={cell + ' whitespace-nowrap'}><span className="inline-flex items-center gap-1.5"><RunGlyph kind={runGlyphKind(displayState(run))} />{resultLabel(run)}</span></TableCell>
+          <TableCell className={cell + ' whitespace-nowrap'}><span className="inline-flex items-center gap-1.5"><RunGlyph kind={finishedEnding(run) ? endingGlyph(finishedEnding(run)!.ending) : runGlyphKind(displayState(run))} />{resultLabel(run)}</span></TableCell>
           <TableCell className={cell + ' text-right font-mono tabular-nums'}>{steps ?? '—'}</TableCell>
           <TableCell className={cell + ' text-right font-mono tabular-nums text-muted-foreground'}>{seconds === undefined ? '—' : t('run.duration', { seconds: seconds.toFixed(1) })}</TableCell>
           {showHints && <TableCell className={cell}>{hints.length

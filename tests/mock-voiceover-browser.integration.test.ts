@@ -47,6 +47,18 @@ describe('browser-backed simulated English VoiceOver profile in real Chromium', 
     expect(await g.intent('form.next')).toEqual(['Search, edit text']);
   });
 
+  it('keeps the cursor on screen and says where it is, for people reading the run', async () => {
+    const f = await fixture(`<h1 style="margin:0">Shop</h1><div style="height:3000px"></div><p>Far down</p>`);
+    expect(f.initial.cursor).toMatchObject({ scroll: { x: 0, y: 0 }, url: 'about:blank' });
+    await f.backend.execute({ kind: 'intent', intent: 'next' });
+    const far = await f.backend.observe();
+    expect(far.speech).toEqual(['Far down']);
+    // VoiceOver scrolls the page to the object it moved to, so a screenshot of the viewport shows it.
+    expect(far.cursor!.scroll.y).toBeGreaterThan(2000);
+    expect(far.cursor!.rect.y).toBeGreaterThanOrEqual(0);
+    expect(far.cursor!.rect.y + far.cursor!.rect.height).toBeLessThanOrEqual(far.cursor!.viewport.height);
+  });
+
   it('speaks the page title when a document loads, before anything on the page, and again for the next document', async () => {
     const f = await fixture('<h1>Shop</h1><a href="#">Next page</a>');
     expect(f.loaded.speech[0]).toBe('Simulation fixture');

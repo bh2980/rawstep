@@ -96,7 +96,11 @@ describe('result and run strip helpers', () => {
     expect(displayState({ state: 'failure', outcome: { status: 'failure', reason: 'verification-failed' } })).toBe('failure');
     expect(displayState({ state: 'success', outcome: { status: 'success' } })).toBe('success');
     expect(resultLabel({ state: 'failure', outcome: { status: 'failure', reason: 'error' } })).toBe('실행 오류로 끝남');
-    expect(resultLabel({ state: 'failure', outcome: { status: 'failure', reason: 'maxSteps' } })).toBe('목표 못 닿음');
+    // A finished run is worded by how it ended: a limit is not the user failing.
+    expect(resultLabel({ state: 'inconclusive', outcome: { status: 'inconclusive', reason: 'maxSteps' } })).toBe('측정 못 함 (최대 행동 수)');
+    expect(resultLabel({ state: 'failure', outcome: { status: 'failure', reason: 'policy-stuck', stopSource: 'user-gave-up' } })).toBe('포기함');
+    expect(resultLabel({ state: 'failure', outcome: { status: 'failure', reason: 'verification-failed' } })).toBe('잘못 끝냄');
+    expect(resultLabel({ state: 'success', outcome: { status: 'success' } })).toBe('해냄');
     expect(resultLabel({ state: 'success' })).toBe('목표 도달');
   });
 

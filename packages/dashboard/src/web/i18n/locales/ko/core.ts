@@ -125,7 +125,9 @@ export const core = {
       earlyStopPlanLimit: '계획 모델 호출 한도에 닿아 멈췄습니다. 사용자가 해냈는지 포기했는지 측정하지 못했습니다.',
       earlyStopGaveUp: '사용자가 포기했습니다: {{reason}}',
       wantedToGiveUp: '사용자가 포기하려 했지만({{reason}}) 근거가 된 실패한 방법이 없어 계속 진행했습니다.',
-      goalWordStretch: '{{from}}~{{to}}번째 행동, {{moves}}번 연속으로 목표의 낱말을 하나도 듣지 못했습니다.',
+      goalWordStretch: '{{from}}~{{to}}번째 행동, {{moves}}번 연속으로 목표의 낱말을 하나도 듣지 못했습니다. 카드마다 나오는 낱말("담기" 같은)은 처음 몇 번만 셉니다.',
+      expectationBroken: '사용자의 예상 {{id}} “{{text}}”가 여기서 깨져 계획 v{{version}}으로 다시 세웠습니다.',
+      expectationBrokenUnnamed: '사용자의 예상 {{id}}가 여기서 깨져 계획 v{{version}}으로 다시 세웠습니다.',
       helpRequest: '실행 모델이 도움을 요청해({{reason}}) 계획 모델이 계획 v{{version}}을 세웠습니다.',
       helpReasons: { 'no-cue': '완료 단서를 찾을 수 없음', 'no-effect': '행동이 먹히지 않음', 'already-done': '이미 이뤄진 것 같음', none: '이유 없음' },
       replanFailures: '행동이 연달아 실패해 계획 모델이 계획 v{{version}}을 세웠습니다.',
@@ -161,6 +163,7 @@ export const core = {
       'unverified-done': '받아들이지 않은 작업 완료',
       'wanted-to-give-up': '포기하고 싶어 함',
       'goal-word-stretch': '목표 낱말 없이 넘긴 가장 긴 구간',
+      'expectation-broken': '예상이 깨짐',
     } satisfies Record<HintKind, string>,
   },
   steps: {

@@ -5,7 +5,8 @@
 import type { VerifyRule } from '@rawstep/core/contracts';
 import type { ModelKind } from '@rawstep/project/config';
 import type { PlanDocument, PlanPhase, PlanTask } from '@rawstep/policies/policy';
-import type { Hint, HintFinding, HintReport } from '@rawstep/reports/hints';
+import type { Hint, HintFinding, HintReport, HintTarget } from '@rawstep/reports/hints';
+import type { RunEnding, UnmeasuredBy } from './results.js';
 
 export type { Hint, HintFinding, HintReport, PlanDocument, PlanPhase, PlanTask };
 
@@ -65,6 +66,8 @@ export type StepView = {
   /** Screenshot after this step, served by GET .../png/:eventId. */
   /** What the screen showed. `reference`: a screen reader run's diagnostic screenshot, kept for people and never sent to the model (no hash). */
   screenshot?: { eventId: string; sha256?: string; reference?: true; /** The viewport in CSS pixels when it was taken; the focus box is in these units. */ viewport?: { w: number; h: number } };
+  /** Where the screen reader cursor was in the screenshot, in its viewport's CSS pixels (simulated screen readers only). */
+  cursor?: { rect: { x: number; y: number; width: number; height: number }; viewport: { w: number; h: number } };
   /** Screen-reader speech collected after this step (simulated or native, see provenance). */
   speech?: { lines: string[]; provenance: 'native' | 'simulation' | 'unspecified' };
   model?: {
@@ -150,17 +153,63 @@ export type TaskFindings = {
   };
   /** Hints grouped by kind and page element across the runs whose hints.json could be read; run-level hints are left out. */
   findings: HintFinding[];
+  /** Every finished run, oldest first: how it ended and what it cost. */
+  results: RunResult[];
+  /** Page objects where the simulated user's expectations broke, the most runs first. */
+  stuck: StuckPlace[];
+  /** The whole start page of the newest screen reader run that recorded one, to place `stuck` on. */
+  startPage?: { experimentId: string; runId: string; eventId: string; width: number; height: number };
 };
 
 /** How one run profile in one mode did on a task. */
 export type ProfileFacts = {
   profileId: string; mode: 'screenreader' | 'keyboard';
   runs: number; reached: number;
+  /** How the runs ended, and which limit ended the unmeasured ones. */
+  endings: Record<RunEnding, number>; unmeasuredBy: Partial<Record<UnmeasuredBy, number>>;
+  /** Moves of the runs that reached the goal: what reaching it cost. */
   medianSteps: number | null; minSteps: number | null; maxSteps: number | null;
   /** Runs that reached the goal while nothing the user heard said so (`goal.reached` with `heard: false`). */
   unheard: number;
+  /** The longest run of moves without a goal word that still meant something, and the run it was in. */
+  longestStretch: { moves: number; runId: string } | null;
   /** The page element the most runs of this profile got stuck on, if any. */
   topTarget: { role: string; name?: string } | null;
+  /** What the newest run of the profile ran with (combination and screen reader environment names). */
+  conditions: { combo?: string; at?: string };
+  /** Runs of the profile whose conditions differ from its newest run's (the profile was changed between runs). */
+  differing: number;
+};
+
+/** One finished run of a task: how it ended and what it cost. */
+export type RunResult = {
+  experimentId: string; runId: string; profileId: string; mode: 'screenreader' | 'keyboard';
+  ending: RunEnding; by?: UnmeasuredBy;
+  steps: number | null;
+  /** The user's give-up: why, at which step, and the broken expectations it rests on with where each broke. */
+  giveUp?: { reason: string; step?: number; tried: { id: string; text?: string; step?: number; target?: HintTarget }[] };
+  /** The longest run of moves without a goal word that still meant something. */
+  stretch: number | null;
+  /** Reached the goal while nothing the user heard said so. */
+  unheard: boolean;
+  /** The `stuck` places (by index) this run's expectations broke at, with the step. */
+  stuck: { place: number; step: number }[];
+  /** Ran with other conditions than the newest run of its profile. */
+  differs: boolean;
+};
+
+/** One page object where the simulated user's expectations broke, across a task's runs. */
+export type StuckPlace = {
+  target: HintTarget;
+  /** Runs whose expectations broke here, out of the task's finished screen reader runs. */
+  runs: number; totalRuns: number;
+  byProfile: { profileId: string; mode: 'screenreader' | 'keyboard'; runs: number }[];
+  /** Runs that gave up naming an expectation that broke here. */
+  gaveUpOn: number;
+  /** The expectations that broke, as the planner worded them, the most frequent first. */
+  assumptions: string[];
+  /** Its box on the start page (`TaskFindings.startPage`) in CSS pixels, when it broke on that page. */
+  location?: { x: number; y: number; width: number; height: number };
 };
 
 /** One row of the task table: how a task's runs went and what recurs, without the detail of `TaskFindings`. */

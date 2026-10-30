@@ -219,8 +219,8 @@ describe("friction hints", () => {
     ];
     const report = extractHints(trace(pairs, success(7)), { reference: trace([], success(2)) });
     expect(report.hints.map(hint => hint.kind)).toEqual(["slow-run", "model-hesitation", "modal-focus-outside", "focus-lost"]);
-    expect(report).toMatchObject({ schemaVersion: "2.0", taskId: "hints", runId: "hints-test", steps: 7, goalReached: true, outcome: { status: "success" } });
-    expect(HINTS_SCHEMA_VERSION).toBe("2.0");
+    expect(report).toMatchObject({ schemaVersion: "2.1", taskId: "hints", runId: "hints-test", steps: 7, goalReached: true, outcome: { status: "success" } });
+    expect(HINTS_SCHEMA_VERSION).toBe("2.1");
     expect(extractHints(trace([], { status: "failure", reason: "verification-failed", steps: 3 }))).toMatchObject({ goalReached: false, outcome: { status: "failure", reason: "verification-failed" } });
     expect(extractHints(trace([])).outcome).toBeUndefined();
   });
@@ -276,5 +276,39 @@ describe("friction hints", () => {
     const left = report.hints.filter(h => h.kind === "focus-left-page");
     expect(left).toHaveLength(1);
     expect(left[0]).toMatchObject({ certainty: "observed", steps: [1], detail: { action: "Tab" } });
+  });
+
+  it("places each broken expectation on the object the cursor was on, with where it sat, and marks the ones a give-up rests on", () => {
+    const cursor = { rect: { x: 10, y: 20, width: 100, height: 18 }, scroll: { x: 0, y: 400 }, viewport: { width: 1280, height: 720 }, url: "https://example.com/store" };
+    const plan = (step: number, version: number, broken: string[]): Pair => ["policy.evidence", { step, evidence: { kind: "orchestration-plan", version, trigger: "failures",
+      revision: { version, step, trigger: "failures", broken },
+      document: { assumptions: [{ id: "A3", text: "The add control is a button", status: "broken" }, { id: "A6", text: "The cart count changes", status: "open" }] } } }];
+    const report = extractHints(trace([
+      ["policy.decision", { step: 1, decision: { action: { kind: "intent", intent: "next" } } }],
+      ["backend.output", { type: "output", output: { sequence: 1, text: "Add Fiberglass Claw Hammer to cart", raw: { semantic: { role: "StaticText", name: "Add Fiberglass Claw Hammer to cart" } } } }],
+      ["simulation.observation", { speech: ["Add Fiberglass Claw Hammer to cart"], cursor }],
+      plan(2, 4, ["A3"]),
+      ["policy.decision", { step: 2, decision: { action: { kind: "intent", intent: "next" } } }],
+      ["backend.output", { type: "output", output: { sequence: 2, text: "Cart, 0 items, link", raw: { semantic: { role: "link", name: "Cart, 0 items" } } } }],
+      ["simulation.observation", { speech: ["Cart, 0 items, link"] }],
+      plan(3, 5, ["A6"]),
+      ["policy.evidence", { step: 3, evidence: { kind: "orchestration-give-up", accepted: true, reason: "Nothing adds it", tried: ["A3"] } }],
+    ]));
+    const broken = find(report, "expectation-broken");
+    expect(broken.map(hint => [hint.target, hint.steps, hint.detail.assumption, hint.detail.gaveUpOn])).toEqual([
+      [{ role: "StaticText", name: "Add Fiberglass Claw Hammer to cart" }, [2], { id: "A3", text: "The add control is a button" }, true],
+      [{ role: "link", name: "Cart, 0 items" }, [3], { id: "A6", text: "The cart count changes" }, undefined],
+    ]);
+    expect(broken[0]!.detail.location).toEqual({ ...cursor, step: 1 });
+    expect(broken[1]!.detail.location).toBeUndefined();
+  });
+
+  it("stops counting a goal word as a lead once many different items have said it", () => {
+    const goal = "Add the 'Fiberglass Claw Hammer' to the cart.";
+    const cards = ["Add Rubber Mallet to cart", "Add Thor Hammer to cart", "Add Hacksaw to cart", "Add Level to cart", "Add Stud Finder to cart", "Add Tape to cart", "Add Fiberglass Claw Hammer to cart"];
+    const pairs = cards.flatMap((item, i): Pair[] => [["policy.decision", { step: i + 1, decision: { action: { kind: "intent", intent: "next" } } }], ["simulation.observation", { speech: [item] }]]);
+    const [stretch] = find(extractHints(trace(pairs, undefined, { task: { id: "hints", goal } })), "goal-word-stretch");
+    // "Add" and "cart" lead for the first three cards only; "Hammer" leads on its second card; the target's own words lead again.
+    expect(stretch?.detail).toEqual({ moves: 3, from: 4, to: 6 });
   });
 });

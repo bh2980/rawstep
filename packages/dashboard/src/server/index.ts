@@ -282,7 +282,7 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
         const event = raw.split('\n').filter(Boolean).map(l => JSON.parse(l)).find(e => e.id === decodeURIComponent(eventId ?? ''));
         const shot = record(event?.data).screenshot, diagnostic = record(event?.data).path;
         // A screen reader run's diagnostic screenshot is a plain file whose path the runner wrote and the pattern pins.
-        if (event?.type === 'browser.screenshot' && typeof diagnostic === 'string' && DIAGNOSTIC_PATH.test(diagnostic)) {
+        if ((event?.type === 'browser.screenshot' || event?.type === 'browser.start-page') && typeof diagnostic === 'string' && DIAGNOSTIC_PATH.test(diagnostic)) {
           const file = await readFile(await store.file(prefix + diagnostic, true)).catch(() => undefined);
           if (event.redacted || !file) throw new HttpError(404, '스크린샷이 없거나 입력 보호를 위해 가려졌습니다.');
           res.writeHead(200, { 'content-type': 'image/png', 'cache-control': 'no-store' }); return res.end(file);

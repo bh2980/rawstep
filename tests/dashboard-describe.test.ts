@@ -33,6 +33,7 @@ describe('describeHint', () => {
     ['early-stop user gave up', hint('early-stop', { reason: 'policy-stuck', stopSource: 'user-gave-up', giveUp: { reason: 'No add button anywhere', tried: ['A1'] } }), ['사용자가 포기', 'No add button anywhere']],
     ['wanted to give up', hint('wanted-to-give-up', { reason: 'Too long' }), ['포기하려 했지만', 'Too long']],
     ['goal word stretch', hint('goal-word-stretch', { moves: 40, from: 3, to: 42 }), ['3~42', '40번']],
+    ['expectation broken', hint('expectation-broken', { assumption: { id: 'A3', text: 'The add control is a button' }, version: 4 }), ['A3', 'The add control is a button', 'v4']],
     ['help-request', hint('help-request', { help: 'no-cue', version: 2 }), ['완료 단서를 찾을 수 없음', 'v2']],
     ['replan', hint('replan', { trigger: 'no-change', version: 3 }), ['바뀌지 않아', 'v3']],
     ['task-limit', hint('task-limit', { version: 2 }), ['행동 한도']],
@@ -54,7 +55,7 @@ describe('describeHint', () => {
     const covered = new Set(cases.map(([, input]) => input.kind));
     const all: HintKind[] = ['slow-run', 'excess-keystrokes', 'backtracking', 'repeated-state', 'focus-lost', 'focus-not-visible', 'modal-focus-outside',
       'missing-announcement', 'invisible-focus-change', 'model-hesitation', 'early-stop', 'goal-met-at-start', 'focus-left-page',
-      'replan', 'help-request', 'task-limit', 'unverified-done', 'wanted-to-give-up', 'goal-word-stretch'];
+      'replan', 'help-request', 'task-limit', 'unverified-done', 'wanted-to-give-up', 'goal-word-stretch', 'expectation-broken'];
     expect(Object.keys(core.hints.kinds).sort()).toEqual([...all].sort());
     for (const kind of all) expect(covered.has(kind)).toBe(true);
   });

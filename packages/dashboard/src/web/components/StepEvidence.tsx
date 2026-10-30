@@ -44,7 +44,10 @@ function Screen({ step, previous, experimentId, runId, live, primary }: { step: 
   const focusStep = showBefore ? previous! : step;
   const focus = focusStep.observed.filter(change => change.kind === 'focus').at(-1), rect = primary ? focusRectOf(focusStep.observed) : undefined;
   const viewport = shown.viewport, size = natural?.src === src ? natural : undefined;
-  const box = rect && viewport && size ? scaleFocusRect(rect, { width: viewport.w, height: viewport.h }, size) : undefined;
+  // A screen reader run's picture marks where the screen reader cursor was, as the simulation recorded it, instead of DOM focus.
+  const cursor = primary ? undefined : step.cursor;
+  const box = size && (rect && viewport ? scaleFocusRect(rect, { width: viewport.w, height: viewport.h }, size)
+    : cursor ? scaleFocusRect(cursor.rect, { width: cursor.viewport.w, height: cursor.viewport.h }, size) : undefined);
   const caption = showBefore ? t('stepDetail.screenBefore', { n: step.step, prev: previous!.step }) : live ? t('runPage.screenLive') : step.step === 0 ? t('stepDetail.screenStart') : t('stepDetail.screenAfter', { n: step.step });
   return <figure className="grid gap-2">
     <div className="flex flex-wrap items-center justify-between gap-2">
@@ -61,7 +64,7 @@ function Screen({ step, previous, experimentId, runId, live, primary }: { step: 
         : <a href={src} target="_blank" rel="noreferrer" aria-label={t('runPage.screenOpen', { n: step.step })} className="relative block w-fit max-w-full">
           <img src={src} alt={t('steps.screenshot', { n: step.step })} onError={() => setFailed(src)}
             onLoad={event => setNatural({ src, width: event.currentTarget.naturalWidth, height: event.currentTarget.naturalHeight })}
-            className={cn('block h-auto w-auto max-w-full', primary ? 'max-h-[36rem]' : 'max-h-64')} />
+            className={cn('block h-auto w-auto max-w-full', primary ? 'max-h-[36rem]' : cursor ? 'max-h-96' : 'max-h-64')} />
           {box && size && <span aria-hidden="true" data-focus-outline className="pointer-events-none absolute rounded-[2px] border-2 border-trace shadow-[0_0_0_2px_rgb(255_255_255/0.85)]" style={boxPercent(box, size)} />}
         </a>}
       {primary && focus && <p className="absolute top-2 left-2 flex max-w-[calc(100%-1rem)] items-baseline gap-2 rounded-[3px] border border-trace bg-card/95 px-2 py-1 text-xs">
@@ -70,7 +73,7 @@ function Screen({ step, previous, experimentId, runId, live, primary }: { step: 
         {rect && <span className="sr-only">{t('stepDetail.focusBox', { x: rect.x, y: rect.y, width: rect.width, height: rect.height })}</span>}
       </p>}
     </div>
-    <figcaption className="text-xs text-muted-foreground">{caption}</figcaption>
+    <figcaption className="text-xs text-muted-foreground">{caption}{cursor && <> · {t('stepDetail.cursorNote')}</>}</figcaption>
   </figure>;
 }
 
