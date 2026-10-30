@@ -2,8 +2,8 @@ import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import type { Decision, DecisionPolicy, HistoryEntry } from '@rawstep/core/contracts';
 import type { ChoiceCandidate, ChoiceModel, ModelFailure } from './choice.js';
 import { modelHistory, type ModelHistoryEntry } from './history.js';
-import { applyDraft, cueText, currentTask, failCurrent, finishCurrent, goalNamed, markCheckpoint, needsCheckpoint, phaseOf, matchCue, planOutline, planTasks, verifyCue,
-  type HelpReason, type PlanDocument, type PlanDraft, type PlanTask, type PlanTrigger } from './plan-document.js';
+import { applyDraft, cueText, currentTask, failCurrent, finishCurrent, goalNamed, goalRelated, markCheckpoint, needsCheckpoint, phaseOf, matchCue, planOutline, planTasks, verifyCue,
+  type GiveUp, type HelpReason, type PlanDocument, type PlanDraft, type PlanTask, type PlanTrigger } from './plan-document.js';
 import { currentItem, currentItemState, speechChoices, speechGuardStop, type SpeechPolicyOptions } from './speech.js';
 
 /** One past action as the planner reads it: the task it belonged to and what happened. */
@@ -27,7 +27,22 @@ export type PlanRequest = {
   document?: PlanDocument;
   /** Every action taken under a plan so far, with the task it served and its result. */
   attempts: TaskAttempt[];
+  /** How much the user has spent so far (see `Effort`). */
+  effort: Effort;
+  /** Why the last give-up was not accepted, when the planner is asked again because of it. */
+  refusedGiveUp?: string;
 };
+/**
+ * The user's effort in moves (swipes and key presses): in all, since the planner last looked, and without hearing a word of the goal
+ * (the current stretch and the longest one). Time is left out: it depends on the models, not on the page.
+ */
+export type Effort = { moves: number; sinceLastLook: number; withoutGoalWords: number; longestWithoutGoalWords: number };
+/** Moves in a row without hearing a word of the goal, now and at most, from what each action left the cursor on. */
+export function goalWordStretch(goal: string, items: readonly (string | undefined)[]): { current: number; longest: number } {
+  let current = 0, longest = 0;
+  for (const item of items) { current = item && goalRelated(goal, item) ? 0 : current + 1; longest = Math.max(longest, current); }
+  return { current, longest };
+}
 /** `prompt` fingerprints the planner's full instructions, so runs with different planner instructions stay apart. */
 export type PlanResult = { draft: PlanDraft; model: { id: string; runtime: string }; prompt?: { id: string; version: string; sha256: string }; retried?: ModelFailure };
 /** Asks whether a spoken item is what the current task looks for, its cue having been written before the item was heard. */
@@ -44,9 +59,11 @@ export interface Planner {
 }
 
 export type OrchestrationOptions = SpeechPolicyOptions & {
-  /** New plans after the first before the run stops (default 4). */
-  maxReplans?: number;
-  /** Actions on one task without hearing anything new before a new plan is requested (default 12); a task never runs past three times this. */
+  /** Planner calls a run may make, the first plan included (default 40). Past it the run ends unmeasured: a cost limit, not the user giving up. */
+  maxPlannerCalls?: number;
+  /** Moves since the planner last looked before it looks again with the effort spent (`effort-review`, default 60). */
+  reviewEvery?: number;
+  /** Actions on one task without hearing anything new before a new plan is requested (default 12). */
   stepActionLimit?: number;
   /** Failed actions in a row on one task before a new plan is requested (default 2). */
   failureLimit?: number;
@@ -147,7 +164,9 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
   private evidence: unknown[] = [];
   private readonly limits: typeof DEFAULTS;
   private doc?: PlanDocument;
-  private replans = 0;
+  private plannerCalls = 0;
+  /** The user's accepted decision to give up; the run ends at the next decision. */
+  private gaveUp?: GiveUp;
   /** History length when the current plan version was made: the repetition guard only looks at what happened since. */
   private planFrom = 0;
   /** History length when the current task started. */
@@ -175,7 +194,7 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
     this.confidenceFloor = options.confidenceFloor ?? 0.25;
     if (!(this.confidenceFloor >= 0 && this.confidenceFloor <= 1)) throw new Error('Invalid orchestration confidence floor.');
     for (const [key, value] of Object.entries(this.limits)) {
-      if (!Number.isSafeInteger(value) || value < (key === 'maxReplans' ? 0 : 1) || value > 10_000) throw new Error(`Invalid orchestration limit ${key}.`);
+      if (!Number.isSafeInteger(value) || value < 1 || value > 10_000) throw new Error(`Invalid orchestration limit ${key}.`);
     }
   }
   takeDecisionEvidence(): readonly unknown[] { return this.evidence.splice(0); }
@@ -187,12 +206,12 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
     if (input.observation.kind !== 'screenreader') throw new Error('The orchestrated speech policy requires screen reader observations.');
     const step = (input.history.at(-1)?.step ?? 0) + 1;
     // The same speech over and over ("End of content") means the plan led nowhere, not that the user would stop: a person turns back
-    // and tries something else. While replans remain the planner gets that chance; only then does the guard end the run.
+    // and tries something else. The planner gets that chance while planner calls remain.
     const guarded = speechGuardStop(this.options, { ...input, history: input.history.slice(this.planFrom) });
     let repeated = false;
     if (guarded) {
       this.evidence.push(guarded.evidence);
-      if (!this.doc || this.replans >= this.limits.maxReplans) return guarded.decision;
+      if (!this.doc) return guarded.decision;
       repeated = true;
     }
     // A survey before the first plan is the user's own move, so it is taken as an action and the plan is written on what it said.
@@ -204,17 +223,17 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
     if (!this.doc) await this.replan(input, step, 'start');
     else {
       const trigger = repeated ? 'no-change' : this.trigger(input);
-      // Noticing the goal's item is not a correction: like the replan counter, the quota does not stop it.
-      if (trigger) { if (trigger !== 'goal-heard' && this.replans >= this.limits.maxReplans) return this.giveUp(step, trigger); await this.replan(input, step, trigger); }
+      if (trigger) { if (this.outOfCalls()) return this.unmeasured(step, trigger); await this.replan(input, step, trigger); }
     }
     // A "done" claim turned down in this step is not offered again until an action has been taken.
     let refused: string | undefined;
     for (let call = 0; call < MAX_CALLS_PER_STEP; call++) {
+      if (this.gaveUp) return this.userGaveUp(step);
       const doc = this.doc!;
       if (doc.complete) return { stop: 'success', stopSource: 'planner' };
       const task = currentTask(doc);
       if (!task) {
-        if (this.replans >= this.limits.maxReplans) return this.giveUp(step, 'plan-finished');
+        if (this.outOfCalls()) return this.unmeasured(step, 'plan-finished');
         const unreviewed = doc.phases.filter(needsCheckpoint).map(p => p.title);
         await this.replan(input, step, 'plan-finished');
         for (const title of unreviewed) markCheckpoint(this.doc!, title, step);
@@ -262,7 +281,7 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
         ...(meta && tried >= Math.min(TRIES_BEFORE_HELP, this.limits.stepActionLimit) ? (Object.keys(HELP) as HelpReason[]).filter(reason => !(reason === 'already-done' && refused === task.id)).map(reason => ({ id: `help:${reason}`, label: HELP[reason] })) : [])];
       if (this.executor === 'follow-plan') {
         const choiceId = followPlan(task, actions.map(c => c.id));
-        if (!choiceId) return this.giveUp(step, 'plan-finished');
+        if (!choiceId) return this.unmeasured(step, 'plan-finished');
         this.evidence.push({ kind: 'orchestration-follow', taskId: task.id, planVersion: doc.version, choices: candidates, choiceId,
           uncertainty: 'Rawstep carried out the plan as written; no model chose this action.' });
         task.actions++;
@@ -308,7 +327,7 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
       }
       if (response.choiceId.startsWith('help:')) {
         const help = response.choiceId.slice(5) as HelpReason;
-        if (this.replans >= this.limits.maxReplans) return this.giveUp(step, 'help');
+        if (this.outOfCalls()) return this.unmeasured(step, 'help');
         await this.replan(input, step, 'help', help); continue;
       }
       // A top probability close to a uniform guess is the executor not knowing what to do; a few in a row ask for a new plan.
@@ -318,7 +337,7 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
       this.served.set(step, { taskId: task.id, planVersion: doc.version });
       return structuredClone(actions.find(c => c.id === response.choiceId)!.decision);
     }
-    return this.giveUp(step, 'plan-finished');
+    return this.unmeasured(step, 'plan-finished');
   }
 
   /** Ends the current task (its cue verified as given) and starts the next, reviewing a finished phase first. */
@@ -335,12 +354,14 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
     // The latest line that shares cue words without matching it (role and state agreeing) and has not been asked about yet.
     const heard = input.observation.kind === 'screenreader'
       ? [...input.observation.speech].reverse().map(t => t.trim()).find(t => t && !this.asked.has(t) && matchCue(task, t) === 'candidate') : undefined;
-    if (!this.planner.recognize || !heard) return false;
+    // Recognizing is a planner call too: with none left the item is not asked about, and the next plan decision ends the run.
+    if (!this.planner.recognize || !heard || this.outOfCalls()) return false;
     this.asked.add(heard);
     const started = performance.now();
+    this.plannerCalls++;
     const result = await this.planner.recognize({ goal: input.goal, ...(input.context ? { context: input.context } : {}), task: { goal: task.goal, done: task.done, cue: cueText(task) }, heard: heard.slice(0, 300) }, { signal: input.signal });
     input.signal.throwIfAborted();
-    if (result.retried) this.evidence.push({ kind: 'model-retry', role: 'planner', taskId: task.id, failure: result.retried });
+    if (result.retried) { this.plannerCalls++; this.evidence.push({ kind: 'model-retry', role: 'planner', taskId: task.id, failure: result.retried }); }
     this.evidence.push({ kind: 'orchestration-cue', taskId: task.id, planVersion: doc.version, verified: result.matches ? 'recognized' : 'not-recognized', source: 'planner',
       cue: cueText(task), heard, ...(result.reason ? { reason: result.reason } : {}), model: result.model, elapsedMs: performance.now() - started });
     return result.matches;
@@ -366,37 +387,57 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
     if (since.length && item && !this.noticed.has(item) && goalNamed(input.goal, item) && matchCue(task, item) === 'no' && !heardBefore(item)) { this.noticed.add(item); return 'goal-heard'; }
     // Counted since the task (re)started, so a task the planner keeps after the limit gets a fresh budget instead of tripping it again.
     // A task that keeps hearing new items is making its way (walking a long page item by item), not stuck: only actions since the
-    // last newly heard item count, with a hard cap at three times the limit.
+    // last newly heard item count.
     const heard = new Set<string>();
     let sinceNew = 0;
     for (const item of spoken) { if (item && !heard.has(item)) { heard.add(item); sinceNew = 0; } else sinceNew++; }
-    if (sinceNew >= this.limits.stepActionLimit || since.length >= this.limits.stepActionLimit * 3) return 'task-limit';
+    if (sinceNew >= this.limits.stepActionLimit) return 'task-limit';
+    // However well a walk goes, after this many moves the user takes stock: keep going, change the approach or give up.
+    if (input.history.length - this.planFrom >= this.limits.reviewEvery) return 'effort-review';
     return undefined;
   }
+  /** The effort so far, from what each action left the cursor on. */
+  private effort(input: Input): Effort {
+    const actions = input.history.filter(h => 'action' in h.decision);
+    const items = input.history.flatMap((h, i) => 'action' in h.decision ? [currentItem(input.history[i + 1]?.observation ?? input.observation, [])] : []);
+    const stretch = goalWordStretch(input.goal, items);
+    return { moves: actions.length, sinceLastLook: input.history.slice(this.planFrom).filter(h => 'action' in h.decision).length, withoutGoalWords: stretch.current, longestWithoutGoalWords: stretch.longest };
+  }
+  private outOfCalls(): boolean { return this.plannerCalls >= this.limits.maxPlannerCalls; }
   private attempts(history: readonly HistoryEntry[], input: Input): TaskAttempt[] {
     const entries = modelHistory(history, input.observation, Number.MAX_SAFE_INTEGER);
     return entries.flatMap(entry => { const served = this.served.get(entry.step); return served ? [{ ...entry, ...served }] : []; }).slice(-this.limits.plannerHistoryLimit);
   }
-  private async replan(input: Input, step: number, trigger: PlanTrigger, help?: HelpReason): Promise<void> {
+  private async replan(input: Input, step: number, trigger: PlanTrigger, help?: HelpReason, refusedGiveUp?: string): Promise<void> {
     if (input.observation.kind !== 'screenreader') return;
     const actions = speechChoices(input.allowedActions, this.options, input.inputs).filter(c => 'action' in c.decision).map(({ id, label }) => ({ id, label }));
     const started = performance.now();
+    this.plannerCalls++;
     const { draft, model, prompt, retried } = await this.planner.plan({ goal: input.goal, ...(input.context ? { context: input.context } : {}), ...currentItemState(input), trigger, ...(help ? { help } : {}), speech: [...input.observation.speech], ...(input.observation.title ? { title: input.observation.title } : {}), actions,
-      ...(this.doc ? { document: structuredClone(this.doc) } : {}), attempts: this.attempts(input.history, input) }, { signal: input.signal });
+      ...(this.doc ? { document: structuredClone(this.doc) } : {}), attempts: this.attempts(input.history, input), effort: this.effort(input), ...(refusedGiveUp ? { refusedGiveUp } : {}) }, { signal: input.signal });
     input.signal.throwIfAborted();
-    if (retried) this.evidence.push({ kind: 'model-retry', role: 'planner', step, failure: retried });
-    if (!draft.complete && !draft.phases.some(p => p.tasks.length)) throw new Error('The planner returned no tasks for an unfinished goal.');
+    // Asking again for an unusable reply is another planner call.
+    if (retried) { this.plannerCalls++; this.evidence.push({ kind: 'model-retry', role: 'planner', step, failure: retried }); }
+    if (!draft.complete && !draft.giveUp && !draft.phases.some(p => p.tasks.length)) throw new Error('The planner returned no tasks for an unfinished goal.');
     const before = this.doc && new Map(planTasks(this.doc).map(t => [t.id, t.status]));
-    // A checkpoint, or noticing the goal's item, is the plan working as intended; only corrections and running out of tasks count toward maxReplans.
-    if (trigger !== 'start' && trigger !== 'checkpoint' && trigger !== 'goal-heard') this.replans++;
     this.doc = applyDraft(this.doc, draft, { goal: input.goal, step, trigger, ...(help ? { help } : {}) });
     this.planFrom = input.history.length;
     // What the planner just read is known to it: hearing it again is not news.
     for (const line of [...input.observation.speech, currentItem(input.observation, [])]) if (line?.trim()) this.noticed.add(line.trim());
-    this.evidence.push({ kind: 'orchestration-plan', role: 'planner', trigger, ...(help ? { help } : {}), version: this.doc.version, replans: this.replans,
+    this.evidence.push({ kind: 'orchestration-plan', role: 'planner', trigger, ...(help ? { help } : {}), version: this.doc.version, plannerCalls: this.plannerCalls,
       revision: structuredClone(this.doc.revisions.at(-1)), document: structuredClone(this.doc), model, ...(prompt ? { prompt } : {}), elapsedMs: performance.now() - started,
       uncertainty: 'The plan comes from common UI conventions and what was heard; it is an expectation, not a fact about this page.' });
     for (const task of this.doc.retired) if (before?.get(task.id) && before.get(task.id) !== task.status) this.taskEvent(task, before.get(task.id)!);
+    if (draft.giveUp && !draft.complete) {
+      // Giving up has to rest on approaches that were tried and failed: the assumptions it names must be broken. A long walk alone, or
+      // a hunch, is not enough; the refusal is kept as a sign the user wanted to stop here.
+      const broken = new Set(this.doc.assumptions.filter(a => a.status === 'broken').map(a => a.id));
+      const refused = !draft.giveUp.tried.length ? 'it names no approach that was tried and failed'
+        : draft.giveUp.tried.some(id => !broken.has(id)) ? `it names assumptions that are not broken (${draft.giveUp.tried.filter(id => !broken.has(id)).join(', ')})` : undefined;
+      this.evidence.push({ kind: 'orchestration-give-up', step, version: this.doc.version, reason: draft.giveUp.reason, tried: [...draft.giveUp.tried], accepted: !refused, ...(refused ? { refused } : {}), effort: this.effort(input) });
+      if (!refused) { this.gaveUp = structuredClone(draft.giveUp); return; }
+      if (!currentTask(this.doc) && !this.outOfCalls()) return this.replan(input, step, trigger, help, refused);
+    }
     this.startTask(input);
   }
   /** The current task (if any) starts now: its attempts count from here. */
@@ -410,11 +451,18 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
   private taskEvent(task: PlanTask, from: string): void {
     this.evidence.push({ kind: 'orchestration-task', taskId: task.id, planVersion: this.doc!.version, fromStatus: from, toStatus: task.status, actions: task.actions, ...(task.ending ? { ending: structuredClone(task.ending) } : {}) });
   }
-  private giveUp(step: number, reason: PlanTrigger): Decision {
+  /** The user gave up (an accepted `giveUp`): the task they were on fails, and the run ends as theirs to have ended. */
+  private userGaveUp(step: number): Decision {
     const task = this.doc && currentTask(this.doc);
     if (this.doc && task) { failCurrent(this.doc, step); this.taskEvent(task, 'active'); }
-    this.evidence.push({ kind: 'orchestration-limit', reason, replans: this.replans, maxReplans: this.limits.maxReplans, ...(this.doc ? { document: structuredClone(this.doc) } : {}),
-      uncertainty: 'The planner and executor could not make progress within the limits; this ends exploration, it does not establish an accessibility defect.' });
-    return { stop: 'stuck', stopSource: 'orchestration-limit' };
+    return { stop: 'stuck', stopSource: 'user-gave-up' };
+  }
+  /** A cost limit, not the user, ends the run: whether the task can be done is not known. */
+  private unmeasured(step: number, reason: PlanTrigger): Decision {
+    const task = this.doc && currentTask(this.doc);
+    if (this.doc && task) { failCurrent(this.doc, step); this.taskEvent(task, 'active'); }
+    this.evidence.push({ kind: 'orchestration-limit', reason, plannerCalls: this.plannerCalls, maxPlannerCalls: this.limits.maxPlannerCalls, ...(this.doc ? { document: structuredClone(this.doc) } : {}),
+      uncertainty: 'The run reached a cost limit before the user reached the goal or gave up; whether the task can be done is not known.' });
+    return { stop: 'uncertain', stopSource: 'orchestration-limit' };
   }
 }

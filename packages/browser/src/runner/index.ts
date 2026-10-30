@@ -509,7 +509,7 @@ function evidenceSummary(evidence: unknown): Record<string, unknown> {
   if (!evidence || typeof evidence !== 'object') return {};
   const source = evidence as Record<string, unknown>, out: Record<string, unknown> = {};
   for (const key of ['kind', 'role', 'trigger', 'help', 'reason', 'taskId', 'fromStatus', 'toStatus', 'choiceId', 'verified']) if (typeof source[key] === 'string' && SAFE_TOKEN.test(source[key] as string)) out[key] = source[key];
-  for (const key of ['version', 'planVersion', 'replans', 'maxReplans', 'actions']) if (typeof source[key] === 'number') out[key] = source[key];
+  for (const key of ['version', 'planVersion', 'plannerCalls', 'maxPlannerCalls', 'actions']) if (typeof source[key] === 'number') out[key] = source[key];
   if (typeof source.accepted === 'boolean') out.accepted = source.accepted;
   if (typeof source.rejected === 'number') out.rejected = source.rejected;
   const ending = source.ending;

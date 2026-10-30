@@ -75,7 +75,7 @@ export const executeRun: RunExecutor = async ({ task, model, prompt, executor, m
     const limits = { maxStateVisits: rules.maxStateVisits, maxUnchangedTransitions: rules.maxUnchangedTransitions, historyLimit: executor.historyLimit };
     const speechOptions = { ...early, maxUnchangedTransitions: rules.maxUnchangedTransitions, historyLimit: executor.historyLimit };
     const speechPolicy = (choice: ChoiceModel | 'follow-plan'): DecisionPolicy => planner
-      ? new OrchestratedSpeechPolicy(planner, choice, { ...speechOptions, maxReplans: rules.maxReplans, stepActionLimit: rules.stepActionLimit, failureLimit: rules.failureLimit, noChangeLimit: rules.noChangeLimit, plannerHistoryLimit: rules.plannerHistoryLimit,
+      ? new OrchestratedSpeechPolicy(planner, choice, { ...speechOptions, maxPlannerCalls: rules.maxPlannerCalls, reviewEvery: rules.reviewEvery, stepActionLimit: rules.stepActionLimit, failureLimit: rules.failureLimit, noChangeLimit: rules.noChangeLimit, plannerHistoryLimit: rules.plannerHistoryLimit,
         taskControl: rules.taskControl, confidenceFloor: rules.confidenceFloor, survey: rules.survey, executorLatitude: executor.latitude })
       : choice === 'follow-plan' ? (() => { throw new Error('Following the plan needs a plan.'); })() : new SpeechDecisionPolicy(choice, speechOptions);
     let policy: DecisionPolicy;

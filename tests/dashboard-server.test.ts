@@ -382,16 +382,16 @@ describe('dashboard conditions in plans and runs', () => {
   it('applies the profile\'s run rules, with the experiment\'s over them, to the snapshot, and the analysis instructions of the project or the task', async () => {
     const config = setup();
     config.profiles[0]!.executors.keyboard!.historyLimit = 5; config.project.analysis.instructions = 'project focus';
-    config.profiles[0]!.runRules = { ...config.profiles[0]!.runRules, maxStateVisits: 3, maxReplans: 4 }; config.profiles[1]!.runRules = { ...config.profiles[1]!.runRules, maxStateVisits: 7 };
+    config.profiles[0]!.runRules = { ...config.profiles[0]!.runRules, maxStateVisits: 3, maxPlannerCalls: 4 }; config.profiles[1]!.runRules = { ...config.profiles[1]!.runRules, maxStateVisits: 7 };
     config.tasks.push({ id: 'focused', name: 'Focused', file: 'focused.json', analysisInstructions: 'task focus' });
     const { app } = await create(config, { 'focused.json': task })();
     const e = await app.queue.create({ ...request, taskIds: ['task', 'focused'], profileIds: ['default'] }), other = await app.queue.create({ ...request, profileIds: ['other'] });
     const over = await app.queue.create({ ...request, profileIds: ['default'], runRules: { maxStateVisits: 9 } });
     const [plain, focused] = e.runs;
-    expect(plain!.snapshot.spec.settings.runRules).toMatchObject({ maxStateVisits: 3, maxReplans: 4 });
-    expect(focused!.snapshot.spec.settings.runRules).toMatchObject({ maxStateVisits: 3, maxReplans: 4 });
+    expect(plain!.snapshot.spec.settings.runRules).toMatchObject({ maxStateVisits: 3, maxPlannerCalls: 4 });
+    expect(focused!.snapshot.spec.settings.runRules).toMatchObject({ maxStateVisits: 3, maxPlannerCalls: 4 });
     expect(other.runs[0]!.snapshot.spec.settings.runRules).toMatchObject({ maxStateVisits: 7 });
-    expect(over.runs[0]!.snapshot.spec.settings.runRules).toMatchObject({ maxStateVisits: 9, maxReplans: 4 });
+    expect(over.runs[0]!.snapshot.spec.settings.runRules).toMatchObject({ maxStateVisits: 9, maxPlannerCalls: 4 });
     expect(plain!.snapshot.spec.executor).toMatchObject({ historyLimit: 5 });
     expect(plain!.snapshot.spec.conditions).toMatchObject({ profile: { id: 'default' }, combo: { id: 'default' } });
     expect(plain!.profileId).toBe('default'); expect(plain!.snapshot.taskName).toBe('Fixture');

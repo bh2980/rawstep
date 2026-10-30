@@ -68,7 +68,7 @@ Rawstep은 통과/실패를 판정하지 않습니다. 목표를 달성했는지
 - **행동**(`actions`): 모드별로 허용하는 키와 스크린리더 동작, 입력값 입력 여부
 - **페이지**(`page`): 화면 크기, 글자 확대, 색상 조건 같은 페이지 환경
 - **스크린리더**(`screenReader`): 시뮬레이션, VoiceOver, NVDA
-- **실행 규칙**(`runRules`): 반복 감시, 같은 화면·변화 없음 한도, 모델 중도 포기 허용, 재계획 한도. 프로필마다 전체를 가지며 `--rule`이 한 실행에 한해 바꿉니다
+- **실행 규칙**(`runRules`): 반복 감시, 같은 화면·변화 없음 한도, 모델 중도 포기 허용(키보드), 계획 모델 호출 한도, 노력 점검 간격. 프로필마다 전체를 가지며 `--rule`이 한 실행에 한해 바꿉니다
 
 프로필은 실행할 때 고르고(`--profile`), 고르지 않으면 첫 번째 프로필을 씁니다. 같은 작업을 한 부분만 다른 프로필로 실행하면 그 부분의 영향을 비교할 수 있습니다. 실행마다 쓴 프로필의 내용 전체를 기록하므로 이름이 아니라 내용으로 비교합니다. 매 실행 뒤 Rawstep의 규칙 기반 분석은 항상 실행되고, 프로젝트(`project.analysis.model`)에 해설 모델이 있으면 LLM 분석이 더해집니다. 해설 모델은 결과를 바꾸지 않으므로 프로필에 들어가지 않습니다.
 
@@ -76,7 +76,7 @@ Rawstep은 통과/실패를 판정하지 않습니다. 목표를 달성했는지
 npx rawstep run checkout --profile narrow
 npx rawstep run checkout --profile zoom-200
 npx rawstep run checkout --profile plan-and-jev-voiceover --mode screenreader
-npx rawstep run checkout --profile narrow-beginner --rule maxReplans=6
+npx rawstep run checkout --profile narrow-beginner --rule maxPlannerCalls=60
 ```
 
 프로필의 `page`는 `default`, `narrow`, `zoom-200`, `forced-colors`, `dark`, `reflow-text` 같은 내장 이름이나 객체로 지정합니다. 요청한 값과 관측한 값을 함께 기록하며, 브라우저 미디어 에뮬레이션과 네이티브 OS 설정은 구분합니다. 사용할 수 없는 환경은 적용했다고 주장하지 않고 unsupported로 남깁니다. [환경 프로필 안내](./docs/environment-profiles.md)를 참고하세요.

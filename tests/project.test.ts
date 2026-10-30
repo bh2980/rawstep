@@ -116,10 +116,10 @@ describe('project store', () => {
   });
   it('saves a task without a profile, and the profiles beside it, and reads them back', async () => {
     const dir = await root(), store = new ProjectStore(dir), initial = await store.initialize(), config = setup();
-    config.profiles.push({ ...profileWith('strict', 'a', 'm-a', 'Strict'), runRules: resolveRunRules(config.profiles[0]!, { maxReplans: 1 }) });
+    config.profiles.push({ ...profileWith('strict', 'a', 'm-a', 'Strict'), runRules: resolveRunRules(config.profiles[0]!, { maxPlannerCalls: 1 }) });
     await store.save(config, initial.revision, { file: 'task.json', task });
     const saved = (await new ProjectStore(dir).read()).config;
-    expect(saved.tasks[0]).toEqual({ id: 'task', name: 'Fixture', file: 'task.json' }); expect(saved.profiles[1]).toMatchObject({ id: 'strict', runRules: { maxReplans: 1 } });
+    expect(saved.tasks[0]).toEqual({ id: 'task', name: 'Fixture', file: 'task.json' }); expect(saved.profiles[1]).toMatchObject({ id: 'strict', runRules: { maxPlannerCalls: 1 } });
   });
 });
 
@@ -352,15 +352,15 @@ describe('project config', () => {
     const config = defaultConfig(); config.tasks.push({ id: 'task', name: 'T', file: 't.json', analysisInstructions: 'Look at forms.' });
     const parsed = parseConfig(JSON.parse(JSON.stringify(config)));
     expect(parsed.tasks[0]).toEqual({ id: 'task', name: 'T', file: 't.json', analysisInstructions: 'Look at forms.' });
-    expect(() => taskSchema.parse({ id: 'task', name: 'T', file: 't.json', runRules: { maxReplans: 4 } })).toThrow();
+    expect(() => taskSchema.parse({ id: 'task', name: 'T', file: 't.json', runRules: { maxPlannerCalls: 4 } })).toThrow();
     expect(() => taskSchema.parse({ id: 'task', name: 'T', file: 't.json', profileId: 'default' })).toThrow();
     expect(parsed.profiles[0]!.runRules).toEqual(defaultConfig().profiles[0]!.runRules);
   });
   it('layers run rules for one run over the profile\'s, other fields from the profile', () => {
-    const config = setup(); config.profiles[0]!.runRules = resolveRunRules(config.profiles[0]!, { maxStateVisits: 7, maxReplans: 3, failureLimit: 6 });
-    const profile = config.profiles[0]!, override = { maxStateVisits: 2, maxReplans: 5 };
+    const config = setup(); config.profiles[0]!.runRules = resolveRunRules(config.profiles[0]!, { maxStateVisits: 7, maxPlannerCalls: 3, failureLimit: 6 });
+    const profile = config.profiles[0]!, override = { maxStateVisits: 2, maxPlannerCalls: 5 };
     const rules = resolveRunRules(profile, override);
-    expect(rules).toEqual({ ...profile.runRules, maxStateVisits: 2, maxReplans: 5 });
+    expect(rules).toEqual({ ...profile.runRules, maxStateVisits: 2, maxPlannerCalls: 5 });
     expect(profile.runRules.maxStateVisits).toBe(7);
     const checked = checkRun({ config, task: task as never, taskEntry: config.tasks[0], runRules: override, mode: 'keyboard', ...profileConditions(profile) });
     expect(checked.settings.runRules).toEqual(rules);
@@ -388,11 +388,11 @@ describe('first profile of a project', () => {
     expect(conditions.pageEnvironment).toMatchObject({ id: 'p2', profile: 'narrow' }); expect(conditions.atEnvironment).toMatchObject({ id: 'p2', backend: 'nvda' });
   });
   it('merges run rules as the profile\'s, then those of one run', () => {
-    const profile = defaultProfile(); profile.runRules = resolveRunRules(profile, { maxReplans: 5, modelGiveUp: true });
-    expect(resolveRunRules(profile)).toMatchObject({ maxReplans: 5, modelGiveUp: true, failureLimit: 2, noChangeLimit: 3, plannerHistoryLimit: 60 });
-    expect(resolveRunRules(profile, { maxReplans: 3, failureLimit: 4 }, undefined, { failureLimit: 7, modelGiveUp: false })).toMatchObject({ maxReplans: 3, failureLimit: 7, modelGiveUp: false, noChangeLimit: 3 });
-    expect(() => resolveRunRules(profile, { maxReplans: -1 })).toThrow();
-    expect(profile.runRules.maxReplans).toBe(5);
+    const profile = defaultProfile(); profile.runRules = resolveRunRules(profile, { maxPlannerCalls: 5, modelGiveUp: true });
+    expect(resolveRunRules(profile)).toMatchObject({ maxPlannerCalls: 5, modelGiveUp: true, failureLimit: 2, noChangeLimit: 3, plannerHistoryLimit: 60 });
+    expect(resolveRunRules(profile, { maxPlannerCalls: 3, failureLimit: 4 }, undefined, { failureLimit: 7, modelGiveUp: false })).toMatchObject({ maxPlannerCalls: 3, failureLimit: 7, modelGiveUp: false, noChangeLimit: 3 });
+    expect(() => resolveRunRules(profile, { maxPlannerCalls: -1 })).toThrow();
+    expect(profile.runRules.maxPlannerCalls).toBe(5);
   });
   it('records the conditions of a run by content, with the profile it was made with', () => {
     const config = setup(), conditions = profileConditions(config.profiles[0]!);
@@ -403,7 +403,7 @@ describe('first profile of a project', () => {
       combo: { id: 'default', structure: 'solo', executor: 'a · m-a', prompt: { id: 'default.keyboard' } },
       actionSet: { id: 'default', permissions: { keys: expect.arrayContaining(['Tab']) } },
       pageEnvironment: { id: 'default', profile: 'default' }, atEnvironment: { id: 'default', backend: 'simulation' },
-      runRules: { maxReplans: expect.any(Number) },
+      runRules: { maxPlannerCalls: expect.any(Number) },
     });
     expect(record).not.toHaveProperty('preset');
     const spec = runSpecOf(task as never, 'keyboard', conditions, check);
@@ -420,7 +420,7 @@ describe('run checks', () => {
   const withLlm = (c: ProjectConfig) => { c.connections.push(connection('llm', { kind: 'llm' })); };
   it('accepts a supported combination and returns its settings and the profile\'s executor with its instructions', () => {
     const result = check(setup());
-    expect(result.problem).toBeUndefined(); expect(result.settings.runRules.maxReplans).toBeGreaterThan(0); expect(result.warnings).toEqual([]);
+    expect(result.problem).toBeUndefined(); expect(result.settings.runRules.maxPlannerCalls).toBeGreaterThan(0); expect(result.warnings).toEqual([]);
     expect(result.model).toMatchObject({ id: 'a', modelId: 'm-a', name: 'a · m-a' }); expect(result.analysisModel).toBeUndefined();
     expect(result.prompt).toMatchObject({ id: 'default.keyboard', instructions: instructions.keyboard });
     expect(assertRunnable(result).permissions.keys).toContain('Tab');
@@ -465,9 +465,9 @@ describe('run checks', () => {
     expect(viaRun).toBe('too-many-choices');
   });
   it('merges the run rules of the profile and the run, the run last', () => {
-    const result = check(setup(), c => { c.profiles[0]!.runRules.maxReplans = 5; c.profiles[0]!.runRules.stepActionLimit = 9; c.profiles[0]!.runRules.noChangeLimit = 6; },
-      { runRules: { failureLimit: 7, maxReplans: 1 } });
-    expect(result.settings.runRules).toMatchObject({ maxReplans: 1, stepActionLimit: 9, failureLimit: 7, noChangeLimit: 6, modelGiveUp: false });
+    const result = check(setup(), c => { c.profiles[0]!.runRules.maxPlannerCalls = 5; c.profiles[0]!.runRules.stepActionLimit = 9; c.profiles[0]!.runRules.noChangeLimit = 6; },
+      { runRules: { failureLimit: 7, maxPlannerCalls: 1 } });
+    expect(result.settings.runRules).toMatchObject({ maxPlannerCalls: 1, stepActionLimit: 9, failureLimit: 7, noChangeLimit: 6, modelGiveUp: false });
     expect(check(setup(), c => { c.project.analysis.instructions = 'Project focus.'; }).settings.analysisInstructions).toBe('Project focus.');
     expect(check(setup(), c => { c.project.analysis.instructions = 'Project focus.'; c.tasks[0]!.analysisInstructions = 'Task focus.'; }).settings.analysisInstructions).toBe('Task focus.');
   });
@@ -607,7 +607,7 @@ describe('runTask', () => {
     expect(result.findings).toEqual([]); expect(result.warnings).toEqual([]);
     expect(result.conditions).toMatchObject({
       profile: { id: 'default', name: 'Default' }, combo: { id: 'default', structure: 'solo', executor: 'a · m-a', prompt: { id: 'default.keyboard' } }, actionSet: { id: 'default' }, pageEnvironment: { id: 'default' },
-      atEnvironment: { id: 'default', backend: 'simulation' }, runRules: { maxReplans: expect.any(Number) },
+      atEnvironment: { id: 'default', backend: 'simulation' }, runRules: { maxPlannerCalls: expect.any(Number) },
     });
     expect(result.conditions).toEqual(calls[0]!.spec.conditions);
   });
@@ -655,13 +655,13 @@ describe('runTask', () => {
     expect(calls[1]!.spec.model.id).toBe('b'); expect(calls[1]!.spec.prompt).toMatchObject({ id: 'second.screenreader' });
   });
   it('merges run rules as the profile\'s and then the options\'', async () => {
-    const { dir } = await project(config => { config.profiles[0]!.runRules = resolveRunRules(config.profiles[0]!, { maxReplans: 8, stepActionLimit: 20, failureLimit: 3 }); });
+    const { dir } = await project(config => { config.profiles[0]!.runRules = resolveRunRules(config.profiles[0]!, { maxPlannerCalls: 8, stepActionLimit: 20, failureLimit: 3 }); });
     const { calls, execute } = player(recorded(['Enter'], 'success'), recorded(['Enter'], 'success'));
     await runTask('task', { projectDir: dir }, { execute });
-    expect(calls[0]!.spec.settings.runRules).toMatchObject({ maxReplans: 8, stepActionLimit: 20, failureLimit: 3 });
-    const result = await runTask('task', { projectDir: dir, runRules: { maxReplans: 1 } }, { execute });
-    expect(calls[1]!.spec.settings.runRules).toMatchObject({ maxReplans: 1, stepActionLimit: 20, failureLimit: 3 });
-    expect(result.conditions).toMatchObject({ runRules: { maxReplans: 1, failureLimit: 3 } });
+    expect(calls[0]!.spec.settings.runRules).toMatchObject({ maxPlannerCalls: 8, stepActionLimit: 20, failureLimit: 3 });
+    const result = await runTask('task', { projectDir: dir, runRules: { maxPlannerCalls: 1 } }, { execute });
+    expect(calls[1]!.spec.settings.runRules).toMatchObject({ maxPlannerCalls: 1, stepActionLimit: 20, failureLimit: 3 });
+    expect(result.conditions).toMatchObject({ runRules: { maxPlannerCalls: 1, failureLimit: 3 } });
   });
   it('runs the first profile with its own actions, for a registered task and an unregistered task file alike', async () => {
     const { dir } = await project(config => {

@@ -56,7 +56,7 @@ describe('a fixed plan in the orchestrated policy', () => {
     expect(e.requests.at(-1)!.state).toMatchObject({ currentTask: { goal: 'Press it' } });
   });
   it('abandons a stuck task instead of rewriting the plan, and ends when no task is left', async () => {
-    const e = executor('intent:next'), policy = new OrchestratedSpeechPolicy(fixed(), e.executor, { noChangeLimit: 2, maxReplans: 5 });
+    const e = executor('intent:next'), policy = new OrchestratedSpeechPolicy(fixed(), e.executor, { noChangeLimit: 2, maxPlannerCalls: 5 });
     let history: HistoryEntry[] = [];
     // Speech never changes and no cue is heard, so each task runs into the no-change signal.
     for (let step = 1; step <= 8; step++) {

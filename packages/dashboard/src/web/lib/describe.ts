@@ -100,6 +100,7 @@ export function describeHint(hint: Pick<Hint, 'kind' | 'summary' | 'detail'> & P
     case 'early-stop': {
       if (str(d.stopSource) === 'exploration-guard') return t('hints.text.earlyStopGuard');
       if (str(d.stopSource) === 'orchestration-limit') return t('hints.text.earlyStopPlanLimit');
+      if (str(d.stopSource) === 'user-gave-up') return t('hints.text.earlyStopGaveUp', { reason: str((d.giveUp as Record<string, unknown> | undefined)?.reason) ?? '' });
       if (str(d.reason) === 'policy-stuck') return t('hints.text.earlyStopStuck');
       if (str(d.reason) === 'policy-uncertain') return t('hints.text.earlyStopUncertain');
       break;
@@ -116,6 +117,8 @@ export function describeHint(hint: Pick<Hint, 'kind' | 'summary' | 'detail'> & P
     case 'replan': return t(str(d.trigger) === 'failures' ? 'hints.text.replanFailures' : str(d.trigger) === 'low-confidence' ? 'hints.text.replanLowConfidence' : str(d.trigger) === 'oscillation' ? 'hints.text.replanOscillation' : 'hints.text.replanNoChange', { version: String(d.version ?? '') });
     case 'task-limit': return t('hints.text.taskLimit', { version: String(d.version ?? '') });
     case 'unverified-done': return t('hints.text.unverifiedDone', { task: str(d.taskId) ?? '' });
+    case 'wanted-to-give-up': return t('hints.text.wantedToGiveUp', { reason: str(d.reason) ?? '' });
+    case 'goal-word-stretch': return t('hints.text.goalWordStretch', { from: String(d.from ?? ''), to: String(d.to ?? ''), moves: String(d.moves ?? '') });
     case 'focus-left-page': {
       const action = str(d.action);
       return action ? t('hints.text.focusLeftPageAfter', { action }) : t('hints.text.focusLeftPage');

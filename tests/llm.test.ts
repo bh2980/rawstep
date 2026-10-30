@@ -112,7 +112,7 @@ describe('llmChoiceModel', () => {
 });
 
 describe('LlmPlanner', () => {
-  const request = { goal: 'Add Thor Hammer to the cart', trigger: 'start' as const, speech: ['Toolshop, heading level 1'], actions: [{ id: 'intent:next', label: 'Screen reader intent: next' }], attempts: [] };
+  const request = { goal: 'Add Thor Hammer to the cart', trigger: 'start' as const, speech: ['Toolshop, heading level 1'], actions: [{ id: 'intent:next', label: 'Screen reader intent: next' }], attempts: [], effort: { moves: 0, sinceLastLook: 0, withoutGoalWords: 0, longestWithoutGoalWords: 0 } };
   it('sends the plan request as JSON and returns a validated draft with versioned prompt evidence', async () => {
     const draft = { complete: false, rationale: '', strategy: 'Search, then open the product', criteria: [{ id: 'C1', text: 'The product page title is heard' }], assumptions: [{ id: 'A1', text: 'There is a search field' }], phases: [{ title: 'Find the product', criteria: ['C1'], tasks: [{ goal: 'Move to the search field', done: 'Hear "Search, edit text"', cue: 'Search, edit text', serves: ['C1'], relies: ['A1'] }] }] };
     const { calls, fetcher } = recorder(() => reply(draft));

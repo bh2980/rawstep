@@ -29,7 +29,7 @@ rawstep run <task> [--profile <id|name>] [--mode keyboard|screenreader] [--rule 
 |---|---|
 | `--profile` | The run profile, by id or name. Without it the project's first. Keyboard mode needs an executor with image input and `maxImages` of at least 2; screen reader mode needs one with text input. |
 | `--mode` | The profile's `mode`. Overrides it for these runs. |
-| `--rule` | None. `--rule <name>=<value>` overrides one [run rule](./config.md#runrules) for these runs, such as `--rule maxReplans=2 --rule survey=headings`. Repeat it for more rules; if a rule is given twice, the last wins. Numbers, `true` or `false`, and the rule's choices are checked as in the config. |
+| `--rule` | None. `--rule <name>=<value>` overrides one [run rule](./config.md#runrules) for these runs, such as `--rule maxPlannerCalls=20 --rule survey=headings`. Repeat it for more rules; if a rule is given twice, the last wins. Numbers, `true` or `false`, and the rule's choices are checked as in the config. |
 | `--diagnose-stop` | Off. Keyboard mode only: after a run that stopped early, a separate bounded call asks the executor why. Its scores are uncertain hypotheses and never change the outcome. |
 | `--repeat` | `1` (at most 100). Each repeat is compared with the fastest repeat that reached the goal. |
 | `--out` | `<project>/.rawstep/runs/<timestamp>-<id>/`, with one `run-<n>/` directory per repeat. |

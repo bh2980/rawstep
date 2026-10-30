@@ -1,7 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { OctagonAlert, ShieldAlert, Signpost, UserCheck } from 'lucide-react';
 import type { RunNotice, RunPlanView, StepView } from '../../shared/api';
-import { replanCount } from '../lib/plan';
 import type { RunRecord } from '../../shared/config';
 import { Button } from './ui/button';
 
@@ -22,7 +21,9 @@ export function RunDiagnosis({ run, steps, notices, plan, onSelect }: Props) {
     lines.push({ key: 'stop', icon: OctagonAlert, step: stopped.step, text: t('diagnosis.plannerStop', { n: stopped.step }),
       note: reason === 'verification-failed' ? t('diagnosis.plannerStopFailed') : t('diagnosis.plannerStopNote') });
   } else if (source === 'orchestration-limit' && stopped) {
-    lines.push({ key: 'stop', icon: OctagonAlert, step: stopped.step, text: t('diagnosis.limitStop', { n: stopped.step, max: rules.maxReplans, count: plan ? replanCount(plan) : rules.maxReplans }), note: t('diagnosis.limitStopNote') });
+    lines.push({ key: 'stop', icon: OctagonAlert, step: stopped.step, text: t('diagnosis.limitStop', { n: stopped.step, max: rules.maxPlannerCalls, count: plan ? plan.versions.length : rules.maxPlannerCalls }), note: t('diagnosis.limitStopNote') });
+  } else if (source === 'user-gave-up' && stopped) {
+    lines.push({ key: 'stop', icon: OctagonAlert, step: stopped.step, text: t('diagnosis.gaveUpStop', { n: stopped.step }), note: t('diagnosis.gaveUpStopNote') });
   } else if (source === 'model' && stopped && stopped.stop!.stop !== 'success') {
     lines.push({ key: 'stop', icon: OctagonAlert, step: stopped.step,
       text: t('diagnosis.modelStop', { n: stopped.step, reason: t(`steps.stopReasons.${stopped.stop!.stop}`, { defaultValue: stopped.stop!.stop }) }),

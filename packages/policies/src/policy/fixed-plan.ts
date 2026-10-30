@@ -19,6 +19,7 @@ export const planDraftSchema = z.object({
       cue: z.union([z.string().max(120), z.object({ name: z.string().max(120), role: z.string().max(40).optional(), state: z.string().max(40).optional() }).strict()]), activates: z.boolean().optional(), moves: z.array(z.string().min(1).max(40)).max(6).optional(),
       serves: z.array(ref).max(10).optional(), relies: z.array(ref).max(10).optional() }).strict()).max(8),
   }).strict()).max(6),
+  giveUp: z.object({ reason: z.string().min(1).max(500), tried: z.array(ref).max(10) }).strict().optional(),
 }).strict();
 /**
  * A draft from a planner model. A long run piles up assumptions; past the limit, settled ones (held or broken) that no task relies on

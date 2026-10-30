@@ -74,10 +74,11 @@ export type Task = {
 export type PolicyAction = { kind: 'intent'; intent: string } | { kind: 'key'; key: string } | { kind: 'typeText'; input: string } | { kind: 'replaceText'; input: string };
 /**
  * Who ended a run early: the executor model (`model`), the planner judging the goal reached (`planner`), Rawstep's repetition guard
- * (`exploration-guard`), or orchestration running out of new plans (`orchestration-limit`).
+ * (`exploration-guard`), the simulated user giving up after the approaches they tried failed (`user-gave-up`), or a cost limit on
+ * planner calls before either (`orchestration-limit`: unmeasured, not a failure).
  */
-export type StopSource = 'model' | 'planner' | 'exploration-guard' | 'orchestration-limit';
-export const STOP_SOURCES: readonly StopSource[] = Object.freeze(['model', 'planner', 'exploration-guard', 'orchestration-limit']);
+export type StopSource = 'model' | 'planner' | 'exploration-guard' | 'user-gave-up' | 'orchestration-limit';
+export const STOP_SOURCES: readonly StopSource[] = Object.freeze(['model', 'planner', 'exploration-guard', 'user-gave-up', 'orchestration-limit']);
 export type Decision = { action: PolicyAction; rationale?: string } | { stop: 'success' | 'stuck' | 'uncertain'; rationale?: string; stopSource?: StopSource };
 export type AllowedActions = { intents: readonly string[]; keys: readonly string[]; inputKeys: readonly string[]; typeText?: boolean; replaceText: boolean };
 export type ScreenReaderObservation = {
