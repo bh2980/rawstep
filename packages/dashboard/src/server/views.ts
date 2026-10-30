@@ -1,7 +1,7 @@
 import { aggregateHints, extractHints, HINTS_SCHEMA_VERSION, selectReference, type Hint, type HintFinding, type HintTarget } from '@rawstep/reports/hints';
 import { readTrace, type RunTrace, type TraceEvent } from '@rawstep/core/trace';
 import type { AnalysisReport } from '@rawstep/reports';
-import type { HintReport, ProfileFacts, RunExplanation, RunHintsView, RunResult, RunStepsView, StuckPlace, TaskFindings, TaskSummary } from '../shared/api.js';
+import type { HintReport, ProfileFacts, RunExplanation, RunHintsView, RunResult, RunStepsView, StuckPlace, TaskBatch, TaskFindings, TaskSummary } from '../shared/api.js';
 import { runEnding } from '../shared/results.js';
 import type { RunRecord } from '../shared/config.js';
 import { readOptional, type ProjectStore } from '@rawstep/project/store';
@@ -82,9 +82,21 @@ export class RunViews {
     }
     return { ...extractHints(trace, reference ? { reference: reference.trace } : {}), ...(reference ? { referenceRun: { experimentId: reference.experimentId, runId: reference.runId } } : {}) };
   }
-  /** Every run of one task, oldest first, with the time it started (or, when it has not, its experiment was created). */
-  private taskEntries(taskId: string) {
-    return this.queue.experiments
+  /** The batches (experiments) that ran a task, newest first. */
+  batches(taskId: string): TaskBatch[] {
+    return this.queue.experiments.filter(experiment => experiment.runs.some(run => run.taskId === taskId)).map(experiment => {
+      const runs = experiment.runs.filter(run => run.taskId === taskId);
+      return { experimentId: experiment.id, createdAt: experiment.createdAt, ...(experiment.request.note ? { note: experiment.request.note } : {}), runs: runs.length, finished: runs.filter(finished).length };
+    }).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }
+  /** The batch a task's results show when none is asked for: the newest one with a finished run, else the newest. */
+  private defaultBatch(taskId: string): string | undefined {
+    const batches = this.batches(taskId);
+    return (batches.find(batch => batch.finished > 0) ?? batches[0])?.experimentId;
+  }
+  /** Every run of one task in one batch, oldest first, with the time it started (or, when it has not, its experiment was created). */
+  private taskEntries(taskId: string, experimentId: string | undefined) {
+    return this.queue.experiments.filter(experiment => experiment.id === experimentId)
       .flatMap(experiment => experiment.runs.filter(run => run.taskId === taskId).map(run => ({ experimentId: experiment.id, run, at: run.startedAt ?? experiment.createdAt })))
       .sort((a, b) => a.at.localeCompare(b.at) || a.run.repeat - b.run.repeat);
   }
@@ -97,14 +109,16 @@ export class RunViews {
     if (!saved?.schemaVersion || saved.schemaVersion === HINTS_SCHEMA_VERSION) return saved;
     return await this.trace(experimentId, runId).then(t => t && extractHints(t)) ?? saved;
   }
-  private async taskData(taskId: string) {
+  /** Results of one batch of a task: runs of different batches are never counted together (the page may have changed in between). */
+  private async taskData(taskId: string, experimentId: string | undefined) {
     // A run that never got going (the browser or model could not start) is not evidence about the page.
-    const entries = this.taskEntries(taskId), done = entries.filter(entry => finished(entry.run) && entry.run.outcome?.reason !== 'error');
+    const entries = this.taskEntries(taskId, experimentId), done = entries.filter(entry => finished(entry.run) && entry.run.outcome?.reason !== 'error');
     const steps = (run: RunRecord) => typeof run.outcome?.steps === 'number' ? run.outcome.steps : undefined;
     const reached = done.filter(entry => entry.run.outcome?.status === 'success');
     const fastest = reached.reduce<typeof reached[number] | undefined>((best, entry) => steps(entry.run) !== undefined && (!best || steps(entry.run)! < steps(best.run)!) ? entry : best, undefined);
     const key = done.map(entry => entry.run.id).join(',');
-    let cached = this.findingsCache.get(taskId);
+    const cacheKey = `${taskId}\u0000${experimentId ?? ''}`;
+    let cached = this.findingsCache.get(cacheKey);
     if (cached?.key !== key) {
       // hints.json names the trace's run id; findings must point at the dashboard run so links and run numbers resolve.
       const reports = await Promise.all(done.map(async entry => {
@@ -114,7 +128,7 @@ export class RunViews {
       const readable = reports.filter((report): report is HintReport => !!report);
       cached = { key, findings: aggregateHints(readable), reports: new Map(readable.map(report => [report.runId, report])) };
       // A missing hints.json may still be written; only a complete set is kept.
-      if (readable.length === done.length) this.findingsCache.set(taskId, cached); else this.findingsCache.delete(taskId);
+      if (readable.length === done.length) this.findingsCache.set(cacheKey, cached); else this.findingsCache.delete(cacheKey);
     }
     const reports = cached.reports;
     const facts = new Map<string, RunFacts>();
@@ -210,17 +224,21 @@ export class RunViews {
     this.factsCache.set(runId, result);
     return result;
   }
-  /** Hint findings and facts over one task's finished runs. */
-  async findings(taskId: string): Promise<TaskFindings> {
-    const { facts, findings, results, stuck, startPage } = await this.taskData(taskId);
-    return { taskId, facts, findings, results, stuck, ...(startPage ? { startPage } : {}) };
+  /** Hint findings and facts over the finished runs of one batch of a task (the newest when none is named). */
+  async findings(taskId: string, experimentId = this.defaultBatch(taskId)): Promise<TaskFindings> {
+    const batches = this.batches(taskId);
+    if (experimentId && !batches.some(batch => batch.experimentId === experimentId)) throw new HttpError(404, '이 작업을 실행한 묶음이 아닙니다.');
+    const { facts, findings, results, stuck, startPage } = await this.taskData(taskId, experimentId);
+    return { taskId, ...(experimentId ? { batch: experimentId } : {}), batches, facts, findings, results, stuck, ...(startPage ? { startPage } : {}) };
   }
   /** One row per task that has runs, for the task table. */
   async taskSummaries(): Promise<TaskSummary[]> {
     const taskIds = [...new Set(this.queue.experiments.flatMap(experiment => experiment.runs.map(run => run.taskId)))];
     const rows: TaskSummary[] = [];
     for (const taskId of taskIds) {
-      const { entries, facts, findings } = await this.taskData(taskId);
+      // The task table shows the newest batch, as the task page does; lastRunAt is the newest run in any batch.
+      const { facts, findings } = await this.taskData(taskId, this.defaultBatch(taskId));
+      const entries = this.queue.experiments.flatMap(experiment => experiment.runs.filter(run => run.taskId === taskId).map(run => ({ at: run.startedAt ?? experiment.createdAt }))).sort((a, b) => a.at.localeCompare(b.at));
       const top = findings.find(finding => finding.source === 'page');
       rows.push({
         taskId, facts, findingCount: findings.filter(finding => finding.source === 'page').length,

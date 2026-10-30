@@ -13,6 +13,8 @@ export const planSchema = z.object({
   selected: z.array(z.string().max(500)).max(1000).optional(),
   revision: z.string().optional(),
   diagnoseStop: z.boolean().optional(),
+  /** What this batch of runs is for, in the person's words ("담기를 button으로 바꿈"); shown wherever the batch is picked. */
+  note: z.string().trim().max(200).optional(),
 }).strict();
 export type PlanRequest = z.infer<typeof planSchema>;
 /** `tasks` holds each task's JSON as written in its file (not resolved), so edits keep relative URLs and omitted defaults. */

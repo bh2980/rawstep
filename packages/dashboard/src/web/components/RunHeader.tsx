@@ -47,8 +47,8 @@ export function RunHeader({ runRef, numbers, view, pageProps, navigate }: Props)
   const [retry, setRetry] = useState<RetryPreview>(), [deleting, setDeleting] = useState(false);
   const base = runPath(experiment.id, run.id), live = isLive(run);
   const steps = runStepCount(run), seconds = durationSeconds(run);
-  // The fastest run is the server's definition (reached runs only, oldest wins a tie): the task overview shows the same one.
-  const fastest = useTaskFindings(run.taskId).data?.facts.fastest;
+  // The fastest run of the run's own batch, as the server defines it (reached runs only, oldest wins a tie): the task overview of that batch shows the same one.
+  const fastest = useTaskFindings(run.taskId, experiment.id).data?.facts.fastest;
   const latest = view?.steps.at(-1)?.step ?? 0, maxSteps = run.snapshot.spec.task.maxSteps ?? RAWSTEP_DEFAULTS.task.maxSteps;
   const conditions = runConditions(run, pageProps.view.config);
   const { act, busy } = pageProps;

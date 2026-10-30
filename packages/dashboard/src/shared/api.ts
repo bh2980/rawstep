@@ -136,9 +136,19 @@ export type RunStepsView = {
 /** Hints for one run, compared against the shortest goal-reaching run of the same task and mode, if any. */
 export type RunHintsView = HintReport & { referenceRun?: { experimentId: string; runId: string } };
 
-/** Facts and recurring hint findings of one task over its finished runs (any model, mode and experiment). */
+/** One batch of runs (an experiment) that ran a task. */
+export type TaskBatch = { experimentId: string; createdAt: string; note?: string; runs: number; finished: number };
+
+/**
+ * Facts and recurring hint findings of one task over the finished runs of one batch. Batches are never counted together: the page
+ * may have changed between them.
+ */
 export type TaskFindings = {
   taskId: string;
+  /** The batch these figures are about; absent when the task never ran. */
+  batch?: string;
+  /** Every batch that ran the task, newest first. */
+  batches: TaskBatch[];
   facts: {
     /** Finished runs of the task. */
     runs: number;

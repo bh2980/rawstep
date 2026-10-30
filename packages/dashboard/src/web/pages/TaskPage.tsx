@@ -36,7 +36,9 @@ type Props = {
  */
 export function TaskPage({ taskId, tab, pageProps, runs, navigate, onRun }: Props) {
   const { t } = useTranslation();
-  const findings = useTaskFindings(taskId);
+  // Results are about one batch of runs at a time (the newest unless another is picked), and may be compared with another batch.
+  const [batch, setBatch] = useState<string>(), [compareTo, setCompareTo] = useState<string>();
+  const findings = useTaskFindings(taskId, batch), compared = useTaskFindings(taskId, compareTo, !!compareTo);
   const { view } = pageProps, config = view.config;
   const saved = config.tasks.find(item => item.id === taskId), savedJson = JSON.stringify(view.tasks[taskId] ?? {}, null, 2);
   const [task, setTask] = useState<ManagedTask | undefined>(() => saved && structuredClone(saved));
@@ -124,7 +126,8 @@ export function TaskPage({ taskId, tab, pageProps, runs, navigate, onRun }: Prop
           return <TabsTrigger key={id} value={id}>{t(`taskPage.tabs.${id}`)}{count !== undefined && <span className="ml-1 text-xs font-normal text-muted-foreground tabular-nums">{count}</span>}</TabsTrigger>; })}
       </TabsList>
       <TabsContent value="overview"><TaskOverview taskId={taskId} runs={taskRuns} numbers={numbers} findings={findings} navigate={navigate} onRun={onRun}
-        profiles={config.profiles} minimalSteps={saved.minimalSteps} /></TabsContent>
+        profiles={config.profiles} minimalSteps={saved.minimalSteps}
+        batch={batch} onBatch={id => { setBatch(id); if (id === compareTo) setCompareTo(undefined); }} compareTo={compareTo} onCompare={setCompareTo} compared={compared} /></TabsContent>
       <TabsContent value="runs">
         <section aria-label={t('taskPage.tabs.runs')} className="grid gap-2">
           {taskRuns.length > 0
