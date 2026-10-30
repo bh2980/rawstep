@@ -443,7 +443,10 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
       outcome = { status: error instanceof BudgetExceeded ? 'inconclusive' : 'failure', reason: error instanceof BudgetExceeded ? 'timeout' : 'error', stage, step: activeStep, error: inputTainted ? 'Run failed after text entry; raw error redacted.' : errorMessage(error) };
       const hint = findRawstepError(error, candidate => !!candidate.outcome)?.outcome;
       if (hint) outcome = { ...outcome, ...hint };
-      bestEffortEvidence(() => append('run.error', { stage, step: activeStep, message: inputTainted ? 'Run failed after text entry; raw error redacted.' : errorMessage(error) }, { redacted: inputTainted }));
+      // Why a model reply was not used is kept with the error; after text entry the reply itself is left out, like the message.
+      const failure = findRawstepError(error, candidate => !!candidate.detail?.modelFailure)?.detail?.modelFailure as Record<string, unknown> | undefined;
+      const modelFailure = failure && (inputTainted ? (({ reply: _reply, ...rest }) => rest)(failure) : failure);
+      bestEffortEvidence(() => append('run.error', { stage, step: activeStep, message: inputTainted ? 'Run failed after text entry; raw error redacted.' : errorMessage(error), ...(modelFailure ? { modelFailure } : {}) }, { redacted: inputTainted }));
     }
   } finally {
     options.signal?.removeEventListener('abort', onExternalAbort);

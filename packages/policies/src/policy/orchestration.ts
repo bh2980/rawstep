@@ -1,6 +1,6 @@
 import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import type { Decision, DecisionPolicy, HistoryEntry } from '@rawstep/core/contracts';
-import type { ChoiceCandidate, ChoiceModel } from './choice.js';
+import type { ChoiceCandidate, ChoiceModel, ModelFailure } from './choice.js';
 import { modelHistory, type ModelHistoryEntry } from './history.js';
 import { applyDraft, cueText, currentTask, failCurrent, finishCurrent, goalNamed, markCheckpoint, needsCheckpoint, phaseOf, matchCue, planOutline, planTasks, verifyCue,
   type HelpReason, type PlanDocument, type PlanDraft, type PlanTask, type PlanTrigger } from './plan-document.js';
@@ -29,10 +29,10 @@ export type PlanRequest = {
   attempts: TaskAttempt[];
 };
 /** `prompt` fingerprints the planner's full instructions, so runs with different planner instructions stay apart. */
-export type PlanResult = { draft: PlanDraft; model: { id: string; runtime: string }; prompt?: { id: string; version: string; sha256: string } };
+export type PlanResult = { draft: PlanDraft; model: { id: string; runtime: string }; prompt?: { id: string; version: string; sha256: string }; retried?: ModelFailure };
 /** Asks whether a spoken item is what the current task looks for, its cue having been written before the item was heard. */
 export type CueRequest = { goal: string; context?: string; task: { goal: string; done: string; cue: string }; heard: string };
-export type CueResult = { matches: boolean; reason?: string; model: { id: string; runtime: string } };
+export type CueResult = { matches: boolean; reason?: string; model: { id: string; runtime: string }; retried?: ModelFailure };
 /** Drafts and revises the plan document. Called a few times per run, so it can be a slower model than the executor. */
 export interface Planner {
   plan(request: PlanRequest, options: { signal: AbortSignal }): Promise<PlanResult>;
@@ -290,7 +290,7 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
       if (!candidates.some(c => c.id === response.choiceId)) throw new Error('The model selected an unknown choice.');
       this.evidence.push({ kind: 'model-inference', role: 'executor', model: response.model, ...(response.prompt ? { prompt: response.prompt } : {}), elapsedMs: performance.now() - started,
         observationSource: input.observation.provenance === 'simulation' ? 'simulated-speech-only' : 'screen-reader-output-only',
-        taskId: task.id, planVersion: doc.version, stepGoal: task.goal, choices: candidates, choiceId: response.choiceId, ...(response.probabilities ? { probabilities: response.probabilities } : {}),
+        taskId: task.id, planVersion: doc.version, stepGoal: task.goal, choices: candidates, choiceId: response.choiceId, ...(response.probabilities ? { probabilities: response.probabilities } : {}), ...(response.retried ? { retried: response.retried } : {}),
         noDomOrAxContext: true, uncertainty: 'Model probabilities are not measured accuracy or accessibility certification.' });
       if (response.choiceId === TASK_DONE) {
         const last = input.history.at(-1)?.observation;
@@ -340,6 +340,7 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
     const started = performance.now();
     const result = await this.planner.recognize({ goal: input.goal, ...(input.context ? { context: input.context } : {}), task: { goal: task.goal, done: task.done, cue: cueText(task) }, heard: heard.slice(0, 300) }, { signal: input.signal });
     input.signal.throwIfAborted();
+    if (result.retried) this.evidence.push({ kind: 'model-retry', role: 'planner', taskId: task.id, failure: result.retried });
     this.evidence.push({ kind: 'orchestration-cue', taskId: task.id, planVersion: doc.version, verified: result.matches ? 'recognized' : 'not-recognized', source: 'planner',
       cue: cueText(task), heard, ...(result.reason ? { reason: result.reason } : {}), model: result.model, elapsedMs: performance.now() - started });
     return result.matches;
@@ -380,9 +381,10 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
     if (input.observation.kind !== 'screenreader') return;
     const actions = speechChoices(input.allowedActions, this.options, input.inputs).filter(c => 'action' in c.decision).map(({ id, label }) => ({ id, label }));
     const started = performance.now();
-    const { draft, model, prompt } = await this.planner.plan({ goal: input.goal, ...(input.context ? { context: input.context } : {}), ...currentItemState(input), trigger, ...(help ? { help } : {}), speech: [...input.observation.speech], ...(input.observation.title ? { title: input.observation.title } : {}), actions,
+    const { draft, model, prompt, retried } = await this.planner.plan({ goal: input.goal, ...(input.context ? { context: input.context } : {}), ...currentItemState(input), trigger, ...(help ? { help } : {}), speech: [...input.observation.speech], ...(input.observation.title ? { title: input.observation.title } : {}), actions,
       ...(this.doc ? { document: structuredClone(this.doc) } : {}), attempts: this.attempts(input.history, input) }, { signal: input.signal });
     input.signal.throwIfAborted();
+    if (retried) this.evidence.push({ kind: 'model-retry', role: 'planner', step, failure: retried });
     if (!draft.complete && !draft.phases.some(p => p.tasks.length)) throw new Error('The planner returned no tasks for an unfinished goal.');
     const before = this.doc && new Map(planTasks(this.doc).map(t => [t.id, t.status]));
     // A checkpoint, or noticing the goal's item, is the plan working as intended; only corrections and running out of tasks count toward maxReplans.

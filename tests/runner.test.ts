@@ -8,6 +8,7 @@ import { runTask } from '@rawstep/browser/runner';
 import type { ObserverEvent, PageObserver } from '@rawstep/browser/observer';
 import { ScriptedPolicy } from '@rawstep/policies/policy';
 import { TraceRecorder } from '@rawstep/core/trace';
+import { RawstepError } from '@rawstep/core/errors';
 import { analyzeTrace } from '@rawstep/reports/analyze';
 
 const dirs: string[] = [];
@@ -169,6 +170,13 @@ describe('model-neutral runner',()=>{
     const f=fixture(); const trace=await runTask(task,{...f,outDir:await out(),policy:new ScriptedPolicy([{action:{kind:'intent',intent:'activate'}}])});
     expect(trace.outcome?.status).toBe('success'); expect(f.verifier).toHaveBeenCalled(); expect(f.backend.close).toHaveBeenCalled(); expect(f.browser.close).toHaveBeenCalled();
     expect(trace.events.filter(e=>e.source==='screen-reader').length).toBeGreaterThan(0);
+  });
+  it('records why a model reply was rejected next to the error, never the provider text',async()=>{
+    const f=fixture(); const modelFailure={kind:'schema',issues:[{path:'assumptions',message:'Too big'}],reply:'{"assumptions":[]}'};
+    const policy:DecisionPolicy={decide:async()=>{throw new Error('Planner failed',{cause:new RawstepError('llm-failed','LLM call failed.',{detail:{modelFailure}})});}};
+    const trace=await runTask(task,{...f,outDir:await out(),policy});
+    expect(trace.outcome).toMatchObject({status:'failure',reason:'error'});
+    expect(trace.events.find(e=>e.type==='run.error')?.data).toMatchObject({message:expect.any(String),modelFailure});
   });
   it('does not accept a policy success claim as verification',async()=>{
     const f=fixture(); f.verifier.mockResolvedValue({passed:false,failures:['missing']});

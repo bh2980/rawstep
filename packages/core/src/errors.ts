@@ -16,11 +16,14 @@ export class RawstepError extends Error {
   static readonly errorName: string = 'RawstepError';
   readonly code: RawstepErrorCode;
   readonly outcome?: RawstepOutcomeHint;
-  constructor(code: RawstepErrorCode, message: string, options: { cause?: unknown; outcome?: RawstepOutcomeHint } = {}) {
+  /** What the runner records about the failure next to the message (for example why a model reply was not used); never provider error text. */
+  readonly detail?: Readonly<Record<string, unknown>>;
+  constructor(code: RawstepErrorCode, message: string, options: { cause?: unknown; outcome?: RawstepOutcomeHint; detail?: Record<string, unknown> } = {}) {
     super(message, options.cause === undefined ? undefined : { cause: options.cause });
     this.name = 'RawstepError';
     this.code = code;
     if (options.outcome) this.outcome = options.outcome;
+    if (options.detail) this.detail = options.detail;
     Object.defineProperty(this, BRAND, { value: true });
   }
   /**

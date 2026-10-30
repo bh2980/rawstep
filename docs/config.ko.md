@@ -77,6 +77,8 @@ API 키는 설정 파일에 들어가지 않습니다. 기본 제공자는 정�
 
 **코딩 에이전트 CLI**(`claudeCode`, `codex`, `opencode`, `grok`, `antigravity`)는 주소 대신 ACP(Agent Client Protocol, stdio 위의 JSON-RPC)로 말을 거는 CLI 연결입니다. CLI가 설치되어 로그인되어 있어야 하며, 호출 비용은 CLI 자체의 구독으로 나가므로 API 키도 `baseURL`도 없습니다. 실행 명령은 `PROVIDERS`에 고정되어 있고 공유 설정에서 읽지 않습니다. `npx` 어댑터 둘은 버전을 고정해 처음 쓸 때 내려받으므로 첫 호출이 느립니다. `modelId: "default"`는 에이전트가 정한 모델을 그대로 쓰며, 모델 목록(대시보드 확인과 모델 선택)은 에이전트를 띄워 `default`를 맨 앞에 보여 줍니다. Grok은 이미지를 받지 않아 스크린리더 모드와 분석에만 맞습니다. 판단마다 새 에이전트 세션을 빈 임시 폴더에서 열고, 파일·터미널 접근과 권한 요청은 거절하며, 호출이 끝나면 세션을 지웁니다. 에이전트는 자체 시스템 프롬프트가 커서 호출마다 토큰을 더 쓰고 직접 API보다 느립니다(판단 한 번에 약 4~13초 측정).
 
+`llm`의 응답을 쓸 수 없으면(JSON 객체가 없거나, 요청한 형식과 다르면) 무엇이 틀렸는지 알려 주고 한 번 더 묻습니다. 다시 물은 일은 정책 근거 `model-retry`(실행 모델 선택이면 `retried`)로 남습니다. 두 번째 응답도 틀리거나, 첫 응답이 잘렸거나, 다른 모델이 답했거나, 키가 응답에 들어 있으면 실행은 오류로 끝나고 `run.error` 이벤트의 `modelFailure`에 실패 종류, 형식 검사가 지적한 필드와 이유, 모델 응답(앞부분만)이 남습니다. 키가 들어 있던 응답과 페이지에 글자를 입력한 뒤의 응답은 남기지 않습니다. 제공자의 오류 본문은 계정 정보가 섞일 수 있어 남기지 않습니다.
+
 같은 기본 제공자의 연결은 키 하나를 함께 씁니다. `llm`은 AI SDK로 제공자의 채팅 API를 호출하고, `decision`은 AI SDK의 실험적 `decide` API를 호출합니다. `typesafe`·`openrouter`·`custom`은 자체 `/systemone` 어댑터, `gateway`는 AI SDK의 gateway provider를 씁니다([SystemOne 결정 모델](./systemone.md)).
 
 ### 코딩 에이전트 CLI (`claudeCode`, `codex`, `opencode`, `grok`, `antigravity`)

@@ -31,6 +31,23 @@ describe('shared AI SDK LLM module', () => {
     expect(JSON.parse(parts[0]!.text!)).toEqual({ state: { goal: 'g' }, candidates });
     expect(parts.slice(1).map(p => p.image_url!.url)).toEqual(['data:image/png;base64,QUJD', 'data:image/png;base64,REVG']);
   });
+  it('asks once more when a reply has the wrong shape, saying what was wrong, and records why when the second reply fails too', async () => {
+    const schema = z.object({ n: z.number() });
+    let sent = 0;
+    const once = recorder(() => reply(sent++ === 0 ? { n: 'three' } : { n: 3 }));
+    expect(await generateStructured({ model: llm(once.fetcher), system: 's', user: 'u', schema })).toMatchObject({ object: { n: 3 }, retried: { kind: 'schema', issues: [{ path: 'n' }], reply: '{"n":"three"}' } });
+    expect(once.calls).toHaveLength(2);
+    expect(JSON.stringify(once.calls[1]!.body.messages[1].content)).toContain('did not match the required shape: n:');
+    const twice = recorder(() => reply({ n: 'three' }));
+    const failed = await generateStructured({ model: llm(twice.fetcher), system: 's', user: 'u', schema }).catch((error: unknown) => error);
+    expect(failed).toMatchObject({ code: 'llm-failed', detail: { modelFailure: { kind: 'schema', issues: [{ path: 'n' }], reply: '{"n":"three"}' } } });
+    expect(twice.calls).toHaveLength(2);
+    // A reply that echoes the credential is neither kept nor asked again.
+    const echo = recorder(() => reply({ n: 'sk-secret-key' }));
+    const leaked = await generateStructured({ model: llm(echo.fetcher), system: 's', user: 'u', schema }).catch((error: unknown) => error) as { detail?: unknown };
+    expect(leaked.detail).toEqual({ modelFailure: { kind: 'credential-echoed' } });
+    expect(echo.calls).toHaveLength(1);
+  });
   it('sends text-only state as plain text and validates structured output with a zod schema', async () => {
     const { calls, fetcher } = recorder(() => reply({ n: 3 }));
     const schema = z.object({ n: z.number() });

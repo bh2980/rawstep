@@ -20,7 +20,7 @@ export async function loadPolicy(modulePath: string, options: { fresh?: boolean 
   if (!policy || typeof policy.decide !== 'function') throw new Error('Policy module must export a default or named policy object with decide(input).');
   return policy;
 }
-export type { ChoiceCandidate, ChoiceModel, ChoiceRequest, ChoiceResult } from './choice.js';
+export type { ChoiceCandidate, ChoiceModel, ChoiceRequest, ChoiceResult, ModelFailure } from './choice.js';
 export { actionOnly, modelHistory } from './history.js';
 export type { ModelHistoryEntry } from './history.js';
 export { SpeechDecisionPolicy, currentItem, currentItemState, speechChoices, speechGuardStop, speechRepetition } from './speech.js';

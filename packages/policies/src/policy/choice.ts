@@ -13,6 +13,8 @@ export type ChoiceResult = {
   probabilities?: number[];
   model: { id: string; requestedId?: string; runtime: string; revision?: string };
   prompt?: { id: string; version: string; sha256: string };
+  /** Set when the first reply was not usable and the model was asked once more. */
+  retried?: ModelFailure;
 };
 /**
  * A model that picks one of the supplied candidates: a SystemOne decision model or an LLM. Policies build the state
@@ -23,3 +25,14 @@ export interface ChoiceModel {
   readonly inputs: readonly ('text' | 'image')[];
   choose(request: ChoiceRequest, options: { signal: AbortSignal }): Promise<ChoiceResult>;
 }
+
+/**
+ * Why a model reply was not used: not JSON, the wrong shape (with the schema's complaints), cut off, from another model, echoing the
+ * credential, or no reply at all. `reply` is the model's own text, shortened, and left out when it echoed the credential. The
+ * provider's error text is never kept: it can carry credentials.
+ */
+export type ModelFailure = {
+  kind: 'not-json' | 'schema' | 'incomplete' | 'model-changed' | 'credential-echoed' | 'no-reply';
+  issues?: { path: string; message: string }[];
+  reply?: string;
+};
