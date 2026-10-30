@@ -38,21 +38,32 @@ rawstep run <task> [--profile <id|name>] [--mode keyboard|screenreader]
 출력은 실행 조건, 실행별 블록, 전체 실행에서 모은 발견 사항으로 이루어집니다.
 
 ```text
-Conditions: Plan with GPT, act with Jev (planned · planner OpenAI · gpt-5 → executor Jev · jev-latest)
-  page narrow · screen reader simulation
+Conditions: Expert (planned · planner Grok · grok-4.7-build-fast → executor Rawstep · follows the plan)
+  page default · screen reader simulation
 
-Run 1 of 2: goal reached · 7 steps
-  <run 폴더 경로>
-Run 2 of 2: goal not reached (<이유>) · 20 steps
-  <run 폴더 경로>
+Run 1 of 2: gave up · 34 moves
+  Why: "Add to cart never says the item was added, and nothing else heard can add it."
+  Rests on A3 "Pressing Add to cart announces that the item was added" · broke at step 17 after pressing StaticText "Add to cart"
+  longest without a goal word: 9 moves · wrong guesses about where something is: 1
+  <run 1 folder>
+Run 2 of 2: reached the goal · 84 moves
+  longest without a goal word: 21 moves · wrong guesses about where something is: 0
+  <run 2 folder>
+
+Could a first-time user do it? reached the goal in 1 of 2 runs · gave up 1
+Cost of reaching it: 84 moves
+
+Stuck: pressed, and it did not respond as the user expected
+  StaticText "Add to cart" · 1 of 2 runs · 1 give-up rest on it
+    expected: Pressing Add to cart announces that the item was added
 
 Page
-  button "Add to cart" · focus lost · 2 of 2 runs
-Model
-  link "Skip to content" · repeated state · 1 of 2 runs
+  button "Checkout" · focus-lost · 1 of 2 runs
 ```
 
-실행 결과는 `goal reached`, `goal not reached (이유)`, `inconclusive`, `no outcome recorded` 중 하나입니다. 발견 사항은 `Page`, `Run`, `Model`로 묶이고 한 줄이 `<role "이름"> · <종류> · <n> of <N> runs` 형식입니다. Rawstep은 통과/실패 도구가 아니므로 목표에 도달하지 못해도 종료 코드는 0입니다. `--json`을 주면 같은 정보를 `{ conditions, warnings, runs: [{ runId, outDir, outcome, hints }], findings }` JSON으로 출력합니다.
+실행마다 끝난 방식이 한 줄로 나옵니다: `reached the goal`(해냄), `gave up`(포기함), `said it was done, but the goal was not reached`(잘못 끝냄), `not measured (한도)`(측정 못 함: 최대 행동 수, 시간, 계획 호출 등의 한도로 먼저 끝나 사용자에 대해 알 수 없음), 오류로 끝났으면 `ended on an error`. 포기한 실행은 이유(`Why`)와 근거가 된 깨진 예상(`Rests on`)을 함께 보여 줍니다.
+
+전체 실행에서는 몇 번 해냈는지와 해낸 실행의 넘긴 횟수(대가), 막힌 곳(눌렀는데 사용자의 예상대로 반응하지 않은 요소)을 보여 주고, 그 밖의 발견 사항은 `Page`와 `Model`로 묶습니다. 한 줄은 `<role "이름"> · <종류> · <n> of <N> runs` 형식입니다. Rawstep은 통과/실패 도구가 아니므로 목표에 도달하지 못해도 종료 코드는 0입니다. `--json`을 주면 같은 정보를 `{ conditions, warnings, runs: [{ runId, outDir, outcome, hints }], findings }` JSON으로 출력합니다.
 
 ### run 폴더
 

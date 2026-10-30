@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import type { Profile } from '@rawstep/project/config';
 import type { ProfileFacts, RunResult, StuckPlace, TaskFindings } from '../../shared/api';
-import type { RunEnding, UnmeasuredBy } from '../../shared/results';
+import type { RunEnding, UnmeasuredBy } from '@rawstep/reports/endings';
 import type { RouteChange } from '../hooks/useRoute';
 import { roleLabel } from '../i18n/labels';
 import { formatSteps } from '../lib/format';

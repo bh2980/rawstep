@@ -6,7 +6,7 @@ import type { VerifyRule } from '@rawstep/core/contracts';
 import type { ModelKind } from '@rawstep/project/config';
 import type { PlanDocument, PlanPhase, PlanTask } from '@rawstep/policies/policy';
 import type { Hint, HintFinding, HintReport, HintTarget } from '@rawstep/reports/hints';
-import type { RunEnding, UnmeasuredBy } from './results.js';
+import type { RunEnding, UnmeasuredBy } from '@rawstep/reports/endings';
 
 export type { Hint, HintFinding, HintReport, PlanDocument, PlanPhase, PlanTask };
 

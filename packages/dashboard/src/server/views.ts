@@ -2,7 +2,7 @@ import { aggregateHints, extractHints, HINTS_SCHEMA_VERSION, selectReference, ty
 import { readTrace, type RunTrace, type TraceEvent } from '@rawstep/core/trace';
 import type { AnalysisReport } from '@rawstep/reports';
 import type { HintReport, ProfileFacts, RunExplanation, RunHintsView, RunResult, RunStepsView, StuckPlace, TaskBatch, TaskFindings, TaskSummary } from '../shared/api.js';
-import { runEnding } from '../shared/results.js';
+import { isStuck, isWrongGuess, runEnding } from '@rawstep/reports/endings';
 import type { RunRecord } from '../shared/config.js';
 import { readOptional, type ProjectStore } from '@rawstep/project/store';
 import { HttpError } from './http.js';
@@ -139,11 +139,8 @@ export class RunViews {
     const pageOf = [...done].reverse().find(entry => facts.get(entry.run.id)?.startPage);
     const startPage = pageOf ? { ...facts.get(pageOf.run.id)!.startPage!, experimentId: pageOf.experimentId, runId: pageOf.run.id } : undefined;
     const screenReaderRuns = done.filter(entry => entry.run.mode === 'screenreader');
-    // A stuck place is an object that did not respond as the user expected when they pressed it. An expectation that broke while
-    // moving was a guess about where something is: it broke wherever the cursor happened to be, so it is counted per run instead.
-    // One that broke because the user came upon the goal while after something else (goal-heard) cost them nothing.
-    const costly = (hint: { detail: Record<string, unknown> }) => hint.detail.trigger !== 'goal-heard' && typeof hint.detail.pressed === 'number';
-    const wrongGuess = (hint: { detail: Record<string, unknown> }) => hint.detail.trigger !== 'goal-heard' && typeof hint.detail.pressed !== 'number';
+    // Stuck places are objects that did not respond as the user expected when pressed; other broken expectations are wrong guesses.
+    const costly = isStuck, wrongGuess = isWrongGuess;
     const broken = cached.findings.filter(finding => finding.kind === 'expectation-broken' && finding.target)
       .map(finding => ({ ...finding, occurrences: finding.occurrences.filter(costly) })).filter(finding => finding.occurrences.length > 0);
     const stuck: StuckPlace[] = broken.map(finding => {

@@ -12,7 +12,7 @@ import { useNow } from '../hooks/useNow';
 import { formatClock } from '../lib/format';
 import { liveCurrentLine } from '../lib/stepDots';
 import { runGlyphKind } from '../lib/runStrip';
-import { runEnding } from '../../shared/results';
+import { runEnding } from '@rawstep/reports/endings';
 import { roleLabel } from '../i18n/labels';
 import { describeHint } from '../lib/describe';
 import { durationSeconds, isLive, runConditions, runConditionsLine, runModelsName, runPath, runStepCount, type RunRef } from '../lib/runs';

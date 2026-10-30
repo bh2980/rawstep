@@ -115,27 +115,29 @@ const result: RunTaskResult = {
   warnings: [],
   runs: [
     { runId: "r1", outDir: "/p/.rawstep/runs/x/run-1", outcome: { status: "success" }, hints: { schemaVersion: "2.2", runId: "r1", taskId: "t", steps: 7, durationMs: 10, goalReached: true, hints: [{ kind: "slow-run", source: "run", certainty: "observed", steps: [], summary: "7 steps against a 3-step reference run (+4).", detail: {}, evidence: [] }], limitations: [] } },
-    { runId: "r2", outDir: "/p/.rawstep/runs/x/run-2", outcome: { status: "failure", reason: "max-steps" }, hints: { schemaVersion: "2.2", runId: "r2", taskId: "t", steps: 40, durationMs: 10, goalReached: false, hints: [], limitations: [] } },
+    { runId: "r2", outDir: "/p/.rawstep/runs/x/run-2", outcome: { status: "inconclusive", reason: "maxSteps" }, hints: { schemaVersion: "2.2", runId: "r2", taskId: "t", steps: 40, durationMs: 10, goalReached: false, hints: [], limitations: [] } },
   ],
   findings: [
     { kind: "backtracking", source: "model", runs: 1, totalRuns: 2, occurrences: [] },
-    { kind: "repeated-state", source: "run", runs: 1, totalRuns: 2, occurrences: [] },
+    { kind: "repeated-state", source: "model", runs: 1, totalRuns: 2, occurrences: [] },
     { kind: "focus-lost", source: "page", target: { role: "button", name: "Pay" }, runs: 2, totalRuns: 2, occurrences: [] },
     { kind: "missing-announcement", source: "page", runs: 1, totalRuns: 2, occurrences: [] },
   ],
 };
 describe("run", () => {
-  it("passes the options to runTask, prints the conditions, outcomes and findings grouped as Page, Run and Model, and exits 0 whatever the outcome", async () => {
+  it("passes the options to runTask, prints the conditions, how each run ended and what it cost, and findings grouped as Page and Model, and exits 0 whatever the outcome", async () => {
     const directory = await temporaryDirectory(), io = output(directory), runTask = vi.fn(async () => result);
     expect(await runCli(["run", "login", "--profile", "zoom", "--mode", "screenreader", "--repeat", "2", "--out", "out"], { ...io, runTask })).toBe(0);
     expect(runTask).toHaveBeenCalledWith("login", expect.objectContaining({ projectDir: directory, profile: "zoom", mode: "screenreader", repeat: 2, outDir: join(directory, "out"), signal: expect.any(AbortSignal) }));
     const out = text(io.stdout);
     expect(out.startsWith("Conditions: Careful reader (solo · executor Jev · jev-latest)\n  page default · screen reader simulation\n")).toBe(true);
     expect(out.indexOf("Conditions:")).toBeLessThan(out.indexOf("Run 1 of 2"));
-    expect(out.indexOf("Page")).toBeLessThan(out.indexOf("\nRun\n")); expect(out.indexOf("\nRun\n")).toBeLessThan(out.indexOf("Model"));
     expect(out).toContain("(no element) · repeated-state · 1 of 2 runs");
-    expect(out).toContain("Run 1 of 2: goal reached · 7 steps");
-    expect(out).toContain("Run 2 of 2: goal not reached (max-steps) · 40 steps");
+    expect(out).toContain("Run 1 of 2: reached the goal · 7 moves");
+    // A limit ending the run says nothing about the user: not measured, with the limit named.
+    expect(out).toContain("Run 2 of 2: not measured (max steps) · 40 moves");
+    expect(out).toContain("Could a first-time user do it? reached the goal in 1 of 2 runs · not measured 1");
+    expect(out).toContain("Cost of reaching it: 7 moves");
     expect(out.indexOf("Page")).toBeLessThan(out.indexOf("Model"));
     expect(out).toContain('button "Pay" · focus-lost · 2 of 2 runs');
     expect(out).toContain("(no element) · missing-announcement · 1 of 2 runs");
@@ -152,6 +154,27 @@ describe("run", () => {
     expect((runTask.mock.calls[2]![1] as { runRules: object }).runRules).toEqual({ maxPlannerCalls: 3, modelGiveUp: true, confidenceFloor: 0.5, survey: "headings" });
     await runCli(["run", "t"], { ...io, runTask });
     for (const key of ["profile", "diagnoseStop", "runRules"]) expect(runTask.mock.calls[3]![1]).not.toHaveProperty(key);
+  });
+  it("says why a user gave up and on which broken expectation, and lists where pressing did not respond as expected", () => {
+    const stuck = { kind: "expectation-broken" as const, source: "model" as const, target: { role: "button", name: "Size" }, certainty: "observed" as const, steps: [17], summary: "", evidence: [],
+      detail: { assumption: { id: "A3", text: "Pressing Size announces it as selected" }, pressed: 16, gaveUpOn: true } };
+    const guess = { ...stuck, target: { role: "cell", name: "1%" }, steps: [30], detail: { assumption: { id: "A4", text: "Buy comes after the table" } } };
+    const out = formatRunResult({ ...result, runs: [{ runId: "r1", outDir: "/p/run-1", outcome: { status: "failure", reason: "policy-stuck", policyStopSource: "user-gave-up" }, hints: { schemaVersion: "2.2", runId: "r1", taskId: "t", steps: 34, durationMs: 1, goalReached: false, limitations: [],
+      hints: [stuck, guess, { kind: "early-stop", source: "model", certainty: "observed", steps: [34], summary: "The user gave up", evidence: [], detail: { stopSource: "user-gave-up", giveUp: { reason: "Size never selects", tried: ["A3"] } } },
+        { kind: "goal-word-stretch", source: "run", certainty: "observed", steps: [3, 11], summary: "9 moves", evidence: [], detail: { moves: 9 } },
+        ...[["failures", 12], ["failures", 20], ["no-change", 25]].map(([trigger, step]) => ({ kind: "replan" as const, source: "run" as const, certainty: "observed" as const, steps: [step as number], summary: "replanned", evidence: [], detail: { trigger } }))] } }],
+      findings: [{ kind: "expectation-broken", source: "model", target: stuck.target, runs: 1, totalRuns: 1, occurrences: [{ runId: "r1", steps: [17], certainty: "observed", detail: stuck.detail }] },
+        { kind: "expectation-broken", source: "model", target: guess.target, runs: 1, totalRuns: 1, occurrences: [{ runId: "r1", steps: [30], certainty: "observed", detail: guess.detail }] }] });
+    expect(out).toContain("Run 1 of 1: gave up · 34 moves");
+    expect(out).toContain('  Why: "Size never selects"');
+    expect(out).toContain('  Rests on A3 "Pressing Size announces it as selected" · broke at step 17 after pressing button "Size"');
+    expect(out).toContain("longest without a goal word: 9 moves · wrong guesses about where something is: 1");
+    expect(out).toContain("  new plans: 3 (actions kept failing 2, actions changed nothing 1)"); expect(out).not.toContain("replanned");
+    expect(out).not.toContain("early-stop");
+    expect(out).toContain('  button "Size" · 1 of 1 runs · 1 give-up rest on it');
+    // A guess about where something is broke on whatever the cursor was on: not a stuck place.
+    expect(out).not.toContain('cell "1%"');
+    expect(out).toContain("Could a first-time user do it? reached the goal in 0 of 1 runs · gave up 1");
   });
   it("lists the warnings under the conditions, and shows a planned profile with its planner", () => {
     const planned = formatRunResult({ ...result, conditions: { ...result.conditions, profile: { name: "Planner pair" }, combo: { name: "Planner pair", structure: "planned", planner: "Claude · plan", executor: "Jev · jev-latest" } }, warnings: ["The analysis model is not an LLM; no analysis is written."] });
@@ -196,7 +219,7 @@ describe("run", () => {
   });
   it("formats a run without an outcome and a run without findings", () => {
     const out = formatRunResult({ conditions: {}, warnings: [], runs: [{ runId: "x", outDir: "/o", outcome: undefined, hints: { ...result.runs[1]!.hints, steps: 0 } }], findings: [] });
-    expect(out).toContain("Run 1 of 1: no outcome recorded · 0 steps"); expect(out).toContain("No findings."); expect(out).not.toContain("Conditions:");
+    expect(out).toContain("Run 1 of 1: no outcome recorded · 0 moves"); expect(out).toContain("No findings."); expect(out).not.toContain("Conditions:");
   });
 });
 

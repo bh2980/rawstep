@@ -17,16 +17,24 @@ npx rawstep run checkout
 `rawstep ui`나 `rawstep init`은 프로젝트 폴더에 `rawstep.config.json`을 만듭니다. 대시보드에서 연결(모델에 닿는 곳)과 작업을 등록하고 실행 프로필에서 실행 모델을 고른 뒤 `rawstep run <task>`에 작업 id(또는 작업 JSON 파일 경로)를 넘기면 실행하고, 실행마다 결과와 여러 번 실행에서 모은 발견 사항을 `Page`와 `Model`로 나누어 보여 줍니다.
 
 ```text
-Run 1 of 2: goal reached · 7 steps
-  /my-project/.rawstep/runs/2026-10-06T09-12-30-a1b2c3/run-1
-Run 2 of 2: goal reached · 12 steps
-  Slower than the fastest run
-  /my-project/.rawstep/runs/2026-10-06T09-12-30-a1b2c3/run-2
+Run 1 of 2: gave up · 34 moves
+  Why: "Add to cart never says the item was added, and nothing else heard can add it."
+  Rests on A3 "Pressing Add to cart announces that the item was added" · broke at step 17 after pressing StaticText "Add to cart"
+  longest without a goal word: 9 moves · wrong guesses about where something is: 1
+  <run 1 folder>
+Run 2 of 2: reached the goal · 84 moves
+  longest without a goal word: 21 moves · wrong guesses about where something is: 0
+  <run 2 folder>
+
+Could a first-time user do it? reached the goal in 1 of 2 runs · gave up 1
+Cost of reaching it: 84 moves
+
+Stuck: pressed, and it did not respond as the user expected
+  StaticText "Add to cart" · 1 of 2 runs · 1 give-up rest on it
+    expected: Pressing Add to cart announces that the item was added
 
 Page
-  button "Add to cart" · focus lost · 2 of 2 runs
-Model
-  link "Skip to content" · repeated state · 1 of 2 runs
+  button "Checkout" · focus-lost · 1 of 2 runs
 
 Details: npx rawstep hints <run-dir>, npx rawstep report <run-dir>
 ```
