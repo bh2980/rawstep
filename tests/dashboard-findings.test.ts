@@ -72,7 +72,7 @@ describe('task findings and summary', () => {
   it('answers with empty facts for a task that has no runs', async () => {
     const { app } = await launch(outcomes.slice(0, 1));
     const none = await (await fetch(app.url + '/api/tasks/ghost/findings')).json() as TaskFindings;
-    expect(none).toEqual({ taskId: 'ghost', facts: { runs: 0, reached: 0, medianSteps: null, fastest: null, byProfile: [] }, findings: [], results: [], stuck: [] });
+    expect(none).toEqual({ taskId: 'ghost', batches: [], facts: { runs: 0, reached: 0, medianSteps: null, fastest: null, byProfile: [] }, findings: [], results: [], stuck: [] });
   });
 
   it('counts screen reader runs that reached the goal without the user hearing it', async () => {
@@ -92,13 +92,29 @@ describe('task findings and summary', () => {
     const { app, runs } = await launch([
       { status: 'failure', steps: 34, reason: 'policy-stuck', stopSource: 'user-gave-up', hints: [broke('A3', true),
         { ...hint('early-stop', undefined, { stopSource: 'user-gave-up', giveUp: { reason: 'Nothing adds it', tried: ['A3'] } }), steps: [34] }, hint('goal-word-stretch', undefined, { moves: 9 })] },
-      { status: 'success', steps: 290, hints: [broke('A1'), hint('goal-word-stretch', undefined, { moves: 58 })] },
+      { status: 'success', steps: 290, hints: [broke('A1'), hint('goal-word-stretch', undefined, { moves: 58 }),
+        // Coming upon the goal while after something else breaks an expectation at no cost: not a stuck place.
+        { ...hint('expectation-broken', { role: 'heading', name: 'Hammer' }, { assumption: { id: 'A2', text: 'The name is a link' }, trigger: 'goal-heard' }), steps: [40] }] },
     ], 'screenreader');
     const findings = await (await fetch(app.url + '/api/tasks/task/findings')).json() as TaskFindings;
     expect(findings.results.map(r => [r.ending, r.steps, r.stretch, r.stuck])).toEqual([['gave-up', 34, 9, [{ place: 0, step: 17 }]], ['reached', 290, 58, [{ place: 0, step: 17 }]]]);
     expect(findings.results[0]!.giveUp).toEqual({ reason: 'Nothing adds it', step: 34, tried: [{ id: 'A3', text: 'The add control is a button', step: 17, target: text }] });
     expect(findings.stuck).toEqual([{ target: text, runs: 2, totalRuns: 2, byProfile: [{ profileId: 'default', mode: 'screenreader', runs: 2 }], gaveUpOn: 1, assumptions: ['The add control is a button'] }]);
     expect(findings.facts.byProfile[0]).toMatchObject({ endings: { reached: 1, 'gave-up': 1 }, medianSteps: 290, longestStretch: { moves: 58, runId: runs[1]!.id } });
+  });
+
+  it('counts each batch of runs on its own, the newest unless another is asked for', async () => {
+    const { app, experiment } = await launch(outcomes.slice(0, 2));
+    // A second batch of the same task, as after fixing the page, with one run.
+    const second = await app.queue.create({ taskIds: ['task'], profileIds: ['default'], repeats: 1, note: 'Fixed the add button' });
+    await waitFor(() => second.runs.every(run => run.reportStatus === 'complete'));
+    const newest = await (await fetch(app.url + '/api/tasks/task/findings')).json() as TaskFindings;
+    expect(newest.batch).toBe(second.id);
+    expect(newest.batches.map(b => [b.experimentId, b.note, b.runs, b.finished])).toEqual([[second.id, 'Fixed the add button', 1, 1], [experiment.id, undefined, 2, 2]]);
+    expect(newest.facts.runs).toBe(1);
+    const first = await (await fetch(app.url + '/api/tasks/task/findings?batch=' + experiment.id)).json() as TaskFindings;
+    expect([first.batch, first.facts.runs, first.facts.reached]).toEqual([experiment.id, 2, 2]);
+    expect((await fetch(app.url + '/api/tasks/task/findings?batch=nope')).status).toBe(404);
   });
 
   it('keeps findings until the set of finished runs changes', async () => {

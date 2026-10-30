@@ -49,9 +49,11 @@ export function RunDialog({ open, onOpenChange, pageProps, taskIds: initialTasks
   const [taskIds, setTaskIds] = useState<string[]>(initialTasks);
   const [profileIds, setProfileIds] = useState<string[]>([]);
   const [repeats, setRepeats] = useState(String(QUICK_RUN_REPEATS));
+  const [note, setNote] = useState('');
   useEffect(() => {
     if (!open) return;
     setTaskIds(initialTasks);
+    setNote('');
     const kept = remembered().filter(pid => config.profiles.some(p => p.id === pid));
     setProfileIds(kept.length ? kept : config.profiles.slice(0, 1).map(p => p.id));
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -65,7 +67,7 @@ export function RunDialog({ open, onOpenChange, pageProps, taskIds: initialTasks
 
   const run = () => void pageProps.act(async () => {
     remember(profileIds);
-    const experiment = await startRun(view, { taskIds, profileIds, repeats: count });
+    const experiment = await startRun(view, { taskIds, profileIds, repeats: count, note });
     onOpenChange(false);
     onStarted(experiment);
   }, { as: 'start' });
@@ -108,6 +110,11 @@ export function RunDialog({ open, onOpenChange, pageProps, taskIds: initialTasks
             <span className={cn(problem ? 'text-inspect' : 'text-muted-foreground')}>{problem ?? profileLine(profile)}</span>
           </li>; })}
       </ul>}
+      <div className="grid gap-1.5 border-t border-edge pt-3">
+        <label htmlFor={id + '-note'} className="text-[13px] font-medium">{t('runDialog.note')} <span className="font-normal text-muted-foreground">{t('runDialog.optional')}</span></label>
+        <Input id={id + '-note'} value={note} maxLength={200} placeholder={t('runDialog.notePlaceholder')} aria-describedby={id + '-note-hint'} onChange={event => setNote(event.target.value)} />
+        <p id={id + '-note-hint'} className="text-xs leading-5 text-muted-foreground">{t('runDialog.noteHint')}</p>
+      </div>
       {!valid && <p role="status" className="text-xs text-inspect">{t('runBox.repeatsHint', { max: MAX_REPEATS })}</p>}
       {total > MANY_RUNS && <p role="status" className="text-xs leading-5 text-inspect">{t('runDialog.many', { count: total })}</p>}
       <DialogFooter className="sm:items-center sm:justify-between">

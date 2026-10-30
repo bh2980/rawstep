@@ -109,7 +109,7 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
     if (!host || !isLoopbackHostname(new URL('http://' + host).hostname)) throw new HttpError(403, 'Loopback 요청만 허용합니다.');
     const origin = req.headers.origin;
     if (origin && !sameServerOrigin(origin, url) && origin !== options.allowedOrigin) throw new HttpError(403, '요청 Origin을 허용하지 않습니다.');
-    const path = new URL(req.url ?? '/', url).pathname, method = req.method ?? 'GET';
+    const requestUrl = new URL(req.url ?? '/', url), path = requestUrl.pathname, method = req.method ?? 'GET';
     res.setHeader('x-content-type-options', 'nosniff');
     if (path === '/api/events' && method === 'GET') {
       res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' });
@@ -242,7 +242,7 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
     if (path === '/api/experiments' && method === 'GET') return send(res, queue.experiments);
     if (path === '/api/tasks-summary' && method === 'GET') return send(res, await views.taskSummaries());
     const findings = path.match(/^\/api\/tasks\/([^/]+)\/findings$/);
-    if (findings && method === 'GET') return send(res, await views.findings(decodeURIComponent(findings[1]!)));
+    if (findings && method === 'GET') return send(res, await views.findings(decodeURIComponent(findings[1]!), requestUrl.searchParams.get('batch') ?? undefined));
     if (path === '/api/experiments' && method === 'POST') return send(res, await queue.create(await jsonBody(req)), 201);
     if (path === '/api/runs/delete' && method === 'POST') {
       const body = z.object({ runs: z.array(z.object({ experiment: z.string().regex(/^[0-9a-f-]{36}$/), run: z.string().regex(/^[0-9a-f-]{36}$/) }).strict()).min(1).max(1000) }).strict().parse(await jsonBody(req));

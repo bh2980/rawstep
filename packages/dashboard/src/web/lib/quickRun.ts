@@ -26,7 +26,7 @@ export function comboProblem(config: Pick<ProjectConfig, 'connections'>, credent
 }
 
 /** A run request from the run dialog: the tasks, the profiles each runs with (each in its own mode), and how many times. */
-export type RunOptions = { taskIds: string[]; profileIds: string[]; repeats: number };
+export type RunOptions = { taskIds: string[]; profileIds: string[]; repeats: number; /** What this batch is for, in the person's words. */ note?: string };
 
 /**
  * Starts runs of tasks × profiles × repeats. The server checks every combination first; a reason one cannot run is thrown in words
@@ -39,7 +39,7 @@ export async function startRun(view: ConfigView, options: RunOptions): Promise<E
     const problem = comboProblem(view.config, view.credentialStatus, profile, profile.mode);
     if (problem) throw new Error(`${profile.name}: ${problem}`);
   }
-  const request: PlanRequest = { taskIds: options.taskIds, profileIds: options.profileIds, repeats: options.repeats, revision: view.revision };
+  const request: PlanRequest = { taskIds: options.taskIds, profileIds: options.profileIds, repeats: options.repeats, revision: view.revision, ...(options.note?.trim() ? { note: options.note.trim() } : {}) };
   const blocked = (await api<Combination[]>('/plan', { method: 'POST', body: request })).find(row => !row.supported);
   if (blocked) throw new Error(blocked.reason ?? t('quickRun.unsupported'));
   return api<Experiment>('/experiments', { method: 'POST', body: request });
