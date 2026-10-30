@@ -118,6 +118,8 @@ function ProfileCard({ group, nameOf, minimalSteps, data, numbers, navigate, tas
     <div className="flex flex-wrap gap-x-4 gap-y-1.5 border-t border-edge pt-2.5 text-[13px]">
       {group.mode === 'screenreader' && <span className="inline-flex items-center gap-1">{t('taskPage.results.unheard')} <strong className={cn('font-semibold tabular-nums', group.unheard > 0 && 'text-inspect')}>{group.unheard}</strong>
         {group.reached > 0 && <span className="text-muted-foreground tabular-nums">/ {group.reached}</span>}<InfoTip term={t('taskPage.results.unheard')}>{t('taskPage.results.unheardInfo')}</InfoTip></span>}
+      {group.wrongGuesses !== null && group.mode === 'screenreader' && <span className="inline-flex items-center gap-1">{t('taskPage.results.wrongGuesses')} <strong className="font-semibold tabular-nums">{t('taskPage.results.moves', { n: formatSteps(group.wrongGuesses) })}</strong>
+        <InfoTip term={t('taskPage.results.wrongGuesses')}>{t('taskPage.results.wrongGuessesInfo')}</InfoTip></span>}
       {group.longestStretch && <span className="inline-flex items-center gap-1">{t('taskPage.results.stretch')} <strong className="font-semibold tabular-nums">{t('taskPage.results.moves', { n: group.longestStretch.moves })}</strong>
         <RunLink taskId={taskId} runId={group.longestStretch.runId} numbers={numbers} navigate={navigate} /><InfoTip term={t('taskPage.results.stretch')}>{t('taskPage.results.stretchInfo')}</InfoTip></span>}
     </div>
@@ -322,7 +324,8 @@ function Tables(ctx: Ctx) {
     <TableBox label={t('taskPage.results.tableRuns')} count={data.results.length}>
       <thead><tr className="border-b border-edge bg-raised text-xs text-muted-foreground">
         <th scope="col" className={th}>#</th><th scope="col" className={th}>{t('taskPage.results.profile')}</th><th scope="col" className={th}>{t('taskPage.results.result')}</th>
-        <th scope="col" className={cn(th, 'text-right')}>{t('taskPage.results.stepsColumn')}</th><th scope="col" className={th}>{t('taskPage.results.stuckColumn')}</th><th scope="col" className={th}>{t('taskPage.results.line')}</th>
+        <th scope="col" className={cn(th, 'text-right')}>{t('taskPage.results.stepsColumn')}</th><th scope="col" className={th}>{t('taskPage.results.stuckColumn')}</th>
+        <th scope="col" className={cn(th, 'text-right')}>{t('taskPage.results.wrongGuessesColumn')}</th><th scope="col" className={th}>{t('taskPage.results.line')}</th>
       </tr></thead>
       <tbody>{runs.map(result => <tr key={result.runId} className="border-b border-edge last:border-0">
         <td className={td}><RunLink taskId={taskId} runId={result.runId} numbers={numbers} navigate={navigate} /></td>
@@ -330,6 +333,7 @@ function Tables(ctx: Ctx) {
         <td className={cn(td, 'whitespace-nowrap')}><span className="inline-flex items-center gap-1.5"><RunGlyph kind={glyphOf(result.ending)} />{t(`taskPage.results.endings.${result.ending}`)}</span></td>
         <td className={cn(td, 'text-right tabular-nums')}>{result.steps ?? '—'}</td>
         <td className={td}>{result.stuck.length ? <span className="inline-flex gap-1">{[...new Set(result.stuck.map(item => item.place))].map(place => <Pin key={place} n={place + 1} place={data.stuck[place]!} />)}</span> : '—'}</td>
+        <td className={cn(td, 'text-right tabular-nums')}>{result.mode === 'screenreader' ? result.wrongGuesses : '—'}</td>
         <td className={cn(td, 'max-w-[28rem]')}><span className="line-clamp-2" title={line(result)}>{line(result)}</span></td>
       </tr>)}</tbody>
     </TableBox>

@@ -219,8 +219,8 @@ describe("friction hints", () => {
     ];
     const report = extractHints(trace(pairs, success(7)), { reference: trace([], success(2)) });
     expect(report.hints.map(hint => hint.kind)).toEqual(["slow-run", "model-hesitation", "modal-focus-outside", "focus-lost"]);
-    expect(report).toMatchObject({ schemaVersion: "2.1", taskId: "hints", runId: "hints-test", steps: 7, goalReached: true, outcome: { status: "success" } });
-    expect(HINTS_SCHEMA_VERSION).toBe("2.1");
+    expect(report).toMatchObject({ schemaVersion: "2.2", taskId: "hints", runId: "hints-test", steps: 7, goalReached: true, outcome: { status: "success" } });
+    expect(HINTS_SCHEMA_VERSION).toBe("2.2");
     expect(extractHints(trace([], { status: "failure", reason: "verification-failed", steps: 3 }))).toMatchObject({ goalReached: false, outcome: { status: "failure", reason: "verification-failed" } });
     expect(extractHints(trace([])).outcome).toBeUndefined();
   });
@@ -310,5 +310,25 @@ describe("friction hints", () => {
     const [stretch] = find(extractHints(trace(pairs, undefined, { task: { id: "hints", goal } })), "goal-word-stretch");
     // "Add" and "cart" lead for the first three cards only; "Hammer" leads on its second card; the target's own words lead again.
     expect(stretch?.detail).toEqual({ moves: 3, from: 4, to: 6 });
+  });
+
+  it("puts an expectation broken after a press on the object pressed, and one broken while moving on no object in particular", () => {
+    const cursor = (y: number) => ({ rect: { x: 0, y, width: 50, height: 10 }, scroll: { x: 0, y: 0 }, viewport: { width: 800, height: 600 }, url: "https://example.com/" });
+    const heard = (step: number, intent: string, role: string, name: string, y: number): Pair[] => [
+      ["policy.decision", { step, decision: { action: { kind: "intent", intent } } }],
+      ["backend.output", { type: "output", output: { sequence: step, text: name, raw: { semantic: { role, name } } } }],
+      ["simulation.observation", { speech: [name], cursor: cursor(y) }]];
+    const broke = (step: number, id: string): Pair => ["policy.evidence", { step, evidence: { kind: "orchestration-plan", version: step, trigger: "no-change",
+      revision: { version: step, step, trigger: "no-change", broken: [id] }, document: { assumptions: [{ id, text: id, status: "broken" }] } } }];
+    const report = extractHints(trace([
+      ...heard(1, "next", "button", "Size", 100),
+      // Pressed Size, then moved twice to check: the press is still what broke the expectation.
+      ...heard(2, "activate", "button", "Size", 100), ...heard(3, "next", "text", "Price", 200), ...heard(4, "next", "text", "Reviews", 300), broke(5, "A1"),
+      ...heard(5, "next", "text", "Shipping", 400), ...heard(6, "next", "text", "Returns", 500), ...heard(7, "next", "text", "Footer", 600), ...heard(8, "next", "text", "Copyright", 700), broke(9, "A2"),
+    ]));
+    expect(find(report, "expectation-broken").map(hint => [hint.detail.assumption, hint.target, hint.detail.pressed, (hint.detail.location as { rect: { y: number } } | undefined)?.rect.y])).toEqual([
+      [{ id: "A1", text: "A1" }, { role: "button", name: "Size" }, 2, 100],
+      [{ id: "A2", text: "A2" }, { role: "text", name: "Copyright" }, undefined, 700],
+    ]);
   });
 });

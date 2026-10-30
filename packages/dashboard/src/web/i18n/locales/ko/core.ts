@@ -128,6 +128,8 @@ export const core = {
       goalWordStretch: '{{from}}~{{to}}번째 행동, {{moves}}번 연속으로 목표의 낱말을 하나도 듣지 못했습니다. 카드마다 나오는 낱말("담기" 같은)은 처음 몇 번만 셉니다.',
       expectationBroken: '사용자의 예상 {{id}} “{{text}}”가 여기서 깨져 계획 v{{version}}으로 다시 세웠습니다.',
       expectationBrokenUnnamed: '사용자의 예상 {{id}}가 여기서 깨져 계획 v{{version}}으로 다시 세웠습니다.',
+      expectationPressed: '{{step}}번째 행동에서 누른 뒤',
+      expectationMoving: '이동하다가(위치 추측이 틀림)',
       helpRequest: '실행 모델이 도움을 요청해({{reason}}) 계획 모델이 계획 v{{version}}을 세웠습니다.',
       helpReasons: { 'no-cue': '완료 단서를 찾을 수 없음', 'no-effect': '행동이 먹히지 않음', 'already-done': '이미 이뤄진 것 같음', none: '이유 없음' },
       replanFailures: '행동이 연달아 실패해 계획 모델이 계획 v{{version}}을 세웠습니다.',
