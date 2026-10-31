@@ -111,6 +111,8 @@ describe('plan document', () => {
     expect(verifyCue({ done: 'Hear it checked', cue: 'checked' }, ['Order updates, unchecked, checkbox'])).toBe('not-heard');
     expect(verifyCue({ done: 'Hear it checked', cue: 'checked' }, ['Order updates, checked, checkbox'])).toBe('heard');
     expect(verifyCue({ done: 'Hear "Cart"', cue: 'Cart, 1 item' }, ['Cart'])).toBe('not-heard');
+    // A rotor list's name is said apart from its first item, so a cue for the list (as plain text) is heard.
+    expect(verifyCue({ done: 'The rotor opens', cue: 'Form controls', cueRole: 'text' }, ['Form controls, 73 items', 'Sign up, button'])).toBe('heard');
   });
 });
 

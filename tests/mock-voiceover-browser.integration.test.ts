@@ -131,7 +131,7 @@ describe('browser-backed simulated English VoiceOver profile in real Chromium', 
   });
   it('opens the rotor on form controls, moves through it and jumps to the picked item without pressing it', async () => {
     const f = await fixture('<h1>Shop</h1><p>Price</p><button>Gift</button><label>Qty <input></label><button onclick="this.textContent=\'Bought\'">Buy now</button><h2>Options</h2>');
-    expect(await f.intent('formControls.rotor')).toEqual(['Form controls, 3 items. Gift, button']);
+    expect(await f.intent('formControls.rotor')).toEqual(['Form controls, 3 items', 'Gift, button']);
     expect(await f.intent('previous')).toEqual(['Gift, button']);
     expect((await f.intent('next')).join(' ')).toContain('Qty');
     expect(await f.intent('next')).toEqual(['Buy now, button']);
@@ -140,7 +140,7 @@ describe('browser-backed simulated English VoiceOver profile in real Chromium', 
     expect((await f.intent('next')).join(' ')).toContain('Options');
     expect(await f.intent('previous')).toEqual(['Buy now, button']);
     expect(await f.intent('activate')).toEqual(['Bought, button']);
-    expect(await f.intent('formControls.rotor')).toEqual(['Form controls, 3 items. Gift, button']);
+    expect(await f.intent('formControls.rotor')).toEqual(['Form controls, 3 items', 'Gift, button']);
     expect(await f.key('Escape')).toEqual(['Bought, button']);
     expect((await f.intent('next')).join(' ')).toContain('Options');
     const none = await fixture('<p>Plain page</p>');

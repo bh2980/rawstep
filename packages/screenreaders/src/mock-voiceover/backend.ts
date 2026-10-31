@@ -295,7 +295,9 @@ export class MockVoiceOverBackend implements Backend {
         if (!items.length) this.announceText('Form controls, no items', 'rotor');
         else {
           this.rotor = { items, index: 0 };
-          this.announceText(`Form controls, ${items.length} items. ${formatSimulatedSpeech(items[0]!.semantic)}`, 'rotor');
+          // The list's name, then its first item, as two utterances: the item is what the cursor is on in the list.
+          this.announceText(`Form controls, ${items.length} items`, 'rotor');
+          this.announceText(formatSimulatedSpeech(items[0]!.semantic), 'rotor');
         }
       } else if (move) {
         const currentIndex = this.nodes.findIndex(node => node.identity === this.cursor);
