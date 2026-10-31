@@ -72,7 +72,7 @@ export class RunViews {
   /** Hints against the shortest goal-reaching finished run of the same task, from any experiment. */
   async hints(experimentId: string, runId: string): Promise<RunHintsView> {
     const run = this.queue.find(experimentId, runId), trace = await this.trace(experimentId, runId);
-    if (!trace) throw new HttpError(404, '이 실행의 추적 기록이 아직 없습니다.');
+    if (!trace) throw new HttpError(404, 'trace-missing');
     const candidates = this.queue.experiments.flatMap(e => e.runs.filter(r => r.id !== runId && r.taskId === run.taskId && r.outcome?.status === 'success' && finished(r)).map(r => ({ experimentId: e.id, run: r })))
       .sort((a, b) => (a.run.outcome?.steps ?? Infinity) - (b.run.outcome?.steps ?? Infinity));
     let reference: { experimentId: string; runId: string; trace: RunTrace } | undefined;
@@ -231,7 +231,7 @@ export class RunViews {
   /** Hint findings and facts over the finished runs of one batch of a task (the newest when none is named). */
   async findings(taskId: string, experimentId = this.defaultBatch(taskId)): Promise<TaskFindings> {
     const batches = this.batches(taskId);
-    if (experimentId && !batches.some(batch => batch.experimentId === experimentId)) throw new HttpError(404, '이 작업을 실행한 묶음이 아닙니다.');
+    if (experimentId && !batches.some(batch => batch.experimentId === experimentId)) throw new HttpError(404, 'batch-not-for-task');
     const { facts, findings, results, stuck, startPage } = await this.taskData(taskId, experimentId);
     return { taskId, ...(experimentId ? { batch: experimentId } : {}), batches, facts, findings, results, stuck, ...(startPage ? { startPage } : {}) };
   }

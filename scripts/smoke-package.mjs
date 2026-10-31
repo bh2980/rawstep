@@ -55,7 +55,7 @@ try {
   const pack = await packRawstep(directory, { environment });
   const unexpected = pack.files.filter(file => !/^(?:dist\/|README(?:\.ko)?\.md$|LICENSE$|THIRD-PARTY-NOTICES\.md$|package\.json$|docs\/(?:reference\/)?[^/]+\.md$|examples\/|fixtures\/)/.test(file.path) || /(?:node_modules|packages\/|\.safetensors$|\.gguf$|\.onnx$|\.node$|\.wasm$|__pycache__)/.test(file.path));
   assert.deepEqual(unexpected, [], 'unexpected files in the tarball');
-  for (const required of ['dist/index.js', 'dist/index.d.ts', 'dist/cli/bin.js', 'dist/dashboard-web/index.html', 'docs/reference/cli.md', 'THIRD-PARTY-NOTICES.md', 'fixtures/simple-cta.html', 'examples/v2/mock-task.json']) assert.ok(pack.files.some(file => file.path === required), `tarball is missing ${required}`);
+  for (const required of ['dist/index.js', 'dist/index.d.ts', 'dist/cli/bin.js', 'dist/dashboard-web/index.html', 'docs/reference/cli.md', 'THIRD-PARTY-NOTICES.md', 'fixtures/simple-cta.html', 'examples/screen-reader/mock-task.json']) assert.ok(pack.files.some(file => file.path === required), `tarball is missing ${required}`);
   assert.ok(pack.files.some(file => /^dist\/dashboard-web\/assets\/.+\.js$/.test(file.path)), 'tarball is missing the dashboard JS bundle');
   assert.deepEqual(Object.keys(pack.manifest.dependencies).sort(), ['@ai-sdk/openai-compatible', 'ai', 'playwright', 'zod']);
   check('tarball contents and third-party-only dependency list');
@@ -110,12 +110,12 @@ try {
   command(process.execPath, ['--input-type=module', '-e', `
     import assert from 'node:assert/strict';
     import { runTask, aggregateHints, readTrace } from 'rawstep';
-    import { runTask as lowLevelRunTask } from 'rawstep/runner';
+    import { runWithPolicy } from 'rawstep/runner';
     import { ProjectStore } from 'rawstep/project';
     import { extractHints } from 'rawstep/hints';
     import { runCli } from 'rawstep/cli';
     assert.equal(typeof runTask, 'function'); assert.equal(typeof aggregateHints, 'function'); assert.equal(typeof readTrace, 'function');
-    assert.notEqual(runTask, lowLevelRunTask);
+    assert.equal(typeof runWithPolicy, 'function');
     assert.equal(typeof ProjectStore, 'function'); assert.equal(typeof extractHints, 'function'); assert.equal(typeof runCli, 'function');
     for (const name of ${JSON.stringify(exportedModules)}) await import(name === '.' ? 'rawstep' : 'rawstep/' + name.slice(2));
   `]);

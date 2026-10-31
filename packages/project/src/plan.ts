@@ -85,8 +85,6 @@ export function checkRun({ config, task, taskEntry, runRules, profile, combo, ac
     const endpoint = new URL(atEndpointOf(config.machine, backend));
     if (!['ws:', 'wss:'].includes(endpoint.protocol) || !isLoopbackHostname(endpoint.hostname) || endpoint.username || endpoint.password) return fail('endpoint-not-loopback', 'Native screen reader runs need a loopback AT Driver WebSocket address on this host.');
   }
-  const environment = resolveEnvironmentProfile(pageEnvironment.profile);
-  if (environment.browserZoom !== 1 || environment.nativeMagnifier === 'required' || environment.nativeHighContrast === 'required') return fail('environment-unsupported', 'Rawstep cannot apply native magnification or an OS contrast environment.');
   if (config.project.analysis.model && !analysisModel) warnings.push('The analysis model is not on an LLM connection, so the run is analysed by rules only.');
   return { settings, permissions, ...models, warnings };
 }

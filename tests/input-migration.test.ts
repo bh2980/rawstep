@@ -3,7 +3,7 @@ import { JSDOM } from 'jsdom';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { runTask, validateDecision } from '@rawstep/browser/runner';
+import { runWithPolicy, validateDecision } from '@rawstep/browser/runner';
 import { ScriptedPolicy } from '@rawstep/policies/policy';
 import type { AllowedActions, Backend, Task } from '@rawstep/core/contracts';
 import type { BrowserSession } from '@rawstep/browser/browser';
@@ -31,7 +31,7 @@ describe('retained action/input safety responsibilities',()=>{
     const browser={page,browser:{version:()=> 'DOM-harness-not-browser'},takeBlockedNavigations:()=>[],takeNavigationGuardWarnings:()=>[],close:async()=>dom.window.close()} as unknown as BrowserSession;
     const outDir=await mkdtemp(join(tmpdir(),'rawstep-input-migration-'));cleanup.push(()=>rm(outDir,{recursive:true,force:true}));
     const task:Task={url:'https://example.test',goal:'Enter named value',maxSteps:1,input:{email:'test@example.test'},verify:{all:[{titleIncludes:'Done'}]}};
-    const trace=await runTask(task,{backend,browserSessionFactory:async()=>browser,outDir,policy:new ScriptedPolicy([{action:{kind:'typeText',input:'email'}}]),verifier:async()=>({passed:false,failures:['Not complete']})});
+    const trace=await runWithPolicy(task,{backend,browserSessionFactory:async()=>browser,outDir,policy:new ScriptedPolicy([{action:{kind:'typeText',input:'email'}}]),verifier:async()=>({passed:false,failures:['Not complete']})});
     expect(execute).toHaveBeenCalledTimes(editable?1:0);
     expect(trace.events.find(event=>event.type==='browser.input-gate')?.data).toMatchObject({editable});
     if(editable)expect(execute).toHaveBeenCalledWith({kind:'typeText',text:'test@example.test',sensitive:true}, {signal:expect.any(AbortSignal)});

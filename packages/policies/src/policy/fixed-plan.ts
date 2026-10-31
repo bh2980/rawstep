@@ -35,19 +35,36 @@ function trimSettledAssumptions(value: unknown): unknown {
   const dropped = new Set(settled.slice(0, draft.assumptions.length - ASSUMPTION_LIMIT));
   return { ...draft, assumptions: draft.assumptions.filter(a => !dropped.has(a)) };
 }
-/** A plan file: the draft a run starts from, `complete` and `rationale` optional (a person writing a plan has neither to say). */
-export const planFileSchema = planDraftSchema.extend({ complete: z.literal(false).default(false), rationale: z.string().max(2000).default('') });
+/**
+ * A plan file: the draft a run starts from, `complete` and `rationale` optional (a person writing a plan has neither to say). A run's
+ * own plan.json (the final plan document) is read too: its current phases and tasks, without ids, statuses or history.
+ */
+export const planFileSchema = z.preprocess(draftOfDocument, planDraftSchema.extend({ complete: z.literal(false).default(false), rationale: z.string().max(2000).default('') }));
+/** A saved plan document as the draft it was planned as; anything else is left for the schema to judge. */
+function draftOfDocument(value: unknown): unknown {
+  const doc = value as Partial<PlanDocument> | null;
+  if (!doc || typeof doc !== 'object' || typeof doc.version !== 'number' || !Array.isArray(doc.phases) || !Array.isArray(doc.revisions)) return value;
+  const ref = ({ id, text }: { id: string; text: string }) => ({ id, text });
+  return {
+    strategy: doc.strategy, criteria: (doc.criteria ?? []).map(ref), assumptions: (doc.assumptions ?? []).map(ref),
+    phases: doc.phases.map(phase => ({ title: phase.title, criteria: [...phase.criteria],
+      tasks: phase.tasks.map(task => ({ goal: task.goal, done: task.done, cue: { name: task.cue, ...(task.cueRole ? { role: task.cueRole } : {}), ...(task.cueState ? { state: task.cueState } : {}) },
+        ...(task.activates !== undefined ? { activates: task.activates } : {}), ...(task.moves ? { moves: [...task.moves] } : {}), ...(task.types ? { types: task.types } : {}),
+        serves: [...task.serves], relies: [...task.relies] })) })),
+  };
+}
 
 /**
  * A plan written beforehand — by a person, or by a planner model and saved — that never changes during the run. It holds the plan
  * still, so a run measures how these tasks fare on the page rather than how well a planner plans. When Rawstep would ask
  * for a new plan because a task is stuck (actions failing, changing nothing, running long), that task is abandoned and the
- * next one starts: that abandonment is the finding. When no task is left the run ends and the run's own checks decide the outcome.
+ * next one starts: that abandonment is the finding. When no task is left the plan has no other way to try: the user following it
+ * gives up, unless the run's own checks found the goal reached first.
  */
 export class FixedPlanner implements Planner {
   constructor(readonly draft: PlanDraft, readonly source: { file: string; sha256: string }) {}
   async plan(request: PlanRequest): Promise<PlanResult> {
-    const result = (draft: PlanDraft): PlanResult => ({ draft, model: { id: this.source.file, runtime: 'fixed-plan' }, prompt: { id: 'rawstep-fixed-plan', version: this.source.sha256.slice(0, 12), sha256: this.source.sha256 } });
+    const result = (draft: PlanDraft, ranOut?: true): PlanResult => ({ draft, model: { id: this.source.file, runtime: 'fixed-plan' }, prompt: { id: 'rawstep-fixed-plan', version: this.source.sha256.slice(0, 12), sha256: this.source.sha256 }, ...(ranOut ? { ranOut } : {}) });
     if (request.trigger === 'start' || !request.document) return result(structuredClone(this.draft));
     const doc = request.document;
     const kept = (drop?: string): PlanDraft => ({
@@ -59,8 +76,9 @@ export class FixedPlanner implements Planner {
     // A phase review, a goal item heard on the way, or taking stock of the effort: nothing is stuck, so the plan goes on as it is.
     if (request.trigger === 'checkpoint' || request.trigger === 'goal-heard' || request.trigger === 'effort-review') return result(kept());
     const open = openTasks(doc);
-    // Nothing left to try: the plan has run its course; the run's checks decide whether the goal was reached.
-    if (request.trigger === 'plan-finished' || open.length <= (doc.current ? 1 : 0)) return result({ ...kept(doc.current), complete: true, rationale: 'Fixed plan: every task has been tried; the run\'s checks decide the outcome.' });
+    // Nothing left to try. The goal was checked after every action, so it was not reached: the plan claims nothing, it ends.
+    if (request.trigger === 'plan-finished' || open.length <= (doc.current ? 1 : 0)) return result({ ...kept(doc.current), rationale: 'Fixed plan: every task has been tried.',
+      giveUp: { reason: 'The written plan ran out of tasks before the goal was reached.', tried: [] } }, true);
     return result(kept(doc.current));
   }
 }

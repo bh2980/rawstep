@@ -1,6 +1,6 @@
 import { comboPlanner, isFilePlanner, credentialId, modelKeyRequired, type Combo, type Model, type ProjectConfig } from '@rawstep/project/config';
 import { api } from '../api';
-import { t } from '../i18n';
+import { serverText, t } from '../i18n';
 import type { Combination, ConfigView, Experiment, PlanRequest } from '../../shared/config.js';
 
 /** How many times each profile runs a task unless a person picks another number. */
@@ -36,6 +36,6 @@ export async function startRun(view: ConfigView, options: RunOptions): Promise<E
   }
   const request: PlanRequest = { taskIds: options.taskIds, profileIds: options.profileIds, repeats: options.repeats, revision: view.revision, ...(options.note?.trim() ? { note: options.note.trim() } : {}) };
   const blocked = (await api<Combination[]>('/plan', { method: 'POST', body: request })).find(row => !row.supported);
-  if (blocked) throw new Error(blocked.reason ?? t('quickRun.unsupported'));
+  if (blocked) throw new Error(blocked.reason ? serverText(blocked.reason) : t('quickRun.unsupported'));
   return api<Experiment>('/experiments', { method: 'POST', body: request });
 }

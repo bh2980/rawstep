@@ -188,7 +188,7 @@ function TaskPane({ plan, doc, task, steps, actionLimit, selectedStep, onSelectS
       <h3 className="text-lg leading-7 font-semibold"><span className="mr-2 font-mono text-sm text-muted-foreground">{task.number}</span>{task.goal || '—'}</h3>
       <p className="flex flex-wrap items-center gap-x-2 text-sm leading-6">
         <TaskMark status={task.status} /><span>{t(`planDoc.status.${task.status}`)}</span>
-        <span className="text-muted-foreground">· {t('planDoc.actionsOfLimit', { n: task.actions, limit: actionLimit })}</span>
+        <span className="text-muted-foreground">· {t('planDoc.actionsOfLimit', { n: task.actions, limit: actionLimit, count: actionLimit })}</span>
         <span className="text-muted-foreground">· {t('planDoc.addedVersion', { version: task.addedIn })}</span>
         {verified && <span className="text-muted-foreground">· {t(`planDoc.verified.${verified}`)}</span>}
       </p>
@@ -254,7 +254,7 @@ export function PlanFacts({ plan }: { plan: RunPlanView }) {
   return <FactLine label={t('planDoc.factsLabel')} items={[
     <strong key="v" className="font-semibold">{t('planDoc.factVersion', { version: plan.document.version })}</strong>,
     replans > 0 ? t('planDoc.factReplans', { count: replans }) : t('planDoc.factNoReplans'),
-    t('planDoc.factTasks', { done, total: tasks.length }),
+    t('planDoc.factTasks', { done, total: tasks.length, count: tasks.length }),
     dropped > 0 && t('planDoc.factDropped', { count: dropped }),
     wait > 0 && t('planDoc.factWait', { seconds: wait.toFixed(1) }),
   ]} />;

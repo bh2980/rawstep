@@ -17,7 +17,7 @@ import { discover } from '@rawstep/project/discover';
 import { ensureAtDriver } from '@rawstep/project/atdriver';
 import { requireKey } from '@rawstep/project/run';
 import type { ConfigView, DeleteTaskResult } from '../shared/config.js';
-import { HttpError, koreanMessage, record } from './http.js';
+import { HttpError, messageOf, record, statusOf } from './http.js';
 import { ExperimentQueue, type Executor } from './queue.js';
 import { RunViews } from './views.js';
 import { DIAGNOSTIC_PATH } from './steps.js';
@@ -33,8 +33,6 @@ function defaultWebDir(): string {
   return candidates.find(directory => existsSync(join(directory, 'index.html'))) ?? candidates[candidates.length - 1]!;
 }
 
-/** Environment presets a run can use: browser zoom needs a native controller the dashboard does not have, so those presets are left out. */
-const RUNNABLE_PRESETS = Object.fromEntries(Object.entries(BUILTIN_PROFILES).filter(([, preset]) => (preset as { browserZoom?: number }).browserZoom === undefined));
 /** A saved connection by id, or one being set up: a provider, a custom address and a key typed for it. */
 const connectionTarget = z.object({
   connectionId: z.string().optional(), provider: providerSchema.optional(),
@@ -43,8 +41,8 @@ const connectionTarget = z.object({
 export type DashboardServerOptions = { projectDir?: string; port?: number; webDir?: string; allowedOrigin?: string; execute?: Executor };
 async function jsonBody(req: IncomingMessage) {
   let length = 0; const chunks: Buffer[] = [];
-  for await (const part of req) { const b = Buffer.from(part); length += b.length; if (length > 2000000) throw new HttpError(413, '요청 크기 제한 초과'); chunks.push(b); }
-  try { return JSON.parse(Buffer.concat(chunks).toString('utf8')) as unknown; } catch { throw new HttpError(400, 'JSON 형식이 잘못되었습니다.'); }
+  for await (const part of req) { const b = Buffer.from(part); length += b.length; if (length > 2000000) throw new HttpError(413, 'request-too-large'); chunks.push(b); }
+  try { return JSON.parse(Buffer.concat(chunks).toString('utf8')) as unknown; } catch { throw new HttpError(400, 'invalid-json'); }
 }
 export async function startDashboard(options: DashboardServerOptions = {}) {
   const store = new ProjectStore(resolve(options.projectDir ?? process.cwd())); await store.initialize();
@@ -68,22 +66,21 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
   const webDir = options.webDir ?? defaultWebDir();
   const server = createServer((req, res) => { void handle(req, res).catch(error => {
     if (res.headersSent) { res.end(); return; }
-    const mapped = error instanceof ProjectError ? new HttpError(error.status, koreanMessage(error)) : error;
-    const message = mapped instanceof HttpError ? mapped.message : error instanceof z.ZodError ? '입력 형식이나 설정이 잘못되었습니다.' : '요청을 처리하지 못했습니다. 프로젝트 파일과 설정을 확인하세요.';
-    res.writeHead(mapped instanceof HttpError ? mapped.status : 400, { 'content-type': 'application/json', 'cache-control': 'no-store' }); res.end(JSON.stringify({ error: message }));
+    // A message code and its values, never a sentence: the dashboard words it in the reader's language.
+    res.writeHead(statusOf(error), { 'content-type': 'application/json', 'cache-control': 'no-store' }); res.end(JSON.stringify({ error: messageOf(error) }));
   }); });
   let url = '';
   async function state(): Promise<ConfigView> {
     const { config, revision } = await store.read();
     const credentialStatus = await store.credentialStatus(config);
     const actions = (backend: AtBackend) => { const c = backendCapabilities(backend); return { keys: [...c.keys], intents: [...c.intents] }; };
-    return { config, revision, credentialStatus, tasks: await store.taskFiles(config), environmentPresets: RUNNABLE_PRESETS,
+    return { config, revision, credentialStatus, tasks: await store.taskFiles(config), environmentPresets: BUILTIN_PROFILES,
       capabilities: { simulation: actions('simulation'), voiceover: actions('voiceover'), nvda: actions('nvda') } };
   }
   const send = (res: ServerResponse, value: unknown, status = 200) => { res.writeHead(status, { 'content-type': 'application/json', 'cache-control': 'no-store' }); res.end(JSON.stringify(value)); };
   async function savedConnection(id: string): Promise<Connection> {
     const connection = (await store.read()).config.connections.find(c => c.id === id);
-    if (!connection) throw new HttpError(404, '연결을 찾을 수 없습니다.');
+    if (!connection) throw new HttpError(404, 'connection-not-found');
     return connection;
   }
   /** A saved connection with its stored key, or one being set up with the key typed for it (presets fall back to the key saved for their provider). */
@@ -97,15 +94,15 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
   /** Reading a start page opens a browser, so only one page read (a suggestion or the element picker) runs at a time. */
   let readingPage = false;
   const exclusivePageRead = async <T>(work: () => Promise<T>): Promise<T> => {
-    if (readingPage) throw new HttpError(409, '다른 페이지 읽기가 진행 중입니다. 끝난 뒤 다시 시도하세요.');
+    if (readingPage) throw new HttpError(409, 'page-read-busy');
     readingPage = true;
     try { return await work(); } finally { readingPage = false; }
   };
   async function handle(req: IncomingMessage, res: ServerResponse) {
     const host = req.headers.host;
-    if (!host || !isLoopbackHostname(new URL('http://' + host).hostname)) throw new HttpError(403, 'Loopback 요청만 허용합니다.');
+    if (!host || !isLoopbackHostname(new URL('http://' + host).hostname)) throw new HttpError(403, 'loopback-only');
     const origin = req.headers.origin;
-    if (origin && !sameServerOrigin(origin, url) && origin !== options.allowedOrigin) throw new HttpError(403, '요청 Origin을 허용하지 않습니다.');
+    if (origin && !sameServerOrigin(origin, url) && origin !== options.allowedOrigin) throw new HttpError(403, 'origin-not-allowed');
     const requestUrl = new URL(req.url ?? '/', url), path = requestUrl.pathname, method = req.method ?? 'GET';
     res.setHeader('x-content-type-options', 'nosniff');
     if (path === '/api/events' && method === 'GET') {
@@ -117,14 +114,14 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
       const body = record(await jsonBody(req)), machine = machineSchema.parse(body.machine), backend = atBackendSchema.parse(body.backend);
       if (backend === 'simulation') {
         const browser = await createBrowserSession('about:blank', { headless: true, executablePath: machine.browserExecutablePath || undefined, ...(machine.browserEndpoint.trim() ? { cdpEndpoint: machine.browserEndpoint.trim() } : {}) });
-        await browser.close(); return send(res, { message: 'Chromium 연결 확인 완료. 스크린리더 출력은 DOM 기반 모의 관찰입니다.' });
+        await browser.close(); return send(res, { message: { code: 'check-simulation-ok' } });
       }
-      if ((backend === 'voiceover' && process.platform !== 'darwin') || (backend === 'nvda' && process.platform !== 'win32')) throw new HttpError(400, '선택한 네이티브 스크린리더의 운영체제에서 연결을 확인하세요.');
+      if ((backend === 'voiceover' && process.platform !== 'darwin') || (backend === 'nvda' && process.platform !== 'win32')) throw new HttpError(400, 'native-os-mismatch');
       // The check starts the server with the saved command when nothing answers yet, just as a run would, and stops it again.
       const url = atEndpointOf(machine, backend), driver = await ensureAtDriver({ endpoint: url, command: await store.localValue(AT_DRIVER_COMMAND_ENV), cwd: store.root, signal: AbortSignal.timeout(35000) });
       const driverBackend = new AtDriverBackend({ profile: backend, url });
-      try { const metadata = await driverBackend.start({ signal: AbortSignal.timeout(5000) }); return send(res, { message: driver.started ? 'AT Driver 서버를 실행해 세션 연결과 프로필 협상까지 확인했습니다. 실행할 때도 같은 명령으로 서버를 띄웁니다.' : 'AT Driver 세션 연결과 프로필 협상 확인 완료. 실제 발화와 브라우저 행동은 별도 실행으로 확인하세요.', metadata }); }
-      catch { throw new HttpError(502, 'AT Driver 서버는 응답했지만 세션을 열지 못했습니다. 스크린리더가 켜져 있는지와 OS 접근성 권한을 확인하세요.'); }
+      try { const metadata = await driverBackend.start({ signal: AbortSignal.timeout(5000) }); return send(res, { message: { code: driver.started ? 'check-at-driver-started' : 'check-at-driver-ok' }, metadata }); }
+      catch { throw new HttpError(502, 'at-driver-session-failed'); }
       finally { await driverBackend.close(); await driver.stop(); }
     }
     if (path === '/api/machine/at-driver-command') {
@@ -160,14 +157,14 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
     const removing = path.match(/^\/api\/tasks\/([^/]+)$/);
     if (removing && method === 'DELETE') {
       const taskId = decodeURIComponent(removing[1]!), body = z.object({ revision: z.string() }).strict().parse(await jsonBody(req));
-      if (queue.experiments.some(e => e.runs.some(r => r.taskId === taskId && (r.state === 'queued' || r.state === 'running')))) throw new HttpError(409, '이 작업의 실행이 진행 중이거나 대기 중입니다. 끝나거나 중지한 뒤 삭제하세요.');
+      if (queue.experiments.some(e => e.runs.some(r => r.taskId === taskId && (r.state === 'queued' || r.state === 'running')))) throw new HttpError(409, 'task-run-active');
       const removed = await store.deleteTask(taskId, body.revision);
       changed();
       return send(res, { view: await state(), file: removed.file, fileRemoved: removed.fileRemoved } satisfies DeleteTaskResult);
     }
     if (path === '/api/config' && method === 'PUT') {
       const body = record(await jsonBody(req));
-      if (typeof body.revision !== 'string') throw new HttpError(400, '설정 버전이 필요합니다.');
+      if (typeof body.revision !== 'string') throw new HttpError(400, 'revision-required');
       const task = body.taskWrite ? record(body.taskWrite) : undefined;
       await store.save(body.config, body.revision, task ? { file: String(task.file), task: task.task } : undefined);
       changed(); return send(res, await state());
@@ -176,11 +173,11 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
       // A preset provider keeps its key under a fixed variable; only a custom connection names its own.
       const body = z.union([z.object({ provider: providerSchema, value: z.string() }).strict(), z.object({ connectionId: z.string(), value: z.string() }).strict()]).parse(await jsonBody(req));
       if ('provider' in body) {
-        if (body.provider === 'custom') throw new HttpError(400, '사용자 지정 서버의 인증키는 연결 단위로 저장합니다.');
+        if (body.provider === 'custom') throw new HttpError(400, 'custom-key-per-connection');
         await store.setCredential(body.provider, body.value);
       } else {
         const connection = await savedConnection(body.connectionId);
-        if (!modelKeyEnv(connection)) throw new HttpError(400, '연결의 인증키 환경변수 이름이 필요합니다.');
+        if (!modelKeyEnv(connection)) throw new HttpError(400, 'connection-key-env-required');
         await store.setCredential(connection, body.value);
       }
       return send(res, { configured: true });
@@ -196,12 +193,12 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
       const { config } = await store.read();
       // The project's suggestion model, otherwise its analysis model.
       const model = suggestionModel(config);
-      if (!model) throw new HttpError(400, '설정 → 프로젝트에서 완료 확인 제안 모델이나 해설 모델(LLM)을 지정하세요.');
+      if (!model) throw new HttpError(400, 'suggest-model-missing');
       const apiKey = await requireKey(store, model);
       return send(res, await exclusivePageRead(async () => {
         try { return await suggestChecks({ url: body.url, goal: body.goal, projectDir: store.root, model, apiKey, machine: config.machine }); }
         catch (error) {
-          throw new HttpError(400, error instanceof Error && error.message.startsWith('완료 확인 제안 실패') ? error.message : '시작 페이지를 열거나 읽지 못했습니다. URL과 브라우저 설정을 확인하세요.');
+          throw error instanceof HttpError ? error : new HttpError(400, 'start-page-unreadable');
         }
       }));
     }
@@ -212,7 +209,7 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
         try {
           const read = await inspectStartPage({ url: body.url, projectDir: store.root, machine: config.machine });
           return { page: { title: read.title, url: read.url }, elements: read.elements };
-        } catch { throw new HttpError(400, '시작 페이지를 열거나 읽지 못했습니다. URL과 브라우저 설정을 확인하세요.'); }
+        } catch { throw new HttpError(400, 'start-page-unreadable'); }
       }));
     }
     if (path === '/api/tasks/candidates' && method === 'GET') return send(res, await store.findTaskFiles((await store.read()).config));
@@ -235,7 +232,7 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
       const [, experimentId, runId, operation, eventId] = match;
       if (!operation && method === 'DELETE') return send(res, { removed: await queue.deleteRuns(experimentId!, runId ? [runId] : undefined) });
       if (operation === 'cancel' && method === 'POST') return send(res, await queue.cancel(experimentId!, runId));
-      if (!runId) throw new HttpError(404, '실행 ID가 필요합니다.');
+      if (!runId) throw new HttpError(404, 'run-id-required');
       const run = queue.find(experimentId!, runId);
       if (operation === 'retry' && method === 'GET') return send(res, await queue.previewRetry(experimentId!, runId));
       if (operation === 'retry' && method === 'POST') {
@@ -255,7 +252,7 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
         res.writeHead(200, { 'content-type': 'application/json', 'content-disposition': 'attachment; filename="' + operation + '.json"' }); return res.end(content);
       }
       if (operation === 'report' && method === 'GET') {
-        if (run.reportStatus !== 'complete') throw new HttpError(404, '보고서가 아직 준비되지 않았습니다.');
+        if (run.reportStatus !== 'complete') throw new HttpError(404, 'report-not-ready');
         res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'; sandbox" });
         return res.end(await readFile(await store.file(prefix + 'report.html', true)));
       }
@@ -266,15 +263,15 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
         // A diagnostic screenshot is a plain file whose path the runner wrote and the pattern pins, never a path from the client.
         const file = (event?.type === 'browser.screenshot' || event?.type === 'browser.start-page') && typeof diagnostic === 'string' && DIAGNOSTIC_PATH.test(diagnostic)
           ? await readFile(await store.file(prefix + diagnostic, true)).catch(() => undefined) : undefined;
-        if (event?.redacted || !file) throw new HttpError(404, '스크린샷이 없거나 입력 보호를 위해 가려졌습니다.');
+        if (event?.redacted || !file) throw new HttpError(404, 'screenshot-missing');
         res.writeHead(200, { 'content-type': 'image/png', 'cache-control': 'no-store' }); return res.end(file);
       }
     }
-    if (path.startsWith('/api/')) throw new HttpError(404, 'API를 찾을 수 없습니다.');
-    if (method !== 'GET') throw new HttpError(405, 'GET 요청이 필요합니다.');
+    if (path.startsWith('/api/')) throw new HttpError(404, 'api-not-found');
+    if (method !== 'GET') throw new HttpError(405, 'get-required');
     const requested = resolve(webDir, '.' + decodeURIComponent(path));
     const inside = relative(resolve(webDir), requested);
-    if (inside === '..' || inside.startsWith('..' + sep) || isAbsolute(inside)) throw new HttpError(403, '잘못된 파일 경로');
+    if (inside === '..' || inside.startsWith('..' + sep) || isAbsolute(inside)) throw new HttpError(403, 'bad-file-path');
     let file = requested;
     try { if (!(await stat(file)).isFile()) file = join(webDir, 'index.html'); } catch { file = join(webDir, 'index.html'); }
     const content = await readFile(file), types: Record<string, string> = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.woff2': 'font/woff2', '.png': 'image/png' };

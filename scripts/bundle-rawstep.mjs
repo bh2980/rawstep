@@ -4,7 +4,7 @@
  * `@rawstep/*` workspace inlined, then copy the non-JS files the runtime and the package page need.
  * The workspace packages must be built first (`node scripts/build.mjs` does that).
  */
-import { chmodSync, cpSync, existsSync, rmSync } from 'node:fs';
+import { chmodSync, cpSync, existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
@@ -29,5 +29,13 @@ export function bundleRawstep() {
     rmSync(join(facade, asset), { recursive: true, force: true });
     cpSync(join(root, asset), join(facade, asset), { recursive: true });
   }
+  // The package page renders the READMEs away from the repository, where their relative links lead nowhere: point them at GitHub.
+  for (const readme of ['README.md', 'README.ko.md']) {
+    const path = join(facade, readme);
+    writeFileSync(path, absoluteLinks(readFileSync(path, 'utf8')));
+  }
 }
+const REPOSITORY = 'https://github.com/bh2980/rawstep/blob/master/';
+/** `[text](./docs/x.md#y)` becomes a link into the repository; web addresses and in-page anchors stay as they are. */
+export const absoluteLinks = (markdown) => markdown.replace(/\]\((?!https?:|mailto:|#)(?:\.\/)?([^)\s]+)\)/g, (_, path) => `](${REPOSITORY}${path})`);
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) bundleRawstep();

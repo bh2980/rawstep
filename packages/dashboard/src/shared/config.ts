@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { Task } from '@rawstep/core/contracts';
 import { idSchema as id, runRulesOverrideSchema, type Model, type Permissions, type ProjectConfig } from '@rawstep/project/config';
 import type { RunSpec } from '@rawstep/project/execution';
+import type { ServerMessage } from './messages.js';
 
 /** An experiment: tasks × run profiles × repeats. */
 export const planSchema = z.object({
@@ -12,7 +13,7 @@ export const planSchema = z.object({
   repeats: z.number().int().min(1).max(100),
   selected: z.array(z.string().max(500)).max(1000).optional(),
   revision: z.string().optional(),
-  /** What this batch of runs is for, in the person's words ("담기를 button으로 바꿈"); shown wherever the batch is picked. */
+  /** What this batch of runs is for, in the person's words ("made Add to cart a button"); shown wherever the batch is picked. */
   note: z.string().trim().max(200).optional(),
 }).strict();
 export type PlanRequest = z.infer<typeof planSchema>;
@@ -26,7 +27,7 @@ export type Combination = {
   key: string; taskId: string; repeat: number;
   profileId: string;
   plannerName?: string;
-  supported: boolean; reason?: string; warnings: string[]; permissions: Permissions;
+  supported: boolean; reason?: ServerMessage; warnings: ServerMessage[]; permissions: Permissions;
 };
 export type RunState = 'queued' | 'running' | 'success' | 'failure' | 'inconclusive' | 'cancelled' | 'interrupted';
 export type RunRecord = Combination & {
@@ -41,6 +42,7 @@ export type RunRecord = Combination & {
    */
   outcome?: { status: string; reason?: string; steps?: number; stage?: string; step?: number; stopSource?: string };
   analysisStatus: 'pending' | 'complete' | 'failed' | 'skipped'; reportStatus: 'pending' | 'complete' | 'failed' | 'skipped';
+  /** Codes (`analysis-failed`, `report-failed`) or the analyzer's own recorded error text; shown only with the raw record. */
   analysisError?: string; reportError?: string; analysisModel?: Model;
   analysisInstructions?: string; taskFile?: string;
   retryOf?: { experiment: string; run: string };
@@ -49,9 +51,12 @@ export type RetryPreview = { revision: string; changedFields: string[]; original
 export type Experiment = { id: string; createdAt: string; stopped: boolean; runs: RunRecord[]; request: PlanRequest };
 /** Answer to deleting a task: the project as it is now, the task's file and whether Rawstep removed that file (a linked file elsewhere in the project is only unregistered). */
 export type DeleteTaskResult = { view: ConfigView; file: string; fileRemoved: boolean };
-/** The fixed texts a run's `error` holds when it ended without a recorded outcome, so a screen can tell the kinds of failure apart. */
+/**
+ * The codes a run's `error` holds when it ended without a recorded outcome, so a screen can tell the kinds of failure apart. They are
+ * codes, not sentences: the dashboard words them in the reader's language.
+ */
 export const RUN_ERROR = {
-  restarted: '서버 재시작으로 중단되었습니다. 새 실행으로 재시도하세요.',
-  storage: '실행 기록을 저장하지 못해 큐를 중단했습니다. 프로젝트 파일과 저장 공간을 확인하세요.',
-  start: '실행 준비 또는 실행이 실패했습니다. 연결과 브라우저 설정을 확인하세요.',
+  restarted: 'run-restarted',
+  storage: 'run-storage',
+  start: 'run-start',
 } as const;

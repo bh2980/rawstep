@@ -18,7 +18,7 @@ A task says only what to do: the start page, the goal, and how Rawstep recognise
 | `input` | `{ name: value }`, strings | none | Named values the user may type. See [named inputs](#named-inputs). |
 | `inputOptions` | `{ name: { sensitive?, description? } }` | none | Per-input handling. Each key must be a name in `input`. |
 | `navigation` | object | `{ "strategy": "same-origin" }` | Where the user may go. See [navigation](#navigation). |
-| `profile` | page environment object or built-in name | none | Accepted in the file but ignored by `rawstep run` and the dashboard: a run uses the run profile's `page` ([config.md](config.md#page-environments)). |
+| `profile` | page environment object or built-in name | none | Accepted in the file but ignored by `rawstep run` and the dashboard: a run uses the run profile's `page` ([config.md](config.md#page-environments)). It is still checked like a `page`, so an unknown field or name is an error. |
 
 Unknown fields are rejected. The file is read as JSON; there are no comments.
 

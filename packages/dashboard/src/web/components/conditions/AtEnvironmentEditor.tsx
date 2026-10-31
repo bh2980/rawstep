@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { CircleAlert, CircleCheck, LoaderCircle, PlugZap } from 'lucide-react';
 import type { AtEnvironment } from '@rawstep/project/config';
 import type { ConfigView } from '../../../shared/config';
+import type { ServerMessage } from '../../../shared/messages';
+import { serverText } from '../../i18n';
 import { ApiError, api } from '../../api';
 import { actionLabel, AT_BACKENDS } from '../../lib/conditions';
 import { cn } from '../../lib/utils';
@@ -30,8 +32,8 @@ export function AtEnvironmentEditor({ environment, onChange, compact, capabiliti
     try {
       // The check uses the saved settings of this computer, never unsaved edits on another page.
       const { config } = await api<ConfigView>('/state');
-      const result = await api<{ message: string }>('/backend/check', { method: 'POST', body: { backend, machine: config.machine } });
-      setCheck({ state: 'ok', message: result.message });
+      const result = await api<{ message: ServerMessage }>('/backend/check', { method: 'POST', body: { backend, machine: config.machine } });
+      setCheck({ state: 'ok', message: serverText(result.message) });
     } catch (error) {
       setCheck({ state: 'failed', message: error instanceof ApiError && error.status === 0 ? t('machine.env.noServer') : error instanceof Error ? error.message : t('conditions.atEnv.checkFailed') });
     }

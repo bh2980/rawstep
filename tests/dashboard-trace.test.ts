@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import type { HintFinding, StepView } from '../packages/dashboard/src/shared/api.js';
-import '../packages/dashboard/src/web/i18n/index.js';
+import { i18n } from '../packages/dashboard/src/web/i18n/index.js';
 import { evidenceRefs, splitEvidence } from '../packages/dashboard/src/web/lib/findings.js';
 import { formatClock } from '../packages/dashboard/src/web/lib/format.js';
 import { runGlyphKind, runStripLabel } from '../packages/dashboard/src/web/lib/runStrip.js';
 import { liveCurrentLine, railKeyTarget, railWindow, stepGlyph } from '../packages/dashboard/src/web/lib/stepDots.js';
 import { nextThemePreference, parseThemePreference, readThemePreference, resolveTheme, THEME_KEY, writeThemePreference } from '../packages/dashboard/src/web/lib/theme.js';
+
+// These tests read the Korean wording, so the language is pinned whatever the machine's own language is.
+await i18n.changeLanguage('ko');
 
 const step = (n: number, action?: StepView['action'], extra: Partial<StepView> = {}): StepView => ({ step: n, ...(action ? { action } : {}), observed: [], hints: [], redacted: false, ...extra });
 const tab = { kind: 'key', key: 'Tab' } as const;

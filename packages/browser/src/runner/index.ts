@@ -1,5 +1,5 @@
 import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
-import { collectBrowserDiagnostics, verifyLiveProfile, ProfileApplicationError, resolveEnvironmentProfile, type EnvironmentProfile, type NativeZoomController } from '../profiles/index.js';
+import { collectBrowserDiagnostics, verifyLiveProfile, ProfileApplicationError, resolveEnvironmentProfile, type EnvironmentProfile } from '../profiles/index.js';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { mkdir } from 'node:fs/promises';
@@ -13,7 +13,6 @@ import type { ObserverEvent, ObserverOptions } from '../observer/index.js';
 export type RunOptions = {
   backend: Backend;
   profile?: EnvironmentProfile | string;
-  nativeZoom?: NativeZoomController;
   /** Cooperative cancellation; already dispatched native commands cannot be undone. */
   signal?: AbortSignal;
   policy: DecisionPolicy;
@@ -57,7 +56,7 @@ class BudgetExceeded extends Error { constructor() { super('Run time budget exce
 class RunAborted extends Error { constructor(readonly signal: 'SIGINT' | 'SIGTERM' | 'requested') { super(`Run cancelled (${signal}).`); this.name = 'RunAborted'; } }
 
 /** The runner owns budgets, action restrictions and independent completion verification. */
-export async function runTask(source: Task, options: RunOptions): Promise<RunTrace> {
+export async function runWithPolicy(source: Task, options: RunOptions): Promise<RunTrace> {
   const task = resolveTask({ ...source, ...(options.profile ? { profile: resolveEnvironmentProfile(options.profile) } : {}) });
   const simulation = options.backend.evidenceProvenance === 'simulation';
   const speechSource = simulation ? 'simulation' : 'screen-reader';
@@ -167,7 +166,7 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
     // A launch that completes after the deadline still owns resources and must close them.
     stage = 'browser-start';
     browser = await withinBudget(async () => {
-      const opened = await (options.browserSessionFactory ?? createBrowserSession)(task.url, { headless: options.personCheck ? false : options.headless ?? false, ...(options.personCheck ? { personCheck: true, ...(options.personCheck.userDataDir && !options.browserEndpoint ? { userDataDir: options.personCheck.userDataDir } : {}) } : {}), executablePath: options.browserExecutablePath, ...(options.browserEndpoint ? { cdpEndpoint: options.browserEndpoint } : {}), proxyServer: options.proxyServer, ...(options.observe !== undefined ? { observe: options.observe } : {}), navigation: task.navigation, verify: task.verify, profile: task.profile, nativeZoom: options.nativeZoom });
+      const opened = await (options.browserSessionFactory ?? createBrowserSession)(task.url, { headless: options.personCheck ? false : options.headless ?? false, ...(options.personCheck ? { personCheck: true, ...(options.personCheck.userDataDir && !options.browserEndpoint ? { userDataDir: options.personCheck.userDataDir } : {}) } : {}), executablePath: options.browserExecutablePath, ...(options.browserEndpoint ? { cdpEndpoint: options.browserEndpoint } : {}), proxyServer: options.proxyServer, ...(options.observe !== undefined ? { observe: options.observe } : {}), navigation: task.navigation, verify: task.verify, profile: task.profile });
       if (controller.signal.aborted) { await opened.close(); throw controller.signal.reason; }
       // A page opened bare for a human check gets its guards and the backend only after the check is passed.
       if (!opened.armGuards) try { await options.backend.attachSession?.(opened); } catch (error) { await opened.close(); throw error; }

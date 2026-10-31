@@ -22,6 +22,8 @@ export function RunDiagnosis({ run, steps, notices, plan, onSelect }: Props) {
       note: reason === 'verification-failed' ? t('diagnosis.plannerStopFailed') : t('diagnosis.plannerStopNote') });
   } else if (source === 'orchestration-limit' && stopped) {
     lines.push({ key: 'stop', icon: OctagonAlert, step: stopped.step, text: t('diagnosis.limitStop', { n: stopped.step, max: rules.maxPlannerCalls, count: plan ? plan.versions.length : rules.maxPlannerCalls }), note: t('diagnosis.limitStopNote') });
+  } else if (source === 'no-allowed-action' && stopped) {
+    lines.push({ key: 'stop', icon: OctagonAlert, step: stopped.step, text: t('diagnosis.noActionStop', { n: stopped.step }), note: t('diagnosis.noActionStopNote') });
   } else if (source === 'user-gave-up' && stopped) {
     lines.push({ key: 'stop', icon: OctagonAlert, step: stopped.step, text: t('diagnosis.gaveUpStop', { n: stopped.step }), note: t('diagnosis.gaveUpStopNote') });
   } else if (stopped?.stop?.stop === 'success' && reason === 'verification-failed') {

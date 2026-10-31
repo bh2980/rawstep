@@ -52,9 +52,9 @@ Stuck places are the user model's judgement: whether the page or the expectation
 Details: npx rawstep hints <run-dir>, npx rawstep report <run-dir>
 ```
 
-실행은 네 가지 중 하나로 끝납니다. 목표에 닿음(reached the goal), 포기함(gave up), 끝냈다고 했지만 목표에 닿지 못함(said it was done, but the goal was not reached), 측정 못 함(not measured)입니다. 대가는 움직인 횟수(moves)로 셉니다. 실제 페이지라면 출력에 사용자가 무언가를 눌렀는데 예상대로 반응하지 않은 곳과, 그 사이 페이지가 한 일(포커스를 잃음, 아무도 알려 주지 않은 변화)도 함께 나옵니다. 하나하나의 뜻은 [개념](./docs/concepts.md)에서 설명합니다.
+실행은 네 가지 중 하나로 끝납니다. CLI는 reached the goal, gave up, said it was done but the goal was not reached, not measured라고 쓰고, 대시보드는 같은 네 가지를 해냄, 포기함, 잘못 끝냄, 측정 못 함이라고 씁니다. 대가는 움직인 횟수(moves)로 셉니다. 실제 페이지라면 출력에 사용자가 무언가를 눌렀는데 예상대로 반응하지 않은 곳과, 그 사이 페이지가 한 일(포커스를 잃음, 아무도 알려 주지 않은 변화)도 함께 나옵니다. 하나하나의 뜻은 [개념](./docs/concepts.md)에서 설명합니다.
 
-실행 폴더에는 실행 기록(trace), 실행이 따른 계획, 힌트, HTML 보고서가 들어 있습니다. 대시보드에서는 같은 결과를 작업별, 실행별로 볼 수 있습니다.
+실행 폴더에는 실행 기록(trace), 실행이 따른 계획, 힌트, HTML 보고서가 들어 있습니다. 대시보드에서 시작한 실행은 대시보드에서 작업별, 실행별로 볼 수 있고, CLI로 돌린 실행은 실행 폴더에만 남습니다.
 
 ## Rawstep이 아닌 것
 

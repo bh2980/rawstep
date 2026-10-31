@@ -1,7 +1,21 @@
 {
   "name": "rawstep",
   "version": "0.2.0",
-  "description": "Record screen-reader task traces and get friction hints: CLI, local dashboard and API in one package",
+  "description": "Can a first-time screen reader user complete this task on your page, and at what cost? Runs the task as such a user would and reports where it got slow, took detours or got stuck. CLI, local dashboard and API in one package.",
+  "keywords": [
+    "accessibility",
+    "a11y",
+    "screen reader",
+    "voiceover",
+    "nvda",
+    "testing",
+    "playwright",
+    "usability"
+  ],
+  "homepage": "https://github.com/bh2980/rawstep#readme",
+  "bugs": {
+    "url": "https://github.com/bh2980/rawstep/issues"
+  },
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",

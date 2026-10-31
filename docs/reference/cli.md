@@ -52,7 +52,7 @@ Created <path>/rawstep.config.json and a demo task in rawstep/demo/.
 
 Next:
   npx rawstep run demo               the demo task on a plan written beforehand (no model, no key)
-  npx rawstep ui                     see the result and add your own tasks
+  npx rawstep ui                     run tasks and read results in the dashboard
 
 For a first-time screen reader user planned by a model, the "Item by item" profile needs one: in `npx rawstep ui`, Settings > AI connections.
 A coding-agent CLI you are signed in to (Claude Code, Codex, opencode, Grok) needs no API key.
@@ -75,7 +75,7 @@ Starts the dashboard on `127.0.0.1` and waits until it receives SIGINT or SIGTER
 | `--port <port>` | `4318` | An integer from 1 to 65535. |
 | `--project <dir>` | `.` | The project the dashboard edits and runs. |
 
-If the project has no `rawstep.config.json`, `ui` first does what `init` does (same demo, same `Next:` hints), then starts. It prints `Rawstep dashboard: http://127.0.0.1:<port>` (the address the server reports). The dashboard text is in Korean; screens are named in the docs that use them.
+If the project has no `rawstep.config.json`, `ui` first does what `init` does (same demo, same `Next:` hints), then starts. It prints `Rawstep dashboard: http://127.0.0.1:<port>` (the address the server reports). The dashboard is in English and Korean: it follows the browser's language (Korean for any `ko` preference, English otherwise), and the language switch in its top bar changes it.
 
 ## `rawstep run`
 
@@ -88,7 +88,7 @@ rawstep run <task> [--profile <id|name>] [--rule <name>=<value>]...
 
 | Option | Default | Meaning |
 | --- | --- | --- |
-| `--profile <id\|name>` | the first profile in the config | The run profile to use, by id or by name. |
+| `--profile <id\|name>` | the first profile in the config | The run profile to use, by id or by name. A task file has no profile of its own. |
 | `--rule <name>=<value>` | none | Overrides one run rule for these runs. Repeatable; the last value for a rule wins. |
 | `--repeat <n>` | `1` | Runs the task `n` times (1 to 100). The runs are compared with the fastest one that reached the goal. |
 | `--out <dir>` | `<project>/.rawstep/runs/<timestamp>-<id>/` | Where to write. One `run-<n>` folder per repeat. |
@@ -149,9 +149,9 @@ The ending words in a run line:
 | Printed | Meaning |
 | --- | --- |
 | `reached the goal` | The goal check passed. |
-| `gave up` | The user decided nothing they heard left another way to try. |
+| `gave up` | The user decided nothing they heard left another way to try, or a plan file ran out of tasks. |
 | `said it was done, but the goal was not reached` | The user said the goal was reached and it was not. |
-| `not measured (<why>)` | A limit or a guard ended the run first. `<why>` is one of `planner-call limit`, `max steps`, `time limit`, `repetition guard`, `the model was unsure`, `stopped early`. |
+| `not measured (<why>)` | A limit or a guard ended the run first. `<why>` is one of `planner-call limit`, `the profile allows no action the plan's task needs`, `max steps`, `time limit`, `repetition guard`, `the model was unsure`, `stopped early`. |
 | `ended on an error (says nothing about the page)` | The run broke (browser, model, trace writing). |
 | `aborted` | The run was cancelled. |
 | `no outcome recorded` | The trace has no outcome. |
@@ -162,7 +162,7 @@ The ending words in a run line:
 
 ### Cancelling
 
-Ctrl+C (SIGINT) or SIGTERM stops the run, closes the browser and the screen reader, and keeps what was written. `run` prints `Received SIGINT; stopping, keeping the traces written so far.` on stderr. The run that was in progress is saved with an `aborted` outcome. Hints, analysis and report are not written for a cancelled `run`; you can still run `hints`, `report` or `analyze` on the saved folders afterwards.
+Ctrl+C (SIGINT) or SIGTERM stops the run, closes the browser and the screen reader, and keeps what was written. `run` prints `Received SIGINT; stopping, keeping the traces written so far.` on stderr. The run that was in progress is saved with an `aborted` outcome. Each trace kept gets `hints.json`, the rule-based `analysis.json` and the report, but no model analysis; run `rawstep analyze --llm` on a folder afterwards if you want one. Then `run` prints the cancellation on stderr and exits 130 (SIGINT) or 143 (SIGTERM).
 
 ## `rawstep hints`
 
@@ -266,13 +266,13 @@ The checks, in order:
 
 | Code | When |
 | --- | --- |
-| `0` | The command finished. For `run`: the runs completed, whether or not the goal was reached, and including runs that ended on an error (the error is in the output). For `doctor`: no `FAIL` line. For `analyze`: the analysis completed. For `ui`: stopped by SIGINT or SIGTERM. |
-| `1` | An error: no config, a bad config, an unknown task or profile, a missing key, a profile that cannot run, an unreadable run folder, a `doctor` `FAIL`, a failed `analyze`, or `init` over an existing config. The message is on stderr (`doctor` prints on stdout). |
+| `0` | The command finished. For `run`: the runs completed, whether or not the goal was reached, and none ended on an error. For `doctor`: no `FAIL` line. For `analyze`: the analysis completed. For `ui`: stopped by SIGINT or SIGTERM. |
+| `1` | An error: no config, a bad config, an unknown task or profile, a missing key, a profile that cannot run, any `run` that ended on an error (the result is still printed, with the error), an unreadable run folder, a `doctor` `FAIL`, a failed `analyze`, or `init` over an existing config. The message is on stderr (`doctor` prints on stdout). |
 | `2` | Bad usage: an unknown command or option, a missing value, a wrong number of arguments, `--port` or `--repeat` out of range, an invalid `--rule`. The message is on stderr. |
 | `130` | `run` was cancelled by SIGINT. |
 | `143` | `run` was cancelled by SIGTERM. |
 
-Rawstep reports friction hints, not pass or fail, so the exit code of `run` never says whether the goal was reached. In a script, read the printed result, `--json`, or call [`runTask`](./api.md#runtask) from your test runner and apply your own threshold.
+Rawstep reports friction hints, not pass or fail, so the exit code of `run` never says whether the goal was reached. It only says whether every run worked: a run that ended on an error says nothing about the page, so a script must not read it as a result. In a script, read the printed result, `--json`, or call [`runTask`](./api.md#runtask) from your test runner and apply your own threshold.
 
 ## Environment variables and files
 

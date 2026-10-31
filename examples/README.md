@@ -24,7 +24,7 @@ npm run rawstep -- init --project "$HOME/rawstep-try"
 npm run rawstep -- run "$PWD/examples/tasks/simple-cta.json" --profile item-by-item --project "$HOME/rawstep-try"
 ```
 
-`item-by-item` is the profile `init` writes without a planner. Give it one in `npx rawstep ui` (설정 > 실행 프로필, Settings > Run profiles) before it can run. Results are written under the project's `.rawstep/runs/`.
+`item-by-item` is the profile `init` writes without a planner. Give it one in `npx rawstep ui` (Settings › Run profiles) before it can run. Results are written under the project's `.rawstep/runs/`.
 
 ## `tasks/`: five pages, five kinds of friction
 
@@ -41,11 +41,8 @@ npm run rawstep -- run "$PWD/examples/tasks/simple-cta.json" --profile item-by-i
 | File | What it shows |
 |---|---|
 | [`task.json`](./profiles/task.json) | A task on `fixtures/environment-lab.html` ("Finish task"), for comparing page environments. |
-| [`matrix.json`](./profiles/matrix.json) | A list of built-in page environment names (`default`, `reflow-text`, `forced-colors`, `contrast`, `reduced-motion`, `spacing`, `zoom-200`). It is a reference list only: no command reads it. `zoom-200` needs a native browser zoom controller; a profile that asks for it is reported as unsupported instead of being approximated. |
-| [`decisions.json`](./profiles/decisions.json) | Four fixed actions (Tab, Tab, Tab, Enter) for `ScriptedPolicy`, in library tests. Not used by the CLI. |
-| [`human-evidence.example.json`](./profiles/human-evidence.example.json) | An empty list. Nothing reads it. |
 
-To compare environments, make one run profile per environment in `rawstep.config.json` that differ only in `page` (for example `reflow-text`, `forced-colors`) and share the same planner. Then run the same task once per profile:
+To compare environments, make one run profile per environment in `rawstep.config.json` that differ only in `page` (built-in names such as `reflow-text`, `forced-colors`, `contrast`, `reduced-motion`, `spacing`; the full list is in the [config reference](../docs/reference/config.md#page-environments)) and share the same planner. Then run the same task once per profile:
 
 ```sh
 npx rawstep run node_modules/rawstep/examples/profiles/task.json --profile default
@@ -55,13 +52,25 @@ npx rawstep run node_modules/rawstep/examples/profiles/task.json --profile force
 
 `--profile` takes a run profile's id or name, so those three must exist in your config. A task run in a text-enlargement or narrow-viewport profile is not a native zoom result.
 
-## `v2/`: the simulated and the native screen reader, and a custom policy
+## `screen-reader/`: the simulated and the native screen reader, and a custom policy
 
 | File | What it shows |
 |---|---|
-| [`mock-task.json`](./v2/mock-task.json) | "Activate Save twice" on `fixtures/mock-voiceover-system.html`, a page whose title changes after the second press. Run it with a profile whose screen reader is `simulation`. |
-| [`task.json`](./v2/task.json) | "Find and activate the Get started button" on `fixtures/simple-cta.html`. Meant for a profile whose screen reader is `voiceover` (macOS) or `nvda` (Windows) through an AT Driver server. See [Screen readers](../docs/screen-readers.md). |
-| [`decisions.json`](./v2/decisions.json) | Tab, Tab, Enter, then "stop: success", for `ScriptedPolicy`. A library fixture. |
-| [`policy.mjs`](./v2/policy.mjs) | A small hand-written decision policy (`decide(...)`): activates when speech mentions "get started", otherwise presses Tab, gives up after ten steps. Load it with `loadPolicy` from `rawstep`. A library fixture, not a production policy. |
+| [`mock-task.json`](./screen-reader/mock-task.json) | "Activate Save twice" on `fixtures/mock-voiceover-system.html`, a page whose title changes after the second press. Run it with a profile whose screen reader is `simulation`. |
+| [`task.json`](./screen-reader/task.json) | "Find and activate the Get started button" on `fixtures/simple-cta.html`. Meant for a profile whose screen reader is `voiceover` (macOS) or `nvda` (Windows) through an AT Driver server ([Screen readers](../docs/screen-readers.md)); it runs on the simulation too. |
+| [`policy.mjs`](./screen-reader/policy.mjs) | A small hand-written decision policy (`decide(...)`) for `task.json`. It acts only through screen reader intents, as a screen reader user would: `next` until the speech names "Get started", then `activate`, then it stops and leaves the verdict to the completion check. It stops as stuck after 20 steps, or when the profile allows no `next`. No model or API key. A library example, not a production policy. |
 
-`decisions.json` and `policy.mjs` are for calling the runner from code (`runTask` from `rawstep/runner`, or `runMockVoiceOverTask` from `rawstep/mock-voiceover` with a `policy` option). They press keys directly, which the run profile presets in the dashboard do not allow. They show the policy interface; they are not what a normal run does. See the [API reference](../docs/reference/api.md).
+`policy.mjs` is for calling the runner from code, not for `rawstep run`, which always follows a plan. It needs only `next` and `activate`, so it runs under the default actions on every screen reader. Load it with `loadPolicy` and pass it to `runMockVoiceOverTask` (from `rawstep`) or `runWithPolicy` (from `rawstep/runner`). The task file's relative `url` must be resolved against its own folder, for example with `resolveTask` from `rawstep`:
+
+```js
+// in a project that has rawstep installed
+import { readFile } from 'node:fs/promises';
+import { loadPolicy, resolveTask, runMockVoiceOverTask } from 'rawstep';
+
+const dir = 'node_modules/rawstep/examples/screen-reader';
+const task = resolveTask(JSON.parse(await readFile(`${dir}/task.json`, 'utf8')), dir);
+const trace = await runMockVoiceOverTask(task, { policy: await loadPolicy(`${dir}/policy.mjs`), outDir: '.rawstep/policy-example/run-1', warn: () => {} });
+console.log(trace.outcome);
+```
+
+`outDir` must not already hold a trace. See the [API reference](../docs/reference/api.md#writing-your-own-policy).

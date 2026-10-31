@@ -5,9 +5,9 @@ This page is for people who work on the local dashboard (`npx rawstep ui`). It a
 The dashboard is a private workspace. It is bundled into the published `rawstep` package, and `rawstep ui` serves it. It has two parts:
 
 - **`src/server`**: a Node HTTP server on `127.0.0.1`. It reads and writes the project's files through `@rawstep/project`, runs experiments through the same code `rawstep run` uses, and serves the built UI. There is no database.
-- **`src/web`**: a React 19 single-page app built with Vite and Tailwind 4, using local shadcn/ui components. Every visible string is Korean.
+- **`src/web`**: a React 19 single-page app built with Vite and Tailwind 4, using local shadcn/ui components. Every visible string is in Korean and English: the language follows the browser, and a switch in the top bar changes it.
 
-The UI labels it shows are, with English glosses: 작업 (Tasks), 실행 기록 (Run history) and 설정 (Settings). 설정 has three groups: 실행 (Run) with 실행 프로필 (Run profiles), 모델 (Models) with AI 연결 (AI connections), and 이 컴퓨터 (This computer).
+Its menu has Tasks, Run history and Settings. Settings has three groups: Run with Run profiles, Models with AI connections, and This computer. (In Korean: 작업, 실행 기록, 설정; 실행 프로필, AI 연결, 이 컴퓨터.)
 
 ## Run it
 
@@ -52,7 +52,7 @@ Tests live in the repository root `tests/` (`tests/dashboard-*.test.ts`). The on
 | Task definitions | The `tasks/*.json` files the config points at |
 | API keys, the AT Driver start command | `.env.local` in the project. Keys are returned to the UI only as configured or not configured. |
 | Experiment records | `.rawstep/experiments/<experiment-id>/experiment.json` |
-| A run's files | `.rawstep/experiments/<experiment-id>/<run-id>/` (`trace.json`, `trace.jsonl`, `hints.json`, `analysis.json`, `report.html`, `diagnostics/step-<n>.png`) |
+| A run's files | `.rawstep/experiments/<experiment-id>/<run-id>/` (`trace.json`, `trace.jsonl`, `plan.json`, `plan.md`, `hints.json`, `analysis.json`, `report.html`, `report.json`, `diagnostics/`) |
 | Browser profile for runs | `.rawstep/browser-profile` |
 
 Saves carry the config's revision. A save against a stale revision is refused with 409, and the UI keeps the person's draft separate from the file so a conflict does not lose edits. The server also re-reads the config every 1.5 s and tells the UI when it changed on disk.
@@ -73,11 +73,11 @@ On start, the server marks any run still `queued` or `running` as `interrupted`.
 | `checks.ts` | Provider, model and browser checks |
 | `suggest.ts`, `structure.ts` | Completion-check suggestions and the page-element picker (both open the start page in a browser) |
 | `files.ts` | Listing project files for the plan-file and task-file pickers |
-| `http.ts` | `HttpError` and the Korean text for each project error code |
+| `http.ts` | `HttpError` (a status and a message code) and the mapping of any failure to its code |
 
-`src/shared` holds types and a Zod schema used by both sides with no Node code: `api.ts` (response shapes) and `config.ts` (experiment and request types).
+`src/shared` holds types and a Zod schema used by both sides with no Node code: `api.ts` (response shapes), `config.ts` (experiment and request types) and `messages.ts` (the message codes the server sends).
 
-An experiment is tasks × run profiles × repeats. `POST /api/plan` expands a request into combinations and says for each whether it can run and why not (no planner, no key, an action the screen reader lacks, an unsupported page environment). `POST /api/experiments` stores the supported ones and starts the queue. Runs go one at a time. A retry keeps the original run's public conditions and re-reads input values from the task file.
+An experiment is tasks × run profiles × repeats. `POST /api/plan` expands a request into combinations and says for each whether it can run and why not (no planner, no key, an action the screen reader lacks). `POST /api/experiments` stores the supported ones and starts the queue. Runs go one at a time. Each run gets its hints, analysis and report when it ends; when the last repeat of a task under a profile in the experiment has finished, `compareRepeats` (from `@rawstep/project/run`) rewrites every repeat's hints and report against the fastest one that reached the goal, as `rawstep run --repeat` does. A retry keeps the original run's public conditions and re-reads input values from the task file.
 
 ### Security
 
@@ -89,12 +89,12 @@ An experiment is tasks × run profiles × repeats. `POST /api/plan` expands a re
 
 ### API
 
-All paths start with `/api`. Bodies and responses are JSON unless noted. Errors are `{ "error": "<Korean message>" }`.
+All paths start with `/api`. Bodies and responses are JSON unless noted. Errors are `{ "error": { "code": "<message code>", "params": { ... } } }`. The server never sends a finished sentence: the codes are listed in `src/shared/messages.ts`, and the web app words them in the reader's language (`serverMessages` in the locales). A plan row's `reason` and `warnings` and a backend check's `message` are messages of the same shape. Text the server writes to the terminal is English, like the CLI.
 
 | Method and path | Purpose |
 |---|---|
 | `GET /events` | Server-sent events: `changed` (refetch) and `run-event` (one per run per 250 ms at most) |
-| `GET /state` | Config, revision, key status, task JSONs, runnable page environments, per-screen-reader action lists |
+| `GET /state` | Config, revision, key status, task JSONs, the built-in page environments, per-screen-reader action lists |
 | `PUT /config` | Save the config (`config`, `revision`, optional `taskWrite`) |
 | `POST /credentials`, `POST /credentials/reveal` | Save or read back a key (by provider, or by connection ID for a custom server) |
 | `POST /connections/check` | Ask a provider's model list once (or check one model) |
@@ -130,29 +130,29 @@ All paths start with `/api`. Bodies and responses are JSON unless noted. Errors 
 | Folder or file | Owns |
 |---|---|
 | `main.tsx`, `App.tsx` | Entry and the page shell: data loading, the run dialog, the page switch |
-| `api.ts` | `fetch` wrapper for `/api` that keeps the HTTP status |
+| `api.ts` | `fetch` wrapper for `/api` that keeps the HTTP status and words the server's message code |
 | `pages/` | One component per screen: `TasksPage`, `TaskPage`, `NewTaskPage`, `RunPage`, `RunsPage`, `SettingsPage` (its parts are in `pages/settings/`) |
 | `components/` | Domain components. `components/ui` holds the shadcn primitives; `layout`, `conditions` and `trace` group the rest |
 | `hooks/` | `useRoute` (the URL is the route), `useDashboardData` (state, experiments, summaries; refetched on `changed`, no polling), `useLiveEvents` (one `EventSource`), `useAnnouncer` (throttled live-region text) and a few more |
 | `lib/` | Pure logic: finding and step text, the persona presets, task JSON helpers, step dots, error views. Tested from the root `tests/`. |
-| `i18n/` | react-i18next with one Korean namespace. The strings are in `locales/ko/*.ts`; `labels.ts` maps enum values to labels |
+| `i18n/` | react-i18next with one namespace per language. The strings are in `locales/ko/*.ts` and `locales/en/*.ts`; each English file is typed as its Korean one (`shape.ts`), so a missing key fails typecheck. `index.ts` picks the language (a choice saved in `localStorage` under `rawstep.language`, otherwise the browser's: any `ko*` is Korean, anything else English) and keeps `<html lang>` in sync; `labels.ts` maps enum values to labels |
 | `styles.css` | Theme tokens |
 
 The route lives in the URL, so reload and the back button restore the page:
 
 | URL | Screen |
 |---|---|
-| `/` | 작업 (Tasks) list |
-| `?task=<id>` with `&tab=overview\|runs\|check\|settings` | One task: 개요 (Overview), 실행 기록 (Run history), 완료 확인 (Completion check), 설정 (Settings) |
+| `/` | Tasks list |
+| `?task=<id>` with `&tab=overview\|runs\|check\|settings` | One task: Overview, Run history, Completion check, Settings |
 | `?task=new` | New task |
 | `?task=<id>&run=<run-id>&step=<n>` | One run, at a step |
-| `?view=runs` | 실행 기록 (Run history) |
-| `?view=settings&section=profiles\|connections\|machine` | 설정 (Settings): 실행 프로필, AI 연결, 이 컴퓨터 |
+| `?view=runs` | Run history |
+| `?view=settings&section=profiles\|connections\|machine` | Settings: Run profiles, AI connections, This computer |
 
 Behaviour worth knowing before you change it:
 
-- A task is run from its page: a run bar (repeats, 실행) and one profile line, with 프로필 편집 (edit profile) to change the shared profile in a side sheet or split off a copy for this task. A new task is only created, never run on creation.
+- A task is run from its page: a run bar (repeats, Run) and one profile line, with Edit profile to change the shared profile in a side sheet or split off a copy for this task. A new task is only created, never run on creation.
 - A run page shows a dot timeline of steps (one tab stop, arrow keys to move), one step at a time, the plan document with its versions and planner calls, and follows a live run through the `run-event` stream.
 - A connection holds only where models are reached. The model and effort are picked where they are used: the run profile's planner, the analysis model, the completion-check suggestion model.
-- Results show facts and friction hints. The LLM explanation of a run, when the profile has an analysis model, is labelled as such and is never shown as a verdict.
+- Results show facts and friction hints. The LLM explanation of a run, when the project has an analysis model, is labelled as such and is never shown as a verdict.
 - Settings checks (a connection, a model, the browser, the screen reader driver) run only when the person asks.

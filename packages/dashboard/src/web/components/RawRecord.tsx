@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { RunRecord } from '../../shared/config';
+import { currentLanguage } from '../i18n';
 import { useRunEvents } from '../hooks/useRunData';
 import { eventsByStep } from '../lib/rawEvents';
 
@@ -13,7 +14,7 @@ export function RawRecord({ experimentId, run, step }: { experimentId: string; r
   return <div className="grid gap-2">
     <p className="text-xs text-muted-foreground">{t('runPage.rawDescription', { count: mine.length })}</p>
     {mine.map(event => <details key={event.id} className="rounded-md border px-3 py-2">
-      <summary className="cursor-pointer text-xs">{event.seq} · {event.type} · {event.redacted ? t('events.redacted') : new Date(event.timestamp).toLocaleTimeString()}</summary>
+      <summary className="cursor-pointer text-xs">{event.seq} · {event.type} · {event.redacted ? t('events.redacted') : new Date(event.timestamp).toLocaleTimeString(currentLanguage())}</summary>
       <pre className="mt-2 max-h-72 overflow-auto text-xs leading-5">{JSON.stringify(event.data, null, 2)}</pre>
     </details>)}
     <details className="rounded-md border px-3 py-2">

@@ -57,17 +57,17 @@ describe('deleting a task', () => {
     const { dir, revision } = await project(), app = await startDashboard({ projectDir: dir, port: 0 }); apps.push(app);
     const stale = await call(app.url, 'DELETE', '/api/tasks/owned', { revision: 'stale' });
     expect(stale.status).toBe(409);
-    expect(((await stale.json()) as { error: string }).error).toContain('변경');
+    expect(((await stale.json()) as { error: object }).error).toEqual({ code: 'config-conflict' });
     expect(await exists(join(dir, 'tasks/owned.json'))).toBe(true);
     const unknown = await call(app.url, 'DELETE', '/api/tasks/ghost', { revision });
     expect(unknown.status).toBe(404);
-    expect(((await unknown.json()) as { error: string }).error).toContain('작업');
+    expect(((await unknown.json()) as { error: object }).error).toEqual({ code: 'task-not-found' });
     expect((await call(app.url, 'DELETE', '/api/tasks/owned', {})).status).toBe(400);
     // A queued run of the task blocks deleting it.
     app.queue.experiments.push({ id: 'e', createdAt: new Date().toISOString(), stopped: false, request: { taskIds: ['owned'], profileIds: ['default'], repeats: 1 }, runs: [{ id: 'r', taskId: 'owned', state: 'queued' } as never] });
     const busy = await call(app.url, 'DELETE', '/api/tasks/owned', { revision });
     expect(busy.status).toBe(409);
-    expect(((await busy.json()) as { error: string }).error).toContain('진행 중');
+    expect(((await busy.json()) as { error: object }).error).toEqual({ code: 'task-run-active' });
     expect((await (await fetch(app.url + '/api/state')).json() as ConfigView).config.tasks).toHaveLength(2);
   });
 });
@@ -179,7 +179,7 @@ describe('checking the assistive technology backend', () => {
     const foreign = process.platform === 'darwin' ? 'nvda' : 'voiceover';
     if (process.platform === 'darwin' || process.platform === 'win32') {
       const refused = await call(app.url, 'POST', '/api/backend/check', { backend: foreign, machine: {} });
-      expect(refused.status).toBe(400); expect(((await refused.json()) as { error: string }).error).toContain('운영체제');
+      expect(refused.status).toBe(400); expect(((await refused.json()) as { error: object }).error).toEqual({ code: 'native-os-mismatch' });
     }
   });
 });
@@ -188,6 +188,6 @@ describe('suggesting completion checks', () => {
   it('needs a suggestion or analysis model before it opens a page', async () => {
     const { dir } = await project(), app = await startDashboard({ projectDir: dir, port: 0 }); apps.push(app);
     const response = await call(app.url, 'POST', '/api/suggest-checks', { url: 'https://example.com', goal: 'Reach the thanks page' });
-    expect(response.status).toBe(400); expect(((await response.json()) as { error: string }).error).toContain('모델');
+    expect(response.status).toBe(400); expect(((await response.json()) as { error: object }).error).toEqual({ code: 'suggest-model-missing' });
   });
 });

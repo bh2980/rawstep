@@ -43,7 +43,7 @@ Created <project>/rawstep.config.json and a demo task in rawstep/demo/.
 
 Next:
   npx rawstep run demo               the demo task on a plan written beforehand (no model, no key)
-  npx rawstep ui                     see the result and add your own tasks
+  npx rawstep ui                     run tasks and read results in the dashboard
 
 For a first-time screen reader user planned by a model, the "Item by item" profile needs one: in `npx rawstep ui`, Settings > AI connections.
 Claude Code is installed on this computer: it plans on its own sign-in, with no API key.
@@ -111,7 +111,9 @@ npx rawstep ui
 
 It prints `Rawstep dashboard: http://127.0.0.1:4318` and keeps running until you press Ctrl+C. (`--port` picks another port. In a folder with no `rawstep.config.json`, `ui` first writes the same demo as `init`.) The dashboard reads and writes the same `rawstep.config.json` as the CLI.
 
-The menu has three entries: 작업 (Tasks), 실행 기록 (Run history) and 설정 (Settings). Open 작업, then the demo task. Its 개요 (Overview) tab shows the run you just made under 처음 온 사용자가 해낼 수 있나 (Could a first-time user do it?). Open the run from 실행 기록 to see the plan document (계획 문서) and each step: what the screen reader said and where its cursor was.
+The dashboard is in English and Korean. It opens in Korean when the browser prefers Korean and in English otherwise; the language switch in the top bar changes it, and the browser remembers the choice. This guide uses the English labels.
+
+The menu has three entries: Tasks, Run history and Settings. The dashboard shows the runs started from it; a run made with `npx rawstep run` stays in its run folder and does not appear here. Open Tasks, then the demo task, and press Run… to run it from the dashboard. Its Overview tab then shows the run under Could a first-time user do it?. Open the run from Run history to see the Plan document and each step: what the screen reader said and where its cursor was.
 
 ## 3. Connect a model
 
@@ -132,10 +134,10 @@ The planner hears what the simulated user hears. With a remote connection, that 
 
 ### In the dashboard
 
-1. 설정 (Settings) › AI 연결 (AI connections) › 연결 추가 (Add connection).
-2. Pick a way: API · LLM, or 코딩 에이전트 CLI (coding-agent CLI). Pick the provider. For an API, type the key; it is saved only to `.env.local` in the project.
-3. 연결 확인 (Check connection) loads the model list once. It does not call a model.
-4. 설정 › 실행 프로필 (Run profiles) › "Item by item". Under 어떤 AI가 생각하나요 (Which AI thinks?), set 계획을 얻는 방법 (How to get the plan) to LLM 계획 모델 (LLM planner), then pick the connection and a model. For a coding-agent CLI, model `default` leaves the choice to the CLI. Save.
+1. Settings › AI connections › Add connection.
+2. Pick a way: API · LLM, or Coding-agent CLI. Pick the provider. For an API, type the key; it is saved only to `.env.local` in the project.
+3. Check connection loads the model list once. It does not call a model.
+4. Settings › Run profiles › "Item by item". Under Which AI thinks?, set How to get the plan to LLM planner, then pick the connection and a model. For a coding-agent CLI, model `default` leaves the choice to the CLI. Save.
 
 ### By hand
 
@@ -172,7 +174,7 @@ npx rawstep run demo --profile item-by-item
 
 A task says what to do: a start address, a goal and a completion check. It holds nothing about how to do it; that is the run profile's job.
 
-**In the dashboard:** 작업 (Tasks) › 새 작업 (New task). Fill in 시작 주소 (Start address: an `https://` address, or an HTML file in the project), 목표 (Goal) and 완료 확인 (Completion check), then 만들기 (Create). The dashboard saves the file under `tasks/` and registers it in `rawstep.config.json`.
+**In the dashboard:** Tasks › New task. Fill in Start address (an `https://` address, or an HTML file in the project), Goal and Completion check, then Create. The dashboard saves the file under `tasks/` and registers it in `rawstep.config.json`.
 
 **By hand:** write a JSON file, for example `tasks/newsletter.json`:
 
@@ -201,7 +203,7 @@ Three rules keep the measurement honest:
 - **`context` is only what a newcomer knows** before arriving: what kind of site and page this is. At most 1000 characters.
 - **The completion check is never shown to the planner.** Rawstep uses it to decide whether the goal was reached. Write it from the page's state (visible text, title, URL, a request that was sent).
 
-The simulated user can type only the inputs listed in `input`, by name, and only if the profile allows typing. The demo profiles do not. Turn on 작업의 입력값 타이핑 허용 (Allow typing the task's inputs) under the profile's 누가 하나요 (Who is it?), or set `actions.typeText` to `true`. The planner sees an input's name, never its value, unless `inputOptions` marks it `"sensitive": false` (a search term, say). Sensitive values are also redacted in the saved run. The [task reference](./reference/task.md) lists every completion check, input option and the navigation scope.
+The simulated user can type only the inputs listed in `input`, by name, and only if the profile allows typing. The profiles `init` writes allow it (`actions.typeText` is `true`). In the dashboard it is Allow typing the task’s inputs under the profile's Who is it?. The planner sees an input's name, never its value, unless `inputOptions` marks it `"sensitive": false` (a search term, say). Sensitive values are also redacted in the saved run. The [task reference](./reference/task.md) lists every completion check, input option and the navigation scope.
 
 ## 5. Run it
 
@@ -209,11 +211,11 @@ The simulated user can type only the inputs listed in `input`, by name, and only
 npx rawstep run newsletter --profile item-by-item --repeat 3
 ```
 
-In the dashboard, open the task and press 실행… (Run…). The dialog picks the tasks, the profiles and how many times each runs; you can pick several profiles at once. Add a note under 이번에 바꾼 것 (What changed this time) if you changed the page: the runs are counted as one batch, which you can compare with an earlier batch later.
+In the dashboard, open the task and press Run…. The dialog picks the tasks, the profiles and how many times each runs; you can pick several profiles at once. Add a note under What changed this time if you changed the page: the runs are counted as one batch, which you can compare with an earlier batch later. As with `--repeat`, once the last repeat of a task under a profile has finished, each repeat is compared with the fastest one that reached the goal.
 
 Each run calls the planner a few times: for the first plan, and again when a task keeps failing, changes nothing or runs long. `maxPlannerCalls` (default 40) caps it. A run that reaches the cap ends as not measured, not as the user failing.
 
-Exit code 0 means the runs completed, whatever their outcome. Rawstep does not fail a run for missing the goal. See the [CLI reference](./reference/cli.md) for options and exit codes.
+Exit code 0 means the runs completed, whatever their outcome. Rawstep does not fail a run for missing the goal. Exit code 1 means an error, including any run that ended on an error: such a run says nothing about the page. See the [CLI reference](./reference/cli.md) for options and exit codes.
 
 ## 6. Read the results
 
@@ -248,22 +250,22 @@ Add `--json` to `run` for the whole result as JSON. The files in a run folder ar
 
 ### In the dashboard
 
-The task's 개요 (Overview) tab answers 처음 온 사용자가 해낼 수 있나 (Could a first-time user do it?) per run profile:
+The task's Overview tab answers Could a first-time user do it? per run profile:
 
 | Column | Meaning |
 |---|---|
-| 해냈나 (Did it?) | Runs that reached the goal, out of runs counted |
-| 대가 (해낸 실행) (Cost, runs that reached it) | Moves of the runs that reached the goal |
-| 목표 낱말 없이 가장 길게 (Longest without a goal word) | The longest stretch with no word of the goal heard |
-| 막힌 곳 (Stuck places) | Elements that did not respond as expected when pressed, marked on a screenshot of the start page |
+| Did it? | Runs that reached the goal, out of runs counted |
+| Cost (runs that reached it) | Moves of the runs that reached the goal |
+| Longest without a goal word | The longest stretch with no word of the goal heard |
+| Stuck places | Elements that did not respond as expected when pressed, marked on a screenshot of the start page |
 
-Below it, 포기한 이유 (Why it gave up) lists each give-up and what it rested on. A run's page shows the plan document and its versions, every step with what was heard, and each planner call.
+Below it, Why it gave up lists each give-up and what it rested on. A run's page shows the plan document and its versions, every step with what was heard, and each planner call.
 
 None of these is a verdict. A stuck place says the simulated user expected something that did not happen; whether the page or the expectation is wrong is for you to decide. [Concepts](./concepts.md) explains endings, cost and hints.
 
 ## Next
 
-- Compare ways of finding things: copy the profile and pick 제목으로 (By headings), 폼 컨트롤로 (By form controls) or 링크로 (By links) under 찾는 방법 (Way of finding things). See [Concepts](./concepts.md#ways-of-finding-things).
+- Compare ways of finding things: copy the profile and pick By headings, By form controls or By links under Way of finding things. See [Concepts](./concepts.md#ways-of-finding-things).
 - Write or tune plans: [Planning](./planning.md).
 - Run on a real VoiceOver or NVDA: [Screen readers](./screen-readers.md).
 - Call it from tests: [API reference](./reference/api.md).

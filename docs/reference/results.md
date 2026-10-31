@@ -30,8 +30,8 @@ Notes:
 - Trace files are written with mode `0600` (owner only).
 - Screenshots are taken only for runs started by `rawstep run` and the dashboard, and never after text has been typed (see [redaction](#redaction)). The report lists them by reference; the dashboard shows them.
 - `plan.json` and `plan.md` are written even when the run ended on an error. They are the end state; every plan version is also in the trace as `policy.evidence`.
-- With `--repeat`, `hints.json` is written after the last run ends so each run can be compared with the fastest one that reached the goal. A run started from the dashboard gets its files as soon as it ends, with no reference run.
-- A cancelled `rawstep run` keeps the traces written so far but writes no hints, analysis or report. Run `rawstep hints`, `report` or `analyze` on those folders afterwards.
+- With `--repeat`, `hints.json` is written after the last run ends so each run can be compared with the fastest one that reached the goal. A run started from the dashboard gets its files as soon as it ends, with no reference run. When the last repeat of a task under a profile in the same batch has finished, the dashboard writes every repeat's `hints.json` and report again against the fastest one that reached the goal, keeping each run's analysis. So dashboard repeats get `slow-run` hints too.
+- A cancelled `rawstep run` or `runTask` keeps the traces written so far and still writes their hints, the rule-based analysis and the report, without the model analysis. Run `rawstep analyze --llm` on a folder afterwards if you want one.
 - The `hints`, `report` and `analyze` commands write into the folder they read (or `--out`). `rawstep analyze` rewrites `hints.json` without a reference run.
 
 ## The trace
@@ -65,7 +65,7 @@ The event types you will meet most:
 | `simulation.output` / `screen-reader.output` | same | Each spoken output. |
 | `backend.<type>` | simulation / screen-reader | Raw events from the screen reader backend (command acknowledgments, outputs). |
 | `policy.decision` | policy | The step's decision: the action taken, or the stop. |
-| `policy.evidence` | policy | The planner's side: plan versions (`orchestration-plan`), the action Rawstep chose for a task (`orchestration-follow`), whether a task's cue was heard (`orchestration-cue`), task status changes (`orchestration-task`), a give-up (`orchestration-give-up`), the heading survey (`orchestration-survey`), the planner-call limit (`orchestration-limit`), the repetition guard (`repetition-guard`). |
+| `policy.evidence` | policy | The planner's side: plan versions (`orchestration-plan`), the action Rawstep chose for a task (`orchestration-follow`), whether a task's cue was heard (`orchestration-cue`), task status changes (`orchestration-task`), a give-up (`orchestration-give-up`), the heading survey (`orchestration-survey`), the planner-call limit or a task the profile has no allowed action for (`orchestration-limit`), the repetition guard (`repetition-guard`). |
 | `policy.rejected` | policy | A decision that was not allowed. |
 | `action.result` | runner | Whether the action ran (`ok`, `error`). |
 | `observer.<kind>` | browser-diagnostic | What the page itself did, seen by a page observer the user model never sees: `focus`, `focus-lost`, `appeared`, `disappeared`, `live-region`, `state`, `submit`, `navigation`, `page-blur`, `page-focus`. Hints are computed from these. |
@@ -97,7 +97,7 @@ Some `run.*` events appear only in some runs (waiting for a person to pass a sit
 | `unsupported-profile`, `access-blocked`, `unsupported-pattern` | `failure` or `inconclusive` | The page environment could not be applied; the site blocked the browser; the simulator does not model a pattern on the page. |
 | `aborted` | `aborted` | The run was cancelled; `cancellation` holds the signal, stage and step. |
 
-Other fields: `steps` (actions taken), `policyStopSource` (who ended a run that stopped itself: `user-gave-up`, `orchestration-limit` for the planner-call limit, `exploration-guard` for the repetition guard, `planner`, `model`) and `policyStop` (`success`, `stuck`, `uncertain`).
+Other fields: `steps` (actions taken), `policyStopSource` (who ended a run that stopped itself: `user-gave-up`, `orchestration-limit` for the planner-call limit, `no-allowed-action` when the run profile allows no action the plan's task needs, `exploration-guard` for the repetition guard, `planner`, `model`) and `policyStop` (`success`, `stuck`, `uncertain`).
 
 How `reason` and `policyStopSource` map to the four endings (reached the goal, gave up, said it was done but the goal was not reached, not measured), and why a run that ended on an error is not counted, is in [concepts](../concepts.md).
 
@@ -155,14 +155,14 @@ Only `page` and `model` hints are grouped across runs (see [Findings](#findings-
 
 | Kind | Source | Certainty | What it says and when it appears |
 | --- | --- | --- | --- |
-| `slow-run` | run | observed | The run took at least 1.5 times as many steps as a reference run that reached the goal, and at least 3 more. Needs a reference (`--repeat`, or `rawstep hints --reference`). |
+| `slow-run` | run | observed | The run took at least 1.5 times as many steps as a reference run that reached the goal, and at least 3 more. Needs a reference: `--repeat`, repeats in the dashboard, or `rawstep hints --reference`. |
 | `goal-met-at-start` | run | observed or suspected | Goal checks already held before the first action, so "reached the goal" is weak evidence. Observed when every check held, suspected when some did. |
 | `goal-word-stretch` | run | observed | The longest stretch of moves in a row without hearing a word of the goal that carries meaning (a word said on every card does not count). `detail.moves`, `from`, `to`. |
 | `replan` | run | observed | The planner wrote a new plan because actions kept failing, kept changing nothing, or the cursor kept going back and forth between two items. `detail.trigger` is `failures`, `no-change` or `oscillation`. |
 | `task-limit` | run | observed | A task used up its actions, so the planner wrote a new plan. |
 | `wanted-to-give-up` | run | observed | The user wanted to give up but named no approach that had failed, so Rawstep asked for another plan and the run went on. The wish is part of the cost. |
 | `expectation-broken` | model | observed | An assumption the planner made (for example "pressing Add to cart announces that the item was added") was marked broken. If the user pressed something in the three actions before, the hint sits on that element and `detail.pressed` is the step: a stuck place. Otherwise it was a guess about where something is. `detail.gaveUpOn` is true when the user's give-up rests on it. |
-| `early-stop` | model | observed | The run ended early: the user gave up, the repetition guard stopped it, the planner-call limit was reached, or a policy stopped as stuck or unsure. `detail.stopSource` says who; for a give-up, `detail.giveUp` holds the reason and the assumptions it rests on. |
+| `early-stop` | model | observed | The run ended early: the user gave up (a plan file that ran out of tasks gives up too), the repetition guard stopped it, the planner-call limit was reached, the run profile allowed no action the plan's task needed, or a policy stopped as stuck or unsure. `detail.stopSource` says who; for a give-up, `detail.giveUp` holds the reason and the assumptions it rests on. |
 | `backtracking` | model | observed | Direction reversed 2 or more times (next, then previous, and so on). |
 | `excess-keystrokes` | page | observed | 10 or more moves (next, previous, Tab, arrows, Home, End, PageUp, PageDown) between two activations, attributed to the element that was then activated. `detail.count`, `detail.keys`. |
 | `focus-lost` | page | observed | Focus fell back to the page after an action removed or left the focused element. |

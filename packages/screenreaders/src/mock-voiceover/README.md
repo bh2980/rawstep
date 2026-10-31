@@ -88,7 +88,7 @@ Which of these a planner may use is set by the run profile's allowed actions; th
 
 **Changes with no action.** An observation also speaks the current stop if its speech changed since the last one (a button whose label the page changed, for example), but only when it differs from the last announcement.
 
-**Not supported** (fails or does nothing): group interaction (VO+Shift+Down into a group), Quick Nav and its settings, rotor lists other than headings, links and form controls, speech queues and earcons, browser chrome, operating-system dialogs, iframes and cross-frame traversal. Only the attached page's main document is read.
+**Not supported** (fails or does nothing): group interaction (VO+Shift+Down into a group), Quick Nav mode (arrow keys moving the cursor) and its settings, quick navigation by anything other than headings, form controls and links, rotor lists other than headings, links and form controls, speech queues and earcons, browser chrome, operating-system dialogs, iframes and cross-frame traversal. Only the attached page's main document is read.
 
 ## Speech format
 

@@ -5,8 +5,9 @@ import type { Profile } from '@rawstep/project/config';
 import type { ProfileFacts, RunResult, StuckPlace, TaskFindings } from '../../shared/api';
 import type { RunEnding, UnmeasuredBy } from '@rawstep/reports/endings';
 import type { RouteChange } from '../hooks/useRoute';
+import { currentLanguage } from '../i18n';
 import { roleLabel } from '../i18n/labels';
-import { formatSteps } from '../lib/format';
+import { countOf, formatSteps } from '../lib/format';
 import { screenshotUrl } from '../lib/runs';
 import { cn } from '../lib/utils';
 import { InfoTip } from './layout/InfoTip';
@@ -48,7 +49,7 @@ export function TaskResults({ taskId, data, numbers, navigate, profiles, minimal
   const [view, setView] = useState<View>(() => storedView() ?? (groups.length > CARD_LIMIT ? 'table' : 'picture'));
   const choose = (next: View) => { setView(next); try { localStorage.setItem(VIEW_KEY, next); } catch { /* the choice just is not remembered */ } };
   const ctx: Ctx = { taskId, data, numbers, navigate, minimalSteps, nameOf: group => profiles.find(profile => profile.id === group.profileId)?.name ?? group.profileId };
-  const date = lastRunAt ? new Date(lastRunAt).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' }) : '—';
+  const date = lastRunAt ? new Date(lastRunAt).toLocaleDateString(currentLanguage(), { month: 'long', day: 'numeric' }) : '—';
   return <section aria-labelledby="results-title" className="grid gap-4">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <h2 id="results-title" className="text-[15px] font-semibold">{t('taskPage.results.title')} <span className="text-[13px] font-normal text-muted-foreground">· {t('taskPage.results.scope', { count: data.facts.runs, date })}</span></h2>
@@ -110,17 +111,17 @@ function ProfileCard({ group, nameOf, minimalSteps, data, numbers, navigate, tas
         <div className="text-xs text-muted-foreground">{t('taskPage.results.cost')}</div>
         {group.medianSteps === null
           ? <div className="text-sm text-muted-foreground">{t('taskPage.results.costNone')}</div>
-          : <><div className="flex items-baseline gap-1.5"><span className="text-3xl font-bold tracking-tight tabular-nums">{formatSteps(group.medianSteps)}</span><span>{t('taskPage.results.costUnit')}</span></div>
-            <div className="text-xs text-muted-foreground tabular-nums">{[group.minSteps !== group.maxSteps ? t('taskPage.results.costRange', { min: group.minSteps ?? 0, max: group.maxSteps ?? 0 }) : undefined,
-              minimalSteps !== undefined ? t('taskPage.results.minimal', { n: minimalSteps }) : undefined].filter(Boolean).join(' · ')}</div></>}
+          : <><div className="flex items-baseline gap-1.5"><span className="text-3xl font-bold tracking-tight tabular-nums">{formatSteps(group.medianSteps)}</span><span>{t('taskPage.results.costUnit', countOf(group.medianSteps))}</span></div>
+            <div className="text-xs text-muted-foreground tabular-nums">{[group.minSteps !== group.maxSteps ? t('taskPage.results.costRange', { min: group.minSteps ?? 0, max: group.maxSteps ?? 0, count: group.maxSteps ?? 0 }) : undefined,
+              minimalSteps !== undefined ? t('taskPage.results.minimal', { n: minimalSteps, count: minimalSteps }) : undefined].filter(Boolean).join(' · ')}</div></>}
       </div>
     </div>
     <div className="flex flex-wrap gap-x-4 gap-y-1.5 border-t border-edge pt-2.5 text-[13px]">
       <span className="inline-flex items-center gap-1">{t('taskPage.results.unheard')} <strong className={cn('font-semibold tabular-nums', group.unheard > 0 && 'text-inspect')}>{group.unheard}</strong>
         {group.reached > 0 && <span className="text-muted-foreground tabular-nums">/ {group.reached}</span>}<InfoTip term={t('taskPage.results.unheard')}>{t('taskPage.results.unheardInfo')}</InfoTip></span>
-      {group.wrongGuesses !== null && <span className="inline-flex items-center gap-1">{t('taskPage.results.wrongGuesses')} <strong className="font-semibold tabular-nums">{t('taskPage.results.moves', { n: formatSteps(group.wrongGuesses) })}</strong>
+      {group.wrongGuesses !== null && <span className="inline-flex items-center gap-1">{t('taskPage.results.wrongGuesses')} <strong className="font-semibold tabular-nums">{t('taskPage.results.guesses', { n: formatSteps(group.wrongGuesses) })}</strong>
         <InfoTip term={t('taskPage.results.wrongGuesses')}>{t('taskPage.results.wrongGuessesInfo')}</InfoTip></span>}
-      {group.longestStretch && <span className="inline-flex items-center gap-1">{t('taskPage.results.stretch')} <strong className="font-semibold tabular-nums">{t('taskPage.results.moves', { n: group.longestStretch.moves })}</strong>
+      {group.longestStretch && <span className="inline-flex items-center gap-1">{t('taskPage.results.stretch')} <strong className="font-semibold tabular-nums">{t('taskPage.results.moves', { n: group.longestStretch.moves, count: group.longestStretch.moves })}</strong>
         <RunLink taskId={taskId} runId={group.longestStretch.runId} numbers={numbers} navigate={navigate} /><InfoTip term={t('taskPage.results.stretch')}>{t('taskPage.results.stretchInfo')}</InfoTip></span>}
     </div>
   </article>;
@@ -165,7 +166,7 @@ function StuckMap({ data, taskId, numbers, navigate }: Ctx) {
                 <div className="grid min-w-0 gap-1">
                   <div className="font-semibold break-words">{quoted(place)} <span className="text-xs font-normal text-muted-foreground">{roleLabel(place.target.role)}{!place.location && data.startPage ? ` · ${t('taskPage.results.stuckOffPage')}` : ''}</span></div>
                   {place.assumptions.map(text => <div key={text} className="text-[13px]">{text}</div>)}
-                  <div className="text-[13px]"><strong className="font-semibold tabular-nums">{t('taskPage.results.stuckRuns', { runs: place.runs, total: place.totalRuns })}</strong>
+                  <div className="text-[13px]"><strong className="font-semibold tabular-nums">{t('taskPage.results.stuckRuns', { runs: place.runs, total: place.totalRuns, count: place.totalRuns })}</strong>
                     {place.gaveUpOn > 0 && <> · <span className="font-medium text-missed">{t('taskPage.results.stuckGaveUp', { count: place.gaveUpOn })}</span></>}</div>
                   {first && <RunLink taskId={taskId} runId={first.runId} step={first.step} numbers={numbers} navigate={navigate}>
                     <span className="text-[13px]">{t('taskPage.results.stuckView', { number: numbers.get(first.runId) ?? '?', step: first.step })} →</span></RunLink>}
@@ -218,7 +219,7 @@ function Journeys({ data, nameOf, numbers, navigate, taskId, minimalSteps }: Ctx
     <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-edge px-4 pt-3.5 pb-2.5">
       <h2 id="journey-title" className="text-[15px] font-semibold">{t('taskPage.results.journeyTitle')}</h2>
       <div className="flex flex-wrap gap-3.5 text-xs text-muted-foreground">
-        {minimalSteps !== undefined && <span className="inline-flex items-center gap-1.5"><span aria-hidden="true" className="h-3 w-0.5 bg-foreground" />{t('taskPage.results.journeyMinimal', { n: minimalSteps })}</span>}
+        {minimalSteps !== undefined && <span className="inline-flex items-center gap-1.5"><span aria-hidden="true" className="h-3 w-0.5 bg-foreground" />{t('taskPage.results.journeyMinimal', { n: minimalSteps, count: minimalSteps })}</span>}
         {data.stuck.length > 0 && <span className="inline-flex items-center gap-1.5"><span aria-hidden="true" className="size-2.5 rounded-full bg-inspect" />{t('taskPage.results.journeyStuck')}</span>}
       </div>
     </div>
@@ -235,7 +236,7 @@ function Journeys({ data, nameOf, numbers, navigate, taskId, minimalSteps }: Ctx
               {minimalSteps !== undefined && <span className="absolute -inset-y-[3px] w-0.5 bg-foreground" style={{ left: pct(minimalSteps) }} />}
             </div>
             <div className={cn(result.ending === 'gave-up' || result.ending === 'mistaken' ? 'text-missed' : result.ending === 'unmeasured' && 'text-muted-foreground')}>
-              <strong className="font-semibold">{ending}</strong> · {t('taskPage.results.moves', { n: steps })}{result.by && <span className="text-xs"> ({t(`taskPage.results.by.${result.by}`)})</span>}
+              <strong className="font-semibold">{ending}</strong> · {t('taskPage.results.moves', { n: steps, count: steps })}{result.by && <span className="text-xs"> ({t(`taskPage.results.by.${result.by}`)})</span>}
             </div>
           </div>;
         })}
@@ -301,10 +302,10 @@ function Tables(ctx: Ctx) {
           <th scope="row" className={cn(td, 'text-left font-normal')}><div className="font-semibold">{nameOf(group)}</div><Subtitle group={group} name={nameOf(group)} /></th>
           <td className={td}><div className="whitespace-nowrap"><strong className="font-semibold tabular-nums">{group.reached} / {group.runs}</strong> {t('taskPage.results.didWord')}</div>{others && <div className="text-xs text-muted-foreground">{others}</div>}</td>
           <td className={td}>{group.medianSteps === null ? <span className="text-muted-foreground">{t('taskPage.results.costNone')}</span>
-            : <><div className="whitespace-nowrap tabular-nums">{t('taskPage.results.typical', { n: formatSteps(group.medianSteps) })}{group.minSteps !== group.maxSteps && <span className="text-muted-foreground"> ({group.minSteps}–{group.maxSteps})</span>}</div>
-              {minimalSteps !== undefined && <div className="text-xs text-muted-foreground">{t('taskPage.results.minimal', { n: minimalSteps })}</div>}</>}</td>
+            : <><div className="whitespace-nowrap tabular-nums">{t('taskPage.results.typical', { n: formatSteps(group.medianSteps), ...countOf(group.medianSteps) })}{group.minSteps !== group.maxSteps && <span className="text-muted-foreground"> ({group.minSteps}–{group.maxSteps})</span>}</div>
+              {minimalSteps !== undefined && <div className="text-xs text-muted-foreground">{t('taskPage.results.minimal', { n: minimalSteps, count: minimalSteps })}</div>}</>}</td>
           <td className={td}>{top ? <div className="flex gap-2"><Pin n={top.index + 1} place={top.place} /><div><div>{quoted(top.place)}</div><div className="text-xs text-muted-foreground">{t('taskPage.results.stuckRunsShort', { runs: top.runs, total: group.runs })}</div></div></div> : <span className="text-muted-foreground">{t('taskPage.results.none')}</span>}</td>
-          <td className={cn(td, 'whitespace-nowrap tabular-nums')}>{group.longestStretch ? <>{t('taskPage.results.moves', { n: group.longestStretch.moves })} <RunLink taskId={taskId} runId={group.longestStretch.runId} numbers={numbers} navigate={navigate} /></> : '—'}</td>
+          <td className={cn(td, 'whitespace-nowrap tabular-nums')}>{group.longestStretch ? <>{t('taskPage.results.moves', { n: group.longestStretch.moves, count: group.longestStretch.moves })} <RunLink taskId={taskId} runId={group.longestStretch.runId} numbers={numbers} navigate={navigate} /></> : '—'}</td>
           <td className={cn(td, 'whitespace-nowrap tabular-nums', group.unheard > 0 && 'font-medium text-inspect')}>{`${group.unheard}${group.reached ? ` / ${group.reached}` : ''}`}</td>
         </tr>; })}</tbody>
     </TableBox>

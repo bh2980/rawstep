@@ -112,7 +112,7 @@ export function RunHeader({ runRef, numbers, view, pageProps, navigate }: Props)
           <strong key="s" className="font-semibold">{run.state === 'queued' ? t('runHeader.liveQueued') : t('runHeader.liveState')}</strong>,
           run.state === 'running' && t('runHeader.liveStep', { n: latest }),
           elapsed !== undefined && <span key="c" className="font-mono">{formatClock(elapsed)}</span>,
-          t('runHeader.liveMax', { max: maxSteps }),
+          t('runHeader.liveMax', { max: maxSteps, count: maxSteps }),
         ]} />
       </div>
       {run.state === 'running' && <p className="flex flex-wrap items-baseline gap-x-2 text-sm">
@@ -121,13 +121,13 @@ export function RunHeader({ runRef, numbers, view, pageProps, navigate }: Props)
       </p>}
     </div>}
     <FactLine className="text-[13px] text-muted-foreground" items={[
-      !live && steps !== undefined && t('runHeader.factSteps', { steps }),
+      !live && steps !== undefined && t('runHeader.factSteps', { steps, count: steps }),
       !live && seconds !== undefined && t('runHeader.factSeconds', { seconds: seconds.toFixed(1) }),
       !live && fastest && (fastest.runId === run.id
         ? t('runHeader.factFastest')
-        : <Link key="f" to={{ task: run.taskId, run: fastest.runId }} navigate={navigate} className="rounded-sm text-trace underline-offset-2 hover:underline">{t('runHeader.factFastestOther', { steps: fastest.steps, number: own(fastest.runId) ?? '' })}</Link>),
+        : <Link key="f" to={{ task: run.taskId, run: fastest.runId }} navigate={navigate} className="rounded-sm text-trace underline-offset-2 hover:underline">{t('runHeader.factFastestOther', { steps: fastest.steps, count: fastest.steps, number: own(fastest.runId) ?? '' })}</Link>),
       ended?.ending === 'reached' || ended?.ending === 'gave-up' ? undefined : reason,
-      typeof stretch === 'number' && t('runHeader.factStretch', { n: stretch }),
+      typeof stretch === 'number' && t('runHeader.factStretch', { n: stretch, count: stretch }),
       conditions.profile,
       <span key="m" title={conditions.planner}>{runModelsName(run)}</span>,
       conditions.analysis && <span key="a" title={t('runConditions.noEffect')}>{t('runHeader.analysis', { model: conditions.analysis })}</span>,

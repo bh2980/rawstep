@@ -28,7 +28,7 @@ npx rawstep run demo  # runs the demo task; no model, no API key
 npx rawstep ui        # opens the dashboard at http://127.0.0.1:4318
 ```
 
-The demo is a small shop page, a task ("Add the Demo mug to the cart.") and a plan written by hand. The first run profile, "Written plan (no model)", follows that plan, so the run needs no model. To let a model plan as a first-time user would, connect one under 설정 (Settings) › AI 연결 (AI connections) in the dashboard. [Getting started](./docs/getting-started.md) walks through it.
+The demo is a small shop page, a task ("Add the Demo mug to the cart.") and a plan written by hand. The first run profile, "Written plan (no model)", follows that plan, so the run needs no model. To let a model plan as a first-time user would, connect one under Settings › AI connections in the dashboard. [Getting started](./docs/getting-started.md) walks through it.
 
 ## What a run prints
 
@@ -54,7 +54,7 @@ Details: npx rawstep hints <run-dir>, npx rawstep report <run-dir>
 
 A run ends in one of four ways: reached the goal, gave up, said it was done but the goal was not reached, or not measured. Its cost is counted in moves. On a real page the output also lists where pressing something did not respond as the user expected, and what the page did along the way (focus lost, a change nobody announced). [Concepts](./docs/concepts.md) explains each of these.
 
-The run folder holds the trace, the plan the run followed, the hints and an HTML report. The dashboard shows the same results per task and per run.
+The run folder holds the trace, the plan the run followed, the hints and an HTML report. Runs started from the dashboard are shown there per task and per run; a CLI run stays in its run folder.
 
 ## What Rawstep is not
 

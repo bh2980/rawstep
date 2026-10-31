@@ -1,7 +1,7 @@
 import { createBrowserSession } from '@rawstep/browser/browser';
 import type { Task } from '@rawstep/core/contracts';
 import { MockVoiceOverBackend } from '../mock-voiceover/backend.js';
-import { runTask, type RunOptions } from '@rawstep/browser/runner';
+import { runWithPolicy, type RunOptions } from '@rawstep/browser/runner';
 import { formatCorpusSpeech, type CorpusProfile } from './learned.js';
 import { UnsupportedCorpusPatternError } from './unsupported.js';
 export type CorpusMockOptions = { profile:CorpusProfile; sourceFixturePath:string };
@@ -17,5 +17,5 @@ export function createCorpusMockBackend(input:CorpusMockOptions):MockVoiceOverBa
 }
 export function runCorpusMockTask(task:Task,options:Omit<RunOptions,'backend'> & { corpus:CorpusMockOptions }){
   const backend=createCorpusMockBackend(options.corpus);const factory=options.browserSessionFactory??createBrowserSession;
-  return runTask(task,{...options,backend,headless:options.headless??true,browserSessionFactory:async(url,config)=>{const session=await factory(url,config);backend.attachSession(session);return session;}});
+  return runWithPolicy(task,{...options,backend,headless:options.headless??true,browserSessionFactory:async(url,config)=>{const session=await factory(url,config);backend.attachSession(session);return session;}});
 }

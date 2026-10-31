@@ -68,7 +68,7 @@ export async function runCli(argv: string[] = process.argv.slice(2), dependencie
         const path = await initProject(projectDir), next = await nextSteps(dependencies);
         stdout(`Created ${path} and a demo task in rawstep/demo/.\n\nNext:\n`
           + `  npx rawstep run demo               the demo task on a plan written beforehand (no model, no key)\n`
-          + `  npx rawstep ui                     see the result and add your own tasks\n\n${next}`
+          + `  npx rawstep ui                     run tasks and read results in the dashboard\n\n${next}`
           + `Commit rawstep.config.json and rawstep/. Keep .env.local (API keys) and .rawstep/ (run output) out of git.\n`);
         return 0;
       }
@@ -149,19 +149,22 @@ async function run(args: CliArguments, projectDir: string, cwd: string, dependen
     throw error;
   }
   stdout(options.json ? JSON.stringify(result, null, 2) + '\n' : formatRunResult(result));
-  return 0;
+  // Any outcome is a result, but a run that broke says nothing: a script must not read it as one.
+  return result.runs.some(run => endedOnError(run.outcome)) ? 1 : 0;
 }
 
 const ENDING_TEXT: Record<RunEnding, string> = { reached: 'reached the goal', 'gave-up': 'gave up', mistaken: 'said it was done, but the goal was not reached', unmeasured: 'not measured' };
-const BY_TEXT: Record<UnmeasuredBy, string> = { 'planner-calls': 'planner-call limit', 'max-steps': 'max steps', timeout: 'time limit', 'repetition-guard': 'repetition guard', 'model-uncertain': 'the model was unsure', other: 'stopped early' };
+const BY_TEXT: Record<UnmeasuredBy, string> = { 'planner-calls': 'planner-call limit', 'no-allowed-action': "the profile allows no action the plan's task needs", 'max-steps': 'max steps', timeout: 'time limit', 'repetition-guard': 'repetition guard', 'model-uncertain': 'the model was unsure', other: 'stopped early' };
 /** "gave up", "not measured (max steps)": how a run ended, in the terms of the question Rawstep answers. */
 export function endingText(outcome: RunTaskResult['runs'][number]['outcome']): string {
   if (!outcome) return 'no outcome recorded';
   if (outcome.status === 'aborted') return 'aborted';
-  if (outcome.reason === 'error' || outcome.reason === 'trace-persistence-error') return 'ended on an error (says nothing about the page)';
+  if (endedOnError(outcome)) return 'ended on an error (says nothing about the page)';
   const ended = runEnding(outcome, stopOf(outcome))!;
   return ended.by ? `${ENDING_TEXT[ended.ending]} (${BY_TEXT[ended.by]})` : ENDING_TEXT[ended.ending];
 }
+/** The run broke (runtime failure, trace not written) before it could say anything about the user. */
+const endedOnError = (outcome: RunTaskResult['runs'][number]['outcome']) => outcome?.reason === 'error' || outcome?.reason === 'trace-persistence-error';
 /** Who stopped a run that stopped itself, as the trace recorded it. */
 const stopOf = (outcome: Record<string, unknown>) => typeof outcome.policyStopSource === 'string' ? outcome.policyStopSource : undefined;
 const elementText = (target: HintFinding['target']) => target ? `${target.role}${target.name ? ` "${target.name}"` : ''}` : '(no element)';
@@ -213,7 +216,7 @@ export function formatRunResult(result: RunTaskResult): string {
   });
   lines.push('');
   // Across the runs, never judged: counts only.
-  const endings = result.runs.map(run => run.outcome && run.outcome.reason !== 'error' && run.outcome.reason !== 'trace-persistence-error' && run.outcome.status !== 'aborted' ? runEnding(run.outcome, stopOf(run.outcome)) : undefined);
+  const endings = result.runs.map(run => run.outcome && !endedOnError(run.outcome) && run.outcome.status !== 'aborted' ? runEnding(run.outcome, stopOf(run.outcome)) : undefined);
   const counted = endings.filter((ended): ended is NonNullable<typeof ended> => !!ended), count = (ending: RunEnding) => counted.filter(ended => ended.ending === ending).length;
   const others = (['gave-up', 'mistaken', 'unmeasured'] as const).filter(ending => count(ending)).map(ending => `${ENDING_TEXT[ending]} ${count(ending)}`);
   const broken = result.runs.length - counted.length;

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { readFile, stat } from "node:fs/promises";
 import { FileTraceSink, type TraceSink } from "./sink.js";
+import { STOP_SOURCES } from "../contracts/index.js";
 export * from "./sink.js";
 import { dirname, join } from "node:path";
 import { platform, release } from "node:os";
@@ -304,7 +305,7 @@ export class TraceRecorder {
     if (typeof outcome.reason === 'string' && OUTCOME_REASONS.includes(outcome.reason)) safeOutcome.value.reason = outcome.reason;
     preserveRunPoint(outcome, safeOutcome.value);
     if (record(outcome.cancellation) && record(safeOutcome.value.cancellation)) preserveRunPoint(outcome.cancellation, safeOutcome.value.cancellation);
-    if (["model", "planner", "exploration-guard", "orchestration-limit"].includes(String(outcome.policyStopSource))) safeOutcome.value.policyStopSource = outcome.policyStopSource;
+    if ((STOP_SOURCES as readonly string[]).includes(String(outcome.policyStopSource))) safeOutcome.value.policyStopSource = outcome.policyStopSource;
     if (outcome.policyStop === "success" || outcome.policyStop === "stuck" || outcome.policyStop === "uncertain") safeOutcome.value.policyStop = outcome.policyStop;
     const next: RunTrace = { ...this.state, endedAt: new Date().toISOString(), outcome: safeOutcome.value,
       privacy: { ...this.state.privacy, redactionApplied: this.state.privacy.redactionApplied || safeOutcome.redacted } };

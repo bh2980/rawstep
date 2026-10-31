@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { HintKind } from '../packages/reports/src/hints/index.js';
 import { describeHint } from '../packages/dashboard/src/web/lib/describe.js';
-import '../packages/dashboard/src/web/i18n/index.js';
+import { i18n } from '../packages/dashboard/src/web/i18n/index.js';
 import { core } from '../packages/dashboard/src/web/i18n/locales/ko/core.js';
 import { hintKindLabel, outcomeReasonLabel } from '../packages/dashboard/src/web/i18n/labels.js';
+
+// These tests read the Korean wording, so the language is pinned whatever the machine's own language is.
+await i18n.changeLanguage('ko');
 
 const hint = (kind: HintKind, detail: Record<string, unknown>, extra: { certainty?: 'observed' | 'suspected' } = {}) =>
   ({ kind, summary: `english ${kind}`, detail, certainty: extra.certainty ?? 'observed' as const });

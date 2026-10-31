@@ -7,7 +7,7 @@ import { createTestBrowserSession } from './helpers/browser.js';
 import { collectBrowserDiagnostics, resolveEnvironmentProfile, verifyLiveProfile } from '@rawstep/browser/profiles';
 import { runMockVoiceOverTask } from '@rawstep/screenreaders/mock-voiceover';
 import { FixedPlanner, OrchestratedSpeechPolicy, ScriptedPolicy, planFileSchema, type PlanDraft, type PlanRequest, type Planner } from '@rawstep/policies/policy';
-import { runTask } from '@rawstep/browser/runner';
+import { runWithPolicy } from '@rawstep/browser/runner';
 import type { CreateBrowserSessionOptions } from '@rawstep/browser/browser';
 import type { Backend, Decision } from '@rawstep/core/contracts';
 const cleanups:(()=>Promise<unknown>)[]=[];afterEach(async()=>{for(const fn of cleanups.splice(0).reverse())await fn()});
@@ -24,14 +24,6 @@ describe('actual browser environment profiles and isolated diagnostics',()=>{
     if(name==='text-200')expect(await session.page.locator('body').evaluate(e=>getComputedStyle(e).fontSize)).toBe('40px');
     if(name==='reduced-motion')expect(await session.page.locator('.ticker').evaluate(e=>getComputedStyle(e).animationName)).toBe('none');
   });
-  it('rejects unsupported true browser zoom before any policy/model call and saves precise setting evidence',async()=>{
-    let calls=0;const trace=await runMockVoiceOverTask({id:'zoom',url:fixture,goal:'Inspect',verify:{all:[{titleIncludes:'Never'}]}},{profile:'zoom-200',outDir:await dir(),browserSessionFactory:createTestBrowserSession,warn:quiet,policy:{decide:()=>{calls++;return {stop:'stuck'}}}});
-    expect(calls).toBe(0);expect(trace.outcome).toMatchObject({status:'inconclusive',reason:'unsupported-profile'});expect(trace.events.find(e=>e.type==='browser.profile')?.data).toMatchObject({supported:false,settings:expect.arrayContaining([expect.objectContaining({name:'browserZoom',status:'unsupported',mechanism:'browser-native'})])});
-  });
-  it('never treats CDP pinch as genuine browser zoom',async()=>{
-    const trace=await runMockVoiceOverTask({url:fixture,goal:'Inspect',verify:{all:[{titleIncludes:'Never'}]}},{profile:'zoom-200',outDir:await dir(),browserSessionFactory:createTestBrowserSession,warn:quiet,nativeZoom:async page=>{const cdp=await page.context().newCDPSession(page);await cdp.send('Emulation.setPageScaleFactor',{pageScaleFactor:2});await cdp.detach();return {observedFactor:2,method:'invalid-pinch-test-double'}},policy:new ScriptedPolicy([])});
-    expect(trace.outcome?.reason).toBe('unsupported-profile');
-  });
   it('records skip-link focus sequence, modal escape/restoration and error recovery independently',async()=>{
     const s=await createTestBrowserSession(fixture,{profile:resolveEnvironmentProfile('default')});cleanups.push(()=>s.close());await s.page.keyboard.press('Tab');expect((await collectBrowserDiagnostics(s.page)).focus.tag).toBe('a');await s.page.keyboard.press('Enter');expect((await collectBrowserDiagnostics(s.page)).focus.id).toBe('#main');
     await s.page.keyboard.press('Tab');await s.page.keyboard.press('Enter');expect((await collectBrowserDiagnostics(s.page)).modal).toMatchObject({open:true,focusInside:true});await s.page.keyboard.press('Escape');expect((await collectBrowserDiagnostics(s.page)).focus.id).toBe('#open');
@@ -42,13 +34,13 @@ describe('actual browser environment profiles and isolated diagnostics',()=>{
     const s=await createTestBrowserSession(pathToFileURL(file).href);cleanups.push(()=>s.close());const report=await collectBrowserDiagnostics(s.page);expect(report.findings).toEqual(expect.arrayContaining([expect.objectContaining({code:'focus-center-occluded',certainty:'suspected'}),expect.objectContaining({code:'text-clipping'})]));
   });
   it('keeps all independent diagnostics out of planner input and redacts after text entry',async()=>{
-    // Jump by form controls to the email field, type into it once the reader says it is a text field, then the plan is finished.
+    // Jump by form controls to the email field, type into it once the reader says it is a text field, then the written plan has run out.
     const requests:PlanRequest[]=[];const out=await dir();
     const plan=planFileSchema.parse({strategy:'Fill in the email',criteria:[{id:'C1',text:'The email is typed'}],assumptions:[],phases:[{title:'Email',tasks:[{goal:'Move to the email field',done:'Hear edit text',cue:'edit text',activates:false,moves:['form.next']},{goal:'Type the email',done:'The email is typed',cue:'',types:'email'}]}]}) as PlanDraft;
     const fixed=new FixedPlanner(plan,{file:'plan.json',sha256:'f'.repeat(64)});
     const planner:Planner={plan:async request=>{requests.push(structuredClone(request));return fixed.plan(request)}};
     const trace=await runMockVoiceOverTask({id:'privacy',url:fixture,goal:'Inspect',maxSteps:8,input:{email:'PRIVATE_PROFILE_INPUT'},verify:{all:[{titleIncludes:'Never'}]}},{profile:'default',outDir:out,browserSessionFactory:createTestBrowserSession,warn:quiet,policy:new OrchestratedSpeechPolicy(planner)});
-    expect(trace.events.filter(e=>e.type==='browser.accessibility-diagnostic').at(-1)?.redacted).toBe(true);expect(await readFile(join(out,'trace.json'),'utf8')).not.toContain('PRIVATE_PROFILE_INPUT');expect(JSON.stringify(requests)).not.toMatch(/independent-browser-diagnostic|focus-center-occluded|"profile"|"editable"|PRIVATE_PROFILE_INPUT/);expect(trace.outcome).toMatchObject({status:'failure',reason:'verification-failed',policyStopSource:'planner'});
+    expect(trace.events.filter(e=>e.type==='browser.accessibility-diagnostic').at(-1)?.redacted).toBe(true);expect(await readFile(join(out,'trace.json'),'utf8')).not.toContain('PRIVATE_PROFILE_INPUT');expect(JSON.stringify(requests)).not.toMatch(/independent-browser-diagnostic|focus-center-occluded|"profile"|"editable"|PRIVATE_PROFILE_INPUT/);expect(trace.outcome).toMatchObject({status:'failure',reason:'policy-stuck',policyStopSource:'user-gave-up'});
   });
   it('verifies live text-style drift and stops rather than silently running the wrong profile',async()=>{
     const d=await dir(),file=join(d,'drift.html');await writeFile(file,'<!doctype html><button autofocus onclick="document.body.style.setProperty(\'font-size\',\'7px\',\'important\')">Change style</button>');
@@ -58,10 +50,10 @@ describe('actual browser environment profiles and isolated diagnostics',()=>{
     const make=(hooks:Partial<Backend>):Backend=>({capabilities:{intents:[],keys:[],textEntry:false,replaceText:false},start:async()=>({}),subscribe:()=>()=>{},close:async()=>{},execute:async()=>{throw Error('must not dispatch')},observe:async()=>{throw Error('must not observe')},...hooks});
     let opened=0,closed=0;const contexts:unknown[]=[];
     const browserSessionFactory=async(url:string,options:CreateBrowserSessionOptions)=>{opened++;const s=await createTestBrowserSession(url,options);const close=s.close;s.close=async()=>{closed++;await close()};return s};
-    const host=await runTask({url:fixture,goal:'Inspect',verify:{all:[{titleIncludes:'Never'}]}},{backend:make({preflight:context=>{contexts.push(context);throw new Error('host refused')}}),policy:new ScriptedPolicy([]),outDir:await dir(),browserSessionFactory});
+    const host=await runWithPolicy({url:fixture,goal:'Inspect',verify:{all:[{titleIncludes:'Never'}]}},{backend:make({preflight:context=>{contexts.push(context);throw new Error('host refused')}}),policy:new ScriptedPolicy([]),outDir:await dir(),browserSessionFactory});
     expect(host.outcome?.error).toMatch(/host refused/);expect(opened).toBe(0);
     expect(contexts).toEqual([{headless:false,platform:process.platform,customBrowserSession:true}]);
-    const session=await runTask({url:fixture,goal:'Inspect',verify:{all:[{titleIncludes:'Never'}]}},{backend:make({attachSession:()=>{throw new Error('session refused')}}),policy:new ScriptedPolicy([]),outDir:await dir(),browserSessionFactory});
+    const session=await runWithPolicy({url:fixture,goal:'Inspect',verify:{all:[{titleIncludes:'Never'}]}},{backend:make({attachSession:()=>{throw new Error('session refused')}}),policy:new ScriptedPolicy([]),outDir:await dir(),browserSessionFactory});
     expect(session.outcome?.error).toMatch(/session refused/);expect(opened).toBe(1);expect(closed).toBe(1);
   });
 });

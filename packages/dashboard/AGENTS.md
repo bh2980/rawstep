@@ -23,14 +23,17 @@ This file is for anyone changing `packages/dashboard`, people and coding agents 
 
 ## Language
 
-- Every visible string goes through react-i18next. The strings are in `src/web/i18n/locales/ko`. Do not write Korean (or any user-facing text) in a component.
-- Write plain Korean, and keep one word for one thing. Use the words the screens already use: 행동 수 (number of moves), 가장 빨랐던 실행 (the fastest run), 살펴볼 지점 (places worth a look). Search the locale files before you add a new term.
+- The dashboard is in Korean and English. Every visible string goes through react-i18next and exists in both `src/web/i18n/locales/ko` and `src/web/i18n/locales/en`. Do not write user-facing text, in any language, in a component. Each English file is typed as its Korean file, so a key missing in either fails typecheck; `tests/dashboard-i18n.test.ts` also checks keys and placeholders.
+- The language follows the browser (any `ko*` in `navigator.languages` is Korean, anything else English) until the person picks one with the switch in the top bar; the choice is kept in `localStorage`. `<html lang>` follows it. Dates and relative times use the language shown (`currentLanguage()`), never a fixed locale.
+- Counts in English: a key that takes `{{count}}` may have a `<key>_one` singular next to it in the English file. Korean has none.
+- The server sends message codes with their values, never sentences (`src/shared/messages.ts`); the web app words them with `serverText()`. A new server message adds a code there and its text to `serverMessages` in both languages. Text the server writes to the terminal is English, like the CLI.
+- Write plain Korean and plain, short English, and keep one word for one thing. Use the words the screens already use: 행동 수 (moves), 가장 빨랐던 실행 (the fastest run), 살펴볼 지점 (places worth a look). English uses the CLI's and the docs' terms: reached the goal, gave up, said it was done, but the goal was not reached, not measured, run profile, connection, planner, plan file, way of finding things, item by item. The Settings sections are named as the CLI points to them: Settings › AI connections, Settings › Run profiles. Search the locale files before you add a new term.
 - Labels name what the person sees, not an internal field name.
 
 ## Facts, not conclusions
 
 - Show what happened: counts, steps, what was heard, where a run slowed down. A hint points at a place to look; it is not a verdict. Reaching the goal is one fact among others, not a pass or a fail.
-- Text written by an LLM (LLM 해설) is shown only as a labelled hypothesis, below the evidence, with the steps it cites, and it never changes a run's result or its hints. Do not add an AI-written conclusion anywhere else.
+- Text written by an LLM (LLM commentary, LLM 해설) is shown only as a labelled hypothesis, below the evidence, with the steps it cites, and it never changes a run's result or its hints. Do not add an AI-written conclusion anywhere else.
 - Never present a scripted or fixture response as real model inference. Never present simulated speech as native screen reader output: a simulation run is always labelled as one.
 - Keep batches of runs apart. Results of different batches are not added together, because the page may have changed between them.
 

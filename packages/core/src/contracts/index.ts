@@ -76,8 +76,8 @@ export type PolicyAction = { kind: 'intent'; intent: string } | { kind: 'key'; k
  * (`exploration-guard`), the simulated user giving up after the approaches they tried failed (`user-gave-up`), or a cost limit on
  * planner calls before either (`orchestration-limit`: unmeasured, not a failure).
  */
-export type StopSource = 'model' | 'planner' | 'exploration-guard' | 'user-gave-up' | 'orchestration-limit';
-export const STOP_SOURCES: readonly StopSource[] = Object.freeze(['model', 'planner', 'exploration-guard', 'user-gave-up', 'orchestration-limit']);
+export type StopSource = 'model' | 'planner' | 'exploration-guard' | 'user-gave-up' | 'orchestration-limit' | 'no-allowed-action';
+export const STOP_SOURCES: readonly StopSource[] = Object.freeze(['model', 'planner', 'exploration-guard', 'user-gave-up', 'orchestration-limit', 'no-allowed-action']);
 export type Decision = { action: PolicyAction; rationale?: string } | { stop: 'success' | 'stuck' | 'uncertain'; rationale?: string; stopSource?: StopSource };
 export type AllowedActions = { intents: readonly string[]; keys: readonly string[]; inputKeys: readonly string[]; typeText?: boolean; replaceText: boolean };
 export type ScreenReaderObservation = {

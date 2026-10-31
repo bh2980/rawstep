@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import type { HintFinding, StepView } from '../packages/dashboard/src/shared/api.js';
 import type { Experiment, RunRecord } from '../packages/dashboard/src/shared/config.js';
-import '../packages/dashboard/src/web/i18n/index.js';
+import { i18n } from '../packages/dashboard/src/web/i18n/index.js';
 import { describeFinding, firstOccurrence, stepRange } from '../packages/dashboard/src/web/lib/findings.js';
 import { eventsByStep } from '../packages/dashboard/src/web/lib/rawEvents.js';
 import { taskRunNumbers, type RunRef } from '../packages/dashboard/src/web/lib/runs.js';
 import { inputFields, inputProblems, taskInputOptions, taskInputs } from '../packages/dashboard/src/web/lib/taskInputs.js';
 import { defaultStep, dotKind, dotLabel } from '../packages/dashboard/src/web/lib/stepDots.js';
+
+// These tests read the Korean wording, so the language is pinned whatever the machine's own language is.
+await i18n.changeLanguage('ko');
 
 const hangul = /[가-힣]/;
 

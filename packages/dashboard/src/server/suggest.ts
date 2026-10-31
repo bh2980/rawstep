@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { closeLlmModel, generateStructured } from '@rawstep/policies/llm';
 import type { MachineSettings, Model } from '@rawstep/project/config';
 import { llmModelOf } from '@rawstep/project/llm';
-import { record } from './http.js';
+import { HttpError, record } from './http.js';
 import { openStartPage, readPageStructure } from './structure.js';
 import type { CheckSuggestion, SuggestionResult } from '../shared/api.js';
 
@@ -78,6 +78,6 @@ async function askModel(options: { model: Model; apiKey?: string; signal?: Abort
   } catch {
     options.signal?.throwIfAborted();
     // Provider text can carry credentials or page content; only the kind of failure leaves this function.
-    throw new Error('완료 확인 제안 실패: 분석 모델의 연결과 응답 형식을 확인하세요. Provider 원문은 표시하지 않습니다.');
+    throw new HttpError(400, 'suggest-failed');
   } finally { if (llm) await closeLlmModel(llm); }
 }

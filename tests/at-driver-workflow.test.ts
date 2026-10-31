@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { mockAtDriverServer } from './helpers/mock-at-driver-server.js';
 import { AtDriverBackend } from '@rawstep/screenreaders/at-driver';
-import { runTask } from '@rawstep/browser/runner';
+import { runWithPolicy } from '@rawstep/browser/runner';
 import { runCli } from '@rawstep/cli/cli';
 import { resolveTask } from '@rawstep/core/contracts';
 import { ScriptedPolicy } from '@rawstep/policies/policy';
@@ -19,7 +19,7 @@ describe('real WebSocket adapter to runner to saved artifacts',()=>{
     const root=await mkdtemp(join(tmpdir(),'rawstep-integration-'));cleanup.push(()=>rm(root,{recursive:true,force:true}));
     const out=join(root,'out');
     const stdout:string[]=[];const stderr:string[]=[];
-    const trace0=await runTask(resolveTask({url:'https://example.test',goal:'Start',verify:{all:[{titleIncludes:'Done'}]}},root),{
+    const trace0=await runWithPolicy(resolveTask({url:'https://example.test',goal:'Start',verify:{all:[{titleIncludes:'Done'}]}},root),{
       backend:new AtDriverBackend({profile:'voiceover',url:server.url,quietMs:10,maxWaitMs:40}),policy:new ScriptedPolicy([{action:{kind:'intent',intent:'activate'}}]),outDir:out,
       browserSessionFactory:async()=>browser(),verifier:async()=>({passed:true,failures:[]})
     });const code=trace0.outcome?.status==='success'?0:1;
@@ -43,7 +43,7 @@ describe('real WebSocket adapter to runner to saved artifacts',()=>{
       return original.call(this,...args);
     });
     try {
-      const trace=await runTask({url:'https://example.test',goal:'Enter named value',input:{q:'ABCDE'},verify:{all:[{titleIncludes:'Done'}]}},{
+      const trace=await runWithPolicy({url:'https://example.test',goal:'Enter named value',input:{q:'ABCDE'},verify:{all:[{titleIncludes:'Done'}]}},{
         backend:new AtDriverBackend({url:server.url,profile:'voiceover',quietMs:5,maxWaitMs:30}),outDir:root,
         browserSessionFactory:async()=>browser(),verifier:async()=>({passed:false,failures:['missing']}),
         policy:{decide:()=>({action:{kind:'typeText',input:'q'}})}
@@ -57,7 +57,7 @@ describe('real WebSocket adapter to runner to saved artifacts',()=>{
     const server=await mockAtDriverServer({onCommand:(command,output)=>{const keys=command.params.keys as string[];output(keys.at(-1)!);}});cleanup.push(()=>server.close());
     const root=await mkdtemp(join(tmpdir(),'rawstep-private-'));cleanup.push(()=>rm(root,{recursive:true,force:true}));
     const page=browser();page.page.screenshot=vi.fn();let step=0;
-    const trace=await runTask({url:'https://example.test',goal:'Enter provided input',input:{secret:'Az91',year:'2026'},verify:{all:[{titleIncludes:'Done'}]}},{
+    const trace=await runWithPolicy({url:'https://example.test',goal:'Enter provided input',input:{secret:'Az91',year:'2026'},verify:{all:[{titleIncludes:'Done'}]}},{
       backend:new AtDriverBackend({url:server.url,profile:'voiceover',quietMs:10,maxWaitMs:40}),
       outDir:root,browserSessionFactory:async()=>page,verifier:async()=>({passed:false,failures:['Not complete']}),diagnosticScreenshots:true,
       policy:{decide:()=>++step===1?{action:{kind:'typeText',input:'secret'}}:step===2?{action:{kind:'intent',intent:'next'},rationale:'echo A z 9 1'}:{stop:'stuck',rationale:'echo A z 9 1'}}

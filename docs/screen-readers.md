@@ -14,9 +14,9 @@ A run profile's `screenReader` picks one:
 | `voiceover` | The real VoiceOver, driven through an AT Driver server. | macOS only. |
 | `nvda` | The real NVDA, driven through an AT Driver server. | Windows only. |
 
-In the dashboard this is the profile's 어디서 듣나요 (Where does the user listen) section, field 보조기술 (Assistive technology): 모의 VoiceOver (Simulated VoiceOver), VoiceOver or NVDA.
+In the dashboard this is the profile's Where do they listen? section, field Screen reader: Simulated VoiceOver, VoiceOver or NVDA.
 
-Every run says which one it used. The CLI prints `screen reader simulation` (or `voiceover`, `nvda`) with the run's conditions. In the trace, each speech observation carries `provenance: "simulation"` or `"native"`. The dashboard marks simulated runs 모의 VoiceOver 실행 (실제 네이티브 발화 아님) (Simulated VoiceOver run, not native speech).
+Every run says which one it used. The CLI prints `screen reader simulation` (or `voiceover`, `nvda`) with the run's conditions. In the trace, each speech observation carries `provenance: "simulation"` or `"native"`. The dashboard marks simulated runs "Simulated VoiceOver run (not native speech)".
 
 In every case the completion check (`verify`) reads the page in the browser. That is the oracle, used only to measure; the planner hears only the speech.
 
@@ -51,7 +51,7 @@ Install and configure the server with its own instructions. Rawstep does not ins
    }
    ```
 
-   The address must be `ws://` or `wss://` on this computer (`localhost`, `127.0.0.1` or `[::1]`), with no user name or password. In the dashboard: 설정 (Settings) › 이 컴퓨터 (This computer) › 스크린리더 드라이버 (AT Driver) (Screen reader driver).
+   The address must be `ws://` or `wss://` on this computer (`localhost`, `127.0.0.1` or `[::1]`), with no user name or password. In the dashboard: Settings › This computer › Screen reader driver (AT Driver).
 4. Optionally, let Rawstep start the server for you (next section).
 5. Check the connection:
 
@@ -75,11 +75,11 @@ To have Rawstep start it, put the shell command in `.env.local` in the project f
 RAWSTEP_AT_DRIVER_COMMAND="<the command that starts your AT Driver server>"
 ```
 
-The dashboard field AT Driver 서버 실행 명령 (AT Driver server start command), under 설정 (Settings) › 이 컴퓨터 (This computer), writes the same value. The command is never stored in `rawstep.config.json`, because it runs a program on this computer.
+The dashboard field AT Driver server start command, under Settings › This computer, writes the same value. The command is never stored in `rawstep.config.json`, because it runs a program on this computer.
 
 Before a native run, Rawstep checks whether anything accepts connections at the address. If something does, Rawstep uses it as it is. If not, it runs the command, waits up to 30 seconds for the address to answer, and stops the command when the run ends. If the command exits first or nothing answers in time, the run fails and the message includes the command's last output.
 
-CLI runs start the command in the folder you ran `rawstep` from, while the dashboard's 연결 확인 (Check connection) button starts it in the project folder. Use absolute paths in the command so both work.
+CLI runs start the command in the folder you ran `rawstep` from, while the dashboard's Check connection button starts it in the project folder. Use absolute paths in the command so both work.
 
 ### What doctor checks
 
@@ -95,7 +95,7 @@ If no profile uses a native screen reader:
 skip  Screen reader: only the simulation is configured; no native screen reader to check
 ```
 
-A failure prints `FAIL  Screen reader: <backend> AT Driver at <address>: <error>. Start the AT Driver server and the screen reader, then run doctor again`, and doctor exits with code 1. Doctor does not start the server with `RAWSTEP_AT_DRIVER_COMMAND`; start it first. The dashboard's 연결 확인 (Check connection) button does use the command.
+A failure prints `FAIL  Screen reader: <backend> AT Driver at <address>: <error>. Start the AT Driver server and the screen reader, then run doctor again`, and doctor exits with code 1. Doctor does not start the server with `RAWSTEP_AT_DRIVER_COMMAND`; start it first. The dashboard's Check connection button does use the command.
 
 A passing check means only that the server answered and agreed to drive the requested screen reader. It does not prove that speech comes through.
 
@@ -147,7 +147,7 @@ On a native screen reader, text with any other character (accented letters, Kore
 
 ### What this means for the ways of finding things
 
-The dashboard's 찾는 방법 (Way of finding things) presets combine `next`, `previous` and `activate` with one way of jumping. 한 칸씩 (Item by item) runs on all three. 제목으로 (By headings), 폼 컨트롤로 (By form controls) and 링크로 (By links) each include a rotor list intent, so they run on the simulation and VoiceOver but are refused on NVDA. For NVDA, use a custom action set without `headings.list`, `links.list` and `formControls.rotor`.
+The dashboard's Way of finding things presets combine `next`, `previous` and `activate` with one way of jumping. Item by item runs on all three. By headings, By form controls and By links each include a rotor list intent, so they run on the simulation and VoiceOver but are refused on NVDA. For NVDA, use a custom action set without `headings.list`, `links.list` and `formControls.rotor`.
 
 ## Known limits
 
@@ -158,6 +158,7 @@ The dashboard's 찾는 방법 (Way of finding things) presets combine `next`, `p
 - Pressing uses a guarded DOM click (or focus, for a text field). These clicks are untrusted events, and the simulation does not repair missing widget behavior.
 - The cursor is independent of keyboard focus. It moves to a focused element only when focus actually changes.
 - Live regions: new text is spoken once, after the speech of the action that caused it, without its role and without timing or interruption. Empty live regions are not stops.
+- Quick navigation covers next and previous heading, form control and link. The rotor covers only the headings, links and form controls lists. There is no group interaction, no Quick Nav setting, no speech queue and no announcement timing.
 - The rotor's form controls list cannot be filtered by typing, so finding an item can take more moves than in VoiceOver.
 - `headings.list` and `links.list` read the whole list in one announcement; the cursor does not move.
 - A new page is announced by its title only. Real VoiceOver adds its own page-load wording.

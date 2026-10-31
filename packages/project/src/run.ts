@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { resolveTask } from '@rawstep/core/contracts';
-import { type RunOutcome, type RunTrace, type TraceEvent } from '@rawstep/core/trace';
+import { readTrace, type RunOutcome, type RunTrace, type TraceEvent } from '@rawstep/core/trace';
 import { resolveEnvironmentProfile } from '@rawstep/browser/profiles';
 import { analyzeTrace, writeReport, LlmTraceAnalyzer, type TraceAnalyzer } from '@rawstep/reports';
 import { aggregateHints, extractHints, selectReference, writeHints, type HintFinding, type HintReport } from '@rawstep/reports/hints';
@@ -42,10 +42,28 @@ export async function finalizeRun(trace: RunTrace, outDir: string, options: Fina
   }
 }
 
+/**
+ * Repeats of one task under one profile, run one by one (the dashboard's queue), compared once the last has finished: each run's
+ * hints and report are written again against the fastest run that reached the goal, as `runTask` does, keeping its analysis.
+ */
+export async function compareRepeats(outDirs: readonly string[]): Promise<void> {
+  const runs = (await Promise.all(outDirs.map(async outDir => ({ outDir, trace: await readTrace(outDir).catch(() => undefined) }))))
+    .filter((run): run is { outDir: string; trace: RunTrace } => !!run.trace);
+  const reference = runs.length > 1 ? selectReference(runs.map(run => run.trace)) : undefined;
+  if (!reference) return;
+  const referenceDir = runs.find(run => run.trace === reference)!.outDir;
+  for (const { outDir, trace } of runs) {
+    const hints = await writeHints(outDir, { reference: referenceDir }).then(({ report }) => report, () => undefined);
+    if (!hints) continue;
+    const analysis = await readFile(join(outDir, 'analysis.json'), 'utf8').then(text => JSON.parse(text), () => undefined);
+    await writeReport(trace, analysis, outDir, { hints }).catch(() => {});
+  }
+}
+
 export type RunTaskOptions = {
   /** The directory holding rawstep.config.json. Defaults to the current directory. */
   projectDir?: string;
-  /** The run profile by id or name; defaults to the task's, then the project's first. */
+  /** The run profile by id or name; defaults to the project's first. */
   profile?: string;
   /** Run rules for these runs only, over the profile's. */
   runRules?: Partial<RunRules>;
@@ -119,22 +137,28 @@ export async function runTask(task: string, options: RunTaskOptions = {}, intern
   const signal = options.signal ?? new AbortController().signal, execute = internals.execute ?? executeRun;
   const cancelled = () => new ProjectError('cancelled', 'The run was cancelled. Traces written so far are kept.');
   const done: { outDir: string; trace: RunTrace }[] = [];
+  // Hints are written once all repeats exist, so each run is compared with the fastest one that reached the goal.
+  const finalize = async (withAnalysis: boolean) => {
+    const reference = selectReference(done.map(d => d.trace));
+    const referenceDir = reference ? done.find(d => d.trace === reference)?.outDir : undefined;
+    const runs: RunTaskResult['runs'] = [];
+    for (const { outDir, trace } of done) {
+      const { hints } = await finalizeRun(trace, outDir, { ...(referenceDir ? { referenceDir } : {}),
+        ...(analyse && withAnalysis ? { createAnalyzer: async () => llmAnalyzer(analyse, analysisKey, settings.analysisInstructions, signal) } : {}) });
+      runs.push({ runId: trace.runId, outDir, outcome: trace.outcome, hints: hints ?? extractHints(trace, reference ? { reference } : {}) });
+    }
+    return runs;
+  };
+  // A cancelled run keeps what it did: the traces so far get their hints and reports (no model analysis), then the cancel is reported.
+  const stop = async () => { await finalize(false); return cancelled(); };
   for (let i = 1; i <= repeat; i++) {
-    if (signal.aborted) throw cancelled();
+    if (signal.aborted) throw await stop();
     const outDir = join(root, `run-${i}`);
     const trace = await execute(spec, { outDir, plannerApiKey, signal, atDriverCommand, browserProfileDir: join(projectDir, '.rawstep', 'browser-profile'), ...(options.onEvent ? { onEvent: options.onEvent } : {}) });
-    if (signal.aborted) throw cancelled();
     done.push({ outDir, trace });
+    if (signal.aborted) throw await stop();
   }
-  // Hints are written once all repeats exist, so each run is compared with the fastest one that reached the goal.
-  const reference = selectReference(done.map(d => d.trace));
-  const referenceDir = reference ? done.find(d => d.trace === reference)?.outDir : undefined;
-  const runs: RunTaskResult['runs'] = [];
-  for (const { outDir, trace } of done) {
-    const { hints } = await finalizeRun(trace, outDir, { ...(referenceDir ? { referenceDir } : {}),
-      ...(analyse ? { createAnalyzer: async () => llmAnalyzer(analyse, analysisKey, settings.analysisInstructions, signal) } : {}) });
-    runs.push({ runId: trace.runId, outDir, outcome: trace.outcome, hints: hints ?? extractHints(trace, reference ? { reference } : {}) });
-  }
+  const runs = await finalize(true);
   return { conditions: spec.conditions ?? {}, warnings, runs, findings: aggregateHints(runs.map(r => r.hints)) };
 }
 /** The key a model needs (`undefined` for a server that takes none); a missing required key stops the run before anything starts. */

@@ -214,7 +214,7 @@ describe('orchestrated speech policy', () => {
     const p = planner(draft({ Buy: [{ goal: 'Press it', activates: true }] }));
     const policy = new OrchestratedSpeechPolicy(p.planner);
     const noPress = { intents: ['next'], keys: [], inputKeys: [], replaceText: false };
-    expect(await policy.decide(input({ allowedActions: noPress }))).toEqual({ stop: 'uncertain', stopSource: 'orchestration-limit' });
+    expect(await policy.decide(input({ allowedActions: noPress }))).toEqual({ stop: 'uncertain', stopSource: 'no-allowed-action' });
     expect(evidence(policy).some(k => k.kind === 'orchestration-follow')).toBe(false);
   });
   it('does not end a task on a "done" it was never shown: the cue must be heard after an action on it', async () => {
@@ -296,12 +296,12 @@ describe('orchestrated speech policy carrying out the plan', () => {
     expect(found).toContainEqual(expect.objectContaining({ kind: 'orchestration-follow', taskId: 't2', choiceId: 'intent:activate' }));
   });
   it('counts only what an action on the task made the reader say, never speech heard before it', async () => {
-    const plan = { ...draft({}), phases: [{ title: 'Enter', tasks: [{ goal: 'Activate Skip to content', done: 'Hear the product', cue: 'Samsung galaxy s6', activates: true, moves: ['next'] }, { goal: 'Then', done: 'x', cue: 'x' }] }] };
+    const plan = { ...draft({}), phases: [{ title: 'Enter', tasks: [{ goal: 'Activate Skip to content', done: 'Hear the product', cue: 'Demo phone X1', activates: true, moves: ['next'] }, { goal: 'Then', done: 'x', cue: 'x' }] }] };
     const policy = new OrchestratedSpeechPolicy(planner(plan).planner);
     const allowed = { intents: ['next', 'activate'], keys: [], inputKeys: [], replaceText: false };
-    expect(await policy.decide(input({ allowedActions: allowed, observation: said('Samsung galaxy s6', 'link, Skip to content') }))).toEqual({ action: { kind: 'intent', intent: 'activate' } });
+    expect(await policy.decide(input({ allowedActions: allowed, observation: said('Demo phone X1', 'link, Skip to content') }))).toEqual({ action: { kind: 'intent', intent: 'activate' } });
     expect(currentTask(policy.planDocument()!)).toMatchObject({ goal: 'Activate Skip to content' });
-    expect(await policy.decide(input({ allowedActions: allowed, observation: said('Samsung galaxy s6, heading, level 1'), history: [acted(1, 'activate', 'link, Skip to content')] }))).toEqual({ action: { kind: 'intent', intent: 'next' } });
+    expect(await policy.decide(input({ allowedActions: allowed, observation: said('Demo phone X1, heading, level 1'), history: [acted(1, 'activate', 'link, Skip to content')] }))).toEqual({ action: { kind: 'intent', intent: 'next' } });
     expect(currentTask(policy.planDocument()!)).toMatchObject({ goal: 'Then' });
   });
   it('carries out the plan as written: a pressing task presses, a moving task takes its first move', async () => {
@@ -436,7 +436,7 @@ describe('orchestrated speech policy carrying out the plan', () => {
 describe('orchestrated policy inside the runner', () => {
   it('records the plan, task changes and followed actions as policy evidence while the runner verifies', async () => {
     const { mkdtemp, rm, readFile } = await import('node:fs/promises'), { tmpdir } = await import('node:os'), { join } = await import('node:path');
-    const { runTask } = await import('@rawstep/browser/runner');
+    const { runWithPolicy } = await import('@rawstep/browser/runner');
     const dir = await mkdtemp(join(tmpdir(), 'rawstep-orchestration-'));
     try {
       let pressed = 0;
@@ -445,7 +445,7 @@ describe('orchestrated policy inside the runner', () => {
         observe: async () => ({ windowId: 'w', startedAt: '2026-10-01T00:00:00Z', endedAt: '2026-10-01T00:00:01Z', reason: 'fixture', outputs: [], speech: [pressed ? 'Added to cart' : 'Add to cart, button'] }) };
       const session = { page: { bringToFront: async () => {} }, browser: { version: () => 'fake' }, takeBlockedNavigations: () => [], takeNavigationGuardWarnings: () => [], close: async () => {} };
       const p = planner({ ...draft({}), phases: [{ title: 'Buy', tasks: [{ goal: 'Activate Add to cart', done: 'The cart confirms', cue: 'Added to cart', activates: true }] }] });
-      const trace = await runTask({ url: 'https://example.test', goal: 'Add to cart', verify: { all: [{ titleIncludes: 'Done' }] } }, {
+      const trace = await runWithPolicy({ url: 'https://example.test', goal: 'Add to cart', verify: { all: [{ titleIncludes: 'Done' }] } }, {
         backend, policy: new OrchestratedSpeechPolicy(p.planner), outDir: dir, browserSessionFactory: async () => session as never,
         verifier: async () => ({ passed: pressed > 0, failures: pressed > 0 ? [] : ['not yet'] }) });
       expect(trace.outcome?.status).toBe('success');

@@ -56,11 +56,10 @@ describe('public API surface', () => {
       "applyProfile",
       "collectBrowserDiagnostics",
       "createBrowserSession",
-      "createChromiumTabZoomController",
       "evaluateVerifyRule",
       "installPageObserver",
       "resolveEnvironmentProfile",
-      "runTask",
+      "runWithPolicy",
       "verifyLiveProfile",
       "verifyTask",
     ]
@@ -131,6 +130,7 @@ describe('public API surface', () => {
       "closeLlmModel",
       "comboPlanner",
       "comboSchema",
+      "compareRepeats",
       "conditionsRecord",
       "configSchema",
       "connectionSchema",
@@ -228,7 +228,6 @@ describe('public API surface', () => {
       "analyzeTrace",
       "applyProfile",
       "collectBrowserDiagnostics",
-      "createChromiumTabZoomController",
       "createRedactor",
       "describeInputs",
       "deterministicAnalyzer",
@@ -244,6 +243,7 @@ describe('public API surface', () => {
       "renderReportHtml",
       "resolveEnvironmentProfile",
       "resolveTask",
+      "runEnding",
       "runMockVoiceOverTask",
       "runTask",
       "speechChoices",
@@ -268,7 +268,7 @@ describe('public API surface', () => {
     expect(facade.runTask.name).toBe(project.runTask.name);
     expect(facade.ProjectError.name).toBe(project.ProjectError.name);
     expect(await exportNames('rawstep/project')).toEqual(await exportNames('@rawstep/project'));
-    expect(await exportNames('rawstep/runner')).toContain('runTask');
+    expect(await exportNames('rawstep/runner')).toEqual(expect.arrayContaining(['runWithPolicy'])); expect(await exportNames('rawstep/runner')).not.toContain('runTask');
     const config = await readFile('packages/project/dist/config.js', 'utf8');
     expect(config).not.toMatch(/from\s+['"]node:/);
     expect([...config.matchAll(/^import .* from '([^']+)'/gm)].map(match => match[1]).sort()).toEqual(['@rawstep/core/defaults', 'zod']);

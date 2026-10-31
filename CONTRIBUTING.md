@@ -67,7 +67,7 @@ If you already have a Chromium you trust, point at it instead:
   ```sh
   RAWSTEP_TEST_BROWSER_PATH=/absolute/path/to/chromium npm run test:integration
   ```
-- For **runs** from the CLI or the dashboard, set `machine.browserExecutablePath` in `rawstep.config.json` (설정 > 이 컴퓨터, Settings > This computer, in the dashboard).
+- For **runs** from the CLI or the dashboard, set `machine.browserExecutablePath` in `rawstep.config.json` (Settings › This computer in the dashboard).
 
 No test or run needs the browser sandbox turned off. In CI (Ubuntu 24.04) the workflow allows unprivileged user namespaces for Chromium's sandbox, and runs the integration suites under `xvfb-run` because some suites open a headed window. See `.github/workflows/ci.yml`.
 
@@ -107,7 +107,7 @@ npx rawstep --help
 
 Three more things to know about the bundle:
 
-- `scripts/bundle-rawstep.mjs` copies the dashboard build to `dist/dashboard-web`, and copies `docs/`, `examples/`, `fixtures/` and the READMEs into `packages/rawstep/`. Those copies are git-ignored and overwritten on every build. Edit the originals at the repository root.
+- `scripts/bundle-rawstep.mjs` copies the dashboard build to `dist/dashboard-web`, and copies `docs/`, `examples/`, `fixtures/`, `README.md`, `README.ko.md` and `THIRD-PARTY-NOTICES.md` into `packages/rawstep/`. In the copied READMEs, relative links are rewritten to links into the GitHub repository, because the package page shows them away from the repository. Those copies are git-ignored and overwritten on every build. Edit the originals at the repository root.
 - The only third-party runtime dependencies of `rawstep` are `ai`, `@ai-sdk/openai-compatible`, `playwright` and `zod`. If a workspace starts importing another third-party package, add it to `packages/rawstep/package.json` and to `deps.onlyImport` in `packages/rawstep/tsdown.config.ts`, or the build and `tests/source-graph-migration.test.ts` fail.
 - The public import paths come from the `exports` of `packages/rawstep/package.json` and the `src/<name>/index.ts` files next to it. `tests/public-api.test.ts` pins the export lists.
 
@@ -174,7 +174,7 @@ CI (`.github/workflows/ci.yml`) runs build, typecheck, `npm test` and the integr
 - **Experiments stay outside the repository.** Lab configs, experiment projects, throwaway scripts and internal plan documents live on your machine, not in a commit. Use `.git/info/exclude` to keep them out of `git status`. This repository holds the library, its tests, fixtures, examples and docs.
 - **No secrets.** API keys go in `.env.local` or the process environment. `.env.*` files other than `.env.example` are git-ignored. A task file's input values are examples only.
 - **Keep the claim honest.** Simulated speech is never presented as native screen reader output, and a hint is never presented as a verdict. When you add wording, a table or a message that touches this, say what the evidence is.
-- **Use the terms the product uses.** The dashboard UI is in Korean and every visible string goes through the locale files. Docs are in English.
+- **Use the terms the product uses.** The dashboard UI is in Korean and English, and every visible string goes through the locale files of both languages ([dashboard rules](./packages/dashboard/AGENTS.md#language)). Docs are in English and name dashboard screens by their English labels.
 - **Do not edit generated or copied files.** `dist/`, `artifacts/`, the copies under `packages/rawstep/` and the evidence data files are produced by scripts.
 
 ## Documentation

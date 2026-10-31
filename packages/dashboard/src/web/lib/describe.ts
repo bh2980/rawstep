@@ -44,7 +44,7 @@ export function describeHint(hint: Pick<Hint, 'kind' | 'summary' | 'detail'> & P
       const steps = num(d.steps), reference = num(d.referenceSteps);
       if (steps === undefined || reference === undefined) break;
       const duration = num(d.durationMs), referenceDuration = num(d.referenceDurationMs);
-      const text = t('hints.text.slowRun', { steps, referenceSteps: reference, extra: steps - reference });
+      const text = t('hints.text.slowRun', { steps, referenceSteps: reference, extra: steps - reference, count: reference });
       return duration !== undefined && referenceDuration !== undefined
         ? `${text} ${t('hints.text.slowRunDuration', { duration: (duration / 1000).toFixed(1), referenceDuration: (referenceDuration / 1000).toFixed(1) })}`
         : text;
@@ -53,12 +53,12 @@ export function describeHint(hint: Pick<Hint, 'kind' | 'summary' | 'detail'> & P
       const count = num(d.count);
       if (count === undefined) break;
       const subject = target(d.target) ?? t('hints.text.focusedControl'), keys = keyCounts(d.keys);
-      return keys ? t('hints.text.excessKeystrokesWithKeys', { target: subject, n: count, keys }) : t('hints.text.excessKeystrokes', { target: subject, n: count });
+      return keys ? t('hints.text.excessKeystrokesWithKeys', { target: subject, n: count, keys, count }) : t('hints.text.excessKeystrokes', { target: subject, n: count, count });
     }
     case 'backtracking': {
       const reversals = num(d.reversals);
       if (reversals === undefined) break;
-      return t('hints.text.backtracking', { n: reversals });
+      return t('hints.text.backtracking', { n: reversals, count: reversals });
     }
     case 'focus-lost': {
       if (str(d.reason) === undefined && !isRecord(d.from)) break;
@@ -85,6 +85,7 @@ export function describeHint(hint: Pick<Hint, 'kind' | 'summary' | 'detail'> & P
     case 'early-stop': {
       if (str(d.stopSource) === 'exploration-guard') return t('hints.text.earlyStopGuard');
       if (str(d.stopSource) === 'orchestration-limit') return t('hints.text.earlyStopPlanLimit');
+      if (str(d.stopSource) === 'no-allowed-action') return t('hints.text.earlyStopNoAction');
       if (str(d.stopSource) === 'user-gave-up') return t('hints.text.earlyStopGaveUp', { reason: str((d.giveUp as Record<string, unknown> | undefined)?.reason) ?? '' });
       if (str(d.reason) === 'policy-stuck') return t('hints.text.earlyStopStuck');
       if (str(d.reason) === 'policy-uncertain') return t('hints.text.earlyStopUncertain');

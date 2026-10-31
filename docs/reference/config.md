@@ -26,7 +26,7 @@ One file in the project folder holds the whole setup. The dashboard (`npx rawste
 
 ## Connections
 
-A connection says where a model lives. It holds no model name: the profile (or the `project` section) picks the model ID on a connection. In the dashboard: 설정 (Settings) > 연결 (Connections).
+A connection says where a model lives. It holds no model name: the profile (or the `project` section) picks the model ID on a connection. In the dashboard: Settings › AI connections.
 
 Nothing is connected by default. A connection sends what the simulated user hears to that provider, so you add one yourself.
 
@@ -110,7 +110,7 @@ What the simulated user may do. Each entry is checked against the screen reader 
 |---|---|---|---|
 | `intents` | list of names | `["next", "previous", "activate"]` | Screen reader moves allowed. See the [intents](#intents) table. |
 | `keys` | list of key names | `[]` | Keys the user may press. See [keys](#keys). |
-| `typeText` | boolean | `false` | May type a task input into the focused field. |
+| `typeText` | boolean | `true` | May type a task input into the focused field. |
 | `replaceText` | boolean | `false` | May replace the text already in the focused field with a task input. |
 | `inputKeys` | list of names | all of the task's `input` names | Which of the task's named inputs may be typed. A name the task does not have stops the run (`unknown-input`). Ignored (treated as empty) when neither `typeText` nor `replaceText` is on or the screen reader cannot enter text. |
 
@@ -175,8 +175,6 @@ How the rules play out in a run is described in [planning.md](../planning.md).
 |---|---|
 | `default` | Nothing. 1280 x 800 viewport, light colour scheme. |
 | `narrow` | Viewport 320 x 800. |
-| `zoom-200` | `browserZoom: 2`. Cannot run, see [limits](#limits-of-page-environments). |
-| `zoom-400` | `browserZoom: 4`. Cannot run, see [limits](#limits-of-page-environments). |
 | `text-200` | `textScale: 2`. |
 | `spacing` | `textSpacing`: line height 1.5, letter spacing 0.12 em, word spacing 0.16 em, paragraph spacing 2 em. |
 | `reflow-text` | Viewport 320 x 800 and `textScale: 2`. |
@@ -185,21 +183,18 @@ How the rules play out in a run is described in [planning.md](../planning.md).
 | `dark` | `colorScheme: "dark"`. |
 | `reduced-motion` | `reducedMotion: "reduce"`. |
 
-Object fields (an unknown field is an error):
+Object fields (an unknown field is an error, for example `Unknown environment profile field browserZoom.`; an unknown name is `Unknown profile <name>.`):
 
 | Field | Type | Default | Range or values | Meaning |
 |---|---|---|---|---|
 | `id` | text | `"default"` | `^[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}$` | Name recorded with the run. |
 | `viewport` | `{ width, height }` integers | `{ 1280, 800 }` | width 240 to 7680, height 200 to 4320 | Browser window size in CSS pixels. |
-| `browserZoom` | number | `1` | 0.5 to 5 | Browser zoom. Anything other than `1` cannot run. |
 | `textScale` | number | `1` | 1 to 4 | Multiplies every computed font size on the page. |
 | `textSpacing` | object | none | see below | Forces text spacing. All four fields required. |
 | `colorScheme` | text | `"light"` | `light`, `dark`, `no-preference` | `prefers-color-scheme`. |
 | `forcedColors` | text | `"none"` | `none`, `active` | `forced-colors` media query. |
 | `contrast` | text | `"no-preference"` | `no-preference`, `more` | `prefers-contrast` media query. |
 | `reducedMotion` | text | `"no-preference"` | `no-preference`, `reduce` | `prefers-reduced-motion` media query. |
-| `nativeMagnifier` | text | `"not-requested"` | `not-requested`, `required` | `required` cannot run. |
-| `nativeHighContrast` | text | `"not-requested"` | `not-requested`, `required` | `required` cannot run. |
 | `at` | `{ name, version?, configuration? }` | none | strings up to 500 characters | The screen reader name, version and configuration you expect. Checked against what the screen reader reports when it connects; a mismatch stops the run while `requireApplied` is on. |
 | `diagnostics` | boolean | `true` | | Collect independent page checks for people reading the run (horizontal overflow, focus hidden or outside the viewport, clipped text, overlapping controls, modal focus). They are recorded on a separate channel and are never given to the planner. |
 | `requireApplied` | boolean | `true` | | Stop the run when a requested setting did not apply or could not be checked. With `false` the run goes ahead but the environment is still recorded as unsupported. |
@@ -210,7 +205,7 @@ Object fields (an unknown field is an error):
 
 - Colour scheme, forced colours, contrast and reduced motion are browser media emulation, checked with `matchMedia`. They are not Windows High Contrast, not macOS settings, and not a native magnifier. Native OS settings are never changed.
 - Text scale and text spacing are page styles Rawstep adds, not the browser's text-only zoom and not OS magnification. Rawstep measures the elements on the page at load; if the page later inserts new elements, the setting is recorded as not applied and (with `requireApplied`) the run stops as not measured (`unsupported-profile`).
-- Browser zoom cannot run from a project. A profile whose page has `browserZoom` other than `1`, or `nativeMagnifier` or `nativeHighContrast` set to `required`, is refused before any model call with `environment-unsupported`. A viewport change, CSS zoom or pinch is never substituted for real browser zoom. So `zoom-200` and `zoom-400` exist as names but do not run.
+- There is no browser zoom, native magnifier or native high contrast setting. Rawstep does not substitute a viewport change, CSS zoom or pinch for them. A config written for an older Rawstep with `browserZoom`, `nativeMagnifier`, `nativeHighContrast`, `zoom-200` or `zoom-400` does not load; remove those keys and names.
 - The viewport setting is real: layout reflow at 320 pixels is the browser's own behaviour.
 - Page diagnostics are heuristics, not a WCAG verdict.
 - Each run records requested and observed settings and their mechanism (`browser.profile` in the trace); see [results.md](results.md).
@@ -269,7 +264,7 @@ All fields in use. It assumes `rawstep/demo/plan.json` exists, as after `rawstep
       "id": "written-plan",
       "name": "Written plan (no model)",
       "planner": { "planFile": "rawstep/demo/plan.json" },
-      "actions": { "keys": [], "intents": ["next", "previous", "activate"], "typeText": false, "replaceText": false }
+      "actions": { "keys": [], "intents": ["next", "previous", "activate"], "typeText": true, "replaceText": false }
     },
     {
       "id": "headings-and-forms",

@@ -13,7 +13,7 @@ Every run follows a plan. The run profile's `planner` says where the plan comes 
 | Planner model | `{ "connectionId", "modelId", "reasoningEffort"?, "instructions" }` | A model on one of your connections writes the plan and revises it during the run. |
 | Plan file | `{ "planFile": "plans/{task}/plan.json" }` | A plan written beforehand. It never changes during the run. |
 
-In the dashboard this is under 설정 (Settings) › 실행 프로필 (Run profiles), in 계획을 얻는 방법 (How to get the plan): LLM 계획 모델 (LLM planner model) or 계획 파일 (Plan file).
+In the dashboard this is under Settings › Run profiles, in How to get the plan: LLM planner or Plan file.
 
 No model picks individual actions. Rawstep carries out the plan as written: it moves, presses and types, decides when a task is done, and decides when to ask the planner for a new plan. A profile without a planner cannot run; `npx rawstep doctor` reports it as `warn` ("no planner yet, so it cannot run").
 
@@ -68,7 +68,7 @@ The first task walks item by item until the user hears a button named "Add to ca
 | `phases` | At most 6 phases, each with a `title`, optional `criteria` ids it is meant to meet, and at most 8 `tasks`. |
 | `complete` | The planner judged every criterion met. A plan file may leave it out; if present it must be `false`. |
 | `rationale` | The planner's account of what it changed and why. Optional in a plan file. |
-| `giveUp` | Only from a planner model: `{ "reason", "tried": ["A2", …] }`. See [Giving up](#giving-up). |
+| `giveUp` | From a planner model: `{ "reason", "tried": ["A2", …] }`. See [Giving up](#giving-up). |
 
 Unknown fields are rejected. The schema is `planDraftSchema` and `planFileSchema` in [`packages/policies/src/policy/fixed-plan.ts`](../packages/policies/src/policy/fixed-plan.ts).
 
@@ -134,7 +134,7 @@ Rawstep takes one action per step for the current task, chosen from the actions 
 1. **Typing task** (`types` is set): it first presses the item the cursor is on, which gives a field focus, then types the input (`type:<input>`, or `replace:<input>` if only replacing is allowed). If pressing is not allowed, it types straight away. The task is done once the input was typed. The planner knows the input's name, never its value.
 2. **Pressing task** (`activates: true`): it presses the item the cursor is on, every step, until the cue is heard. `moves` is ignored.
 3. **Moving task**: it repeats the first entry of `moves` that the profile allows. If none is allowed, or `moves` is empty, it moves to the next item.
-4. If none of these actions is allowed, the run ends as not measured.
+4. If none of these actions is allowed, the run ends as not measured, with the stop source `no-allowed-action` (the CLI prints "the profile allows no action the plan's task needs").
 
 Some details:
 
@@ -209,14 +209,18 @@ The [four endings](./concepts.md) come from these decisions:
 | The completion check (the task's `verify`) passed. Rawstep runs it after every action, whatever the plan says, and when the planner says the plan is complete. | reached the goal |
 | The planner set `complete: true`, the run stopped, and the completion check failed. | said it was done but the goal was not reached |
 | The planner gave up, and the give-up was accepted (below). | gave up |
-| The run used up `maxPlannerCalls` (40 by default; plans, candidate questions and retries all count), or Rawstep found no allowed action for the current task. | not measured |
+| A plan file ran out of tasks before the goal was reached. | gave up |
+| The run used up `maxPlannerCalls` (40 by default; plans, candidate questions and retries all count). | not measured (planner-call limit) |
+| The profile allows none of the actions the current task needs. | not measured (`no-allowed-action`) |
 | The repetition guard stopped the run before the first plan. | not measured |
 
 The task's own step and time limits also end runs as not measured; see the [task reference](./reference/task.md).
 
 ### Giving up
 
-Only a planner model can give up, by returning `giveUp: { "reason", "tried": [...] }` instead of new tasks. Rawstep accepts it only when `tried` names at least one assumption and every one of them is marked `broken` in the plan. A long walk alone, or a hunch, is not enough. If the give-up is refused, the refusal is recorded, and if the planner gave no tasks, it is asked again with `refusedGiveUp` saying why. An accepted give-up marks the current task `failed` and ends the run as "gave up".
+A planner model gives up by returning `giveUp: { "reason", "tried": [...] }` instead of new tasks. Rawstep accepts it only when `tried` names at least one assumption and every one of them is marked `broken` in the plan. A long walk alone, or a hunch, is not enough. If the give-up is refused, the refusal is recorded, and if the planner gave no tasks, it is asked again with `refusedGiveUp` saying why. An accepted give-up marks the current task `failed` and ends the run as "gave up".
+
+A plan file gives up only when it runs out of tasks (see [Plan files](#plan-files)). That give-up names no assumptions and is accepted as it is, because the plan has no other way to try.
 
 ## Plan files
 
@@ -225,7 +229,7 @@ A plan file holds the plan still, so a run measures how these tasks fare on the 
 - **Path.** `planFile` is a project-relative `.json` path. `{task}` is replaced by the task file's name without `.json`, so `plans/{task}/plan.json` gives each task its own plan. The dashboard suggests that path. A `{task}` path only works for tasks registered in `rawstep.config.json`.
 - **Validation.** The run fails before it starts if the file cannot be read, is not JSON, does not match the format above, or has no tasks: "The plan file … is not a plan with tasks (phases of tasks with goal, done and cue)." Every task needs a `cue`, even if it is `""`.
 - **doctor.** For a path without `{task}`, `npx rawstep doctor` reports `FAIL` if the file is missing. Paths with `{task}` are not checked.
-- **A run's `plan.json` is not a plan file.** The plan document a run writes has ids, statuses and revisions, and the plan file format rejects them. Copy the `strategy`, `criteria`, `assumptions` and the `phases` with their task fields into a new file.
+- **A run's `plan.json` works as a plan file.** Point `planFile` at the plan document a run wrote, or a copy of it, to run that plan again unchanged. Rawstep reads its strategy, criteria, assumptions and current phases with their tasks, and drops the ids, statuses, action counts, retired tasks and revisions. Every task in the current phases is kept, including those the run had already finished.
 
 During a run, the plan file answers every request for a new plan itself:
 
@@ -233,15 +237,15 @@ During a run, the plan file answers every request for a new plan itself:
 | --- | --- |
 | `checkpoint`, `goal-heard`, `effort-review` | Nothing is stuck. The plan goes on unchanged. |
 | `failures`, `no-change`, `oscillation`, `task-limit` | The current task is abandoned and the next one starts. That abandonment is the finding. |
-| `plan-finished`, or the stuck task was the last one | The plan is marked complete and the run stops. The completion check decides. |
+| `plan-finished`, or the stuck task was the last one | The plan has run out of tasks. It gives up with the reason "The written plan ran out of tasks before the goal was reached.", the give-up is accepted without broken assumptions, and the run ends as "gave up". The give-up evidence in the trace carries `ranOut: true`. |
 
-A plan file never gives up. A run whose tasks run out without reaching the goal therefore ends as "said it was done but the goal was not reached".
+The goal is checked after every action, so a run that reached it has already ended as reached. Apart from running out of tasks, a plan file never gives up, and it never claims the goal was reached. If `maxPlannerCalls` is used up first (each of these answers counts as a planner call), the run ends as not measured instead.
 
 Each run records the plan file's path and SHA-256 hash as its prompt (`rawstep-fixed-plan`), so runs with different plan files stay apart.
 
 ## The planner model's instructions
 
-A planner model gets Rawstep's fixed planner rules as its system instructions. The exact text is `SPEECH_PLANNER_INSTRUCTIONS` in [`packages/policies/src/llm/rules.ts`](../packages/policies/src/llm/rules.ts). The dashboard shows it read-only as Rawstep 기본 계획 규칙 (바꿀 수 없음) (Rawstep's built-in planning rules, cannot be changed). In summary, the rules tell the model:
+A planner model gets Rawstep's fixed planner rules as its system instructions. The exact text is `SPEECH_PLANNER_INSTRUCTIONS` in [`packages/policies/src/llm/rules.ts`](../packages/policies/src/llm/rules.ts). The dashboard shows it read-only as Rawstep’s default planner rules (cannot be changed). In summary, the rules tell the model:
 
 - Plan for a screen reader user trying to reach a goal on a web page. Rawstep carries out the plan exactly as written, with only the listed actions.
 - Write the plan as criteria, a one-sentence strategy, assumptions, and phases of short tasks, each doable in a few actions.
@@ -277,7 +281,7 @@ The model never gets the DOM, screenshots or completion check results. The type 
 
 ### Your own instructions
 
-`profiles[].planner.instructions` (계획 지침 (선택), Planner instructions, optional, in the dashboard) is added after the built-in rules under the line `Additional instructions:`. It never replaces them. Strategy or user-type guidance is fine ("Try heading navigation first."). Do not write page knowledge a first-time user would not have, such as where a button is: that hides the friction Rawstep measures.
+`profiles[].planner.instructions` (Planner instructions (optional) in the dashboard) is added after the built-in rules under the line `Additional instructions:`. It never replaces them. Strategy or user-type guidance is fine ("Try heading navigation first."). Do not write page knowledge a first-time user would not have, such as where a button is: that hides the friction Rawstep measures.
 
 Each plan records the full instructions as the prompt `rawstep-planner`, with a SHA-256 hash and a short version taken from it, so runs with different instructions can be told apart.
 

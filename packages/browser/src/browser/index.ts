@@ -1,4 +1,4 @@
-import { applyProfile, installProfileStyles, type AppliedProfile, type EnvironmentProfile, type NativeZoomController } from '../profiles/index.js';
+import { applyProfile, installProfileStyles, type AppliedProfile, type EnvironmentProfile } from '../profiles/index.js';
 import { chromium, type Browser, type BrowserContext, type Page } from "playwright";
 import type { ResolvedNavigationPolicy, VerifySpec } from "@rawstep/core/contracts";
 import { DEFAULT_VIEWPORT, SETTLE_MS } from "./constants.js";
@@ -98,7 +98,6 @@ export class BrowserSetupError extends RawstepError {
 
 export type CreateBrowserSessionOptions = {
   profile?: EnvironmentProfile;
-  nativeZoom?: NativeZoomController;
   headless?: boolean;
   executablePath?: string;
   /** Explicit credential-free HTTP(S)/SOCKS proxy. No environment-variable auto-discovery. */
@@ -427,7 +426,7 @@ export async function createBrowserSession(
       if(options.navigation?.readOnly && initialResponse && [401,403,407,429].includes(initialResponse.status()))throw new BrowserAccessBlockedError(initialResponse.url(),initialResponse.status(),`Public read-only navigation was blocked by HTTP ${initialResponse.status()}; no alternate route or authentication attempted.`);
       await waitForNetworkIdleBestEffort(page);
       if(options.navigation?.readOnly){const title=await page.title();const challenge=await page.locator('iframe[src*="captcha" i],iframe[src*="challenge" i]').count();if(challenge||/access denied|verify (you are|you're) human|just a moment|robot check/i.test(title))throw new BrowserAccessBlockedError(page.url(),initialResponse?.status(),'Public read-only page presents an access or human-verification barrier; no challenge interaction attempted.');}
-      const appliedProfile = options.profile ? await applyProfile(page, options.profile, { nativeZoom: options.nativeZoom }) : undefined;
+      const appliedProfile = options.profile ? await applyProfile(page, options.profile) : undefined;
       if (appliedProfile) session.appliedProfile = appliedProfile;
       if (observer) session.observer = observer;
       session.setupTimings!.pageLoadMs = Date.now() - pageLoadStartedAt;

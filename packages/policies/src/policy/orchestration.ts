@@ -43,7 +43,8 @@ export function goalWordStretch(goal: string, items: readonly (string | undefine
   return { current, longest };
 }
 /** `prompt` fingerprints the planner's full instructions, so runs with different planner instructions stay apart. */
-export type PlanResult = { draft: PlanDraft; model: { id: string; runtime: string }; prompt?: { id: string; version: string; sha256: string }; retried?: ModelFailure };
+/** `ranOut`: a plan that cannot change (a plan file) has no task left. Its give-up is the plan's end, not a judgement to check. */
+export type PlanResult = { draft: PlanDraft; model: { id: string; runtime: string }; prompt?: { id: string; version: string; sha256: string }; retried?: ModelFailure; ranOut?: true };
 /** Asks whether a spoken item is what the current task looks for, its cue having been written before the item was heard. */
 export type CueRequest = { goal: string; context?: string; task: { goal: string; done: string; cue: string }; heard: string };
 export type CueResult = { matches: boolean; reason?: string; model: { id: string; runtime: string }; retried?: ModelFailure };
@@ -197,7 +198,7 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
       // Rawstep carries out the task as written. The headings survey is the user's move before the first plan, never a task's.
       const actions = speechChoices(input.allowedActions, input.inputs).filter(c => !(c.decision.action.kind === 'intent' && c.decision.action.intent === 'headings.list'));
       const choiceId = followPlan(task, actions.map(c => c.id), attempts.flatMap(h => choiceIdOf(h.decision) ?? []));
-      if (!choiceId) return this.unmeasured(step, 'plan-finished');
+      if (!choiceId) return this.unmeasured(step, 'plan-finished', 'no-allowed-action');
       this.evidence.push({ kind: 'orchestration-follow', taskId: task.id, planVersion: doc.version, choices: actions.map(({ id, label }) => ({ id, label })), choiceId,
         uncertainty: 'Rawstep carried out the plan as written; no model chose this action.' });
       task.actions++;
@@ -277,7 +278,7 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
     const actions = speechChoices(input.allowedActions, input.inputs).map(({ id, label }) => ({ id, label }));
     const started = performance.now();
     this.plannerCalls++;
-    const { draft, model, prompt, retried } = await this.planner.plan({ goal: input.goal, ...(input.context ? { context: input.context } : {}), ...currentItemState(input), trigger, speech: [...input.observation.speech], ...(input.observation.title ? { title: input.observation.title } : {}), actions,
+    const { draft, model, prompt, retried, ranOut } = await this.planner.plan({ goal: input.goal, ...(input.context ? { context: input.context } : {}), ...currentItemState(input), trigger, speech: [...input.observation.speech], ...(input.observation.title ? { title: input.observation.title } : {}), actions,
       ...(this.doc ? { document: structuredClone(this.doc) } : {}), attempts: this.attempts(input.history, input), effort: this.effort(input), ...(refusedGiveUp ? { refusedGiveUp } : {}) }, { signal: input.signal });
     input.signal.throwIfAborted();
     // Asking again for an unusable reply is another planner call.
@@ -296,9 +297,9 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
       // Giving up has to rest on approaches that were tried and failed: the assumptions it names must be broken. A long walk alone, or
       // a hunch, is not enough; the refusal is kept as a sign the user wanted to stop here.
       const broken = new Set(this.doc.assumptions.filter(a => a.status === 'broken').map(a => a.id));
-      const refused = !draft.giveUp.tried.length ? 'it names no approach that was tried and failed'
+      const refused = ranOut ? undefined : !draft.giveUp.tried.length ? 'it names no approach that was tried and failed'
         : draft.giveUp.tried.some(id => !broken.has(id)) ? `it names assumptions that are not broken (${draft.giveUp.tried.filter(id => !broken.has(id)).join(', ')})` : undefined;
-      this.evidence.push({ kind: 'orchestration-give-up', step, version: this.doc.version, reason: draft.giveUp.reason, tried: [...draft.giveUp.tried], accepted: !refused, ...(refused ? { refused } : {}), effort: this.effort(input) });
+      this.evidence.push({ kind: 'orchestration-give-up', step, version: this.doc.version, reason: draft.giveUp.reason, tried: [...draft.giveUp.tried], accepted: !refused, ...(ranOut ? { ranOut } : {}), ...(refused ? { refused } : {}), effort: this.effort(input) });
       if (!refused) { this.gaveUp = structuredClone(draft.giveUp); return; }
       if (!currentTask(this.doc) && !this.outOfCalls()) return this.replan(input, step, trigger, refused);
     }
@@ -321,11 +322,11 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
     return { stop: 'stuck', stopSource: 'user-gave-up' };
   }
   /** A cost limit, not the user, ends the run: whether the task can be done is not known. */
-  private unmeasured(step: number, reason: PlanTrigger): Decision {
+  private unmeasured(step: number, reason: PlanTrigger, source: 'orchestration-limit' | 'no-allowed-action' = 'orchestration-limit'): Decision {
     const task = this.doc && currentTask(this.doc);
     if (this.doc && task) { failCurrent(this.doc, step); this.taskEvent(task, 'active'); }
     this.evidence.push({ kind: 'orchestration-limit', reason, plannerCalls: this.plannerCalls, maxPlannerCalls: this.limits.maxPlannerCalls, ...(this.doc ? { document: structuredClone(this.doc) } : {}),
       uncertainty: 'The run reached a cost limit before the user reached the goal or gave up; whether the task can be done is not known.' });
-    return { stop: 'uncertain', stopSource: 'orchestration-limit' };
+    return { stop: 'uncertain', stopSource: source };
   }
 }
