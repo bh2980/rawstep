@@ -41,7 +41,7 @@ export const planFileSchema = planDraftSchema.extend({ complete: z.literal(false
 /**
  * A plan written beforehand — by a person, or by a planner model and saved — that never changes during the run. It holds the plan
  * still, so a run measures how these tasks fare on the page rather than how well a planner plans. When Rawstep would ask
- * for a new plan (actions failing, changing nothing, running long), the stuck task is abandoned and the
+ * for a new plan because a task is stuck (actions failing, changing nothing, running long), that task is abandoned and the
  * next one starts: that abandonment is the finding. When no task is left the run ends and the run's own checks decide the outcome.
  */
 export class FixedPlanner implements Planner {
@@ -56,7 +56,8 @@ export class FixedPlanner implements Planner {
       phases: doc.phases.map(phase => ({ title: phase.title, criteria: [...phase.criteria],
         tasks: phase.tasks.filter(task => task.id !== drop).map(task => ({ keep: task.id, goal: task.goal, done: task.done, cue: { name: task.cue, ...(task.cueRole ? { role: task.cueRole } : {}), ...(task.cueState ? { state: task.cueState } : {}) }, ...(task.activates !== undefined ? { activates: task.activates } : {}), ...(task.moves ? { moves: [...task.moves] } : {}), ...(task.types ? { types: task.types } : {}), serves: [...task.serves], relies: [...task.relies] })) })),
     });
-    if (request.trigger === 'checkpoint') return result(kept());
+    // A phase review, a goal item heard on the way, or taking stock of the effort: nothing is stuck, so the plan goes on as it is.
+    if (request.trigger === 'checkpoint' || request.trigger === 'goal-heard' || request.trigger === 'effort-review') return result(kept());
     const open = openTasks(doc);
     // Nothing left to try: the plan has run its course; the run's checks decide whether the goal was reached.
     if (request.trigger === 'plan-finished' || open.length <= (doc.current ? 1 : 0)) return result({ ...kept(doc.current), complete: true, rationale: 'Fixed plan: every task has been tried; the run\'s checks decide the outcome.' });

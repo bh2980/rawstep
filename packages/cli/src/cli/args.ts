@@ -117,7 +117,8 @@ Usage:
   rawstep doctor [--project <dir>]
 
 Commands:
-  init      Write a default rawstep.config.json. An existing file is never overwritten.
+  init      Write rawstep.config.json with a demo task that runs at once on a written plan (no model). An existing file
+            is never overwritten.
   ui        Open the dashboard to set up connections, experiment conditions and tasks, and to run experiments.
   run       Run a task from rawstep.config.json (by id) or a task JSON file with a run profile (models, allowed
             actions, page environment, screen reader, run rules), then print the conditions, each run's outcome and the
@@ -126,12 +127,12 @@ Commands:
   report    Write report.html and report.json for a saved run.
   analyze   Analyze a saved run. Without --llm the analysis is a local summary; --llm sends the saved
             events to the project's analysis model.
-  doctor    Check that a browser can launch, the config parses, credentials are set and, for a native
-            screen reader, that its AT Driver endpoint answers.
+  doctor    Check that a browser can launch, the config parses, each profile can run, credentials are set and, for a
+            native screen reader, that its AT Driver endpoint answers.
 
 Configuration:
   Everything lives in rawstep.config.json in the project directory: connections (where models are
-  reached; the model and effort are picked where used), run profiles (who plans and who acts, allowed actions,
+  reached; the model and effort are picked where used), run profiles (who plans, allowed actions,
   page environment, screen reader, run rules), tasks, project models (analysis, check suggestions) and machine settings. The dashboard and the CLI read the same file. Commit it with your project.
   API keys are never in that file: it names environment variables, and their values go in .env.local
   (do not commit it) or the process environment.

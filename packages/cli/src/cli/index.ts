@@ -12,8 +12,8 @@ import { writeReport } from '@rawstep/reports/report';
 import { HINTS_SCHEMA_VERSION, writeHints, type HintFinding, type HintReport } from '@rawstep/reports/hints';
 import { isStuck, isWrongGuess, runEnding, type RunEnding, type UnmeasuredBy } from '@rawstep/reports/endings';
 import { ProjectError } from '@rawstep/project/errors';
-import { agentOf, atEndpointOf, credentialRequirements } from '@rawstep/project/config';
-import { ProjectStore, initProject } from '@rawstep/project/store';
+import { agentOf, atEndpointOf, CONFIG_FILE, credentialRequirements, isFilePlanner, PROVIDERS, type ProviderId } from '@rawstep/project/config';
+import { ProjectStore, findAgentCli, initProject } from '@rawstep/project/store';
 import { projectAnalyzer, runTask, type RunTaskResult } from '@rawstep/project/run';
 import { CLI_USAGE, CliUsageError, parseCliArguments, parseRunRules, type CliArguments } from './args.js';
 
@@ -30,6 +30,8 @@ export interface CliDependencies {
   /** Test seam: whether a coding-agent CLI is installed and signed in. */
   /** Starts a coding-agent CLI over ACP and reads its models; rejects when it is missing or needs a sign-in. */
   checkAgent?: (connection: { provider: string }) => Promise<unknown>;
+  /** Test seam: the coding-agent CLI `init` finds on PATH. */
+  findAgent?: () => Promise<ProviderId | undefined>;
   cwd?: string;
   stdout?: (text: string) => void;
   stderr?: (text: string) => void;
@@ -63,8 +65,11 @@ export async function runCli(argv: string[] = process.argv.slice(2), dependencie
     const projectDir = resolve(cwd, String(args.options.project ?? '.'));
     switch (args.command) {
       case 'init': {
-        const path = await initProject(projectDir);
-        stdout(`Created ${path}\n\nNext:\n  npx rawstep ui                     add a model and a task\n  npx rawstep run <task>             run a task\n\nCommit rawstep.config.json. Keep .env.local (API keys) and .rawstep/ (run output) out of git.\n`);
+        const path = await initProject(projectDir), next = await nextSteps(dependencies);
+        stdout(`Created ${path} and a demo task in rawstep/demo/.\n\nNext:\n`
+          + `  npx rawstep run demo               the demo task on a plan written beforehand (no model, no key)\n`
+          + `  npx rawstep ui                     see the result and add your own tasks\n\n${next}`
+          + `Commit rawstep.config.json and rawstep/. Keep .env.local (API keys) and .rawstep/ (run output) out of git.\n`);
         return 0;
       }
       case 'ui': return await ui(args, projectDir, dependencies, stdout);
@@ -103,8 +108,20 @@ export async function runCli(argv: string[] = process.argv.slice(2), dependencie
   }
 }
 
+/**
+ * How the "Item by item" profile gets a planner: Rawstep never connects a model for the person, because a connection sends what the
+ * user hears to a provider on their account. A coding-agent CLI found on this computer is named as the shortest way.
+ */
+async function nextSteps(dependencies: CliDependencies): Promise<string> {
+  const agent = await (dependencies.findAgent ?? findAgentCli)();
+  return `For a first-time screen reader user planned by a model, the "Item by item" profile needs one: in \`npx rawstep ui\`, Settings > AI connections.\n`
+    + (agent ? `${PROVIDERS[agent].label} is installed on this computer: it plans on its own sign-in, with no API key.\n\n` : `A coding-agent CLI you are signed in to (Claude Code, Codex, opencode, Grok) needs no API key.\n\n`);
+}
+
 async function ui(args: CliArguments, projectDir: string, dependencies: CliDependencies, stdout: (text: string) => void): Promise<number> {
   const startDashboard = dependencies.startDashboard ?? (await import('@rawstep/dashboard')).startDashboard;
+  // A first `rawstep ui` in an empty folder starts with the same demo as `rawstep init`, so there is a task to run at once.
+  if (!existsSync(join(projectDir, CONFIG_FILE))) stdout(`Created ${await initProject(projectDir)} with a demo task.\n${await nextSteps(dependencies)}`);
   const app = await startDashboard({ projectDir, port: Number(args.options.port ?? 4318) });
   stdout('Rawstep dashboard: ' + app.url + '\n');
   const signals = dependencies.signals ?? process;
@@ -174,6 +191,8 @@ export function formatRunResult(result: RunTaskResult): string {
   result.runs.forEach((run, index) => {
     const hints = run.hints.hints, find = (kind: string) => hints.find(hint => hint.kind === kind);
     lines.push(`Run ${index + 1} of ${result.runs.length}: ${endingText(run.outcome)} · ${run.hints.steps} moves`);
+    // A run that broke says why on its first line: without it the person has nothing to fix.
+    if (run.outcome?.error) lines.push(`  Error${run.outcome.stage ? ` (${run.outcome.stage})` : ''}: ${String(run.outcome.error).split('\n')[0]}`);
     const giveUp = find('early-stop')?.detail.giveUp as { reason?: unknown; tried?: unknown } | undefined;
     if (giveUp && run.outcome?.policyStopSource === 'user-gave-up') {
       lines.push(`  Why: "${String(giveUp.reason ?? '')}"`);
@@ -197,7 +216,9 @@ export function formatRunResult(result: RunTaskResult): string {
   const endings = result.runs.map(run => run.outcome && run.outcome.reason !== 'error' && run.outcome.reason !== 'trace-persistence-error' && run.outcome.status !== 'aborted' ? runEnding(run.outcome, stopOf(run.outcome)) : undefined);
   const counted = endings.filter((ended): ended is NonNullable<typeof ended> => !!ended), count = (ending: RunEnding) => counted.filter(ended => ended.ending === ending).length;
   const others = (['gave-up', 'mistaken', 'unmeasured'] as const).filter(ending => count(ending)).map(ending => `${ENDING_TEXT[ending]} ${count(ending)}`);
-  lines.push(`Could a first-time user do it? reached the goal in ${count('reached')} of ${counted.length} runs${others.length ? ` · ${others.join(' · ')}` : ''}`);
+  const broken = result.runs.length - counted.length;
+  lines.push(counted.length ? `Could a first-time user do it? reached the goal in ${count('reached')} of ${counted.length} runs${others.length ? ` · ${others.join(' · ')}` : ''}${broken ? ` · ${broken} more ended on an error (not counted)` : ''}`
+    : `Could a first-time user do it? not known: ${broken === 1 ? 'the run' : `all ${broken} runs`} ended before the user could try (see the error above)`);
   const reachedSteps = result.runs.filter((run, index) => endings[index]?.ending === 'reached').map(run => run.hints.steps);
   if (reachedSteps.length) lines.push(`Cost of reaching it: ${median(reachedSteps)} moves${reachedSteps.length > 1 ? ` (${Math.min(...reachedSteps)}–${Math.max(...reachedSteps)})` : ''}`);
   const stuck = result.findings.filter(f => f.kind === 'expectation-broken' && f.target).map(f => ({ f, hits: f.occurrences.filter(isStuck) })).filter(item => item.hits.length);
@@ -231,7 +252,8 @@ export function nodeSupported(version: string): boolean {
 
 async function doctor(projectDir: string, dependencies: CliDependencies, stdout: (text: string) => void): Promise<number> {
   let failed = false;
-  const report = (ok: boolean | undefined, label: string, detail: string) => { if (ok === false) failed = true; stdout(`${ok === undefined ? 'skip' : ok ? 'ok  ' : 'FAIL'}  ${label}: ${detail}\n`); };
+  // `warn`: nothing is broken, but something is missing before a run can go (no planner, no task).
+  const report = (ok: boolean | undefined | 'warn', label: string, detail: string) => { if (ok === false) failed = true; stdout(`${ok === 'warn' ? 'warn' : ok === undefined ? 'skip' : ok ? 'ok  ' : 'FAIL'}  ${label}: ${detail}\n`); };
   report(nodeSupported(process.versions.node), 'Node', `${process.version} (needs >= 22.12)`);
   const store = new ProjectStore(projectDir);
   let read: Awaited<ReturnType<ProjectStore['read']>> | undefined;
@@ -239,6 +261,16 @@ async function doctor(projectDir: string, dependencies: CliDependencies, stdout:
     read = await store.read();
     const c = read.config;
     report(true, 'Config', `${store.path} (${c.connections.length} connections, ${c.tasks.length} tasks, ${c.profiles.length} run profiles)`);
+    if (!c.tasks.length) report('warn', 'Tasks', 'none yet. Add one with `npx rawstep ui`, or run `npx rawstep init` in an empty folder for a demo task');
+    for (const profile of c.profiles) {
+      const planner = profile.planner, connection = planner && !isFilePlanner(planner) ? c.connections.find(x => x.id === planner.connectionId) : undefined;
+      if (!planner) report('warn', `Profile ${profile.name}`, 'no planner yet, so it cannot run. Pick a model in `npx rawstep ui` (Settings > Run profiles)');
+      else if (isFilePlanner(planner)) {
+        const fixed = !planner.planFile.includes('{task}');
+        const exists = fixed ? await stat(resolve(projectDir, planner.planFile)).then(() => true, () => false) : undefined;
+        report(exists === false ? false : true, `Profile ${profile.name}`, exists === false ? `its plan file ${planner.planFile} is missing` : `follows the plan file ${planner.planFile} (no model)`);
+      } else report(true, `Profile ${profile.name}`, `plans with ${connection?.name ?? planner.connectionId} · ${planner.modelId}`);
+    }
   } catch (error) { report(false, 'Config', errorDetails(error)); }
   const executablePath = read?.config.machine.browserExecutablePath || undefined, cdpEndpoint = read?.config.machine.browserEndpoint.trim() || undefined;
   try {

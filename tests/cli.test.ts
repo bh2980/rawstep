@@ -6,7 +6,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { runCli, parseCliArguments, formatRunResult, nodeSupported, type CliDependencies } from "@rawstep/cli/cli";
 import { BrowserConnectError } from "@rawstep/browser/browser";
 import { ProjectError } from "@rawstep/project/errors";
-import { ProjectStore, initProject } from "@rawstep/project/store";
+import { ProjectStore, demoConfig, initProject } from "@rawstep/project/store";
+import type { ProviderId } from "@rawstep/project/config";
 import { defaultConfig } from "@rawstep/project/config";
 import type { RunTaskResult } from "@rawstep/project/run";
 import type { RunTrace } from "@rawstep/core/trace";
@@ -23,7 +24,8 @@ async function temporaryDirectory(): Promise<string> {
 function output(cwd: string) {
   const stdout = vi.fn();
   const stderr = vi.fn();
-  return { cwd, stdout, stderr };
+  // init looks for coding-agent CLIs on PATH; tests never depend on what this computer has installed.
+  return { cwd, stdout, stderr, findAgent: async (): Promise<ProviderId | undefined> => undefined };
 }
 const text = (mock: ReturnType<typeof vi.fn>) => mock.mock.calls.flat().join("");
 function fixtureTrace(status: "success" | "failure" = "success"): RunTrace {
@@ -82,18 +84,31 @@ describe("local dashboard command", () => {
   it("closes the server on a signal and starts it in the project directory", async () => {
     const signals = new EventEmitter(), close = vi.fn(async () => {}), stdout = vi.fn();
     const startDashboard = vi.fn(async () => ({ url: "http://127.0.0.1:5432", close }));
-    const pending = runCli(["ui", "--port=5432", "--project", "project"], { cwd: "/tmp", signals, startDashboard, stdout, stderr: () => {} });
+    const cwd = await temporaryDirectory();
+    const pending = runCli(["ui", "--port=5432", "--project", "project"], { cwd, signals, startDashboard, stdout, stderr: () => {}, findAgent: async () => undefined });
     await vi.waitFor(() => expect(signals.listenerCount("SIGINT")).toBe(1)); signals.emit("SIGINT");
-    expect(await pending).toBe(0); expect(startDashboard).toHaveBeenCalledWith({ projectDir: "/tmp/project", port: 5432 }); expect(close).toHaveBeenCalledOnce(); expect(signals.listenerCount("SIGTERM")).toBe(0);
+    expect(await pending).toBe(0); expect(startDashboard).toHaveBeenCalledWith({ projectDir: join(cwd, "project"), port: 5432 }); expect(close).toHaveBeenCalledOnce(); expect(signals.listenerCount("SIGTERM")).toBe(0);
+    // The first `ui` in an empty folder starts with the demo, as `init` does; a second one leaves the project as it is.
+    expect((await new ProjectStore(join(cwd, "project")).read()).config.tasks.map(t => t.id)).toEqual(["demo"]);
+    expect(text(stdout)).toContain("with a demo task");
+    const again = vi.fn(), second = runCli(["ui", "--project", "project"], { cwd, signals, startDashboard, stdout: again, stderr: () => {} });
+    await vi.waitFor(() => expect(signals.listenerCount("SIGINT")).toBe(1)); signals.emit("SIGINT");
+    expect(await second).toBe(0); expect(text(again)).not.toContain("demo task");
   });
 });
 
 describe("init", () => {
-  it("writes a default rawstep.config.json and refuses to overwrite it", async () => {
+  it("writes a project with the demo task, says what to run next, and refuses to overwrite it", async () => {
     const directory = await temporaryDirectory(), io = output(directory);
     expect(await runCli(["init"], io)).toBe(0);
     expect(text(io.stdout)).toContain(join(directory, "rawstep.config.json"));
-    expect(JSON.parse(await readFile(join(directory, "rawstep.config.json"), "utf8"))).toEqual(defaultConfig());
+    expect(text(io.stdout)).toMatch(/npx rawstep run demo\s+the demo task on a plan written beforehand[\s\S]*Settings > AI connections[\s\S]*A coding-agent CLI you are signed in to/);
+    expect(JSON.parse(await readFile(join(directory, "rawstep.config.json"), "utf8"))).toEqual(demoConfig());
+    // A coding-agent CLI on this computer is only named, never connected: connecting sends what the user hears to its provider.
+    const found = await temporaryDirectory(), withAgent = { ...output(found), findAgent: async () => "claudeCode" as const };
+    expect(await runCli(["init"], withAgent)).toBe(0);
+    expect(text(withAgent.stdout)).toContain("Claude Code is installed on this computer");
+    expect((await new ProjectStore(found).read()).config.connections).toEqual([]);
     await writeFile(join(directory, "rawstep.config.json"), "{\"mine\":true}");
     expect(await runCli(["init"], io)).toBe(1);
     expect(text(io.stderr)).toContain("already exists");
@@ -103,7 +118,7 @@ describe("init", () => {
   it("initializes the directory given by --project", async () => {
     const directory = await temporaryDirectory(), io = output(directory);
     expect(await runCli(["init", "--project", "sub/app"], io)).toBe(0);
-    expect((await new ProjectStore(join(directory, "sub/app")).read()).config.profiles).toHaveLength(1);
+    expect((await new ProjectStore(join(directory, "sub/app")).read()).config.profiles).toHaveLength(2);
   });
 });
 
@@ -154,6 +169,14 @@ describe("run", () => {
     expect((runTask.mock.calls[2]![1] as { runRules: object }).runRules).toEqual({ maxPlannerCalls: 3, repetitionGuard: false, stepActionLimit: 7, survey: "headings" });
     await runCli(["run", "t"], { ...io, runTask });
     for (const key of ["profile", "runRules"]) expect(runTask.mock.calls[3]![1]).not.toHaveProperty(key);
+  });
+  it("shows why a run broke and does not count it as a try", () => {
+    const broke = { runId: "r1", outDir: "/p/run-1", outcome: { status: "failure" as const, reason: "error", stage: "browser-start", error: "page.goto: net::ERR_FILE_NOT_FOUND at file:///p/page.html\nCall log: ..." }, hints: { ...result.runs[0]!.hints, steps: 0, hints: [] } };
+    const out = formatRunResult({ ...result, runs: [broke], findings: [] });
+    expect(out).toContain("  Error (browser-start): page.goto: net::ERR_FILE_NOT_FOUND at file:///p/page.html\n");
+    expect(out).not.toContain("Call log");
+    expect(out).toContain("Could a first-time user do it? not known: the run ended before the user could try (see the error above)");
+    expect(formatRunResult({ ...result, runs: [result.runs[0]!, broke] })).toMatch(/reached the goal in \d of 1 runs.* · 1 more ended on an error \(not counted\)/);
   });
   it("says why a user gave up and on which broken expectation, and lists where pressing did not respond as expected", () => {
     const stuck = { kind: "expectation-broken" as const, source: "model" as const, target: { role: "button", name: "Size" }, certainty: "observed" as const, steps: [17], summary: "", evidence: [],
@@ -326,6 +349,18 @@ describe("doctor", () => {
     expect(out).toContain("ok    Browser"); expect(out).toContain("ok    Config"); expect(out).toContain("skip  Screen reader");
     expect(out).toContain("1 run profiles");
     expect(launchBrowser).toHaveBeenCalledOnce();
+  });
+  it("warns about a profile that cannot run yet and a project without tasks, and fails on a missing plan file", async () => {
+    const directory = await project(config => { config.profiles.push({ ...config.profiles[0]!, id: "filed", name: "Filed", planner: { planFile: "plans/missing.json" } }); });
+    const io = output(directory);
+    expect(await runCli(["doctor"], { ...io, launchBrowser: async () => {} })).toBe(1);
+    const out = text(io.stdout);
+    expect(out).toMatch(/warn  Tasks: none yet/); expect(out).toMatch(/warn  Profile Default: no planner yet, so it cannot run/);
+    expect(out).toMatch(/FAIL  Profile Filed: its plan file plans\/missing.json is missing/);
+    const demo = await temporaryDirectory(); await initProject(demo);
+    const ready = output(demo);
+    expect(await runCli(["doctor"], { ...ready, launchBrowser: async () => {} })).toBe(0);
+    expect(text(ready.stdout)).toMatch(/ok    Profile Written plan \(no model\): follows the plan file rawstep\/demo\/plan.json/);
   });
   it("fails when the browser cannot launch, with the way out", async () => {
     const io = output(await project());
