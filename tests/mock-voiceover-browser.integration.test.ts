@@ -129,6 +129,23 @@ describe('browser-backed simulated English VoiceOver profile in real Chromium', 
     expect((await f.key('Tab')).join(' ')).toContain('Small');
     expect((await f.key('ArrowDown')).join(' ')).toContain('Large');
   });
+  it('opens the rotor on form controls, moves through it and jumps to the picked item without pressing it', async () => {
+    const f = await fixture('<h1>Shop</h1><p>Price</p><button>Gift</button><label>Qty <input></label><button onclick="this.textContent=\'Bought\'">Buy now</button><h2>Options</h2>');
+    expect(await f.intent('formControls.rotor')).toEqual(['Form controls, 3 items', 'Gift, button']);
+    expect(await f.intent('previous')).toEqual(['Gift, button']);
+    expect((await f.intent('next')).join(' ')).toContain('Qty');
+    expect(await f.intent('next')).toEqual(['Buy now, button']);
+    expect(await f.intent('next')).toEqual(['Buy now, button']);
+    expect(await f.intent('activate')).toEqual(['Buy now, button']);
+    expect((await f.intent('next')).join(' ')).toContain('Options');
+    expect(await f.intent('previous')).toEqual(['Buy now, button']);
+    expect(await f.intent('activate')).toEqual(['Bought, button']);
+    expect(await f.intent('formControls.rotor')).toEqual(['Form controls, 3 items', 'Gift, button']);
+    expect(await f.key('Escape')).toEqual(['Bought, button']);
+    expect((await f.intent('next')).join(' ')).toContain('Options');
+    const none = await fixture('<p>Plain page</p>');
+    expect(await none.intent('formControls.rotor')).toEqual(['Form controls, no items']);
+  });
   it('jumps by link and form control both ways, and lists the links without moving the cursor', async () => {
     const f = await fixture('<h1>Shop</h1><a href="#a">Home</a><p>Intro</p><label>Qty <input></label><a href="#b">Cart</a>');
     expect(await f.intent('links.list')).toEqual(['Links, 2 items: Home; Cart']);

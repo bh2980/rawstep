@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { parseRoute, routeSearch } from '../packages/dashboard/src/web/hooks/useRoute.js';
 import { personaOf, withPreset } from '../packages/dashboard/src/web/lib/persona.js';
 import { formatSteps, relativeTime } from '../packages/dashboard/src/web/lib/format.js';
-import { DEFAULT_PERMISSIONS } from '@rawstep/project/config';
+import { defaultProfile } from '@rawstep/project/config';
 
 describe('routes', () => {
   it('keeps the page in the URL: the task list first, tasks and runs under 작업, every setting under 설정', () => {
@@ -38,17 +38,18 @@ describe('routes', () => {
   });
 });
 
-describe('persona presets', () => {
-  it('starts novice, expert and skilled users and recognises them whatever the order', () => {
-    const novice = { actions: structuredClone(DEFAULT_PERMISSIONS) };
-    expect(personaOf(novice)).toBe('novice');
-    const expert = withPreset(novice, 'expert');
-    expect(expert.actions.intents).toEqual(['next', 'previous', 'activate', 'heading.next', 'heading.previous', 'form.next', 'headings.list']);
-    expect(expert.actions.typeText).toBe(true);
-    expect(personaOf(expert)).toBe('expert');
-    expect(withPreset(novice, 'skilled').actions.keys).toContain('Tab');
-    expect(personaOf({ actions: { ...novice.actions, intents: ['activate', 'previous', 'next'] } })).toBe('novice');
-    expect(personaOf({ actions: { ...novice.actions, intents: ['next'] } })).toBe('custom');
+describe('screen reader ways of finding things', () => {
+  it('starts each way from item-by-item reading plus one way of jumping, and recognises it whatever the order', () => {
+    const profile = defaultProfile();
+    expect(personaOf(profile)).toBe('linear');
+    const headings = withPreset(profile, 'headings');
+    expect(headings.actions.intents).toEqual(['next', 'previous', 'activate', 'heading.next', 'heading.previous', 'headings.list']);
+    expect(headings.actions.typeText).toBe(true);
+    expect(withPreset(profile, 'formControls').actions.intents).toContain('formControls.rotor');
+    expect(withPreset(profile, 'links').actions.intents).toContain('links.list');
+    expect(personaOf({ actions: { ...headings.actions, intents: [...headings.actions.intents].reverse() } })).toBe('headings');
+    // Two ways at once is not one of the starting points.
+    expect(personaOf({ actions: { ...headings.actions, intents: [...headings.actions.intents, 'link.next'] } })).toBe('custom');
   });
 });
 

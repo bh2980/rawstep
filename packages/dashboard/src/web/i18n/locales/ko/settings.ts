@@ -211,10 +211,11 @@ export const settings = {
   },
   persona: {
     label: '사용자',
-    presetLabel: '시작점',
-    novice: { name: '처음 쓰는 스크린리더 사용자', preset: '처음 쓰는 사용자', hint: '다음·이전 항목으로 한 칸씩 듣고 누릅니다.' },
-    expert: { name: '익숙한 스크린리더 사용자', preset: '익숙한 사용자', hint: '제목 목록을 먼저 훑고, 제목·폼 컨트롤로 건너뛰며, 작업의 입력값을 씁니다.' },
-    skilled: { name: '숙련된 스크린리더 사용자', preset: '숙련된 사용자', hint: '익숙한 사용자의 동작에 더해 링크로 건너뛰고 링크 목록을 들으며, 폼과 메뉴에서는 Tab·Enter·방향키를 씁니다.' },
+    presetLabel: '찾는 방법',
+    linear: { name: '한 칸씩 듣는 스크린리더 사용자', preset: '한 칸씩', hint: '다음·이전 항목으로 한 칸씩 듣고 누릅니다.' },
+    headings: { name: '제목으로 찾는 스크린리더 사용자', preset: '제목으로', hint: '한 칸씩 듣기에 더해, 제목 목록을 먼저 훑고 제목으로 건너뜁니다.' },
+    formControls: { name: '폼 컨트롤로 찾는 스크린리더 사용자', preset: '폼 컨트롤로', hint: '한 칸씩 듣기에 더해, 폼 컨트롤로 건너뛰고 로터의 폼 컨트롤 목록에서 버튼을 고릅니다.' },
+    links: { name: '링크로 찾는 스크린리더 사용자', preset: '링크로', hint: '한 칸씩 듣기에 더해, 링크로 건너뛰고 링크 목록을 듣습니다.' },
     custom: { name: '동작을 직접 고른 스크린리더 사용자', preset: '직접 고름', hint: '아래에서 고른 동작만 씁니다.' },
   },
 
@@ -252,6 +253,7 @@ export const settings = {
       link: { next: '다음 링크', previous: '이전 링크' },
       headings: { list: '제목 목록 듣기' },
       links: { list: '링크 목록 듣기' },
+      formControls: { rotor: '로터에서 폼 컨트롤 목록 열기' },
     },
     combo: {
       noConnections: '등록한 연결이 없어 모델을 고를 수 없습니다. 먼저 연결에서 제공자나 서버를 추가하세요.',
@@ -296,7 +298,7 @@ export const settings = {
         noLlm: 'LLM 연결이 없어 계획 모델을 고를 수 없습니다. 연결에서 LLM을 추가하세요.',
         instructions: '계획 지침 (선택)',
         instructionsInfo: 'Rawstep 기본 규칙 뒤에 덧붙습니다.',
-        instructionsPlaceholder: '예: 숙련된 스크린리더 사용자처럼 제목 이동을 먼저 시도하세요.',
+        instructionsPlaceholder: '예: 제목 이동을 먼저 시도하세요.',
         pageKnowledge: '페이지를 아는 사람만 아는 정보(버튼 위치 등)는 적지 마세요. 측정하려는 길찾기 어려움이 사라집니다.',
         builtIn: 'Rawstep 기본 계획 규칙 (바꿀 수 없음)',
       },

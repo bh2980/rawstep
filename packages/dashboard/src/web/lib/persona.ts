@@ -1,22 +1,25 @@
 import type { Permissions, Profile } from '@rawstep/project/config';
 import { t } from '../i18n/index.js';
-import { SCREENREADER_BASIC, SCREENREADER_KEYS, SCREENREADER_MORE, SCREENREADER_QUICK } from './presets.js';
+import { SCREENREADER_BASIC, SCREENREADER_FORM_CONTROLS, SCREENREADER_HEADINGS, SCREENREADER_LINKS } from './presets.js';
 
 /**
- * Who the simulated user is: a starting point in the words a person picks it by. A screen reader user new to their screen reader reads
- * item by item; one who knows it jumps by heading, lists the headings and types the task's inputs; a skilled one also jumps by link,
- * lists the links and uses Tab and the arrow keys in forms and menus.
+ * Who the simulated user is: a starting point in the words a person picks it by. A screen reader user is described by how they look
+ * for things, not by how skilled they are: item by item, or item by item plus one way of jumping (headings, form controls or links,
+ * each with its rotor list). People differ in the way they pick, so each way is run and costed on its own rather than one guess at
+ * what a skilled user does.
  * `custom` is a user whose actions were picked one by one.
  */
-export type Persona = 'novice' | 'expert' | 'skilled' | 'custom';
+export type Persona = 'linear' | 'headings' | 'formControls' | 'links' | 'custom';
 type Preset = Exclude<Persona, 'custom'>;
-export const PRESETS: readonly Preset[] = ['novice', 'expert', 'skilled'];
+export const PRESETS: readonly Preset[] = ['linear', 'headings', 'formControls', 'links'];
 
 const permissions = (keys: readonly string[], intents: readonly string[], typeText: boolean): Permissions => ({ keys: [...keys], intents: [...intents], typeText, replaceText: false });
+// Typing the task's inputs is part of the task, not a way of finding things, so every screen reader way allows it.
 const PERMISSIONS: Record<Preset, Permissions> = {
-  novice: permissions([], SCREENREADER_BASIC, false),
-  expert: permissions([], [...SCREENREADER_BASIC, ...SCREENREADER_QUICK], true),
-  skilled: permissions(SCREENREADER_KEYS, [...SCREENREADER_BASIC, ...SCREENREADER_QUICK, ...SCREENREADER_MORE], true),
+  linear: permissions([], SCREENREADER_BASIC, true),
+  headings: permissions([], [...SCREENREADER_BASIC, ...SCREENREADER_HEADINGS], true),
+  formControls: permissions([], [...SCREENREADER_BASIC, ...SCREENREADER_FORM_CONTROLS], true),
+  links: permissions([], [...SCREENREADER_BASIC, ...SCREENREADER_LINKS], true),
 };
 const sameSet = (a: readonly string[], b: readonly string[]) => a.length === b.length && b.every(item => a.includes(item));
 
@@ -31,7 +34,7 @@ export function withPreset<P extends Pick<Profile, 'actions'>>(profile: P, prese
   return { ...profile, actions: structuredClone(PERMISSIONS[preset]) };
 }
 
-/** The user in a few words, such as "처음 쓰는 스크린리더 사용자". */
+/** The user in a few words, such as "제목으로 찾는 스크린리더 사용자". */
 export function personaName(persona: Persona): string {
   return t(`persona.${persona}.name`);
 }

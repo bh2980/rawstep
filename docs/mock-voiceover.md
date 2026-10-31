@@ -55,6 +55,7 @@ The current `english-dom-navigation-evidence-v2` profile uses Chromium's CDP `Ac
 | `readCurrent` | Describe the object at the simulated cursor using deterministic English wording | No speech synthesis or native utterance capture |
 | `readFocused` | Describe the exposed object with actual keyboard focus | Cursor and focus may refer to different objects |
 | `activate` | Guarded DOM `.click()` on supported controls, or `.focus()` on an editable field | AXPress approximation; clicks are untrusted and may differ from native activation |
+| `formControls.rotor` | Open the rotor's form controls list (buttons included) at the first one in page order, saying the list's name and item count, then that item, as two utterances; while open, `next`/`previous` move one item and speak it, `activate` moves the cursor to that item without pressing it, `Escape` or any other action closes it | Typing to filter the list is not modelled, so finding an item can take more moves than in VoiceOver; where the native rotor starts, and whether it says the list's name apart from the first item, is not checked. Native VoiceOver runs open the real rotor (see the AT Driver README); NVDA runs reject it |
 | `Tab`, `Shift+Tab`, `Enter`, `Space`, `Escape` | Deliver actual browser keyboard actions | Native browser or page behavior determines the result |
 | `typeText`, `replaceText` | Enter a named task input only into an actually focused editable field; verify focus while typing | Merely browsing to a field is insufficient; disabled and read-only fields reject input |
 | Names and state | Read exposed names, values, roles, heading levels, checked/pressed/expanded/selected, disabled, read-only, required, multiline, and modal states | A small typed formatter, not VoiceOver's context-dependent wording |
@@ -63,7 +64,7 @@ The current `english-dom-navigation-evidence-v2` profile uses Chromium's CDP `Ac
 
 Disabled controls remain available for cursor reading when exposed by Chromium, but activation and text entry reject them. An ARIA role alone does not implement a widget: missing click or keyboard handlers remain missing. DOM changes and navigation come from the actual page and remain subject to runner navigation and action restrictions.
 
-Out of scope: native macOS/Safari AX parity, group interaction, rotor, Quick Nav, live-region announcement scheduling, earcons, speech queues and interruption, native pronunciation and verbosity settings, cross-frame navigation, browser chrome, and operating-system dialogs. An observation refresh is not a native speech-completion signal. The browser and its version can change the accessible objects or their names, even though the formatter is deterministic for the same semantic input.
+Out of scope: native macOS/Safari AX parity, group interaction, rotor lists other than headings, links and form controls, Quick Nav, live-region announcement scheduling, earcons, speech queues and interruption, native pronunciation and verbosity settings, cross-frame navigation, browser chrome, and operating-system dialogs. An observation refresh is not a native speech-completion signal. The browser and its version can change the accessible objects or their names, even though the formatter is deterministic for the same semantic input.
 
 ## Evidence and privacy
 

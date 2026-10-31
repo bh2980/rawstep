@@ -122,12 +122,17 @@ const HELP: Record<HelpReason, string> = {
   'already-done': 'Ask for a new plan: the current task already looks done, or the page is not what the plan expected',
 };
 
+/** Moves that open a list once, in which next and previous then move: opening it again would start the list over. */
+const LIST_OPENERS = new Set(['formControls.rotor']);
+/** A task's moves with what using them takes: moving through a list the task opens. */
+const withListMoves = (moves: readonly string[]) => moves.some(move => LIST_OPENERS.has(move)) ? [...new Set([...moves, 'next', 'previous'])] : moves;
 /**
  * The action a plan prescribes for its task, among the offered ones: a pressing task presses; a moving task takes its first move;
- * a task that names neither moves to the next item. Undefined when none of those is offered.
+ * a task that names neither moves to the next item. A list the task already opened (`taken`: the task's intents so far) is not
+ * opened again. Undefined when none of those is offered.
  */
-export function followPlan(task: Pick<PlanTask, 'activates' | 'moves'>, offered: readonly string[]): string | undefined {
-  const wanted = task.activates === true ? ['activate'] : [...(task.moves ?? []), 'next'];
+export function followPlan(task: Pick<PlanTask, 'activates' | 'moves'>, offered: readonly string[], taken: readonly string[] = []): string | undefined {
+  const wanted = task.activates === true ? ['activate'] : [...(task.moves ?? []).filter(move => !(LIST_OPENERS.has(move) && taken.includes(move))), 'next'];
   return wanted.map(intent => `intent:${intent}`).find(id => offered.includes(id));
 }
 /** How far the top probability is from a uniform guess (0) towards certainty (1); undefined without probabilities. */
@@ -265,7 +270,7 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
       // A pressing task without moves presses the item the moving task ended on: moving off it first presses the wrong one.
       const latitude = this.options.executorLatitude ?? 'none';
       const pressOnly = this.control === 'rawstep' && latitude === 'none' && task.activates === true && !task.moves?.length;
-      const moves = latitude === 'method' || !task.moves?.length ? undefined : latitude === 'direction' ? [...new Set(task.moves.flatMap(m => [m, opposite(m)]))] : task.moves;
+      const moves = latitude === 'method' || !task.moves?.length ? undefined : withListMoves(latitude === 'direction' ? [...new Set(task.moves.flatMap(m => [m, opposite(m)]))] : task.moves);
       const narrowed = this.control === 'rawstep' && (moves || pressOnly)
         ? actions.filter(c => !('action' in c.decision) || c.decision.action.kind !== 'intent' || c.decision.action.intent === 'activate' || !!moves?.includes(c.decision.action.intent))
         : actions;
@@ -280,7 +285,8 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
         // Right after a turned-down "done", "already done" is the same claim in other words.
         ...(meta && tried >= Math.min(TRIES_BEFORE_HELP, this.limits.stepActionLimit) ? (Object.keys(HELP) as HelpReason[]).filter(reason => !(reason === 'already-done' && refused === task.id)).map(reason => ({ id: `help:${reason}`, label: HELP[reason] })) : [])];
       if (this.executor === 'follow-plan') {
-        const choiceId = followPlan(task, actions.map(c => c.id));
+        const taken = taskAttempts.flatMap(h => 'action' in h.decision && h.decision.action.kind === 'intent' ? [h.decision.action.intent] : []);
+        const choiceId = followPlan(task, actions.map(c => c.id), taken);
         if (!choiceId) return this.unmeasured(step, 'plan-finished');
         this.evidence.push({ kind: 'orchestration-follow', taskId: task.id, planVersion: doc.version, choices: candidates, choiceId,
           uncertainty: 'Rawstep carried out the plan as written; no model chose this action.' });
