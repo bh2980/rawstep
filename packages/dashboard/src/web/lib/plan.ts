@@ -1,4 +1,4 @@
-import type { ModelCall, PlanDocument, PlanTask, RunPlanView, StepView } from '../../shared/api.js';
+import type { PlanDocument, PlanTask, RunPlanView, StepView } from '../../shared/api.js';
 import { t } from '../i18n/index.js';
 
 /** A task of the document with the title of the phase it sits in (retired tasks keep the title they had). */
@@ -11,32 +11,25 @@ export function placedTasks(doc: PlanDocument): PlacedTask[] {
 /** The plan versions that corrected the plan: neither the first plan nor a phase checkpoint. */
 export const replanCount = (plan: Pick<RunPlanView, 'versions'>): number => plan.versions.filter(v => v.trigger !== 'start' && v.trigger !== 'checkpoint').length;
 
-/** Why a version was made, in words: "실행 모델 도움 요청 (완료 단서를 찾을 수 없음)". */
-export function triggerLabel(trigger: string, help?: string): string {
-  const base = t(`planDoc.triggers.${trigger}`, { defaultValue: trigger });
-  return help ? t('planDoc.triggerWithHelp', { trigger: base, help: t(`hints.text.helpReasons.${help}`, { defaultValue: help }) }) : base;
-}
+/** Why a version was made, in words: "행동이 연달아 실패". */
+export const triggerLabel = (trigger: string): string => t(`planDoc.triggers.${trigger}`, { defaultValue: trigger });
 
 /** The revision that dropped a task, if one did. */
 export const droppedIn = (doc: PlanDocument, taskId: string) => doc.revisions.find(r => r.abandoned.includes(taskId));
 
-/** "포기 (v2) · 실행 모델 도움 요청 (완료 단서를 찾을 수 없음)": how a task ended, for the tree and the task pane. */
+/** "포기 (v2) · 행동이 연달아 실패": how a task ended, for the tree and the task pane. */
 export function endingLabel(doc: PlanDocument, task: PlanTask): string | undefined {
   if (task.status === 'abandoned') {
     const revision = droppedIn(doc, task.id);
-    return revision ? t('planDoc.abandonedIn', { version: revision.version, reason: triggerLabel(revision.trigger, revision.help) }) : t('planDoc.status.abandoned');
+    return revision ? t('planDoc.abandonedIn', { version: revision.version, reason: triggerLabel(revision.trigger) }) : t('planDoc.status.abandoned');
   }
   if (task.status === 'failed') return t('planDoc.failedLimit');
   if (task.status === 'done' && task.ending?.verified) return t(`planDoc.verified.${task.ending.verified}`);
   return undefined;
 }
 
-/** Seconds spent waiting for models, in total and per role. */
-export function modelWait(calls: RunPlanView['calls']): { total: number; planner: number; executor: number } {
-  const all = Object.values(calls).flat();
-  const sum = (list: ModelCall[]) => list.reduce((s, call) => s + (call.elapsedMs ?? 0), 0) / 1000;
-  return { total: sum(all), planner: sum(all.filter(c => c.role === 'planner')), executor: sum(all.filter(c => c.role !== 'planner')) };
-}
+/** Seconds spent waiting for the planner. */
+export const plannerWait = (calls: RunPlanView['calls']): number => Object.values(calls).flat().reduce((s, call) => s + (call.elapsedMs ?? 0), 0) / 1000;
 
 /** The steps whose action served a task, in order. */
 export function taskSteps(plan: Pick<RunPlanView, 'stepTasks'>, taskId: string, steps: readonly StepView[]): StepView[] {

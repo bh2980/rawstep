@@ -1,4 +1,4 @@
-import { agentOf, credentialId, modelKeyEnv, modelKeyRequired, type Connection, type ModelKind, type ProviderId } from '@rawstep/project/config';
+import { agentOf, credentialId, modelKeyEnv, modelKeyRequired, type Connection } from '@rawstep/project/config';
 
 export const ENV_NAME = /^[A-Z][A-Z0-9_]{0,100}$/;
 
@@ -10,18 +10,14 @@ export function generateEnvName(connections: readonly Connection[], selfId?: str
   for (let n = 2; ; n++) if (!taken(`${base}_${n}`)) return `${base}_${n}`;
 }
 
-/** The i18n key group of one kind and provider (`connections.providers.<key>.name` / `.description`). */
-export type ProviderTextKey = 'llmOpenai' | 'llmAnthropic' | 'llmGoogle' | 'llmOpenrouter' | 'llmClaudeCode' | 'llmCodex' | 'llmOpencode' | 'llmGrok' | 'llmCustom' | 'decisionTypesafe' | 'decisionGateway' | 'decisionOpenrouter' | 'decisionCustom';
-export const providerTextKey = (kind: ModelKind, provider: ProviderId): ProviderTextKey => (kind + provider[0]!.toUpperCase() + provider.slice(1)) as ProviderTextKey;
-
 /** What the list says of a connection's key without asking anyone: needed and missing, set, or nothing to check (a local server that takes no key). */
 export type KeyStatus = 'missing' | 'set' | 'unchecked';
-export function keyStatus(connection: Pick<Connection, 'id' | 'kind' | 'provider' | 'apiKeyEnv'>, credentialStatus: Record<string, boolean>): KeyStatus {
+export function keyStatus(connection: Pick<Connection, 'id' | 'provider' | 'apiKeyEnv'>, credentialStatus: Record<string, boolean>): KeyStatus {
   const required = modelKeyRequired(connection), used = required || !!modelKeyEnv(connection);
   if (!used) return 'unchecked';
   if (credentialStatus[credentialId(connection)]) return 'set';
   return required ? 'missing' : 'unchecked';
 }
 
-/** The i18n key of a connection's kind label under `connections.kinds`: an agent CLI reads as its own kind though it is an LLM. */
-export const kindLabelKey = (connection: Pick<Connection, 'kind' | 'provider'>): 'agent' | ModelKind => agentOf(connection) ? 'agent' : connection.kind;
+/** The i18n key of a connection's kind label under `connections.kinds`: an API LLM, or a coding-agent CLI. */
+export const kindLabelKey = (connection: Pick<Connection, 'provider'>): 'agent' | 'llm' => agentOf(connection) ? 'agent' : 'llm';

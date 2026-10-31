@@ -2,7 +2,7 @@
 
 English | [한국어](./README.ko.md)
 
-A local-first tool that runs a screen-reader task on a web page with a model choosing the actions, then reports friction hints: where the run got slow or took detours. Reaching the goal is one signal among them, not a verdict. It has independent verification, run profiles (models, allowed actions, page environment, screen reader, run rules) for comparisons and source-linked reports.
+A local-first tool that tries a screen-reader task on a web page the way a first-time user would (a planner model plans from what it hears, and Rawstep carries out the plan), then reports friction hints: where the run got slow or took detours. Reaching the goal is one signal among them, not a verdict. It has independent verification, run profiles (planner, allowed actions, page environment, screen reader, run rules) for comparisons and source-linked reports.
 
 Install one package, `rawstep`, and use it three ways: the dashboard (`npx rawstep ui`), the command line (`npx rawstep run`) and a library call in your tests (`import { runTask } from 'rawstep'`). The repository is a pnpm monorepo.
 
@@ -15,7 +15,7 @@ npx rawstep ui          # set up connections, run profiles and tasks in the dash
 npx rawstep run checkout --repeat 2
 ```
 
-Everything lives in `rawstep.config.json` in your project. The dashboard, the CLI and the library read the same file. Commit it. API keys never go in it: each provider reads its key from a fixed environment variable (`RAWSTEP_OPENAI_API_KEY`, `RAWSTEP_TYPESAFE_API_KEY`, ...; a custom connection names its own), and the value goes in `.env.local` or the process environment. Git-ignore `.rawstep/` and `.env.local`. See the [configuration reference](./docs/config.md) and [task files](./docs/task.md).
+Everything lives in `rawstep.config.json` in your project. The dashboard, the CLI and the library read the same file. Commit it. API keys never go in it: each provider reads its key from a fixed environment variable (`RAWSTEP_OPENAI_API_KEY`, `RAWSTEP_ANTHROPIC_API_KEY`, ...; a custom connection names its own), and the value goes in `.env.local` or the process environment. Git-ignore `.rawstep/` and `.env.local`. See the [configuration reference](./docs/config.md) and [task files](./docs/task.md).
 
 Example output:
 
@@ -70,22 +70,21 @@ Build before using the checkout CLI. A trusted existing Chromium can be selected
 
 ## Screen reader
 
-A run is speech → model choice → screen reader action. The profile's `screenReader` selects `simulation` (a Chromium-backed simulated screen reader, always labelled simulation) or a native `voiceover` / `nvda` AT Driver server on the supported host. Orca stays an advanced library backend; see [native Orca limits](./docs/native-orca.md).
+A run is speech → plan → screen reader action. The profile's `screenReader` selects `simulation` (a Chromium-backed simulated screen reader, always labelled simulation) or a native `voiceover` / `nvda` AT Driver server on the supported host. Orca stays an advanced library backend; see [native Orca limits](./docs/native-orca.md).
 
 Hints are friction signals, not a verdict. They point at steps worth a human look. See [reports and hints](./docs/report.md).
 
-The runner owns action restrictions, named-input gates, navigation boundaries, time/step budgets, cancellation and fail-closed trace persistence. No scripted fallback replaces a poor model decision. Model-selected success is independently verified; stuck, uncertain, repeat-guard stop and runtime failure remain distinct. See [SystemOne configuration and verification](./docs/systemone.md).
+The runner owns action restrictions, named-input gates, navigation boundaries, time/step budgets, cancellation and fail-closed trace persistence. No scripted fallback replaces a poor plan. A planner's claim of success is independently verified; giving up, not measured, repeat-guard stop and runtime failure remain distinct. See [Planner and plan](./docs/config.md#planner-and-plan).
 
 ### Local dashboard
 
-`npx rawstep ui` serves the UI and API together on `127.0.0.1`. From a checkout, run `npm run rawstep -- ui`, or `npm run dashboard:dev` for development. The menu has three entries: 작업, 실행 기록 and 설정. 작업 holds the task list and a task page where you run it. 설정 groups 실행 프로필 (the run profiles); 연결 (connections by type and provider, with model discovery, and the roles that use each) and 해설·제안 모델; and this computer (AT Driver addresses, browser, human check). The task page picks a run profile, shows the models the run will use and the run rules, and runs the task. The experiment queue runs tasks, profiles and repeats in one batch, and a run's page shows the plan document, its versions, the current task and each model call. Configuration and results use project files, with no database. Components use shadcn/ui.
+`npx rawstep ui` serves the UI and API together on `127.0.0.1`. From a checkout, run `npm run rawstep -- ui`, or `npm run dashboard:dev` for development. The menu has three entries: 작업, 실행 기록 and 설정. 작업 holds the task list and a task page where you run it. 설정 groups 실행 프로필 (the run profiles); 연결 (connections by provider, with model discovery, and the roles that use each) and 해설·제안 모델; and this computer (AT Driver addresses, browser, human check). The task page picks a run profile, shows the planner the run will use and the run rules, and runs the task. The experiment queue runs tasks, profiles and repeats in one batch, and a run's page shows the plan document, its versions, the current task and each planner call. Configuration and results use project files, with no database. Components use shadcn/ui.
 
 ### Connections and models
 
-A connection is where models are reached (type and provider, plus an address for a custom server); a run profile picks the models on connections, with the model and effort chosen where they are used. `npx rawstep ui` walks through both, or write the `connections[]` and `profiles[]` entries yourself ([configuration reference](./docs/config.md)). A screen reader run always plans: a planner LLM writes a plan document (success criteria, assumptions, phases and numbered tasks, with versions and a history) and the executor carries out one task at a time, asking for help or for a new plan when it is stuck (see [Planner and executor](./docs/config.md#planner-and-executor-orchestration)). A profile without a planner cannot run. To compare models or prompts, compare profiles that differ only in that part. A config older than `version` 6 does not load; start a new project with `rawstep init` and copy the tasks over.
+A connection is where language models are reached (a provider, plus an address for a custom server); a run profile picks the model on a connection, with the model and effort chosen where they are used. Providers: OpenAI, Anthropic, Google, OpenRouter, any OpenAI-compatible server (LM Studio, Ollama), or a logged-in coding-agent CLI over ACP (Claude Code, Codex, opencode, Grok Build, Antigravity; no API key, slower per call). A model serves as a profile's planner, the project's analysis model and completion-check suggestions. `npx rawstep ui` walks through connections and profiles, or write the `connections[]` and `profiles[]` entries yourself ([configuration reference](./docs/config.md)).
 
-- **LLM** (`kind: llm`): a language model that reads the situation and picks a candidate. Providers: OpenAI, Anthropic, Google, OpenRouter, or any OpenAI-compatible server (LM Studio, Ollama), or a logged-in coding-agent CLI over ACP (Claude Code, Codex, opencode, Grok Build, Antigravity; no API key, slower per call). It can also be a profile's planner, the project's analysis model and run completion-check suggestions.
-- **Decision** (`kind: decision`): a model that answers with a probability for every candidate: fast and cheap, for runs only. Providers: TypeSafe Jev, Vercel AI Gateway (text only), OpenRouter, or any `/systemone` server. See [SystemOne decisions](./docs/systemone.md).
+A screen reader run always plans: the planner (an LLM, or a plan file) writes a plan document (success criteria, assumptions, phases and numbered tasks, with versions and a history), and Rawstep carries out each task exactly as written: a moving task repeats its move until its cue is heard, a pressing task presses the item the cursor is on, a typing task types a named input into the field the cursor is on. Rawstep asks for a new plan when actions keep failing or change nothing, when a task runs long without hearing anything new, and every so many moves (see [Planner and plan](./docs/config.md#planner-and-plan)). No model picks individual actions, so a run costs only planner calls. A profile without a planner cannot run. To compare models or prompts, compare profiles that differ only in that part. A config older than `version` 7 does not load; start a new project with `rawstep init` and copy the tasks over.
 
 Rawstep's rule-based analysis always runs after a run. If the project has an analysis model (`project.analysis.model`), an LLM analysis is added; without one everything still works.
 
@@ -93,13 +92,13 @@ Native AT servers and browser binaries are not npm dependencies and are never au
 
 ### Condition comparisons
 
-A run profile in `rawstep.config.json` holds everything that changes a run: the models, the actions the simulated user may take, the page environment, the screen reader and the run rules. Make profiles that differ in one part and run the same task with each:
+A run profile in `rawstep.config.json` holds everything that changes a run: the planner, the actions the simulated user may take, the page environment, the screen reader and the run rules. Make profiles that differ in one part and run the same task with each. In the dashboard, a screen reader profile's actions start from a way of finding things: item by item, or by headings, form controls or links ([details](./docs/config.md#profiles)).
 
 ```sh
 npx rawstep run checkout --profile default-page
 npx rawstep run checkout --profile reflow-text
 npx rawstep run checkout --profile forced-colors
-npx rawstep run checkout --profile plan-and-jev-voiceover
+npx rawstep run checkout --profile headings-voiceover
 ```
 
 A profile's page environment (`profiles[].page`) is a built-in name such as `default`, `reflow-text` or `forced-colors`, or an object. Every run records the full content of the profile it used. Profiles cover viewport, page text enlargement/spacing, color scheme, forced-colors/contrast media, reduced motion, AT expectations and independently checked support. Browser media emulation and user styles are explicitly different from native OS settings. Genuine browser zoom needs a verified paired Chromium tab-zoom controller; an unsupported request stops instead of substituting CSS zoom or pinch. Native magnifier/high-contrast control is not implemented by the browser adapter.
@@ -113,7 +112,7 @@ You install one package, `rawstep`. Its dist contains the CLI, the dashboard UI 
 | Workspace | Responsibility |
 |---|---|
 | `@rawstep/core` | Contracts, task/environment profile schema, trace data and persistence |
-| `@rawstep/policies` | Policy interface implementations, SystemOne choice adapters |
+| `@rawstep/policies` | Policy interface implementations, the planner and the plan Rawstep follows |
 | `@rawstep/browser` | Browser, runner, verifier and environment diagnostics |
 | `@rawstep/screenreaders` | AT Driver, Orca, simulations and versioned corpus evidence |
 | `@rawstep/reports` | Saved-trace analysis, hints and reports |

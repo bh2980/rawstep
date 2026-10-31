@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { z } from 'zod';
 import { AcpAgent, parseAgentJson } from '@rawstep/policies/acp';
-import { chooseCandidate, createAgentModel, generateStructured } from '@rawstep/policies/llm';
+import { createAgentModel, generateStructured } from '@rawstep/policies/llm';
 
 const FAKE = resolve('tests/fixtures/acp/fake-agent.mjs');
 const open: AcpAgent[] = [], dirs: string[] = [];
@@ -104,23 +104,24 @@ describe('ACP agent client', () => {
 });
 
 describe('agent replies as model output', () => {
+  const choice = z.object({ choiceId: z.enum(['a', 'b']) });
   it('finds the JSON object in plain, fenced or surrounded text', () => {
     expect(parseAgentJson(' {"a":1} ')).toEqual({ a: 1 });
     expect(parseAgentJson('Here:\n```json\n{"a":2}\n```')).toEqual({ a: 2 });
     expect(parseAgentJson('I pick {"a":3} because')).toEqual({ a: 3 });
     expect(() => parseAgentJson('no json')).toThrow();
   });
-  it('chooses a candidate through an agent with the instructions in the prompt', async () => {
+  it('answers a structured request through an agent with the instructions in the prompt', async () => {
     const { agent, received } = fake({ reply: ['```json\n{"choiceId":"b"}\n```'] });
     const model = createAgentModel({ agent, modelId: 'default' });
-    expect(await chooseCandidate({ model, system: 'Pick wisely.', state: { goal: 'g' }, candidates: [{ id: 'a', label: 'A' }, { id: 'b', label: 'B' }] })).toEqual({ choiceId: 'b', modelId: 'default' });
+    expect(await generateStructured({ model, system: 'Pick wisely.', user: '{"goal":"g"}', schema: choice })).toEqual({ object: { choiceId: 'b' }, modelId: 'default' });
     const text = received().find(m => m.method === 'session/prompt').params.prompt[0].text;
     expect(text.startsWith('Pick wisely.')).toBe(true);
     expect(text).toContain('Do not use tools');
     expect(received().some(m => m.method === 'session/set_config_option')).toBe(false);
   });
-  it('maps an unknown candidate, a timeout and a cancel to the shared LLM errors', async () => {
-    const choose = (agent: AcpAgent) => chooseCandidate({ model: createAgentModel({ agent, modelId: 'default' }), system: 's', state: {}, candidates: [{ id: 'a', label: 'A' }] });
+  it('maps a reply of the wrong shape, a timeout and a cancel to the shared LLM errors', async () => {
+    const choose = (agent: AcpAgent) => generateStructured({ model: createAgentModel({ agent, modelId: 'default' }), system: 's', user: '{}', schema: choice });
     await expect(choose(fake({ reply: ['{"choiceId":"z"}'] }).agent)).rejects.toMatchObject({ code: 'llm-failed' });
     await expect(generateStructured({ model: createAgentModel({ agent: fake({ hang: true }).agent, modelId: 'default', timeoutMs: 300 }), system: 's', user: 'u', schema: z.object({}) })).rejects.toMatchObject({ code: 'llm-timeout' });
     const controller = new AbortController(), hanging = fake({ hang: true });

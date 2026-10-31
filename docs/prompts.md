@@ -1,13 +1,11 @@
-# Prompts and policies
+# Prompts
 
-Rawstep no longer ships LLM prompt templates, provider adapters, planning/reflection, or a completion client. Supply a trusted local `DecisionPolicy` module, or deterministic scripted decisions. Optional post-run model use belongs in an independent `TraceAnalyzer` module and cannot rewrite the recorded outcome.
+For using the package, see the [README](../README.md); for where the source lives, the [source map](./editing-map.md). Tasks run with `rawstep run <task>` or the dashboard (`rawstep ui`), and the settings are in the [configuration reference](./config.md).
 
-See the [current README](../README.md) and the [source map](./editing-map.md). Historical workspace-specific instructions were removed with their implementation.
+## Planner instructions
 
-## Executor and planner instructions
+The planner is the only model that decides anything in a run, and its prompt belongs to a run profile in [`rawstep.config.json`](./config.md#profiles): `profiles[].planner.instructions`. Tasks carry no prompts, and no model picks individual actions. The instructions are added to Rawstep's planner rules (the plan document format, how tasks are shaped so Rawstep can carry them out as written, planning only from what was heard and with the listed actions), never replacing them. Each plan records the full instructions as the prompt `rawstep-planner`, with a sha256 fingerprint and a short version taken from it, so runs with changed instructions can be told apart. To compare prompts, compare profiles that differ only in `instructions`.
 
-Prompts belong to a run profile in [`rawstep.config.json`](./config.md#profiles): `profiles[].executor.instructions` is the instruction text given to the model that picks each action. Tasks carry no prompts. Each run records the executor instructions as a prompt with the id `<profile id>.executor` (or `<profile id>.follow-plan` when the profile follows its plan), with a content hash as its version, so runs with changed instructions can be told apart. To compare prompts, compare profiles that differ only in `instructions`.
-
-A planned profile has its own `profiles[].planner.instructions`. They are added to Rawstep's planner rules (the plan document format, planning only from what was heard and with the listed actions), never replacing them, and are fingerprinted (sha256) in the plan evidence. Do not put page knowledge in them that a real user would not have, such as where a button is: that hides the friction Rawstep measures. Strategy or user-type guidance is fine. See [Planner and executor](./config.md#planner-and-executor-orchestration).
+Do not put page knowledge in them that a real user would not have, such as where a button is: that hides the friction Rawstep measures. Strategy or user-type guidance is fine. A plan file has no instructions; its own hash is recorded instead. See [Planner and plan](./config.md#planner-and-plan).
 
 Analysis instructions (`project.analysis.instructions`, or a task's `analysisInstructions`) tell the analysis model what to focus on after a run. They never change an outcome.

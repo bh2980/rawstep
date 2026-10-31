@@ -4,7 +4,7 @@ Tasks contain `url`, `goal`, nonempty `verify.all`, and optional `id`, `maxSteps
 
 ## Inputs
 
-`input` maps names to string values. The task author decides what is typed; the decision policy (usually a model) decides when and into which field. The policy sees each input's name, whether it is sensitive and an optional description. It never sees a sensitive value; the value of an input marked `sensitive: false` (a search term) is shown in its candidate, such as `Type "Thor Hammer" (input searchTerm: product to search for)`, so the model knows what it would type. The runner types the real value when the policy asks to enter a named input.
+`input` maps names to string values. The task author decides what is typed; the plan decides when and into which field: the planner writes a typing task, and Rawstep presses the field the cursor is on and types the input there (see [Carrying out a task](./config.md#carrying-out-a-task)). The planner sees each input's name, whether it is sensitive and an optional description. It never sees a sensitive value; the value of an input marked `sensitive: false` (a search term) is shown in its action, such as `Type "Thor Hammer" (input searchTerm: product to search for)`, so the planner knows what it would type. The runner types the real value when the decision policy (Rawstep following the plan, or a custom policy) asks to enter a named input.
 
 `inputOptions` configures individual inputs. Each key must be a name from `input`, and each entry accepts only:
 
@@ -30,7 +30,7 @@ Masking is best effort. Values shorter than 4 characters are only covered by wit
 
 ## Hiding input values from the policy
 
-The decision policy (usually a model) must not learn sensitive input values. Inputs are sensitive unless the task sets `inputOptions.<name>.sensitive: false`; `resolveTask` also rejects a goal that contains the value (4 or more characters) of a sensitive input. The runner passes `sensitive` on every `typeText`/`replaceText` backend action and builds a policy-facing view of observations. The saved trace is unchanged and keeps its own redaction rules (see [report](./report.md)).
+The decision policy and the planner behind it must not learn sensitive input values. Inputs are sensitive unless the task sets `inputOptions.<name>.sensitive: false`; `resolveTask` also rejects a goal that contains the value (4 or more characters) of a sensitive input. The runner passes `sensitive` on every `typeText`/`replaceText` backend action and builds a policy-facing view of observations. The saved trace is unchanged and keeps its own redaction rules (see [report](./report.md)).
 
 - **Speech.** Sensitive values of 4 or more characters, including their URL and form-encoded forms, are replaced with `[REDACTED]` in observation speech, both in the current observation and in `history`. The observation right after a successful sensitive `typeText`/`replaceText` has its whole speech replaced with `[typed input withheld]`, because a screen reader may echo the value character by character.
 

@@ -5,7 +5,7 @@
 | 책임 | 위치 |
 |---|---|
 | 작업·행동·관찰 계약, trace, 프로필 스키마 | `packages/core/src/` |
-| 정책 로딩·스크립트·SystemOne 선택 모델 | `packages/policies/src/` |
+| 정책 로딩·스크립트, 계획 문서·계획 모델·계획 따르기·계획 파일, LLM 호출 | `packages/policies/src/` |
 | 브라우저·탐색 경계·runner·독립 검증·프로필 적용 | `packages/browser/src/` |
 | AT Driver·Orca·VoiceOver 시뮬레이션·코퍼스 | `packages/screenreaders/src/` |
 | 선택적인 Python Orca 브리지 | `packages/screenreaders/native/` |

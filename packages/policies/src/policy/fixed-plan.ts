@@ -16,7 +16,7 @@ export const planDraftSchema = z.object({
     criteria: z.array(ref).max(10).optional(),
     tasks: z.array(z.object({ keep: z.string().max(20).optional(), goal: z.string().min(1).max(300), done: z.string().min(1).max(300),
       // A name alone, or the name with the role and state the user expects; an unknown role or state is dropped, the name still counts.
-      cue: z.union([z.string().max(120), z.object({ name: z.string().max(120), role: z.string().max(40).optional(), state: z.string().max(40).optional() }).strict()]), activates: z.boolean().optional(), moves: z.array(z.string().min(1).max(40)).max(6).optional(),
+      cue: z.union([z.string().max(120), z.object({ name: z.string().max(120), role: z.string().max(40).optional(), state: z.string().max(40).optional() }).strict()]), activates: z.boolean().optional(), moves: z.array(z.string().min(1).max(40)).max(6).optional(), types: z.string().min(1).max(80).optional(),
       serves: z.array(ref).max(10).optional(), relies: z.array(ref).max(10).optional() }).strict()).max(8),
   }).strict()).max(6),
   giveUp: z.object({ reason: z.string().min(1).max(500), tried: z.array(ref).max(10) }).strict().optional(),
@@ -40,8 +40,8 @@ export const planFileSchema = planDraftSchema.extend({ complete: z.literal(false
 
 /**
  * A plan written beforehand — by a person, or by a planner model and saved — that never changes during the run. It holds the plan
- * still, so a run measures how the executor carries out these tasks rather than how well a planner plans. When Rawstep would ask
- * for a new plan (actions failing, changing nothing, running long, low executor confidence), the stuck task is abandoned and the
+ * still, so a run measures how these tasks fare on the page rather than how well a planner plans. When Rawstep would ask
+ * for a new plan (actions failing, changing nothing, running long), the stuck task is abandoned and the
  * next one starts: that abandonment is the finding. When no task is left the run ends and the run's own checks decide the outcome.
  */
 export class FixedPlanner implements Planner {
@@ -54,7 +54,7 @@ export class FixedPlanner implements Planner {
       ...structuredClone(this.draft), complete: false,
       rationale: drop ? `Fixed plan: task ${drop} was abandoned after "${request.trigger}"; the plan does not change, so the next task starts.` : 'Fixed plan: unchanged.',
       phases: doc.phases.map(phase => ({ title: phase.title, criteria: [...phase.criteria],
-        tasks: phase.tasks.filter(task => task.id !== drop).map(task => ({ keep: task.id, goal: task.goal, done: task.done, cue: { name: task.cue, ...(task.cueRole ? { role: task.cueRole } : {}), ...(task.cueState ? { state: task.cueState } : {}) }, ...(task.activates !== undefined ? { activates: task.activates } : {}), ...(task.moves ? { moves: [...task.moves] } : {}), serves: [...task.serves], relies: [...task.relies] })) })),
+        tasks: phase.tasks.filter(task => task.id !== drop).map(task => ({ keep: task.id, goal: task.goal, done: task.done, cue: { name: task.cue, ...(task.cueRole ? { role: task.cueRole } : {}), ...(task.cueState ? { state: task.cueState } : {}) }, ...(task.activates !== undefined ? { activates: task.activates } : {}), ...(task.moves ? { moves: [...task.moves] } : {}), ...(task.types ? { types: task.types } : {}), serves: [...task.serves], relies: [...task.relies] })) })),
     });
     if (request.trigger === 'checkpoint') return result(kept());
     const open = openTasks(doc);

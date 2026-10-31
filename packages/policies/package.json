@@ -9,11 +9,6 @@
   "types": "./dist/index.d.ts",
   "sideEffects": false,
   "exports": {
-    "./systemone": {
-      "types": "./dist/systemone/index.d.ts",
-      "import": "./dist/systemone/index.js",
-      "default": "./dist/systemone/index.js"
-    },
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",

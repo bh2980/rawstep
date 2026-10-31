@@ -1,6 +1,6 @@
 import { useId, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { executorModel, followsPlan, isFilePlanner, runRulesSchema, type Combo, type Profile, type RunRules } from '@rawstep/project/config';
+import { isFilePlanner, runRulesSchema, type Combo, type Profile, type RunRules } from '@rawstep/project/config';
 import type { ConfigView } from '../../shared/config';
 import { t as translate } from '../i18n';
 import { environmentViewport } from '../lib/conditions';
@@ -22,12 +22,11 @@ export function changedRules(rules: RunRules): Partial<RunRules> {
 export type Question = 'who' | 'ai' | 'where' | 'stop';
 const QUESTIONS: Question[] = ['who', 'ai', 'where', 'stop'];
 
-/** Who thinks in a run, in one sentence: the planner and how the plan is carried out. */
-export function aiSummary(profile: Pick<Combo, 'planner' | 'executor'>): string {
-  const executor = executorModel(profile)?.modelId.trim();
+/** Who thinks in a run, in one sentence: the planner plans, Rawstep carries the plan out. */
+export function aiSummary(profile: Pick<Combo, 'planner'>): string {
   const planner = isFilePlanner(profile.planner) ? translate('conditions.summary.planFile', { path: profile.planner.planFile }) : profile.planner?.modelId.trim();
   if (!planner) return translate('profile.questions.aiNone');
-  return translate('profile.questions.aiPlanned', { planner, executor: followsPlan(profile) ? translate('profile.questions.aiFollow') : translate('profile.questions.aiExecutor', { executor: executor || translate('conditions.summary.noModel') }) });
+  return translate('profile.questions.aiPlanned', { planner });
 }
 
 /** The stop rules worth a glance: whether headings are surveyed first, the grace after an unheard success, and every rule changed from Rawstep's defaults. */
@@ -64,8 +63,8 @@ export function ProfileEditor({ profile, onChange, view, inputNames, open: initi
   // "직접 고름" stays picked after a person chooses it, even while the actions still equal a starting point; a new profile starts over.
   const [customFor, setCustomFor] = useState<string>();
   const persona = customFor === profile.id ? 'custom' : personaOf(profile);
-  const combo: Combo = { id: profile.id, name: profile.name, ...(profile.planner ? { planner: profile.planner } : {}), ...(profile.executor ? { executor: profile.executor } : {}) };
-  const setCombo = ({ planner, executor }: Combo) => { const { planner: _planner, executor: _executor, ...rest } = profile; onChange({ ...rest, ...(executor ? { executor } : {}), ...(planner ? { planner } : {}) }); };
+  const combo: Combo = { id: profile.id, name: profile.name, ...(profile.planner ? { planner: profile.planner } : {}) };
+  const setCombo = ({ planner }: Combo) => { const { planner: _planner, ...rest } = profile; onChange({ ...rest, ...(planner ? { planner } : {}) }); };
   const { width, height } = environmentViewport(profile.page, view.environmentPresets);
   const stops = stopSummary(profile);
   const summaries: Record<Question, ReactNode> = {

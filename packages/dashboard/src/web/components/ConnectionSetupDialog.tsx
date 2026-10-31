@@ -2,10 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Check } from 'lucide-react';
 import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
-import { providersOf, type Connection, type ModelKind, type ProviderId } from '@rawstep/project/config';
+import { providersOf, type Connection, type ProviderId } from '@rawstep/project/config';
 import type { ModelCheck } from '../../shared/api';
 import { ApiError, api } from '../api';
-import { generateEnvName, providerTextKey } from '../lib/connections';
+import { generateEnvName } from '../lib/connections';
 import { useGuardedAct } from '../lib/useGuardedAct';
 import { cn } from '../lib/utils';
 import type { PageProps } from '../pages/types';
@@ -22,10 +22,9 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 
 type Step = 'kind' | 'provider' | 'check';
 const STEPS: Step[] = ['kind', 'provider', 'check'];
-/** How a model is reached: an HTTP API (LLM or decision model) or a coding-agent CLI's own login. Agent CLIs are llm connections. */
-type Route = 'llm-api' | 'decision' | 'agent';
-const ROUTES: Route[] = ['llm-api', 'decision', 'agent'];
-const kindOf = (route: Route): ModelKind => route === 'decision' ? 'decision' : 'llm';
+/** How a model is reached: an HTTP API or a coding-agent CLI's own login. */
+type Route = 'llm-api' | 'agent';
+const ROUTES: Route[] = ['llm-api', 'agent'];
 
 /**
  * Add a connection in three steps: 1 종류, 2 제공자 (address and key), 3 연결 확인 (and its name). No model is picked here:
@@ -53,7 +52,6 @@ function SetupFlow({ pageProps: props, close }: { pageProps: PageProps; close: (
   const { error, setError, run } = useGuardedAct(props.act);
   const [step, setStep] = useState<Step>('kind');
   const [route, setRoute] = useState<Route>('llm-api');
-  const kind = kindOf(route);
   const [provider, setProvider] = useState<ProviderId>();
   const [baseURL, setBaseURL] = useState('');
   const [apiKey, setApiKey] = useState('');
@@ -64,13 +62,13 @@ function SetupFlow({ pageProps: props, close }: { pageProps: PageProps; close: (
   useEffect(() => { if (mounted.current) heading.current?.focus(); mounted.current = true; }, [step]);
 
   const config = props.view.config;
-  const providers = providersOf(kind).filter(p => route === 'decision' || (route === 'agent') === !!p.preset.agent);
+  const providers = providersOf().filter(p => (route === 'agent') === !!p.preset.agent);
   const preset = provider ? providers.find(p => p.id === provider)?.preset : undefined;
   const custom = provider === 'custom', agent = preset?.agent;
   const keySet = !!provider && !custom && !!props.view.credentialStatus[`provider:${provider}`];
   const key = agent ? '' : apiKey.trim();
   const canConnect = !!provider && (!custom || !!baseURL.trim()) && (agent || !preset?.keyRequired || keySet || !!key);
-  const providerName = provider ? t(`connections.providers.${providerTextKey(kind, provider)}.name`) : '';
+  const providerName = provider ? t(`connections.providers.${provider}.name`) : '';
 
   const chooseRoute = (next: Route) => { setRoute(next); setProvider(undefined); setBaseURL(''); setApiKey(''); setError(undefined); };
   const chooseProvider = (next: ProviderId) => { setProvider(next); setBaseURL(''); setApiKey(''); setError(undefined); };
@@ -80,13 +78,13 @@ function SetupFlow({ pageProps: props, close }: { pageProps: PageProps; close: (
     setError(undefined); setStep('check');
   };
 
-  /** Asks the provider once whether this address and key answer (its model list; a custom decision server gets one tiny decision). Nothing is saved. */
+  /** Asks the provider once whether this address and key answer (its model list). Nothing is saved. */
   async function runCheck() {
     if (!provider) return;
     const mine = ++attempt.current;
     setCheck({ state: 'running' });
     try {
-      const result = await api<ModelCheck>('/connections/check', { method: 'POST', body: { kind, provider, ...(custom ? { baseURL: baseURL.trim() } : {}), ...(key ? { apiKey: key } : {}) } });
+      const result = await api<ModelCheck>('/connections/check', { method: 'POST', body: { provider, ...(custom ? { baseURL: baseURL.trim() } : {}), ...(key ? { apiKey: key } : {}) } });
       if (mine === attempt.current) setCheck({ state: 'done', result });
     } catch (failure) { if (mine === attempt.current) setCheck({ state: 'failed', connection: failure instanceof ApiError && failure.status === 0 }); }
   }
@@ -94,7 +92,7 @@ function SetupFlow({ pageProps: props, close }: { pageProps: PageProps; close: (
     const mine = ++attempt.current;
     setCheck({ state: 'running' });
     try {
-      const result = await api<ModelCheck>('/connections/sign-in', { method: 'POST', body: { kind, provider, ...(custom ? { baseURL: baseURL.trim() } : {}) } });
+      const result = await api<ModelCheck>('/connections/sign-in', { method: 'POST', body: { provider, ...(custom ? { baseURL: baseURL.trim() } : {}) } });
       if (mine === attempt.current) setCheck({ state: 'done', result });
     } catch (failure) { if (mine === attempt.current) setCheck({ state: 'failed', connection: failure instanceof ApiError && failure.status === 0 }); }
   }
@@ -105,7 +103,7 @@ function SetupFlow({ pageProps: props, close }: { pageProps: PageProps; close: (
     const id = crypto.randomUUID();
     const apiKeyEnv = custom && key ? generateEnvName(config.connections) : undefined;
     // A coding agent is slow to answer, so it gets more time.
-    const connection: Connection = { id, name: name.trim(), kind, provider, ...(custom ? { baseURL: baseURL.trim() } : {}), ...(apiKeyEnv ? { apiKeyEnv } : {}),
+    const connection: Connection = { id, name: name.trim(), provider, ...(custom ? { baseURL: baseURL.trim() } : {}), ...(apiKeyEnv ? { apiKeyEnv } : {}),
       timeoutMs: agent ? AGENT_TIMEOUT_MS : RAWSTEP_DEFAULTS.modelTimeoutMs };
     const ok = await run(async () => {
       // A preset provider keeps one key for all its connections; a custom server's key is stored under the connection's own variable.
@@ -129,15 +127,14 @@ function SetupFlow({ pageProps: props, close }: { pageProps: PageProps; close: (
     {step === 'kind' && <>
       <RadioRows legend={t('connections.steps.kind.title')} value={route} onChange={chooseRoute}
         rows={ROUTES.map(r => ({ id: r, label: t(`connections.routes.${r}.name`), hint: t(`connections.routes.${r}.description`) }))} />
-      <p className="flex items-center gap-1 text-[13px] text-muted-foreground">{t('connections.kinds.decision.name')}<InfoTip term={t('connections.kinds.decision.name')}>{t('help.decisionModel')}</InfoTip></p>
       <DialogFooter><Button type="button" onClick={() => { setError(undefined); setStep('provider'); }}>{t('connections.next')}</Button></DialogFooter>
     </>}
 
     {step === 'provider' && <>
       <div className="grid gap-4">
         <RadioRows legend={t('connections.steps.provider.title')} value={provider ?? ('' as ProviderId)} onChange={chooseProvider}
-          rows={providers.map(p => ({ id: p.id, label: t(`connections.providers.${providerTextKey(kind, p.id)}.name`), hint: t(`connections.providers.${providerTextKey(kind, p.id)}.description`) }))} />
-        {custom && <Field label={t('connections.baseUrl')} value={baseURL} onChange={setBaseURL} placeholder={kind === 'llm' ? 'http://127.0.0.1:1234/v1' : 'http://127.0.0.1:8000/v1'} hint={kind === 'llm' ? t('connections.baseUrlHintLlm') : t('connections.baseUrlHintDecision')} />}
+          rows={providers.map(p => ({ id: p.id, label: t(`connections.providers.${p.id}.name`), hint: t(`connections.providers.${p.id}.description`) }))} />
+        {custom && <Field label={t('connections.baseUrl')} value={baseURL} onChange={setBaseURL} placeholder="http://127.0.0.1:1234/v1" hint={t('connections.baseUrlHint')} />}
         {preset && agent && <AgentNote preset={preset} />}
         {provider && !agent && <SecretField label={preset?.keyRequired ? t('connections.apiKey') : t('connections.apiKeyOptional')} value={apiKey} onChange={setApiKey} saved={keySet} onReveal={custom ? undefined : async () => (await api<{ value: string | null }>('/credentials/reveal', { method: 'POST', body: { provider } })).value ?? undefined}
           hint={keySet ? t('connections.keyAlreadySet') : preset?.keyRequired ? t('connections.keyRequiredHint') : undefined}
@@ -158,7 +155,7 @@ function SetupFlow({ pageProps: props, close }: { pageProps: PageProps; close: (
       </dl>
       <div className="flex items-start gap-1.5 border-t pt-4">
         <div className="min-w-0 flex-1">{check && <CheckStatus check={check} signIn={agent ? { available: !!agent.signIn, busy: false, onClick: () => void signIn() } : undefined} />}</div>
-        <InfoTip term={t('connections.checkTerm')} side="left">{t(agent ? 'connections.checkNoteAgent' : kind === 'decision' && custom ? 'connections.checkNoteDecision' : 'connections.checkNoteList')}</InfoTip>
+        <InfoTip term={t('connections.checkTerm')} side="left">{t(agent ? 'connections.checkNoteAgent' : 'connections.checkNoteList')}</InfoTip>
       </div>
       <Field label={t('connections.name')} value={name} onChange={setName} info={t('connections.nameHint')} />
       {agent && <div className="flex items-start gap-2"><Checkbox id="agent-consent" className="mt-0.5" checked={consent} onCheckedChange={v => setConsent(v === true)} /><Label htmlFor="agent-consent" className="font-normal leading-5">{t('connections.agentConsent', { provider: providerName })}</Label></div>}

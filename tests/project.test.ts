@@ -7,17 +7,17 @@ import { speechChoices } from '@rawstep/policies/policy';
 import { validateDecision } from '@rawstep/browser/runner';
 import { TraceRecorder, readTrace } from '@rawstep/core/trace';
 import {
-  CONFIG_FILE, comboExecutor, comboPlanner, configSchema, credentialId, credentialRequirements, defaultConfig, defaultProfile,
+  CONFIG_FILE, comboPlanner, configSchema, credentialId, credentialRequirements, defaultConfig, defaultProfile,
   findByIdOrName, modelKeyEnv, parseConfig, profileConditions, projectAnalysisModel, resolveBaseURL, resolveRunRules, suggestionModel, firstProfile, taskSchema,
-  type Executor, type Profile, type ProjectConfig,
+  type Profile, type ProjectConfig,
 } from '@rawstep/project/config';
 import { ProjectError } from '@rawstep/project/errors';
 import { ProjectStore, initProject } from '@rawstep/project/store';
 import { discover } from '@rawstep/project/discover';
-import { assertRunnable, backendCapabilities, checkRun, conditionsRecord, executorPrompt, resolvePermissions, runSpecOf } from '@rawstep/project/plan';
+import { assertRunnable, backendCapabilities, checkRun, conditionsRecord, resolvePermissions, runSpecOf } from '@rawstep/project/plan';
 import { projectAnalyzer, runTask } from '@rawstep/project/run';
 import type { RunExecutor, RunSpec } from '@rawstep/project/execution';
-import { connection, instructions, plannedWith, profileWith } from './helpers/project-config.js';
+import { connection, profileWith } from './helpers/project-config.js';
 
 const dirs: string[] = [];
 afterEach(async () => { await Promise.all(dirs.splice(0).map(dir => rm(dir, { recursive: true, force: true }))); });
@@ -26,8 +26,8 @@ const task = { url: 'https://example.com', goal: 'Complete fixture', input: { em
 function setup(): ProjectConfig {
   const config = defaultConfig();
   // Runs always plan, so the profile carries a planner on an LLM connection.
-  config.connections.push(connection('a'), connection('b'), connection('setup-llm', { kind: 'llm' }));
-  config.profiles[0] = plannedWith(profileWith('default', 'a', 'm-a', 'Default'), 'setup-llm');
+  config.connections.push(connection('a'), connection('b'), connection('setup-llm'));
+  config.profiles[0] = profileWith('default', 'setup-llm', 'planner', 'Default');
   config.tasks.push({ id: 'task', name: 'Fixture', file: 'task.json' }); return config;
 }
 
@@ -36,24 +36,24 @@ describe('project store', () => {
     const dir = await root(); const store = new ProjectStore(dir); const first = await store.initialize();
     await writeFile(store.path, JSON.stringify({ ...first.config, machine: { ...first.config.machine, headless: false } }));
     await expect(store.save(first.config, first.revision)).rejects.toMatchObject({ code: 'config-conflict', status: 409 });
-    await store.setCredential('typesafe', 'secret-fixture-value');
-    expect(await store.credential('typesafe')).toBe('secret-fixture-value');
+    await store.setCredential('anthropic', 'secret-fixture-value');
+    expect(await store.credential('anthropic')).toBe('secret-fixture-value');
     expect(JSON.stringify(await store.read())).not.toContain('secret-fixture-value');
     const reread = new ProjectStore(dir); expect((await reread.read()).config.machine.headless).toBe(false);
   });
   it('keeps one key per preset provider and one per custom connection, under their environment variables', async () => {
     const dir = await root(), store = new ProjectStore(dir), initial = await store.initialize(), config = setup();
-    config.connections.push(connection('or-llm', { kind: 'llm', provider: 'openrouter' }), connection('or-dec', { kind: 'decision', provider: 'openrouter' }),
-      connection('keyed', { kind: 'llm', baseURL: 'http://127.0.0.1:1/v1', apiKeyEnv: 'RAWSTEP_TEST_CUSTOM_KEY' }));
+    config.connections.push(connection('or-llm', { provider: 'openrouter' }), connection('or-second', { provider: 'openrouter' }),
+      connection('keyed', { baseURL: 'http://127.0.0.1:1/v1', apiKeyEnv: 'RAWSTEP_TEST_CUSTOM_KEY' }));
     await store.save(config, initial.revision, { file: 'task.json', task });
-    expect(await store.credentialStatus(config)).toMatchObject({ 'provider:openrouter': false, 'provider:typesafe': false, 'connection:keyed': false });
-    // OpenRouter serves both kinds with one key; the file stores it under the preset variable.
+    expect(await store.credentialStatus(config)).toMatchObject({ 'provider:openrouter': false, 'connection:keyed': false });
+    // Two OpenRouter connections share one key; the file stores it under the preset variable.
     await store.setCredential('openrouter', 'sk-or-fixture');
     expect(await store.credential(config.connections.find(c => c.id === 'or-llm')!)).toBe('sk-or-fixture');
-    expect(await store.credential(config.connections.find(c => c.id === 'or-dec')!)).toBe('sk-or-fixture');
+    expect(await store.credential(config.connections.find(c => c.id === 'or-second')!)).toBe('sk-or-fixture');
     expect(await readFile(join(dir, '.env.local'), 'utf8')).toContain('RAWSTEP_OPENROUTER_API_KEY="sk-or-fixture"');
     await store.setCredential(config.connections.find(c => c.id === 'keyed')!, 'sk-custom-fixture');
-    expect(await store.credentialStatus(config)).toMatchObject({ 'provider:openrouter': true, 'provider:typesafe': false, 'connection:keyed': true });
+    expect(await store.credentialStatus(config)).toMatchObject({ 'provider:openrouter': true, 'connection:keyed': true });
     // A custom connection without a key variable has nowhere to store a key; the custom provider has no shared key.
     await expect(store.setCredential(config.connections.find(c => c.id === 'a')!, 'sk')).rejects.toMatchObject({ code: 'credential-target' });
     await expect(store.setCredential('custom', 'sk')).rejects.toMatchObject({ code: 'credential-target' });
@@ -84,13 +84,13 @@ describe('project store', () => {
   });
   it('reads an invalid config as an error naming the file, an old-version one as old-config with what to do instead, and a missing task file as 404', async () => {
     const dir = await root(), store = new ProjectStore(dir);
-    for (const version of [0, 7]) {
+    for (const version of [0, 8]) {
       await writeFile(store.path, JSON.stringify({ ...defaultConfig(), version }));
       await expect(store.read()).rejects.toMatchObject({ code: 'invalid-config', message: expect.stringContaining('rawstep.config.json') });
     }
     await writeFile(store.path, '{nope');
     await expect(store.read()).rejects.toMatchObject({ code: 'invalid-config' });
-    for (const version of [1, 2, 3, 4, 5]) {
+    for (const version of [1, 2, 3, 4, 5, 6]) {
       await writeFile(store.path, JSON.stringify({ version, agents: [] }));
       await expect(store.read()).rejects.toMatchObject({ code: 'old-config', message: expect.stringMatching(new RegExp(`version ${version}.*rawstep init`)) });
     }
@@ -107,9 +107,8 @@ describe('project store', () => {
   });
   it.each([
     ['duplicate-id', (c: ProjectConfig) => { c.profiles.push(defaultProfile('default', 'Again')); }],
-    ['profile-connection-missing', (c: ProjectConfig) => { (c.profiles[0]!.executor as Executor).connectionId = 'ghost'; }],
-    ['planner-needs-llm', (c: ProjectConfig) => { Object.assign(c.profiles[0]!, plannedWith(c.profiles[0]!, 'a')); }],
-    ['analysis-needs-llm', (c: ProjectConfig) => { c.project.analysis.model = { connectionId: 'a', modelId: 'writer' }; }],
+    ['profile-connection-missing', (c: ProjectConfig) => { Object.assign(c.profiles[0]!, profileWith('default', 'ghost')); }],
+    ['analysis-connection-missing', (c: ProjectConfig) => { c.project.analysis.model = { connectionId: 'ghost', modelId: 'writer' }; }],
     ['duplicate-task-file', (c: ProjectConfig) => { c.tasks.push({ id: 'other', name: 'Other', file: 'task.json' }); }],
   ])('validates references: %s', async (code, change) => {
     const store = new ProjectStore(await root()), config = setup(); change(config);
@@ -117,7 +116,7 @@ describe('project store', () => {
   });
   it('saves a task without a profile, and the profiles beside it, and reads them back', async () => {
     const dir = await root(), store = new ProjectStore(dir), initial = await store.initialize(), config = setup();
-    config.profiles.push({ ...profileWith('strict', 'a', 'm-a', 'Strict'), runRules: resolveRunRules(config.profiles[0]!, { maxPlannerCalls: 1 }) });
+    config.profiles.push({ ...profileWith('strict', 'setup-llm', 'planner', 'Strict'), runRules: resolveRunRules(config.profiles[0]!, { maxPlannerCalls: 1 }) });
     await store.save(config, initial.revision, { file: 'task.json', task });
     const saved = (await new ProjectStore(dir).read()).config;
     expect(saved.tasks[0]).toEqual({ id: 'task', name: 'Fixture', file: 'task.json' }); expect(saved.profiles[1]).toMatchObject({ id: 'strict', runRules: { maxPlannerCalls: 1 } });
@@ -136,7 +135,7 @@ describe('model discovery', () => {
     const server = createServer((_req, res) => { res.setHeader('content-type', 'application/json'); res.end(JSON.stringify({ data: [{ id: 'first' }, { id: 'second', name: 'Second' }, { id: 'PRIVATE_DISCOVERY_KEY' }] })); });
     await new Promise<void>(accept => server.listen(0, '127.0.0.1', accept));
     try {
-      const models = await discover({ kind: 'llm', provider: 'custom', baseURL: 'http://127.0.0.1:' + (server.address() as { port: number }).port }, 'PRIVATE_DISCOVERY_KEY');
+      const models = await discover({ provider: 'custom', baseURL: 'http://127.0.0.1:' + (server.address() as { port: number }).port }, 'PRIVATE_DISCOVERY_KEY');
       expect(models.map(m => [m.modelId, m.name])).toEqual([['first', 'first'], ['second', 'Second']]);
       expect(JSON.stringify(models)).not.toContain('PRIVATE_DISCOVERY_KEY');
     } finally { server.closeAllConnections(); await new Promise<void>(accept => server.close(() => accept())); }
@@ -148,39 +147,25 @@ describe('model discovery', () => {
       'https://generativelanguage.googleapis.com/v1beta/openai/models': { data: [{ id: 'models/gemini-fixture' }] },
       'https://api.anthropic.com/v1/models?limit=1000': { data: [{ id: 'claude-fixture', display_name: 'Claude Fixture' }] },
     });
-    const openrouter = await discover({ kind: 'llm', provider: 'openrouter' }, 'sk-or', { fetch: fetcher });
+    const openrouter = await discover({ provider: 'openrouter' }, 'sk-or', { fetch: fetcher });
     expect(openrouter.map(m => [m.modelId, m.name])).toEqual([['chat/vision', 'Vision']]);
-    const openai = await discover({ kind: 'llm', provider: 'openai' }, 'sk-openai', { fetch: fetcher });
+    const openai = await discover({ provider: 'openai' }, 'sk-openai', { fetch: fetcher });
     expect(openai.map(m => m.modelId)).toEqual(['gpt-fixture', 'plain']);
-    expect((await discover({ kind: 'llm', provider: 'google' }, 'k', { fetch: fetcher })).map(m => m.modelId)).toEqual(['gemini-fixture']);
-    const anthropic = await discover({ kind: 'llm', provider: 'anthropic' }, 'sk-ant', { fetch: fetcher });
+    expect((await discover({ provider: 'google' }, 'k', { fetch: fetcher })).map(m => m.modelId)).toEqual(['gemini-fixture']);
+    const anthropic = await discover({ provider: 'anthropic' }, 'sk-ant', { fetch: fetcher });
     expect(anthropic.map(m => [m.modelId, m.name])).toEqual([['claude-fixture', 'Claude Fixture']]);
     expect(calls.find(c => c.url.startsWith('https://api.anthropic.com'))!.headers).toMatchObject({ authorization: 'Bearer sk-ant', 'x-api-key': 'sk-ant', 'anthropic-version': '2023-06-01' });
     expect(calls.find(c => c.url.startsWith('https://api.openai.com'))!.headers).not.toHaveProperty('x-api-key');
   });
-  it('lists decision models from OpenRouter and TypeSafe, and leaves custom servers to be typed by hand', async () => {
-    const { calls, fetcher } = catalog({
-      'https://openrouter.ai/api/v1/models?output_modalities=decisions': { data: [{ id: 'one/decider', canonical_slug: 'one/decider-2026', architecture: { input_modalities: ['text', 'image'], output_modalities: ['decisions'] } }, { id: 'one/text', architecture: { input_modalities: ['text'], output_modalities: ['decisions'] } }] },
-      'https://api.typesafe.ai/v1/models': { data: [{ id: 'jev-latest' }] },
-    });
-    const openrouter = await discover({ kind: 'decision', provider: 'openrouter' }, 'sk-or', { fetch: fetcher });
-    expect(openrouter.map(m => m.modelId)).toEqual(['one/decider-2026', 'one/text']);
-    expect((await discover({ kind: 'decision', provider: 'typesafe' }, 'sk-ts', { fetch: fetcher })).map(m => m.modelId)).toEqual(['jev-latest']);
-    expect(calls.map(c => c.url)).toEqual(['https://openrouter.ai/api/v1/models?output_modalities=decisions', 'https://api.typesafe.ai/v1/models']);
-    expect(await discover({ kind: 'decision', provider: 'custom', baseURL: 'http://127.0.0.1:1/v1' }, undefined, { fetch: fetcher })).toEqual([]);
-    expect(calls).toHaveLength(2);
-    await expect(discover({ kind: 'decision', provider: 'gateway' })).rejects.toMatchObject({ code: 'missing-credential' });
-  });
-  it('rejects a provider of the other kind and a custom provider without a usable address', async () => {
-    await expect(discover({ kind: 'llm', provider: 'typesafe' })).rejects.toMatchObject({ code: 'invalid-provider' });
-    await expect(discover({ kind: 'decision', provider: 'openai' })).rejects.toMatchObject({ code: 'invalid-provider' });
-    await expect(discover({ kind: 'llm', provider: 'custom' })).rejects.toMatchObject({ code: 'invalid-base-url' });
-    await expect(discover({ kind: 'llm', provider: 'custom', baseURL: 'http://example.com/v1' })).rejects.toMatchObject({ code: 'invalid-base-url' });
+  it('leaves the agent CLIs\' models to the agent and rejects a custom provider without a usable address', async () => {
+    await expect(discover({ provider: 'custom' })).rejects.toMatchObject({ code: 'invalid-base-url' });
+    await expect(discover({ provider: 'custom', baseURL: 'http://example.com/v1' })).rejects.toMatchObject({ code: 'invalid-base-url' });
+    await expect(discover({ provider: 'nope' as never })).rejects.toMatchObject({ code: 'invalid-provider' });
   });
   it('answers an unreachable server and a server without a model list with project errors', async () => {
-    await expect(discover({ kind: 'llm', provider: 'custom', baseURL: 'http://127.0.0.1:1/v1' }, undefined, { timeoutMs: 500 })).rejects.toMatchObject({ code: 'model-unreachable', status: 502 });
-    await expect(discover({ kind: 'llm', provider: 'openai' }, 'k', { fetch: async () => json({ object: 'list' }) })).rejects.toMatchObject({ code: 'model-list-missing', status: 502 });
-    await expect(discover({ kind: 'llm', provider: 'openai' }, 'k', { fetch: async () => json({}, 401) })).rejects.toMatchObject({ code: 'model-http' });
+    await expect(discover({ provider: 'custom', baseURL: 'http://127.0.0.1:1/v1' }, undefined, { timeoutMs: 500 })).rejects.toMatchObject({ code: 'model-unreachable', status: 502 });
+    await expect(discover({ provider: 'openai' }, 'k', { fetch: async () => json({ object: 'list' }) })).rejects.toMatchObject({ code: 'model-list-missing', status: 502 });
+    await expect(discover({ provider: 'openai' }, 'k', { fetch: async () => json({}, 401) })).rejects.toMatchObject({ code: 'model-http' });
   });
 });
 
@@ -188,79 +173,63 @@ describe('connection schema', () => {
   const base = { id: 'm', name: 'm' };
   const parse = (extra: Record<string, unknown>) => parseConfig({ ...defaultConfig(), connections: [{ ...base, ...extra }] });
   it('resolves the address and key variable of presets and custom connections', () => {
-    const preset = connection('p', { kind: 'decision', provider: 'typesafe' });
-    expect(resolveBaseURL(preset)).toBe('https://api.typesafe.ai/v1'); expect(modelKeyEnv(preset)).toBe('RAWSTEP_TYPESAFE_API_KEY');
-    expect(resolveBaseURL(connection('o', { kind: 'llm', provider: 'openrouter' }))).toBe('https://openrouter.ai/api/v1');
-    const custom = connection('c', { kind: 'llm', baseURL: 'http://127.0.0.1:1234/v1', apiKeyEnv: 'MY_KEY' });
+    const preset = connection('p', { provider: 'anthropic' });
+    expect(resolveBaseURL(preset)).toBe('https://api.anthropic.com/v1'); expect(modelKeyEnv(preset)).toBe('RAWSTEP_ANTHROPIC_API_KEY');
+    expect(resolveBaseURL(connection('o', { provider: 'openrouter' }))).toBe('https://openrouter.ai/api/v1');
+    const custom = connection('c', { baseURL: 'http://127.0.0.1:1234/v1', apiKeyEnv: 'MY_KEY' });
     expect(resolveBaseURL(custom)).toBe('http://127.0.0.1:1234/v1'); expect(modelKeyEnv(custom)).toBe('MY_KEY'); expect(modelKeyEnv({ ...custom, apiKeyEnv: undefined })).toBeUndefined();
-    expect(credentialId(preset)).toBe('provider:typesafe'); expect(credentialId(custom)).toBe('connection:c');
-    expect(parse({ kind: 'llm', provider: 'google' }).connections[0]).toMatchObject({ timeoutMs: expect.any(Number) });
+    expect(credentialId(preset)).toBe('provider:anthropic'); expect(credentialId(custom)).toBe('connection:c');
+    expect(parse({ provider: 'google' }).connections[0]).toMatchObject({ timeoutMs: expect.any(Number) });
   });
-  it('keeps each provider with its kind and the address and key variable with custom connections', () => {
-    expect(() => parse({ kind: 'llm', provider: 'openai' })).not.toThrow();
-    expect(() => parse({ kind: 'llm', provider: 'typesafe' })).toThrow();
-    expect(() => parse({ kind: 'decision', provider: 'anthropic' })).toThrow();
-    expect(() => parse({ kind: 'decision', provider: 'custom' })).toThrow();
-    expect(() => parse({ kind: 'decision', provider: 'custom', baseURL: 'http://127.0.0.1:8000/v1' })).not.toThrow();
-    expect(() => parse({ kind: 'llm', provider: 'openai', baseURL: 'https://example.com/v1' })).toThrow();
-    expect(() => parse({ kind: 'llm', provider: 'openai', apiKeyEnv: 'MY_KEY' })).toThrow();
-    expect(() => parse({ kind: 'llm', provider: 'custom', baseURL: 'http://127.0.0.1:1/v1', apiKeyEnv: 'lower' })).toThrow();
-    expect(() => parse({ kind: 'decision', provider: 'gateway' })).not.toThrow();
+  it('keeps the address and key variable with custom connections, and knows only LLM providers', () => {
+    expect(() => parse({ provider: 'openai' })).not.toThrow();
+    for (const provider of ['typesafe', 'gateway']) expect(() => parse({ provider })).toThrow();
+    expect(() => parse({ provider: 'custom' })).toThrow();
+    expect(() => parse({ provider: 'custom', baseURL: 'http://127.0.0.1:8000/v1' })).not.toThrow();
+    expect(() => parse({ provider: 'openai', baseURL: 'https://example.com/v1' })).toThrow();
+    expect(() => parse({ provider: 'openai', apiKeyEnv: 'MY_KEY' })).toThrow();
+    expect(() => parse({ provider: 'custom', baseURL: 'http://127.0.0.1:1/v1', apiKeyEnv: 'lower' })).toThrow();
   });
-  it('holds no model: a connection with a model ID, inputs or roles is rejected', () => {
-    for (const extra of [{ modelId: 'x' }, { inputs: ['text'] }, { roles: ['decision'] }, { maxChoices: 255 }, { capabilitySource: 'manual' }, { family: 'LLM', protocol: 'chat' }])
-      expect(() => parse({ kind: 'llm', provider: 'openai', ...extra })).toThrow();
+  it('holds no model and no kind: a connection with a model ID, inputs, roles or a kind is rejected', () => {
+    for (const extra of [{ modelId: 'x' }, { inputs: ['text'] }, { roles: ['decision'] }, { maxChoices: 255 }, { capabilitySource: 'manual' }, { family: 'LLM', protocol: 'chat' }, { kind: 'llm' }])
+      expect(() => parse({ provider: 'openai', ...extra })).toThrow();
   });
   it('rejects duplicate connection ids and a config that still has a models list', () => {
-    const twice = [{ ...base, kind: 'llm', provider: 'openai' }, { ...base, kind: 'decision', provider: 'typesafe' }];
+    const twice = [{ ...base, provider: 'openai' }, { ...base, provider: 'anthropic' }];
     expect(() => parseConfig({ ...defaultConfig(), connections: twice })).toThrow(/used twice/);
     expect(() => parseConfig({ ...defaultConfig(), connections: [], models: [] })).toThrow();
   });
-  it('keeps executors on existing connections, and the planner, analysis and suggestion models on LLM connections', () => {
-    const config = setup(); config.connections.push(connection('llm', { kind: 'llm' }));
+  it('keeps the planner, analysis and suggestion models on existing connections, and a profile to its planner', () => {
+    const config = setup(); config.connections.push(connection('llm'));
     const withProfile = (change: (a: Profile, c: ProjectConfig) => void) => { const copy = structuredClone(config); change(copy.profiles[0]!, copy); return copy; };
     expect(() => parseConfig(withProfile((_, c) => { c.project.analysis.model = { connectionId: 'llm', modelId: 'writer' }; }))).not.toThrow();
-    expect(() => parseConfig(withProfile((_, c) => { c.project.analysis.model = { connectionId: 'a', modelId: 'writer' }; }))).toThrow(/LLM connection/);
-    expect(() => parseConfig(withProfile((_, c) => { c.project.analysis.model = { connectionId: 'ghost', modelId: 'writer' }; }))).toThrow();
-    expect(() => parseConfig(withProfile((_, c) => { c.project.suggestions.model = { connectionId: 'a', modelId: 'writer' }; }))).toThrow(/LLM connection/);
+    expect(() => parseConfig(withProfile((_, c) => { c.project.analysis.model = { connectionId: 'ghost', modelId: 'writer' }; }))).toThrow(/does not exist/);
+    expect(() => parseConfig(withProfile((_, c) => { c.project.suggestions.model = { connectionId: 'ghost', modelId: 'writer' }; }))).toThrow(/does not exist/);
     expect(() => parseConfig(withProfile((_, c) => { c.project.suggestions.model = { connectionId: 'llm', modelId: 'writer' }; }))).not.toThrow();
-    expect(() => parseConfig(withProfile((_, c) => { c.profiles[0] = plannedWith(c.profiles[0]!, 'llm'); }))).not.toThrow();
-    expect(() => parseConfig(withProfile((_, c) => { c.profiles[0] = plannedWith(c.profiles[0]!, 'a'); }))).toThrow(/plan with an LLM/);
-    for (const field of ['structure', 'mode', 'executors'] as const) expect(() => parseConfig(withProfile(a => { (a as Record<string, unknown>)[field] = field === 'executors' ? {} : 'planned'; }))).toThrow();
+    expect(() => parseConfig(withProfile((_, c) => { c.profiles[0] = profileWith('default', 'llm'); }))).not.toThrow();
+    expect(() => parseConfig(withProfile((_, c) => { c.profiles[0] = profileWith('default', 'ghost'); }))).toThrow(/does not exist/);
+    for (const field of ['structure', 'mode', 'executors', 'executor'] as const) expect(() => parseConfig(withProfile(a => { (a as Record<string, unknown>)[field] = field === 'executors' ? {} : field === 'executor' ? { followPlan: true } : 'planned'; }))).toThrow();
     expect(() => parseConfig(withProfile(a => { a.actions = { keyboard: a.actions, screenreader: a.actions } as never; }))).toThrow();
-    for (const field of ['inputs', 'maxImages', 'focusGate'] as const) expect(() => parseConfig(withProfile(a => { (a.executor as Record<string, unknown>)[field] = field === 'inputs' ? ['text'] : field === 'maxImages' ? 2 : false; }))).toThrow();
     // A profile without a planner is saved as it is; only a run of it is refused.
-    expect(() => parseConfig(withProfile(a => { delete a.planner; a.executor = { followPlan: true }; }))).not.toThrow();
-    expect(() => parseConfig(withProfile(a => { (a.executor as Executor).connectionId = 'ghost'; }))).toThrow(/does not exist/);
-    expect(() => parseConfig(withProfile(a => { delete a.executor; }))).not.toThrow();
-    expect(() => parseConfig(withProfile(a => { (a.executor as Executor).instructions = ' '; }))).toThrow();
+    expect(() => parseConfig(withProfile(a => { delete a.planner; }))).not.toThrow();
   });
   it('joins a profile with its connections into the models a run calls', () => {
-    const config = setup(); config.connections.push(connection('llm', { kind: 'llm', name: 'My LLM' }), connection('llm2', { kind: 'llm', name: 'Other LLM' }));
-    const combo = plannedWith(profileWith('p', 'a', 'jev-latest'), 'llm');
+    const config = setup(); config.connections.push(connection('llm', { name: 'My LLM' }), connection('llm2', { name: 'Other LLM' }));
+    const combo = profileWith('p', 'llm', 'planner');
     config.project.analysis.model = { connectionId: 'llm', modelId: 'writer' };
-    expect(comboExecutor(config, combo)).toEqual({ id: 'a', name: 'a · jev-latest', modelId: 'jev-latest', kind: 'decision', provider: 'custom', baseURL: 'http://127.0.0.1:1234', timeoutMs: 10000, maxChoices: 255 });
-    expect(comboPlanner(config, combo)).toMatchObject({ id: 'llm', name: 'My LLM · planner', kind: 'llm' });
-    expect(projectAnalysisModel(config)).toMatchObject({ id: 'llm', name: 'My LLM · writer', modelId: 'writer', kind: 'llm', maxChoices: 255 });
-    // Without a project analysis model there is none; a decision connection is never an analysis or suggestion model.
+    expect(comboPlanner(config, combo)).toEqual({ id: 'llm', name: 'My LLM · planner', modelId: 'planner', provider: 'custom', baseURL: 'http://127.0.0.1:1234', timeoutMs: 10000 });
+    expect(projectAnalysisModel(config)).toMatchObject({ id: 'llm', name: 'My LLM · writer', modelId: 'writer' });
+    // Without a project analysis model there is none; a model on a connection that is gone is none either.
     expect(projectAnalysisModel(setup())).toBeUndefined();
-    expect(projectAnalysisModel({ ...config, project: { ...config.project, analysis: { ...config.project.analysis, model: { connectionId: 'a', modelId: 'own' } } } })).toBeUndefined();
+    expect(projectAnalysisModel({ ...config, project: { ...config.project, analysis: { ...config.project.analysis, model: { connectionId: 'ghost', modelId: 'own' } } } })).toBeUndefined();
     // Suggestions use their own model, otherwise the analysis model.
     expect(suggestionModel(config)).toMatchObject({ id: 'llm', modelId: 'writer' });
     config.project.suggestions.model = { connectionId: 'llm2', modelId: 'suggest' };
     expect(suggestionModel(config)).toMatchObject({ id: 'llm2', modelId: 'suggest' });
-    expect(comboExecutor(config, defaultProfile())).toMatchObject({ id: 'rawstep-plan-follower' });
-    expect(comboExecutor(config, {})).toBeUndefined();
-    expect(comboExecutor(config, { executor: { ...(combo.executor as Executor), connectionId: 'ghost' } })).toBeUndefined();
-    expect(comboPlanner(config, { planner: { connectionId: 'a', modelId: 'x', instructions: '' } })).toBeUndefined();
-  });
-  it('versions executor instructions by their wording, per profile', () => {
-    const combo = profileWith('p', 'a');
-    expect(executorPrompt(combo)).toMatchObject({ id: 'p.executor', name: 'p', instructions });
-    const changed = { ...combo, executor: { ...(combo.executor as Executor), instructions: 'Other wording.' } };
-    expect(executorPrompt(changed)!.version).not.toBe(executorPrompt(combo)!.version);
-    expect(executorPrompt(defaultProfile())).toMatchObject({ id: 'default.follow-plan', version: 'follow-plan', instructions: '' });
-    expect(executorPrompt({ id: 'none', name: 'none' })).toBeUndefined();
+    // A plan file or no planner has no model to call.
+    expect(comboPlanner(config, { planner: { planFile: 'plans/common.json' } })).toBeUndefined();
+    expect(comboPlanner(config, {})).toBeUndefined();
+    expect(comboPlanner(config, { planner: { connectionId: 'ghost', modelId: 'x', instructions: '' } })).toBeUndefined();
   });
 });
 
@@ -306,19 +275,19 @@ describe('project config', () => {
     for (const rules of [{ repetitionGuard: 'auto' }, { repetitionGuard: 'on' }, { maxStateVisits: 3 }, { modelGiveUp: false }, { unknownRule: 1 }]) expect(() => configSchema.parse(withRules(rules))).toThrow();
     expect(configSchema.parse(withRules({ repetitionGuard: false })).profiles[0]!.runRules.repetitionGuard).toBe(false);
   });
-  it('accepts only version 6 configs', () => {
+  it('accepts only version 7 configs', () => {
     const config = defaultConfig();
-    expect(config.version).toBe(6);
+    expect(config.version).toBe(7);
     expect(parseConfig(JSON.parse(JSON.stringify(config)))).toEqual(config);
-    expect(() => parseConfig({ ...config, version: 5 })).toThrow();
-    expect(() => parseConfig({ version: 6, connections: [], tasks: [], agents: [], machine: {} })).toThrow();
+    expect(() => parseConfig({ ...config, version: 6 })).toThrow();
+    expect(() => parseConfig({ version: 7, connections: [], tasks: [], agents: [], machine: {} })).toThrow();
     expect(() => parseConfig({ ...config, combos: [] })).toThrow();
     expect(() => parseConfig({ ...config, profiles: [] })).toThrow();
     expect(() => parseConfig({ ...config, profiles: [{ ...config.profiles[0], screenReader: 'jaws' }] })).toThrow();
   });
   it('starts a project with one default profile', () => {
     const config = defaultConfig();
-    expect(config.profiles.map(p => p.id)).toEqual(['default']); expect(config.profiles[0]).toMatchObject({ executor: { followPlan: true }, page: 'default', screenReader: 'simulation' }); expect(config.profiles[0]).not.toHaveProperty('planner');
+    expect(config.profiles.map(p => p.id)).toEqual(['default']); expect(config.profiles[0]).toMatchObject({ page: 'default', screenReader: 'simulation' }); expect(config.profiles[0]).not.toHaveProperty('planner'); expect(config.profiles[0]).not.toHaveProperty('executor');
     expect(config.profiles[0]!.actions).toEqual({ keys: [], intents: ['next', 'previous', 'activate'], typeText: false, replaceText: false }); expect(config.machine.atEndpoints).toEqual({ voiceover: '', nvda: '' });
   });
   it('finds connections and profiles by id first, then by name', () => {
@@ -357,10 +326,10 @@ describe('first profile of a project', () => {
     expect(firstProfile(config).id).toBe('p3');
   });
   it('reads the conditions of a run off the profile, each named after it', () => {
-    const profile = { ...plannedWith(profileWith('p2', 'a', 'm-a', 'Second'), 'setup-llm'), page: 'narrow', screenReader: 'nvda' as const };
+    const profile = { ...profileWith('p2', 'setup-llm', 'planner', 'Second'), page: 'narrow', screenReader: 'nvda' as const };
     const conditions = profileConditions(profile);
     expect(conditions.profile).toBe(profile);
-    expect(conditions.combo).toEqual({ id: 'p2', name: 'Second', planner: profile.planner, executor: profile.executor });
+    expect(conditions.combo).toEqual({ id: 'p2', name: 'Second', planner: profile.planner });
     expect(conditions.actionSet).toEqual({ id: 'p2', name: 'Second', actions: profile.actions });
     expect(conditions.pageEnvironment).toMatchObject({ id: 'p2', profile: 'narrow' }); expect(conditions.atEnvironment).toMatchObject({ id: 'p2', backend: 'nvda' });
   });
@@ -377,36 +346,34 @@ describe('first profile of a project', () => {
     const record = conditionsRecord(conditions, check);
     expect(record).toMatchObject({
       profile: { id: 'default', name: 'Default' },
-      combo: { id: 'default', executor: 'a · m-a', prompt: { id: 'default.executor' }, planner: 'setup-llm · planner' },
+      combo: { id: 'default', planner: 'setup-llm · planner' },
       actionSet: { id: 'default', permissions: { intents: ['next', 'previous', 'activate'] } },
       pageEnvironment: { id: 'default', profile: 'default' }, atEnvironment: { id: 'default', backend: 'simulation' },
       runRules: { maxPlannerCalls: expect.any(Number) },
     });
     expect(record.combo).not.toHaveProperty('structure'); expect(record).not.toHaveProperty('preset');
+    for (const gone of ['executor', 'followPlan', 'prompt']) expect(record.combo).not.toHaveProperty(gone);
     const spec = runSpecOf(task as never, conditions, check);
-    expect(spec).toMatchObject({ backend: 'simulation', executor: { historyLimit: 12, latitude: 'none' }, conditions: record });
-    expect(spec).not.toHaveProperty('mode'); expect(spec.executor).not.toHaveProperty('focusGate');
+    expect(spec).toMatchObject({ backend: 'simulation', plannerModel: { id: 'setup-llm', modelId: 'planner' }, plannerInstructions: '', conditions: record });
+    for (const gone of ['mode', 'executor', 'model', 'prompt']) expect(spec).not.toHaveProperty(gone);
   });
 });
 
 describe('run checks', () => {
-  const choiceOf = (config: ProjectConfig) => config.profiles[0]!.executor as Executor;
   const check = (config: ProjectConfig, change: (c: ProjectConfig) => void = () => {}, extra: Partial<Parameters<typeof checkRun>[0]> = {}) => {
     change(config);
     return checkRun({ config, task: task as never, taskEntry: config.tasks[0], ...profileConditions(config.profiles[0]!), ...extra });
   };
-  const withLlm = (c: ProjectConfig) => { c.connections.push(connection('llm', { kind: 'llm' })); };
-  it('accepts a supported combination and returns its settings, the profile\'s executor with its instructions and its planner', () => {
+  const withLlm = (c: ProjectConfig) => { c.connections.push(connection('llm')); };
+  it('accepts a supported combination and returns its settings and its planner', () => {
     const result = check(setup());
     expect(result.problem).toBeUndefined(); expect(result.settings.runRules.maxPlannerCalls).toBeGreaterThan(0); expect(result.warnings).toEqual([]);
-    expect(result.model).toMatchObject({ id: 'a', modelId: 'm-a', name: 'a · m-a' }); expect(result.analysisModel).toBeUndefined();
-    expect(result.prompt).toMatchObject({ id: 'default.executor', instructions });
-    expect(result.plannerModel).toMatchObject({ id: 'setup-llm', modelId: 'planner', kind: 'llm' });
+    expect(result.analysisModel).toBeUndefined();
+    expect(result.plannerModel).toMatchObject({ id: 'setup-llm', modelId: 'planner' });
+    expect(result).not.toHaveProperty('model'); expect(result).not.toHaveProperty('prompt');
     expect(assertRunnable(result).permissions.intents).toEqual(['next', 'previous', 'activate']);
   });
   it.each([
-    ['profile-without-executor', (c: ProjectConfig) => { delete c.profiles[0]!.executor; }],
-    ['too-many-choices', (c: ProjectConfig) => { choiceOf(c).maxChoices = 3; }],
     ['unsupported-action', (c: ProjectConfig) => { c.profiles[0]!.actions.keys = ['F13']; }],
     ['planner-model-invalid', (c: ProjectConfig) => { delete c.profiles[0]!.planner; }],
     ['environment-unsupported', (c: ProjectConfig) => { c.profiles[0]!.page = 'zoom-200'; }],
@@ -416,18 +383,10 @@ describe('run checks', () => {
     expect(() => assertRunnable(result)).toThrow(result.problem!);
     expect(result.permissions).toBeDefined();
   });
-  it('explains a missing action by name, and a profile without an executor by what to do', () => {
+  it('explains a missing action by name, and a profile without a planner by what to do', () => {
     expect(check(setup(), c => { c.profiles[0]!.actions.keys = ['Tab', 'F13', 'F14']; }).problem!.message).toMatch(/F13, F14/);
-    const none = check(setup(), c => { delete c.profiles[0]!.executor; });
-    expect(none.model).toBeUndefined(); expect(none.problem!.message).toMatch(/no executor yet.*follow the plan/i);
-  });
-  it('counts one stop choice, and the four task choices only when the executor controls tasks', () => {
-    // Three intents plus the stop choice.
-    const limit = (maxChoices: number, executorControls = false) => check(setup(), c => { choiceOf(c).maxChoices = maxChoices; if (executorControls) c.profiles[0]!.runRules.taskControl = 'executor'; }).problem?.code;
-    expect(limit(3)).toBe('too-many-choices'); expect(limit(4)).toBeUndefined();
-    expect(limit(7, true)).toBe('too-many-choices'); expect(limit(8, true)).toBeUndefined();
-    // Listing headings is Rawstep's survey, never an executor choice.
-    expect(check(setup(), c => { choiceOf(c).maxChoices = 4; c.profiles[0]!.actions.intents.push('headings.list'); }).problem).toBeUndefined();
+    const none = check(setup(), c => { delete c.profiles[0]!.planner; });
+    expect(none.plannerModel).toBeUndefined(); expect(none.problem!.message).toMatch(/needs a planner.*LLM connection or a plan file/i);
   });
   it('merges the run rules of the profile and the run, the run last', () => {
     const result = check(setup(), c => { c.profiles[0]!.runRules.maxPlannerCalls = 5; c.profiles[0]!.runRules.stepActionLimit = 9; c.profiles[0]!.runRules.noChangeLimit = 6; },
@@ -436,54 +395,50 @@ describe('run checks', () => {
     expect(check(setup(), c => { c.project.analysis.instructions = 'Project focus.'; }).settings.analysisInstructions).toBe('Project focus.');
     expect(check(setup(), c => { c.project.analysis.instructions = 'Project focus.'; c.tasks[0]!.analysisInstructions = 'Task focus.'; }).settings.analysisInstructions).toBe('Task focus.');
   });
-  it('never blocks a run on analysis: a model that is not an LLM only warns, only the project\'s analysis model is used', () => {
-    const bad = check(setup(), c => { c.project.analysis.model = { connectionId: 'b', modelId: 'writer' }; });
+  it('never blocks a run on analysis: a model on a connection that is gone only warns, only the project\'s analysis model is used', () => {
+    const bad = check(setup(), c => { c.project.analysis.model = { connectionId: 'ghost', modelId: 'writer' }; });
     expect(bad.problem).toBeUndefined(); expect(bad.analysisModel).toBeUndefined(); expect(bad.warnings).toEqual([expect.stringMatching(/not on an LLM connection.*rules only/)]);
     const project = check(setup(), c => { withLlm(c); c.project.analysis.model = { connectionId: 'llm', modelId: 'writer' }; });
-    expect(project.problem).toBeUndefined(); expect(project.warnings).toEqual([]); expect(project.analysisModel).toMatchObject({ id: 'llm', modelId: 'writer', kind: 'llm' });
+    expect(project.problem).toBeUndefined(); expect(project.warnings).toEqual([]); expect(project.analysisModel).toMatchObject({ id: 'llm', modelId: 'writer' });
     expect(check(setup()).warnings).toEqual([]);
   });
   describe('planners', () => {
-    const planned = (c: ProjectConfig, instructionsText = 'Plan like an expert.') => { withLlm(c); c.profiles[0] = plannedWith(c.profiles[0]!, 'llm', 'planner', instructionsText); };
+    const planned = (c: ProjectConfig, instructionsText = 'Plan like an expert.') => { withLlm(c); c.profiles[0] = profileWith('default', 'llm', 'planner', 'Default', instructionsText); };
     it('plan with the planner\'s model and added instructions', () => {
       const reader = check(setup(), c => planned(c));
       expect(reader.problem).toBeUndefined(); expect(reader.warnings).toEqual([]);
-      expect(reader.plannerModel).toMatchObject({ id: 'llm', modelId: 'planner', kind: 'llm' }); expect(reader.plannerInstructions).toBe('Plan like an expert.');
+      expect(reader.plannerModel).toMatchObject({ id: 'llm', modelId: 'planner' }); expect(reader.plannerInstructions).toBe('Plan like an expert.');
     });
     it('refuse a run that has no planner, and leave the profile saveable', () => {
       expect(check(setup(), c => { delete c.profiles[0]!.planner; }).problem?.code).toBe('planner-model-invalid');
-      expect(check(setup(), c => { delete c.profiles[0]!.planner; c.profiles[0]!.executor = { followPlan: true }; }).problem?.code).toBe('planner-model-invalid');
       expect(() => parseConfig((() => { const c = setup(); delete c.profiles[0]!.planner; return c; })())).not.toThrow();
     });
-    it('need a planner on an LLM connection or a plan file', () => {
-      expect(check(setup(), c => { c.profiles[0] = plannedWith(c.profiles[0]!, 'b'); }).problem?.code).toBe('planner-model-invalid');
+    it('need a planner on a connection that exists or a plan file', () => {
+      expect(check(setup(), c => { c.profiles[0] = profileWith('default', 'ghost'); }).problem?.code).toBe('planner-model-invalid');
     });
     it('give a file planner the task\'s own plan file, and record it in the conditions', () => {
       const filed = check(setup(), c => { Object.assign(c.profiles[0]!, { planner: { planFile: 'plans/{task}/L2.json' } }); }, { taskEntry: { file: 'tasks/cart.json' } });
       expect(filed.problem).toBeUndefined(); expect(filed.plannerPlanFile).toBe('plans/cart/L2.json'); expect(filed.plannerModel).toBeUndefined();
       expect(check(setup(), c => { Object.assign(c.profiles[0]!, { planner: { planFile: 'plans/{task}/L2.json' } }); }, { taskEntry: {} }).problem?.code).toBe('plan-file-task');
     });
-    it('run a profile that follows its plan without an executor model or its key', () => {
-      const follow = (c: ProjectConfig) => { Object.assign(c.profiles[0]!, { planner: { planFile: 'plans/{task}/L2.json' } }); c.profiles[0]!.executor = { followPlan: true }; };
-      const result = check(setup(), follow, { taskEntry: { file: 'tasks/cart.json' } });
-      expect(result.problem).toBeUndefined();
-      expect(result.model).toMatchObject({ id: 'rawstep-plan-follower', modelId: 'follow-plan' }); expect(result.prompt).toMatchObject({ id: 'default.follow-plan', instructions: '' });
-      expect(check(setup(), c => { follow(c); c.profiles[0]!.runRules.taskControl = 'executor'; }, { taskEntry: { file: 'tasks/cart.json' } }).problem?.code).toBe('follow-plan-task-control');
-      // Following the plan cannot type: a task whose profile enters text into its inputs needs an executor model.
-      const typing = (c: ProjectConfig) => { follow(c); c.profiles[0]!.actions = { ...c.profiles[0]!.actions, inputKeys: ['email'], typeText: true }; };
-      expect(check(setup(), typing, { taskEntry: { file: 'tasks/cart.json' } }).problem?.code).toBe('follow-plan-text-entry');
+    it('run a plan file without any model or key, and let its plan type into the task\'s inputs', () => {
+      const filed = (c: ProjectConfig) => { Object.assign(c.profiles[0]!, { planner: { planFile: 'plans/{task}/L2.json' } }); };
+      const result = check(setup(), filed, { taskEntry: { file: 'tasks/cart.json' } });
+      expect(result.problem).toBeUndefined(); expect(result.plannerModel).toBeUndefined(); expect(result).not.toHaveProperty('model');
+      // The plan's typing tasks name the input, so a profile that enters text needs nothing else.
+      const typing = (c: ProjectConfig) => { filed(c); c.profiles[0]!.actions = { ...c.profiles[0]!.actions, inputKeys: ['email'], typeText: true }; };
+      expect(check(setup(), typing, { taskEntry: { file: 'tasks/cart.json' } }).problem).toBeUndefined();
     });
     it('give a constant plan file to any task, registered or not; only {task} needs the task file', () => {
       const constant = (c: ProjectConfig) => { Object.assign(c.profiles[0]!, { planner: { planFile: 'plans/common.json' } }); };
       const result = check(setup(), constant, { taskEntry: {} });
       expect(result.problem).toBeUndefined(); expect(result.plannerPlanFile).toBe('plans/common.json');
     });
-    it('hand the executor\'s latitude to the run, and none when the plan is followed', () => {
-      const config = setup(); Object.assign(config.profiles[0]!, { planner: { planFile: 'plans/{task}/L2.json' } }); choiceOf(config).latitude = 'direction';
-      const spec = (c: ProjectConfig) => { const conditions = profileConditions(c.profiles[0]!); return runSpecOf(task as never, conditions, assertRunnable(check(c, () => {}, { taskEntry: { file: 'tasks/cart.json' } }))); };
-      expect(spec(config).executor).toMatchObject({ latitude: 'direction' });
-      config.profiles[0]!.executor = { followPlan: true };
-      expect(spec(config).executor).toMatchObject({ latitude: 'none' });
+    it('hand the planner and its added instructions to the run spec, and nothing of an executor', () => {
+      const config = setup(); Object.assign(config.profiles[0]!, profileWith('default', 'setup-llm', 'planner', 'Default', 'Plan in small steps'));
+      const spec = runSpecOf(task as never, profileConditions(config.profiles[0]!), assertRunnable(check(config)));
+      expect(spec).toMatchObject({ plannerModel: { id: 'setup-llm', modelId: 'planner' }, plannerInstructions: 'Plan in small steps' });
+      expect(spec).not.toHaveProperty('plannerPlan');
     });
   });
   describe('assistive technology', () => {
@@ -519,10 +474,10 @@ describe('runTask', () => {
     });
     return trace.finalize({ status, steps: keys.length, ...(reason ? { reason } : {}) });
   };
-  /** An executor that plays the given recordings in order and remembers what it was asked to run. */
+  /** A run executor that plays the given recordings in order and remembers what it was asked to run. */
   function player(...plays: ReturnType<typeof recorded>[]) {
-    const calls: { spec: RunSpec; outDir: string; apiKey?: string; plannerApiKey?: string | undefined }[] = [];
-    const execute: RunExecutor = async (spec, { outDir, apiKey, plannerApiKey }) => { calls.push({ spec, outDir, apiKey, plannerApiKey }); return plays[calls.length - 1]!(spec, outDir); };
+    const calls: { spec: RunSpec; outDir: string; plannerApiKey?: string | undefined }[] = [];
+    const execute: RunExecutor = async (spec, { outDir, plannerApiKey }) => { calls.push({ spec, outDir, plannerApiKey }); return plays[calls.length - 1]!(spec, outDir); };
     return { calls, execute };
   }
   async function project(change: (config: ProjectConfig) => void = () => {}) {
@@ -532,12 +487,12 @@ describe('runTask', () => {
   const back = ['Tab', 'Shift+Tab', 'Tab', 'Shift+Tab'];
   const tabOnly = { keys: ['Tab'], intents: [], typeText: false, replaceText: false };
 
-  it('runs a registered task with the executor and planner of its profile, writing under .rawstep/runs and returning the conditions', async () => {
+  it('runs a registered task with the planner of its profile, writing under .rawstep/runs and returning the conditions', async () => {
     const { dir } = await project(), { calls, execute } = player(recorded(['Tab', 'Enter'], 'success'));
     const result = await runTask('task', { projectDir: dir }, { execute });
     expect(calls).toHaveLength(1);
-    expect(calls[0]!.spec).toMatchObject({ backend: 'simulation', model: { id: 'a' }, prompt: { id: 'default.executor', instructions }, plannerModel: { id: 'setup-llm' }, task: { goal: 'Complete fixture' }, environment: expect.objectContaining({ id: 'default' }) });
-    expect(calls[0]!.spec).not.toHaveProperty('mode');
+    expect(calls[0]!.spec).toMatchObject({ backend: 'simulation', plannerModel: { id: 'setup-llm' }, task: { goal: 'Complete fixture' }, environment: expect.objectContaining({ id: 'default' }) });
+    expect(calls[0]!.spec).not.toHaveProperty('mode'); expect(calls[0]!.spec).not.toHaveProperty('model'); expect(calls[0]!.spec).not.toHaveProperty('prompt');
     expect(calls[0]!.spec.permissions.intents).toContain('next');
     expect(dirname(dirname(calls[0]!.outDir))).toBe(join(dir, '.rawstep', 'runs')); expect(basename(dirname(calls[0]!.outDir))).toMatch(/^[0-9T-]+Z-[0-9a-f]{8}$/); expect(basename(calls[0]!.outDir)).toBe('run-1');
     expect(result.runs).toHaveLength(1);
@@ -547,7 +502,7 @@ describe('runTask', () => {
     expect((await readTrace(calls[0]!.outDir)).runId).toBe(result.runs[0]!.runId);
     expect(result.findings).toEqual([]); expect(result.warnings).toEqual([]);
     expect(result.conditions).toMatchObject({
-      profile: { id: 'default', name: 'Default' }, combo: { id: 'default', executor: 'a · m-a', prompt: { id: 'default.executor' }, planner: 'setup-llm · planner' }, actionSet: { id: 'default' }, pageEnvironment: { id: 'default' },
+      profile: { id: 'default', name: 'Default' }, combo: { id: 'default', planner: 'setup-llm · planner' }, actionSet: { id: 'default' }, pageEnvironment: { id: 'default' },
       atEnvironment: { id: 'default', backend: 'simulation' }, runRules: { maxPlannerCalls: expect.any(Number) },
     });
     expect(result.conditions).toEqual(calls[0]!.spec.conditions);
@@ -568,31 +523,31 @@ describe('runTask', () => {
   });
   it('resolves the profile by id or by name, and reports an unknown one with the choices', async () => {
     const { dir } = await project(config => {
-      config.profiles.push({ ...plannedWith(profileWith('zoom', 'b', 'm-b', 'Zoom check'), 'setup-llm'), page: 'narrow' });
-      config.profiles.push({ ...plannedWith(profileWith('wide', 'a', 'm-a', 'Wide'), 'setup-llm'), actions: tabOnly });
+      config.profiles.push({ ...profileWith('zoom', 'b', 'plan-b', 'Zoom check'), page: 'narrow' });
+      config.profiles.push({ ...profileWith('wide', 'a', 'plan-a', 'Wide'), actions: tabOnly });
     });
     const { calls, execute } = player(recorded(['Enter'], 'success'), recorded(['Enter'], 'success'), recorded(['Enter'], 'success'), recorded(['Enter'], 'success'));
     await runTask('task', { projectDir: dir, profile: 'zoom' }, { execute });
     await runTask('task', { projectDir: dir, profile: 'Zoom check' }, { execute });
     await runTask('task', { projectDir: dir, profile: 'Default' }, { execute });
     await runTask('task', { projectDir: dir, profile: 'Wide' }, { execute });
-    expect(calls.map(c => c.spec.model.id)).toEqual(['b', 'b', 'a', 'a']);
-    expect(calls[0]!.spec.model).toMatchObject({ modelId: 'm-b', name: 'b · m-b' });
+    expect(calls.map(c => c.spec.plannerModel!.id)).toEqual(['b', 'b', 'setup-llm', 'a']);
+    expect(calls[0]!.spec.plannerModel).toMatchObject({ modelId: 'plan-b', name: 'b · plan-b' });
     expect(calls.map(c => (c.spec.environment as { id: string }).id)).toEqual(['narrow', 'narrow', 'default', 'default']);
     expect(calls[3]!.spec.permissions.keys).toEqual(['Tab']); expect(calls[3]!.spec.conditions).toMatchObject({ profile: { id: 'wide', name: 'Wide' }, actionSet: { id: 'wide' } });
     await expect(runTask('task', { projectDir: dir, profile: 'nope' }, { execute })).rejects.toMatchObject({ code: 'profile-not-found', message: expect.stringContaining('Zoom check (zoom)') });
     expect(calls).toHaveLength(4);
   });
-  it('uses the first profile unless one is named, with that profile\'s executor and instructions', async () => {
-    const { dir } = await project(config => { config.profiles.push(plannedWith(profileWith('second', 'b', 'm-b', 'Second'), 'setup-llm')); });
+  it('uses the first profile unless one is named, with that profile\'s planner and instructions', async () => {
+    const { dir } = await project(config => { config.profiles.push(profileWith('second', 'b', 'plan-b', 'Second', 'Plan in small steps')); });
     const { calls, execute } = player(recorded(['Enter'], 'success'), recorded(['Enter'], 'success'));
     await runTask('task', { projectDir: dir }, { execute });
-    expect(calls[0]!.spec.model.id).toBe('a'); expect(calls[0]!.spec.environment).toEqual(expect.objectContaining({ id: 'default' }));
-    expect(calls[0]!.spec.prompt).toMatchObject({ id: 'default.executor', instructions });
+    expect(calls[0]!.spec.plannerModel!.id).toBe('setup-llm'); expect(calls[0]!.spec.environment).toEqual(expect.objectContaining({ id: 'default' }));
+    expect(calls[0]!.spec.plannerInstructions).toBe('');
     expect(calls[0]!.spec.conditions).toMatchObject({ profile: { id: 'default', name: 'Default' } });
     // A named profile is used instead of the first.
     await runTask('task', { projectDir: dir, profile: 'second' }, { execute });
-    expect(calls[1]!.spec.model.id).toBe('b'); expect(calls[1]!.spec.prompt).toMatchObject({ id: 'second.executor' });
+    expect(calls[1]!.spec.plannerModel).toMatchObject({ id: 'b', modelId: 'plan-b' }); expect(calls[1]!.spec.plannerInstructions).toBe('Plan in small steps');
   });
   it('merges run rules as the profile\'s and then the options\'', async () => {
     const { dir } = await project(config => { config.profiles[0]!.runRules = resolveRunRules(config.profiles[0]!, { maxPlannerCalls: 8, stepActionLimit: 20, failureLimit: 3 }); });
@@ -605,7 +560,7 @@ describe('runTask', () => {
   });
   it('runs the first profile with its own actions, for a registered task and an unregistered task file alike', async () => {
     const { dir } = await project(config => {
-      config.profiles.unshift({ ...plannedWith(profileWith('task-keys', 'a', 'm-a', 'Task keys'), 'setup-llm'), actions: tabOnly });
+      config.profiles.unshift({ ...profileWith('task-keys', 'setup-llm', 'planner', 'Task keys'), actions: tabOnly });
     });
     const { calls, execute } = player(recorded(['Enter'], 'success'), recorded(['Enter'], 'success'));
     const result = await runTask('task', { projectDir: dir }, { execute });
@@ -615,22 +570,20 @@ describe('runTask', () => {
     await runTask('other.json', { projectDir: dir }, { execute });
     expect(calls[1]!.spec.permissions.keys).toEqual(['Tab']); expect(calls[1]!.spec.conditions).toMatchObject({ profile: { id: 'task-keys' } });
   });
-  it('explains when the profile has no executor or no planner', async () => {
-    const none = await project(config => { delete config.profiles[0]!.executor; });
-    await expect(runTask('task', { projectDir: none.dir }, { execute: player().execute })).rejects.toMatchObject({ code: 'profile-without-executor', message: expect.stringMatching(/no executor yet/i) });
+  it('explains when the profile has no planner, and still runs another profile that has one', async () => {
     const unplanned = await project(config => { delete config.profiles[0]!.planner; });
-    await expect(runTask('task', { projectDir: unplanned.dir }, { execute: player().execute })).rejects.toMatchObject({ code: 'planner-model-invalid' });
-    // Another profile with an executor still runs: nothing else is picked for the profile that has none.
+    await expect(runTask('task', { projectDir: unplanned.dir }, { execute: player().execute })).rejects.toMatchObject({ code: 'planner-model-invalid', message: expect.stringMatching(/needs a planner/i) });
+    // Nothing else is picked for the profile that has none.
     const { calls, execute } = player(recorded(['Enter'], 'success'));
-    const mixed = await project(config => { delete config.profiles[0]!.executor; config.profiles.push(plannedWith(profileWith('second', 'b'), 'setup-llm')); });
+    const mixed = await project(config => { delete config.profiles[0]!.planner; config.profiles.push(profileWith('second', 'b')); });
     await runTask('task', { projectDir: mixed.dir, profile: 'second' }, { execute });
-    expect(calls[0]!.spec.model.id).toBe('b');
-    await expect(runTask('task', { projectDir: mixed.dir }, { execute })).rejects.toMatchObject({ code: 'profile-without-executor' });
+    expect(calls[0]!.spec.plannerModel!.id).toBe('b');
+    await expect(runTask('task', { projectDir: mixed.dir }, { execute })).rejects.toMatchObject({ code: 'planner-model-invalid' });
   });
   it('needs the planner\'s key and hands it to the run, with the planner\'s added instructions', async () => {
     const { dir, store } = await project(config => {
-      config.connections.push(connection('planner', { kind: 'llm', provider: 'openai' }));
-      config.profiles[0] = plannedWith(config.profiles[0]!, 'planner', 'plan-model', 'Be careful.');
+      config.connections.push(connection('planner', { provider: 'openai' }));
+      config.profiles[0] = profileWith('default', 'planner', 'plan-model', 'Default', 'Be careful.');
     });
     const { calls, execute } = player(recorded(['Enter'], 'success'));
     await expect(runTask('task', { projectDir: dir }, { execute })).rejects.toMatchObject({ code: 'missing-credential', message: expect.stringContaining('RAWSTEP_OPENAI_API_KEY') });
@@ -641,20 +594,20 @@ describe('runTask', () => {
     expect(reader.warnings).toEqual([]); expect(reader.conditions).toMatchObject({ combo: { planner: 'planner · plan-model' } });
   });
   it('passes the profile\'s screen reader to the run', async () => {
-    const { dir } = await project(config => { config.profiles.push({ ...plannedWith(profileWith('nvda', 'a', 'm-a', 'NVDA'), 'setup-llm'), screenReader: 'nvda' }); });
+    const { dir } = await project(config => { config.profiles.push({ ...profileWith('nvda', 'setup-llm', 'planner', 'NVDA'), screenReader: 'nvda' }); });
     const { calls, execute } = player(recorded(['Enter'], 'success'));
     if (process.platform !== 'win32') await expect(runTask('task', { projectDir: dir, profile: 'nvda' }, { execute })).rejects.toMatchObject({ code: 'nvda-windows' });
     else { await runTask('task', { projectDir: dir, profile: 'nvda' }, { execute }); expect(calls[0]!.spec.backend).toBe('nvda'); }
   });
   it('runs an unregistered task file with the first profile, resolving the path from the project directory', async () => {
-    const { dir } = await project(config => { config.profiles.push(profileWith('second', 'b', 'm-b', 'Second')); });
+    const { dir } = await project(config => { config.profiles.push(profileWith('second', 'b', 'plan-b', 'Second')); });
     await writeFile(join(dir, 'other.json'), JSON.stringify({ ...task, goal: 'Other goal' }));
     const { calls, execute } = player(recorded(['Enter'], 'success'), recorded(['Enter'], 'success'));
     await runTask('other.json', { projectDir: dir }, { execute });
-    expect(calls[0]!.spec.task.goal).toBe('Other goal'); expect(calls[0]!.spec.prompt.id).toBe('default.executor'); expect(calls[0]!.spec.model.id).toBe('a');
+    expect(calls[0]!.spec.task.goal).toBe('Other goal'); expect(calls[0]!.spec.plannerModel!.id).toBe('setup-llm');
     // The registered task's own file is recognized, and runs with the first profile too: a task names none.
     await runTask('./task.json', { projectDir: dir }, { execute });
-    expect(calls[1]!.spec.task.goal).toBe('Complete fixture'); expect(calls[1]!.spec.model.id).toBe('a');
+    expect(calls[1]!.spec.task.goal).toBe('Complete fixture'); expect(calls[1]!.spec.plannerModel!.id).toBe('setup-llm');
     await expect(runTask('missing.json', { projectDir: dir }, { execute })).rejects.toMatchObject({ code: 'task-not-found', message: expect.stringContaining('Known tasks: task') });
     await writeFile(join(dir, 'broken.json'), '{nope');
     await expect(runTask('broken.json', { projectDir: dir }, { execute })).rejects.toMatchObject({ code: 'invalid-task' });
@@ -671,17 +624,17 @@ describe('runTask', () => {
     await expect(runTask('task', { projectDir: unsupported.dir }, { execute })).rejects.toMatchObject({ code: 'environment-unsupported' });
   });
   it('requires the provider key, reading it from .env.local, and hands it to the run; a custom server needs none', async () => {
-    const { dir, store } = await project(config => { config.connections[0] = connection('a', { kind: 'llm', provider: 'openai' }); config.profiles.push(plannedWith(profileWith('second', 'b'), 'setup-llm')); });
+    const { dir, store } = await project(config => { config.connections[0] = connection('a', { provider: 'openai' }); config.profiles[0] = profileWith('default', 'a'); config.profiles.push(profileWith('second', 'b')); });
     const { calls, execute } = player(recorded(['Enter'], 'success'), recorded(['Enter'], 'success'));
     await expect(runTask('task', { projectDir: dir }, { execute })).rejects.toMatchObject({ code: 'missing-credential', message: expect.stringContaining('RAWSTEP_OPENAI_API_KEY') });
     await store.setCredential('openai', 'sk-fixture-key');
     await runTask('task', { projectDir: dir }, { execute });
-    expect(calls[0]!.apiKey).toBe('sk-fixture-key');
+    expect(calls[0]!.plannerApiKey).toBe('sk-fixture-key');
     await runTask('task', { projectDir: dir, profile: 'second' }, { execute });
-    expect(calls[1]!.apiKey).toBeUndefined();
+    expect(calls[1]!.plannerApiKey).toBeUndefined();
   });
   describe('analysis', () => {
-    const analysed = (config: ProjectConfig) => { config.connections.push(connection('writer', { kind: 'llm', provider: 'openai' })); config.project.analysis.model = { connectionId: 'writer', modelId: 'gpt-fixture' }; };
+    const analysed = (config: ProjectConfig) => { config.connections.push(connection('writer', { provider: 'openai' })); config.project.analysis.model = { connectionId: 'writer', modelId: 'gpt-fixture' }; };
     it('never blocks a run: without the analysis key the runs get the rule-based analysis and a warning', async () => {
       const { dir, store } = await project(analysed);
       const { calls, execute } = player(recorded(['Enter'], 'success'), recorded(['Enter'], 'success'));
@@ -697,7 +650,7 @@ describe('runTask', () => {
     it('builds the analyzer of the project\'s analysis model, and says what is missing otherwise', async () => {
       const none = await project();
       await expect(projectAnalyzer(none.dir)).rejects.toMatchObject({ code: 'no-analysis-model', message: expect.stringMatching(/project has no analysis model/) });
-      const { dir } = await project(config => { config.connections.push(connection('writer', { kind: 'llm', name: 'Writer' })); config.project.analysis = { model: { connectionId: 'writer', modelId: 'gpt-fixture' }, instructions: 'Focus on forms.' }; });
+      const { dir } = await project(config => { config.connections.push(connection('writer', { name: 'Writer' })); config.project.analysis = { model: { connectionId: 'writer', modelId: 'gpt-fixture' }, instructions: 'Focus on forms.' }; });
       expect((await projectAnalyzer(dir)).modelName).toBe('Writer · gpt-fixture');
       const keyed = await project(analysed);
       await expect(projectAnalyzer(keyed.dir)).rejects.toMatchObject({ code: 'missing-credential' });
@@ -718,7 +671,7 @@ describe('runTask', () => {
     await runTask('task', { projectDir: dir, onEvent: event => seen.push(event.type) }, { execute });
     expect(seen).toContain('fixture.event');
   });
-  it('does not treat an executor failure as a result', async () => {
+  it('does not treat a run executor failure as a result', async () => {
     const { dir } = await project();
     await expect(runTask('task', { projectDir: dir }, { execute: async () => { throw new Error('browser crashed'); } })).rejects.toThrow('browser crashed');
   });

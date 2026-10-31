@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { RAWSTEP_DEFAULTS, isLoopbackHostname, isLoopbackUrl } from '@rawstep/core/defaults';
 import { resolveTask } from '@rawstep/core/contracts';
-import { defaultConfig, executorSchema, runRulesSchema } from '@rawstep/project/config';
+import { defaultConfig, runRulesSchema } from '@rawstep/project/config';
 
 describe('shared runtime defaults', () => {
   it.each(['http://localhost:1/', 'http://127.0.0.1/', 'http://[::1]:8/'])('treats %s as loopback', url => expect(isLoopbackUrl(url)).toBe(true));
@@ -14,11 +14,6 @@ describe('shared runtime defaults', () => {
     expect({ maxPlannerCalls, stepActionLimit }).toEqual({ maxPlannerCalls: RAWSTEP_DEFAULTS.orchestration.maxPlannerCalls, stepActionLimit: RAWSTEP_DEFAULTS.orchestration.stepActionLimit });
     expect([failureLimit, noChangeLimit]).toEqual([2, 3]);
     expect(runRulesSchema.parse({})).toEqual(defaultConfig().profiles[0]!.runRules);
-  });
-  it('defaults the executor history to the shared policy default', () => {
-    const executor = executorSchema.parse({ connectionId: 'm', modelId: 'x', instructions: 'Choose.' });
-    expect(executor.historyLimit).toBe(RAWSTEP_DEFAULTS.policy.historyLimit);
-    expect(executor).toMatchObject({ maxChoices: 255 });
   });
   it('resolves task limits from the shared defaults', () => {
     const task = resolveTask({ url: 'https://example.com', goal: 'g', verify: { all: [{ titleIncludes: 'x' }] } });

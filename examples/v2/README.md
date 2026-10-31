@@ -6,7 +6,7 @@ Start the appropriate native AT Driver server yourself, or let Rawstep start it 
 
 ## Running the example
 
-Set the run profile's `screenReader` to `voiceover` (macOS) or `nvda` (Windows) in `rawstep.config.json` (`npx rawstep ui` edits it). Leave `machine.atEndpoints.<voiceover|nvda>` empty to use the usual address of the screen reader's server (`ws://localhost:4382/session` for VoiceOver, `ws://localhost:3031/session` for NVDA), or set the WebSocket URL of the server you run. Set up a connection and give a run profile a planner and an executor in the same file; see [SystemOne](../../docs/systemone.md) and [config](../../docs/config.md). Then check the setup and run the bundled task:
+Set the run profile's `screenReader` to `voiceover` (macOS) or `nvda` (Windows) in `rawstep.config.json` (`npx rawstep ui` edits it). Leave `machine.atEndpoints.<voiceover|nvda>` empty to use the usual address of the screen reader's server (`ws://localhost:4382/session` for VoiceOver, `ws://localhost:3031/session` for NVDA), or set the WebSocket URL of the server you run. Set up a connection and give a run profile a planner in the same file; see [config](../../docs/config.md#planner-and-plan). Then check the setup and run the bundled task:
 
 ```sh
 npx rawstep doctor

@@ -50,7 +50,7 @@ export function TasksPage({ pageProps, runs, summaries, summaryError, navigate, 
   const allShown = ordered.length > 0 && ordered.every(item => picked.includes(item.task.id));
   const profileName = (id: string) => config.profiles.find(profile => profile.id === id)?.name ?? id;
   const live = runs.filter(ref => isLive(ref.run)), finished = runs.filter(ref => isFinished(ref.run));
-  // Ready once some run profile can run: an executor and a planner.
+  // Ready once some run profile can run: it has a planner (a model or a plan file).
   const ready = config.profiles.find(profile => profileReady(profile, config.connections));
   const steps: SetupStep[] = [
     { id: 'model', done: !!ready, detail: ready ? t('taskList.setup.modelDone', { profile: ready.name, models: comboSummary(ready, config.connections) }) : config.connections.length ? t('taskList.setup.modelPick') : t('taskList.setup.modelTodo'),

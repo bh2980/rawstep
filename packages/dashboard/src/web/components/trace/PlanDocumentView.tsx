@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import type { ModelCall, PlanDocument, PlanTask, RunPlanView, StepView } from '../../../shared/api';
 import { t as translate } from '../../i18n';
 import { describeStep } from '../../lib/describe';
-import { endingLabel, modelWait, placedTasks, replanCount, speechChanged, taskName, taskSteps, triggerLabel, type PlacedTask } from '../../lib/plan';
+import { endingLabel, plannerWait, placedTasks, replanCount, speechChanged, taskName, taskSteps, triggerLabel, type PlacedTask } from '../../lib/plan';
 import { FactLine } from './FactLine';
 import { cn } from '../../lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
@@ -59,7 +59,7 @@ export function PlanDocumentView({ plan, steps, actionLimit, selectedStep, onSel
           <Select value={String(doc.version)} onValueChange={value => { setVersion(Number(value) === newest ? undefined : Number(value)); setPicked(undefined); }}>
             <SelectTrigger id={id + '-version'} size="sm" className="h-8 text-[13px]"><SelectValue /></SelectTrigger>
             <SelectContent>{[...plan.versions].reverse().map(v => <SelectItem key={v.version} value={String(v.version)}>
-              {t('planDoc.versionOption', { version: v.version, note: v.version === newest ? (live ? t('planDoc.versionLive') : t('planDoc.versionFinal')) : triggerLabel(v.trigger, v.help) })}
+              {t('planDoc.versionOption', { version: v.version, note: v.version === newest ? (live ? t('planDoc.versionLive') : t('planDoc.versionFinal')) : triggerLabel(v.trigger) })}
             </SelectItem>)}</SelectContent>
           </Select>
         </div>}
@@ -164,7 +164,7 @@ function History({ doc }: { doc: PlanDocument }) {
   return <details className="border-t border-edge-strong pt-2">
     <summary className="cursor-pointer text-sm font-medium">{t('planDoc.history', { count: revisions.length })}</summary>
     <ol className="mt-2 grid gap-3">{revisions.map(r => <li key={r.version} className="grid gap-1 border-l-2 border-model pl-3 text-sm leading-6">
-      <p className="font-medium">{t('planDoc.revisionLine', { from: r.version - 1, to: r.version, step: r.step, trigger: triggerLabel(r.trigger, r.help) })}</p>
+      <p className="font-medium">{t('planDoc.revisionLine', { from: r.version - 1, to: r.version, step: r.step, trigger: triggerLabel(r.trigger) })}</p>
       {r.rationale && <p><span className="text-muted-foreground">{t('planDoc.rationale')}</span> “{r.rationale}”</p>}
       {r.broken.length > 0 && <p><span className="text-muted-foreground">{t('planDoc.broken')}</span> {r.broken.map(assumption).join(', ')}</p>}
       {r.met.length > 0 && <p><span className="text-muted-foreground">{t('planDoc.met')}</span> {r.met.join(', ')}</p>}
@@ -175,7 +175,7 @@ function History({ doc }: { doc: PlanDocument }) {
   </details>;
 }
 
-/** The picked task: its cue, state, actions against the limit, the actions it took and the model calls of the picked action. */
+/** The picked task: its cue, state, actions against the limit, the actions it took and the planner calls of the picked action. */
 function TaskPane({ plan, doc, task, steps, actionLimit, selectedStep, onSelectStep }: Omit<Props, 'live'> & { doc: PlanDocument; task: PlacedTask }) {
   const { t } = useTranslation();
   const mine = taskSteps(plan, task.id, steps);
@@ -193,8 +193,7 @@ function TaskPane({ plan, doc, task, steps, actionLimit, selectedStep, onSelectS
         {verified && <span className="text-muted-foreground">· {t(`planDoc.verified.${verified}`)}</span>}
       </p>
       <p className="text-sm leading-6"><span className="text-muted-foreground">{t('planDoc.doneCue')}</span> {task.done || '—'}</p>
-      <p className="text-sm leading-6"><span className="text-muted-foreground">{t('planDoc.cue')}</span> {task.cue ? <span className="font-mono">"{task.cue}"{task.cueRole || task.cueState ? ` (${[task.cueRole, task.cueState].filter(Boolean).join(', ')})` : ''}</span> : <span className="text-muted-foreground">{t('planDoc.noCue')}</span>}
-        {task.rejected > 0 && <span className="ml-2 text-inspect">{t('planDoc.claimsRefused', { count: task.rejected })}</span>}</p>
+      <p className="text-sm leading-6"><span className="text-muted-foreground">{t('planDoc.cue')}</span> {task.cue ? <span className="font-mono">"{task.cue}"{task.cueRole || task.cueState ? ` (${[task.cueRole, task.cueState].filter(Boolean).join(', ')})` : ''}</span> : <span className="text-muted-foreground">{t('planDoc.noCue')}</span>}</p>
       {(task.serves.length > 0 || task.relies.length > 0) && <p className="font-mono text-xs text-muted-foreground">{[...task.serves, ...task.relies].join(', ')}</p>}
       {endingLabel(doc, task) && task.status !== 'done' && <p className="text-sm text-muted-foreground">{endingLabel(doc, task)}</p>}
     </div>
@@ -227,51 +226,36 @@ function TaskPane({ plan, doc, task, steps, actionLimit, selectedStep, onSelectS
           </tbody>
         </table>
       </div>}
-    {callsStep !== undefined && calls.length > 0 && <ModelCalls step={callsStep} calls={calls} plan={plan} />}
+    {callsStep !== undefined && calls.length > 0 && <ModelCalls step={callsStep} calls={calls} />}
   </section>;
 }
 
-/** The model calls of one step in the order they were made, each with its role. */
-export function ModelCalls({ step, calls, plan }: { step: number; calls: ModelCall[]; plan?: RunPlanView | undefined }) {
+/** The planner calls of one step in the order they were made. */
+export function ModelCalls({ step, calls }: { step: number; calls: ModelCall[] }) {
   const { t } = useTranslation();
   return <div className="grid gap-1.5">
     <h4 className={label}>{t('planDoc.callsTitle', { n: step })}</h4>
     <ol className="grid gap-1.5">{calls.map((call, i) => <li key={i} className="grid grid-cols-[1.25rem_minmax(0,1fr)] gap-2 text-[13px] leading-5">
       <span className="font-mono text-muted-foreground tabular-nums">{i + 1}</span>
       <span className="grid gap-0.5">
-        <span><span className={cn('font-medium', call.role === 'planner' ? 'text-model' : '')}>{t(`runConditions.roles.${call.role === 'planner' ? 'planner' : 'executor'}`)}</span>
+        <span><span className="font-medium text-model">{t('runConditions.roles.planner')}</span>
           <span className="font-mono text-muted-foreground">{[call.modelId, call.elapsedMs !== undefined ? t('planDoc.seconds', { seconds: (call.elapsedMs / 1000).toFixed(2) }) : undefined].filter(Boolean).map(part => ` · ${part}`).join('')}</span></span>
-        {call.role === 'planner'
-          ? <span className="text-muted-foreground">{t('planDoc.plannerCall', { trigger: triggerLabel(call.trigger ?? 'start', call.help), version: call.version ?? '?' })}</span>
-          : <span className="text-muted-foreground">{[
-            plan && call.taskId ? t('planDoc.executorTask', { task: taskName(plan, call.taskId) ?? call.taskId }) : undefined,
-            t('planDoc.executorChoice', { choice: choiceText(call) }) + (call.score !== undefined ? ` ${call.score.toFixed(2)}` : ''),
-          ].filter(Boolean).join(' · ')}</span>}
+        <span className="text-muted-foreground">{t('planDoc.plannerCall', { trigger: triggerLabel(call.trigger ?? 'start'), version: call.version ?? '?' })}</span>
       </span>
     </li>)}</ol>
   </div>;
 }
 
-/** What the executor picked, in words: the plan choices by name, an action by its label. */
-function choiceText(call: ModelCall): string {
-  const id = call.choiceId ?? '';
-  if (id === 'task:done') return translate(call.accepted === false ? 'planDoc.choiceDoneRefused' : 'planDoc.choiceDone');
-  if (id.startsWith('help:')) return translate('planDoc.choiceHelp', { reason: translate(`hints.text.helpReasons.${id.slice(5)}`, { defaultValue: id.slice(5) }) });
-  return call.choiceLabel ?? (id || '—');
-}
-
-/** One line of facts about the plan: its version and corrections, tasks done and dropped, and time spent waiting for each role. */
+/** One line of facts about the plan: its version and corrections, tasks done and dropped, and time spent waiting for the planner. */
 export function PlanFacts({ plan }: { plan: RunPlanView }) {
   const { t } = useTranslation();
   const tasks = plan.document.phases.flatMap(phase => phase.tasks), done = tasks.filter(task => task.status === 'done').length;
-  const dropped = plan.document.retired.filter(task => task.status === 'abandoned').length, replans = replanCount(plan), wait = modelWait(plan.calls);
-  const refused = Object.values(plan.calls).flat().filter(call => call.choiceId === 'task:done' && call.accepted === false).length;
+  const dropped = plan.document.retired.filter(task => task.status === 'abandoned').length, replans = replanCount(plan), wait = plannerWait(plan.calls);
   return <FactLine label={t('planDoc.factsLabel')} items={[
     <strong key="v" className="font-semibold">{t('planDoc.factVersion', { version: plan.document.version })}</strong>,
     replans > 0 ? t('planDoc.factReplans', { count: replans }) : t('planDoc.factNoReplans'),
     t('planDoc.factTasks', { done, total: tasks.length }),
     dropped > 0 && t('planDoc.factDropped', { count: dropped }),
-    refused > 0 && t('planDoc.factRefused', { count: refused }),
-    wait.total > 0 && t('planDoc.factWait', { total: wait.total.toFixed(1), planner: wait.planner.toFixed(1), executor: wait.executor.toFixed(1) }),
+    wait > 0 && t('planDoc.factWait', { seconds: wait.toFixed(1) }),
   ]} />;
 }

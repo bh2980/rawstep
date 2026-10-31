@@ -72,7 +72,7 @@ export type Task = {
 };
 export type PolicyAction = { kind: 'intent'; intent: string } | { kind: 'key'; key: string } | { kind: 'typeText'; input: string } | { kind: 'replaceText'; input: string };
 /**
- * Who ended a run early: the executor model (`model`), the planner judging the goal reached (`planner`), Rawstep's repetition guard
+ * Who ended a run early: a custom decision policy (`model`), the planner judging the goal reached (`planner`), Rawstep's repetition guard
  * (`exploration-guard`), the simulated user giving up after the approaches they tried failed (`user-gave-up`), or a cost limit on
  * planner calls before either (`orchestration-limit`: unmeasured, not a failure).
  */

@@ -1,13 +1,12 @@
 import { findRawstepError, RawstepError } from '@rawstep/core/errors';
 import { BrowserConnectError, createBrowserSession } from '@rawstep/browser/browser';
-import { DecisionClient, type DecisionProviderName } from '@rawstep/policies/systemone';
 import { AcpAgent, AcpError } from '@rawstep/policies/acp';
-import { providerPreset, resolveBaseURL, type Connection, type MachineSettings, type Model } from '@rawstep/project/config';
+import { providerPreset, type Connection, type MachineSettings, type Model } from '@rawstep/project/config';
 import { discover } from '@rawstep/project/discover';
 import { ProjectError } from '@rawstep/project/errors';
 import type { BrowserCheck, CheckKind, ModelCheck } from '../shared/api.js';
 
-type CheckedModel = Pick<Model, 'kind' | 'provider' | 'modelId' | 'baseURL' | 'maxChoices'>;
+type CheckedModel = Pick<Model, 'provider' | 'modelId' | 'baseURL'>;
 type CheckOptions = { timeoutMs?: number; fetch?: typeof fetch };
 
 /** Starting an agent CLI takes seconds, and a first npx download longer. */
@@ -25,9 +24,8 @@ const result = (kind: CheckKind, via: ModelCheck['via']): ModelCheck => ({ ok: k
 /**
  * Asks the provider one cheap question and says whether the model can be used. The answer is a `CheckKind`; no text the provider
  * sent is kept or shown.
- * - LLMs and every provider with a model list (TypeSafe, OpenRouter and Gateway decision models too): the model list, which
- *   costs nothing. Ready means the server answered, the key was accepted and the model is in the list.
- * - A custom decision server has no list, so it gets one minimal two-choice decision through the same client a run uses.
+ * - Every provider with a model list: the model list, which costs nothing. Ready means the server answered, the key was
+ *   accepted and the model is in the list.
  * - Coding-agent CLIs: the agent is started over ACP and asked for its models (no prompt, nothing billed); a missing program
  *   and a missing sign-in are told apart. Rawstep never signs an agent in during a check.
  */
@@ -35,10 +33,9 @@ export async function checkModel(model: CheckedModel, apiKey: string | undefined
   const preset = providerPreset(model), key = apiKey?.trim() || undefined;
   if (preset.keyRequired && !key) return result('missing-key', 'none');
   const timeoutMs = options.timeoutMs ?? (preset.agent ? AGENT_TIMEOUT_MS : 15000);
-  if (model.kind === 'decision' && model.provider === 'custom') return checkDecisionServer(model, key, timeoutMs, options.fetch);
-  const via = preset.agent ? 'agent' : model.kind === 'decision' ? 'decision-catalog' : 'model-list';
+  const via = preset.agent ? 'agent' : 'model-list';
   try {
-    const listed = await discover({ kind: model.kind, provider: model.provider, ...(model.baseURL ? { baseURL: model.baseURL } : {}) }, key, { timeoutMs, ...(options.fetch ? { fetch: options.fetch } : {}) });
+    const listed = await discover({ provider: model.provider, ...(model.baseURL ? { baseURL: model.baseURL } : {}) }, key, { timeoutMs, ...(options.fetch ? { fetch: options.fetch } : {}) });
     if (listed.length === 0) return result('unverified', via);
     return result(listed.some(candidate => candidate.modelId === model.modelId) ? 'ready' : 'model-not-listed', via);
   } catch (error) {
@@ -47,12 +44,12 @@ export async function checkModel(model: CheckedModel, apiKey: string | undefined
 }
 
 /** Whether a connection answers with its key, without a model: its model list. A list-less server is `unverified` until a model is checked. */
-export async function checkConnection(connection: Pick<Connection, 'kind' | 'provider' | 'baseURL'>, apiKey: string | undefined, options: CheckOptions = {}): Promise<ModelCheck> {
+export async function checkConnection(connection: Pick<Connection, 'provider' | 'baseURL'>, apiKey: string | undefined, options: CheckOptions = {}): Promise<ModelCheck> {
   const preset = providerPreset(connection), key = apiKey?.trim() || undefined;
   if (preset.keyRequired && !key) return result('missing-key', 'none');
-  const via = preset.agent ? 'agent' : connection.kind === 'decision' ? 'decision-catalog' : 'model-list';
+  const via = preset.agent ? 'agent' : 'model-list';
   try {
-    await discover({ kind: connection.kind, provider: connection.provider, ...(connection.baseURL ? { baseURL: connection.baseURL } : {}) }, key, { timeoutMs: options.timeoutMs ?? (preset.agent ? AGENT_TIMEOUT_MS : 15000), ...(options.fetch ? { fetch: options.fetch } : {}) });
+    await discover({ provider: connection.provider, ...(connection.baseURL ? { baseURL: connection.baseURL } : {}) }, key, { timeoutMs: options.timeoutMs ?? (preset.agent ? AGENT_TIMEOUT_MS : 15000), ...(options.fetch ? { fetch: options.fetch } : {}) });
     return result('ready', via);
   } catch (error) {
     return result(error instanceof ProjectError ? KINDS[error.code] ?? 'failed' : 'failed', via);
@@ -63,29 +60,13 @@ export async function checkConnection(connection: Pick<Connection, 'kind' | 'pro
  * Signs a coding-agent CLI in with its own ACP sign-in method, then checks it like `checkConnection`. Only for the person's
  * explicit request (the sign-in button): it can reuse an account the computer is signed in to, or open a sign-in page.
  */
-export async function signInAgent(connection: Pick<Connection, 'kind' | 'provider'>): Promise<ModelCheck> {
+export async function signInAgent(connection: Pick<Connection, 'provider'>): Promise<ModelCheck> {
   const agent = providerPreset(connection).agent;
   if (!agent?.signIn) return result('failed', 'agent');
   const acp = new AcpAgent(agent);
   try { await acp.signIn(agent.signIn, AbortSignal.timeout(SIGN_IN_TIMEOUT_MS)); return result('ready', 'agent'); }
   catch (error) { return result(error instanceof AcpError && error.reason === 'start-failed' ? 'cli-missing' : 'cli-signed-out', 'agent'); }
   finally { await acp.close(); }
-}
-
-async function checkDecisionServer(model: CheckedModel, apiKey: string | undefined, timeoutMs: number, fetcher: typeof fetch | undefined): Promise<ModelCheck> {
-  let client: DecisionClient;
-  try {
-    client = new DecisionClient({ provider: model.provider as DecisionProviderName, baseURL: resolveBaseURL(model), modelId: model.modelId, ...(apiKey ? { apiKey } : {}), timeoutMs,
-      capabilities: { maxChoices: model.maxChoices }, ...(fetcher ? { fetch: fetcher } : {}) });
-  } catch { return result('invalid-address', 'decision-call'); }
-  try {
-    const signal = AbortSignal.timeout(timeoutMs);
-    await client.prepare({ signal });
-    await client.evaluate({ state: { check: 'connection' }, instructions: 'Choose option a.', choices: [{ id: 'a', label: 'a' }, { id: 'b', label: 'b' }] }, { signal });
-    return result('ready', 'decision-call');
-  } catch (error) {
-    return result(error instanceof RawstepError && error.code === 'decision-timeout' ? 'timeout' : 'failed', 'decision-call');
-  }
 }
 
 /**

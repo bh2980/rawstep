@@ -1,12 +1,9 @@
 import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import { inputLabel, type AllowedActions, type Decision, type DecisionPolicy, type HistoryEntry, type InputDescriptor, type Observation } from '@rawstep/core/contracts';
-import type { ChoiceModel } from './choice.js';
-import { modelHistory } from './history.js';
 
 /**
- * What each screen reader intent does, in plain words. The item the cursor is on goes in the state (`currentItem`), never in a label:
- * an offline comparison (plan doc §12) found that without it the executor rarely pressed the item it was told to press, and with
- * the item's words in the activation label it pressed links whose words resembled the goal far more often.
+ * What each screen reader intent does, in plain words, as the planner reads the actions it may plan with. The item the cursor is
+ * on goes in `currentItem`, never in a label.
  */
 const INTENT_LABELS: Record<string, string> = {
   next: 'Move to the next item', previous: 'Move to the previous item',
@@ -32,7 +29,8 @@ export const currentItemState = (input: { observation: Observation; history: rea
   const item = currentItem(input.observation, input.history);
   return item ? { currentItem: item.slice(0, 300) } : {};
 };
-export function speechChoices(allowed: AllowedActions, options: { modelGiveUp?: boolean } = {}, inputs: Readonly<Record<string, InputDescriptor>> = {}): { id: string; label: string; decision: Decision }[] {
+/** The actions a profile allows, as the planner reads them and Rawstep carries them out. */
+export function speechChoices(allowed: AllowedActions, inputs: Readonly<Record<string, InputDescriptor>> = {}): { id: string; label: string; decision: Extract<Decision, { action: unknown }> }[] {
   return [
     ...allowed.intents.map(intent => ({ id: `intent:${intent}`, label: intentLabel(intent), decision: { action: { kind: 'intent' as const, intent } } })),
     ...allowed.keys.map(key => ({ id: `key:${key}`, label: `Press key: ${key}`, decision: { action: { kind: 'key' as const, key } } })),
@@ -40,7 +38,6 @@ export function speechChoices(allowed: AllowedActions, options: { modelGiveUp?: 
       ...(allowed.typeText !== false ? [{ id: `type:${input}`, label: `Type ${inputLabel(input, inputs[input])} into the focused editable field`, decision: { action: { kind: 'typeText' as const, input } } }] : []),
       ...(allowed.replaceText ? [{ id: `replace:${input}`, label: `Replace the focused field with ${inputLabel(input, inputs[input])}`, decision: { action: { kind: 'replaceText' as const, input } } }] : []),
     ]),
-    ...(options.modelGiveUp === true ? ['success', 'stuck', 'uncertain'] as const : ['success'] as const).map(stop => ({ id: `stop:${stop}`, label: stop === 'success' ? 'Stop: goal appears complete; an independent verifier must confirm' : `Stop: ${stop}`, decision: { stop } })),
   ];
 }
 /** Rawstep's repetition guard for screen reader runs. */
@@ -74,41 +71,4 @@ export function speechGuardStop(guard: SpeechGuard, input: Pick<Parameters<Decis
     evidence: { kind: 'repetition-guard', observationSource: 'speech', repeated, limit, uncertainty: 'The same action produced the same speech; this ends exploration, it does not establish an accessibility defect.' } };
 }
 
-export type SpeechPolicyOptions = SpeechGuard & {
-  /** How many past steps the model sees (default 12). */
-  historyLimit?: number;
-  /** Default false: only stop:success is offered. True adds the model's stop:stuck and stop:uncertain choices. */
-  modelGiveUp?: boolean;
-};
-/**
- * Screen reader decisions from speech only: each step the model reads the goal, what the reader just said and the recent
- * steps with their results, and picks one permitted action. The model may be a SystemOne decision model or an LLM.
- */
-export class SpeechDecisionPolicy implements DecisionPolicy {
-  private evidence: unknown[] = [];
-  private readonly historyLimit: number;
-  constructor(readonly model: ChoiceModel, private readonly options: SpeechPolicyOptions = {}) {
-    this.historyLimit = options.historyLimit ?? RAWSTEP_DEFAULTS.policy.historyLimit;
-    if (!Number.isSafeInteger(this.historyLimit) || this.historyLimit < 1 || this.historyLimit > 10_000) throw new Error('Invalid speech policy history limit.');
-  }
-  takeDecisionEvidence(): readonly unknown[] { return this.evidence.splice(0); }
-  async decide(input: Parameters<DecisionPolicy['decide']>[0]): Promise<Decision> {
-    this.evidence = []; input.signal.throwIfAborted();
-    const guarded = speechGuardStop(this.options, input);
-    if (guarded) { this.evidence.push(guarded.evidence); return guarded.decision; }
-    const choices = speechChoices(input.allowedActions, this.options, input.inputs), candidates = choices.map(({ id, label }) => ({ id, label }));
-    const started = performance.now();
-    const response = await this.model.choose({
-      state: { goal: input.goal, speech: [...input.observation.speech], ...currentItemState(input), history: modelHistory(input.history, input.observation, this.historyLimit) },
-      choices: candidates,
-    }, { signal: input.signal });
-    input.signal.throwIfAborted();
-    if (!choices.some(c => c.id === response.choiceId)) throw new Error('The model selected an unknown choice.');
-    this.evidence.push({ kind: 'model-inference', role: 'executor', model: response.model, ...(response.prompt ? { prompt: response.prompt } : {}), elapsedMs: performance.now() - started,
-      observationSource: input.observation.provenance === 'simulation' ? 'simulated-speech-only' : 'screen-reader-output-only',
-      choices: candidates, choiceId: response.choiceId, ...(response.probabilities ? { probabilities: response.probabilities } : {}),
-      noDomOrAxContext: true, uncertainty: 'Model probabilities are not measured accuracy or accessibility certification.' });
-    const decision = structuredClone(choices.find(c => c.id === response.choiceId)!.decision);
-    return 'stop' in decision ? { ...decision, stopSource: 'model' } : decision;
-  }
-}
+export type SpeechPolicyOptions = SpeechGuard;

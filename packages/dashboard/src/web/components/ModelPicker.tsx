@@ -38,8 +38,8 @@ type Props = {
   connectionId: string | undefined; modelId: string;
   /** The level the agent thinks at; unset is the agent's own default. */
   reasoningEffort?: string | undefined;
-  /** A model picked from the list also brings what the provider says about it (how many choices it takes). `reasoningEffort` is absent when unset. */
-  onChange: (next: { connectionId: string; modelId: string; reasoningEffort?: string | undefined; picked?: DiscoveredModel }) => void;
+  /** `reasoningEffort` is absent when unset. */
+  onChange: (next: { connectionId: string; modelId: string; reasoningEffort?: string | undefined }) => void;
   /** The option that means "no model", e.g. rule-based analysis only. */
   none?: string;
   onNone?: () => void;
@@ -96,7 +96,7 @@ export function ModelPicker({ label, connections, connectionId, modelId, reasoni
 
   function pick(m: DiscoveredModel) {
     if (!connection) return;
-    onChange({ connectionId: connection.id, modelId: m.modelId, ...effortOf({ reasoningEffort }), picked: m });
+    onChange({ connectionId: connection.id, modelId: m.modelId, ...effortOf({ reasoningEffort }) });
     setOpen(false); setTyped(false); setActive(-1);
   }
   function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {

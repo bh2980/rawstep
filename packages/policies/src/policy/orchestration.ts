@@ -1,9 +1,9 @@
 import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import type { Decision, DecisionPolicy, HistoryEntry } from '@rawstep/core/contracts';
-import type { ChoiceCandidate, ChoiceModel, ModelFailure } from './choice.js';
+import type { ChoiceCandidate, ModelFailure } from './choice.js';
 import { modelHistory, type ModelHistoryEntry } from './history.js';
-import { applyDraft, cueText, currentTask, failCurrent, finishCurrent, goalLeads, goalNamed, markCheckpoint, needsCheckpoint, phaseOf, matchCue, planOutline, planTasks, verifyCue,
-  type GiveUp, type HelpReason, type PlanDocument, type PlanDraft, type PlanTask, type PlanTrigger } from './plan-document.js';
+import { applyDraft, cueText, currentTask, failCurrent, finishCurrent, goalLeads, goalNamed, markCheckpoint, needsCheckpoint, phaseOf, matchCue, planTasks, verifyCue,
+  type GiveUp, type PlanDocument, type PlanDraft, type PlanTask, type PlanTrigger } from './plan-document.js';
 import { currentItem, currentItemState, speechChoices, speechGuardStop, type SpeechPolicyOptions } from './speech.js';
 
 /** One past action as the planner reads it: the task it belonged to and what happened. */
@@ -15,13 +15,11 @@ export type PlanRequest = {
   /** What the user knows about the site and page before starting (the task's context), when given. */
   context?: string;
   trigger: PlanTrigger;
-  /** Why the executor asked for help, when it did. */
-  help?: HelpReason;
   /** What the screen reader says now. */
   speech: string[];
   /** The page title, as a screen reader announces it on load (absent when unknown). */
   title?: string;
-  /** What the executor can actually do: action candidates and named inputs (secret values never included). */
+  /** What the user can do: the actions the profile allows and its named inputs (secret values never included). */
   actions: ChoiceCandidate[];
   /** The plan so far: statuses, completion checks and revision history. Absent for the first plan. */
   document?: PlanDocument;
@@ -49,7 +47,7 @@ export type PlanResult = { draft: PlanDraft; model: { id: string; runtime: strin
 /** Asks whether a spoken item is what the current task looks for, its cue having been written before the item was heard. */
 export type CueRequest = { goal: string; context?: string; task: { goal: string; done: string; cue: string }; heard: string };
 export type CueResult = { matches: boolean; reason?: string; model: { id: string; runtime: string }; retried?: ModelFailure };
-/** Drafts and revises the plan document. Called a few times per run, so it can be a slower model than the executor. */
+/** Drafts and revises the plan document. Called a few times per run, so it can be a slow model. */
 export interface Planner {
   plan(request: PlanRequest, options: { signal: AbortSignal }): Promise<PlanResult>;
   /**
@@ -73,23 +71,8 @@ export type OrchestrationOptions = SpeechPolicyOptions & {
   /** Past actions the planner sees, each with what was heard before it (default 60); older ones are forgotten. */
   plannerHistoryLimit?: number;
   /**
-   * Who decides that a task is finished or that the plan needs revising. `rawstep` (default): the executor only picks actions; a
-   * task ends when its cue is heard, and a new plan is requested on Rawstep's signals (failures, no change, the task limit, low
-   * executor confidence). `executor`: the executor may also claim "done" (checked against the cue) and ask for a new plan. A
-   * decision model picks those meta options far too often when they echo the task's words, so they are off unless compared.
-   */
-  taskControl?: 'rawstep' | 'executor';
-  /**
-   * With `rawstep` task control: a choice counts as low confidence when its top probability is less than this far from a uniform
-   * guess (1/n) towards certainty (1): 0 is a coin toss among n choices, 1 is sure. A fixed probability would mean something
-   * different with 3 choices than with 15. Default 0.25.
-   */
-  confidenceFloor?: number;
-  /** How many low-confidence choices in a row on one task ask for a new plan (default 2). */
-  lowConfidenceSteps?: number;
-  /**
    * Actions in a row on one task that only swing between the same two items (A, B, A, B, …) before a new plan is requested
-   * (default 4). The executor is stuck between them; waiting for the task limit only adds detours.
+   * (default 4). The plan is stuck between them; waiting for the task limit only adds detours.
    */
   oscillationLimit?: number;
   /**
@@ -97,74 +80,40 @@ export type OrchestrationOptions = SpeechPolicyOptions & {
    * the `headings.list` intent; it is an action like any other and counts as a step. The planner then plans from what that list said.
    */
   survey?: 'none' | 'headings';
-  /**
-   * With Rawstep's task control and an executor model: how much the executor decides inside a task. `none` (default): only the
-   * task's moves, and a pressing task without moves only presses. `direction`: the task's moves and the same moves the other way
-   * (next ↔ previous). `method`: every movement. Activation follows `activates` in all three. The planner shapes tasks to match.
-   */
-  executorLatitude?: ExecutorLatitude;
 };
-export type ExecutorLatitude = 'none' | 'direction' | 'method';
-/** The same move the other way: next ↔ previous, heading.next ↔ heading.previous. */
-const opposite = (move: string) => move.replace(/next|previous/, m => m === 'next' ? 'previous' : 'next');
-const DEFAULTS = { ...RAWSTEP_DEFAULTS.orchestration, failureLimit: 2, noChangeLimit: 3, historyLimit: RAWSTEP_DEFAULTS.policy.historyLimit, lowConfidenceSteps: 2, oscillationLimit: 4 };
-/** Executor calls in one runner step at most: finishing tasks or replanning never loops without an action. */
+const DEFAULTS = { ...RAWSTEP_DEFAULTS.orchestration, failureLimit: 2, noChangeLimit: 3, oscillationLimit: 4 };
+/** Task changes in one runner step at most: finishing tasks or replanning never loops without an action. */
 const MAX_CALLS_PER_STEP = 8;
-/**
- * Actions on a task, since its plan, before the executor may ask for help. A decision model asks readily, and every request
- * costs a correction of the plan; a few tries first give the plan a fair chance (the task limit still catches a stuck task).
- */
-const TRIES_BEFORE_HELP = 3;
-const TASK_DONE = 'task:done';
-const HELP: Record<HelpReason, string> = {
-  'no-cue': 'Ask for a new plan: the completion cue of the current task cannot be found',
-  'no-effect': 'Ask for a new plan: actions have no effect here',
-  'already-done': 'Ask for a new plan: the current task already looks done, or the page is not what the plan expected',
-};
-
 /** Moves that open a list once, in which next and previous then move: opening it again would start the list over. */
 const LIST_OPENERS = new Set(['formControls.rotor']);
-/** A task's moves with what using them takes: moving through a list the task opens. */
-const withListMoves = (moves: readonly string[]) => moves.some(move => LIST_OPENERS.has(move)) ? [...new Set([...moves, 'next', 'previous'])] : moves;
+/** The choice ID an action has among the offered ones (`intent:next`, `type:query`…). */
+const choiceIdOf = (decision: Decision): string | undefined => !('action' in decision) ? undefined
+  : decision.action.kind === 'intent' ? `intent:${decision.action.intent}` : decision.action.kind === 'key' ? `key:${decision.action.key}`
+  : decision.action.kind === 'typeText' ? `type:${decision.action.input}` : decision.action.kind === 'replaceText' ? `replace:${decision.action.input}` : undefined;
 /**
- * The action a plan prescribes for its task, among the offered ones: a pressing task presses; a moving task takes its first move;
- * a task that names neither moves to the next item. A list the task already opened (`taken`: the task's intents so far) is not
- * opened again. Undefined when none of those is offered.
+ * The action a plan prescribes for its task, among the offered ones: a typing task presses the field the cursor is on (giving it
+ * focus), then types its input; a pressing task presses; a moving task takes its first move; a task that names none of those moves
+ * to the next item. A list the task already opened is not opened again. `taken` are the choice IDs of the task's actions so far.
+ * Undefined when none of those is offered.
  */
-export function followPlan(task: Pick<PlanTask, 'activates' | 'moves'>, offered: readonly string[], taken: readonly string[] = []): string | undefined {
-  const wanted = task.activates === true ? ['activate'] : [...(task.moves ?? []).filter(move => !(LIST_OPENERS.has(move) && taken.includes(move))), 'next'];
-  return wanted.map(intent => `intent:${intent}`).find(id => offered.includes(id));
+export function followPlan(task: Pick<PlanTask, 'activates' | 'moves' | 'types'>, offered: readonly string[], taken: readonly string[] = []): string | undefined {
+  const typing = task.types ? [`type:${task.types}`, `replace:${task.types}`] : [];
+  const wanted = task.types ? (taken.includes('intent:activate') ? typing : ['intent:activate', ...typing])
+    : task.activates === true ? ['intent:activate']
+    : [...(task.moves ?? []).filter(move => !(LIST_OPENERS.has(move) && taken.includes(`intent:${move}`))), 'next'].map(intent => `intent:${intent}`);
+  return wanted.find(id => offered.includes(id));
 }
-/** How far the top probability is from a uniform guess (0) towards certainty (1); undefined without probabilities. */
-export function confidenceOf(probabilities: readonly number[] | undefined): number | undefined {
-  if (!probabilities || probabilities.length < 2) return undefined;
-  const uniform = 1 / probabilities.length;
-  return Math.max(0, (Math.max(...probabilities) - uniform) / (1 - uniform));
-}
-/** Added to the executor's prompt when Rawstep controls the tasks: the executor only moves. */
-export const ACTION_ONLY_EXECUTOR_GUIDE = 'You carry out one task of a plan at a time: pick the action that brings currentTask.goal closer while keeping the overall goal in mind; plan shows where the run is. ' +
-  'currentItem is what the screen reader cursor is on now; activating presses or opens it. ' +
-  'Rawstep moves on to the next task by itself when currentTask.cue is heard, and asks for a new plan when the task stops making progress, so always pick an action. ' +
-  'taskAttempts are your actions on this task so far: each says whether it ran (execution.ok) and whether the speech changed (changed). Do not repeat what failed.';
-/** Added to the executor's prompt when the executor may claim tasks done and ask for help: how to read the plan and when to use the task choices. */
-export const ORCHESTRATED_EXECUTOR_GUIDE = 'You carry out one task of a plan at a time: work toward currentTask.goal while keeping the overall goal in mind; plan shows where the run is. ' +
-  'Choose "Current task done" only when the speech shows currentTask.done; Rawstep checks it against currentTask.cue and turns the claim down when the cue was not heard. Choose an "Ask for a new plan" option, with the matching reason, when the task cannot be done with the available actions. ' +
-  'taskAttempts are your actions on this task so far: each says whether it ran (execution.ok) and whether the speech changed (changed). Do not repeat what failed.';
-/** The run's prompt with the executor guide appended; a new ID keeps its evidence apart from the plain prompt's. */
-export function orchestratedPrompt<P extends { id: string; version: string; instructions: string }>(prompt: P, taskControl: 'rawstep' | 'executor' = 'rawstep'): P {
-  return taskControl === 'executor'
-    ? { ...prompt, id: `${prompt.id}.orchestrated`.slice(0, 128), instructions: `${prompt.instructions}\n${ORCHESTRATED_EXECUTOR_GUIDE}` }
-    : { ...prompt, id: `${prompt.id}.orchestrated-actions`.slice(0, 128), instructions: `${prompt.instructions}\n${ACTION_ONLY_EXECUTOR_GUIDE}` };
-}
-
+/** Whether the task's input was typed by one of its actions that ran. */
+const typedIn = (task: Pick<PlanTask, 'types'>, attempts: readonly { decision: Decision; execution?: { ok: boolean } }[]) =>
+  !!task.types && attempts.some(h => h.execution?.ok === true && [`type:${task.types}`, `replace:${task.types}`].includes(choiceIdOf(h.decision) ?? ''));
 type Input = Parameters<DecisionPolicy['decide']>[0];
 
 /**
- * Screen reader decisions split between a planner and an executor around a plan document (plan-document.ts). The planner (an LLM,
- * called rarely) drafts and revises phases of tasks; Rawstep owns the document — task statuses, the current task, versions and
- * history — and links every action to its task. The executor (a fast decision model, called every step) only sees the current
- * task, may claim it done (Rawstep checks the cue) or ask for a new plan with a reason. Rawstep also replans when a task's actions
- * keep failing, change nothing or run long. Every plan, task change and model call is policy evidence.
+ * Screen reader decisions from a plan document (plan-document.ts). The planner (an LLM or a plan file, called rarely) drafts and
+ * revises phases of tasks; Rawstep owns the document — task statuses, the current task, versions and history — carries out each task
+ * as written and links every action to its task. A task ends when its cue is heard; Rawstep asks for a new plan when a task's
+ * actions keep failing, change nothing or run long. Every judgement is the planner's and the cue's, and a run costs only planner
+ * calls. Every plan, task change and model call is policy evidence.
  */
 export class OrchestratedSpeechPolicy implements DecisionPolicy {
   private evidence: unknown[] = [];
@@ -179,26 +128,13 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
   private taskFrom = 0;
   /** The task and plan version each executed step served, by runner step. */
   private readonly served = new Map<number, { taskId: string; planVersion: number }>();
-  private readonly control: 'rawstep' | 'executor';
-  private readonly confidenceFloor: number;
-  /** Executor choices in a row on the current task whose top probability was below the floor. */
-  private lowConfidence = 0;
   private surveyed = false;
   /** Spoken items already put to the planner for the current task: one question per item. */
   private asked = new Set<string>();
   /** Items named as in the goal that the planner was already told about. */
   private readonly noticed = new Set<string>();
-  /**
-   * `executor` is the model that picks each action inside a task, or `'follow-plan'`: no model, Rawstep carries out the plan as
-   * written (a pressing task presses, a moving task uses its first move). Then every judgement is the planner's and the cue's, and
-   * a run costs only planner calls; it needs Rawstep's task control.
-   */
-  constructor(readonly planner: Planner, readonly executor: ChoiceModel | 'follow-plan', private readonly options: OrchestrationOptions = {}) {
-    if (executor === 'follow-plan' && options.taskControl === 'executor') throw new Error('Following the plan needs Rawstep\'s task control.');
+  constructor(readonly planner: Planner, private readonly options: OrchestrationOptions = {}) {
     this.limits = { ...DEFAULTS, ...Object.fromEntries(Object.entries(options).filter(([key, v]) => key in DEFAULTS && v !== undefined)) } as typeof DEFAULTS;
-    this.control = options.taskControl ?? 'rawstep';
-    this.confidenceFloor = options.confidenceFloor ?? 0.25;
-    if (!(this.confidenceFloor >= 0 && this.confidenceFloor <= 1)) throw new Error('Invalid orchestration confidence floor.');
     for (const [key, value] of Object.entries(this.limits)) {
       if (!Number.isSafeInteger(value) || value < 1 || value > 10_000) throw new Error(`Invalid orchestration limit ${key}.`);
     }
@@ -230,8 +166,6 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
       const trigger = repeated ? 'no-change' : this.trigger(input);
       if (trigger) { if (this.outOfCalls()) return this.unmeasured(step, trigger); await this.replan(input, step, trigger); }
     }
-    // A "done" claim turned down in this step is not offered again until an action has been taken.
-    let refused: string | undefined;
     for (let call = 0; call < MAX_CALLS_PER_STEP; call++) {
       if (this.gaveUp) return this.userGaveUp(step);
       const doc = this.doc!;
@@ -244,104 +178,31 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
         for (const title of unreviewed) markCheckpoint(this.doc!, title, step);
         continue;
       }
-      // Under Rawstep's task control a task ends when its cue is heard after an action: the executor never has to say so.
-      // Only what an action on this task made the reader say counts: a page title heard before it, or the cue of the task just
-      // finished, is not this task's doing.
-      const acted = input.history.length > this.taskFrom;
-      if (this.control === 'rawstep' && acted && verifyCue(task, input.observation.speech) === 'heard') {
-        this.evidence.push({ kind: 'orchestration-cue', taskId: task.id, planVersion: doc.version, verified: 'heard', source: 'rawstep' });
-        await this.finishTask(input, step, doc, task, 'heard');
-        continue;
-      }
-      // The cue was a guess written before the item was heard. An item that shares a name word with it is put to the planner, as a
-      // person who hears "Order updates, checkbox" knows it is the order-updates setting they were looking for.
-      if (this.control === 'rawstep' && acted && await this.recognized(input, doc, task)) {
-        await this.finishTask(input, step, doc, task, 'recognized');
-        continue;
-      }
-      // The executor only acts: whether the goal is reached is the planner's call (and the run's checks), never a stop it picks.
-      // Under Rawstep's task control a task the plan marks as only moving offers no activation (plan doc §12: this removed the
-      // executor's mistaken presses without costing the presses a pressing task needs).
-      // The headings survey is the user's move before the first plan, not an executor choice.
-      const actions = speechChoices(input.allowedActions, this.options, input.inputs).filter(c => 'action' in c.decision && !(c.decision.action.kind === 'intent' && c.decision.action.intent === 'headings.list'))
-        .filter(c => !(this.control === 'rawstep' && task.activates === false && 'action' in c.decision && c.decision.action.kind === 'intent' && c.decision.action.intent === 'activate'));
-      // The task's moves narrow the movement actions the same way: the plan's method is offered, the others are not. Activation is
-      // governed by `activates` alone; keys and text entry are untouched. Moves that match nothing allowed leave the actions as they are.
-      // A pressing task without moves presses the item the moving task ended on: moving off it first presses the wrong one.
-      const latitude = this.options.executorLatitude ?? 'none';
-      const pressOnly = this.control === 'rawstep' && latitude === 'none' && task.activates === true && !task.moves?.length;
-      const moves = latitude === 'method' || !task.moves?.length ? undefined : withListMoves(latitude === 'direction' ? [...new Set(task.moves.flatMap(m => [m, opposite(m)]))] : task.moves);
-      const narrowed = this.control === 'rawstep' && (moves || pressOnly)
-        ? actions.filter(c => !('action' in c.decision) || c.decision.action.kind !== 'intent' || c.decision.action.intent === 'activate' || !!moves?.includes(c.decision.action.intent))
-        : actions;
-      if (narrowed.length && narrowed.length !== actions.length) actions.splice(0, actions.length, ...narrowed);
-      const taskAttempts = modelHistory(input.history, input.observation, Number.MAX_SAFE_INTEGER).slice(this.taskFrom);
-      const tried = taskAttempts.filter(h => 'action' in h.decision).length;
-      // Help needs a few actions on the task since its plan: asking before acting throws away a plan nobody tested.
-      // A task that already looks done is claimed done instead, and Rawstep checks the cue.
-      const meta = this.control === 'executor';
-      const candidates: ChoiceCandidate[] = [...actions.map(({ id, label }) => ({ id, label })),
-        ...(!meta || refused === task.id ? [] : [{ id: TASK_DONE, label: `Current task done: ${task.done}` }]),
-        // Right after a turned-down "done", "already done" is the same claim in other words.
-        ...(meta && tried >= Math.min(TRIES_BEFORE_HELP, this.limits.stepActionLimit) ? (Object.keys(HELP) as HelpReason[]).filter(reason => !(reason === 'already-done' && refused === task.id)).map(reason => ({ id: `help:${reason}`, label: HELP[reason] })) : [])];
-      if (this.executor === 'follow-plan') {
-        const taken = taskAttempts.flatMap(h => 'action' in h.decision && h.decision.action.kind === 'intent' ? [h.decision.action.intent] : []);
-        const choiceId = followPlan(task, actions.map(c => c.id), taken);
-        if (!choiceId) return this.unmeasured(step, 'plan-finished');
-        this.evidence.push({ kind: 'orchestration-follow', taskId: task.id, planVersion: doc.version, choices: candidates, choiceId,
-          uncertainty: 'Rawstep carried out the plan as written; no model chose this action.' });
-        task.actions++;
-        this.served.set(step, { taskId: task.id, planVersion: doc.version });
-        return structuredClone(actions.find(c => c.id === choiceId)!.decision);
-      }
-      // One candidate leaves nothing to decide: the plan already chose it, so no model is asked (and no call is spent).
-      if (candidates.length === 1 && actions.some(c => c.id === candidates[0]!.id)) {
-        this.evidence.push({ kind: 'orchestration-only-choice', taskId: task.id, planVersion: doc.version, choiceId: candidates[0]!.id,
-          uncertainty: 'The task allowed one action; it was taken without asking the executor.' });
-        task.actions++;
-        this.served.set(step, { taskId: task.id, planVersion: doc.version });
-        return structuredClone(actions.find(c => c.id === candidates[0]!.id)!.decision);
-      }
-      const tasks = planTasks(doc), next = tasks[tasks.findIndex(t => t.id === task.id) + 1];
-      const started = performance.now();
-      const response = await this.executor.choose({ state: {
-        goal: input.goal, plan: planOutline(doc),
-        currentTask: { goal: task.goal, done: task.done, ...(task.cue ? { cue: cueText(task) } : {}), actions: tried, actionLimit: this.limits.stepActionLimit,
-          ...(task.rejected ? { claimsTurnedDown: task.rejected } : {}) }, ...(next ? { nextTask: next.goal } : {}),
-        taskAttempts,
-        speech: [...input.observation.speech], ...currentItemState(input), history: modelHistory(input.history, input.observation, this.limits.historyLimit),
-      }, choices: candidates }, { signal: input.signal });
-      input.signal.throwIfAborted();
-      if (!candidates.some(c => c.id === response.choiceId)) throw new Error('The model selected an unknown choice.');
-      this.evidence.push({ kind: 'model-inference', role: 'executor', model: response.model, ...(response.prompt ? { prompt: response.prompt } : {}), elapsedMs: performance.now() - started,
-        observationSource: input.observation.provenance === 'simulation' ? 'simulated-speech-only' : 'screen-reader-output-only',
-        taskId: task.id, planVersion: doc.version, stepGoal: task.goal, choices: candidates, choiceId: response.choiceId, ...(response.probabilities ? { probabilities: response.probabilities } : {}), ...(response.retried ? { retried: response.retried } : {}),
-        noDomOrAxContext: true, uncertainty: 'Model probabilities are not measured accuracy or accessibility certification.' });
-      if (response.choiceId === TASK_DONE) {
-        const last = input.history.at(-1)?.observation;
-        const heard = [...input.observation.speech, ...(last?.speech ?? [])];
-        const verified = verifyCue(task, heard);
-        if (verified === 'not-heard') {
-          // The executor's "done" is a claim: without the cue it would end a task that is not done and mislead the planner.
-          task.rejected++; refused = task.id;
-          (this.evidence.at(-1) as Record<string, unknown>).accepted = false;
-          this.evidence.push({ kind: 'orchestration-claim', taskId: task.id, planVersion: doc.version, verified, accepted: false, rejected: task.rejected });
+      const attempts = modelHistory(input.history, input.observation, Number.MAX_SAFE_INTEGER).slice(this.taskFrom);
+      // A typing task is done once its input is typed: pressing the field already says the field's name, which is not the typing.
+      if (task.types) {
+        if (typedIn(task, attempts)) { await this.finishTask(input, step, doc, task, verifyCue(task, input.observation.speech)); continue; }
+      } else if (attempts.length) {
+        // A task ends when its cue is heard after an action. Only what an action on this task made the reader say counts: a page
+        // title heard before it, or the cue of the task just finished, is not this task's doing.
+        if (verifyCue(task, input.observation.speech) === 'heard') {
+          this.evidence.push({ kind: 'orchestration-cue', taskId: task.id, planVersion: doc.version, verified: 'heard', source: 'rawstep' });
+          await this.finishTask(input, step, doc, task, 'heard');
           continue;
         }
-        await this.finishTask(input, step, doc, task, verified);
-        continue;
+        // The cue was a guess written before the item was heard. An item that shares a name word with it is put to the planner, as a
+        // person who hears "Order updates, checkbox" knows it is the order-updates setting they were looking for.
+        if (await this.recognized(input, doc, task)) { await this.finishTask(input, step, doc, task, 'recognized'); continue; }
       }
-      if (response.choiceId.startsWith('help:')) {
-        const help = response.choiceId.slice(5) as HelpReason;
-        if (this.outOfCalls()) return this.unmeasured(step, 'help');
-        await this.replan(input, step, 'help', help); continue;
-      }
-      // A top probability close to a uniform guess is the executor not knowing what to do; a few in a row ask for a new plan.
-      const confidence = confidenceOf(response.probabilities);
-      this.lowConfidence = confidence !== undefined && confidence < this.confidenceFloor ? this.lowConfidence + 1 : 0;
+      // Rawstep carries out the task as written. The headings survey is the user's move before the first plan, never a task's.
+      const actions = speechChoices(input.allowedActions, input.inputs).filter(c => !(c.decision.action.kind === 'intent' && c.decision.action.intent === 'headings.list'));
+      const choiceId = followPlan(task, actions.map(c => c.id), attempts.flatMap(h => choiceIdOf(h.decision) ?? []));
+      if (!choiceId) return this.unmeasured(step, 'plan-finished');
+      this.evidence.push({ kind: 'orchestration-follow', taskId: task.id, planVersion: doc.version, choices: actions.map(({ id, label }) => ({ id, label })), choiceId,
+        uncertainty: 'Rawstep carried out the plan as written; no model chose this action.' });
       task.actions++;
       this.served.set(step, { taskId: task.id, planVersion: doc.version });
-      return structuredClone(actions.find(c => c.id === response.choiceId)!.decision);
+      return structuredClone(actions.find(c => c.id === choiceId)!.decision);
     }
     return this.unmeasured(step, 'plan-finished');
   }
@@ -375,12 +236,11 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
   private trigger(input: Input): PlanTrigger | undefined {
     const task = this.doc && currentTask(this.doc);
     if (!task) return undefined;
-    if (this.control === 'rawstep' && this.lowConfidence >= this.limits.lowConfidenceSteps) return 'low-confidence';
     const since = modelHistory(input.history, input.observation, Number.MAX_SAFE_INTEGER).slice(this.taskFrom).filter(h => 'action' in h.decision);
     const last = (n: number) => since.length >= n ? since.slice(-n) : undefined;
     if (last(this.limits.failureLimit)?.every(h => h.execution?.ok === false)) return 'failures';
     if (last(this.limits.noChangeLimit)?.every(h => h.changed === false)) return 'no-change';
-    // Where each action left the cursor: two items taking turns means the executor is swinging between them.
+    // Where each action left the cursor: two items taking turns means the plan is swinging between them.
     const spoken = input.history.slice(this.taskFrom).filter(h => 'action' in h.decision).map((h, i, all) => currentItem(i + 1 < all.length ? all[i + 1]!.observation : input.observation, []));
     const recent = spoken.slice(-this.limits.oscillationLimit);
     if (recent.length === this.limits.oscillationLimit && recent[0] && recent[1] && recent[0] !== recent[1] && recent.every((item, i) => item === recent[i % 2])) return 'oscillation';
@@ -413,22 +273,22 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
     const entries = modelHistory(history, input.observation, Number.MAX_SAFE_INTEGER);
     return entries.flatMap(entry => { const served = this.served.get(entry.step); return served ? [{ ...entry, ...served }] : []; }).slice(-this.limits.plannerHistoryLimit);
   }
-  private async replan(input: Input, step: number, trigger: PlanTrigger, help?: HelpReason, refusedGiveUp?: string): Promise<void> {
-    const actions = speechChoices(input.allowedActions, this.options, input.inputs).filter(c => 'action' in c.decision).map(({ id, label }) => ({ id, label }));
+  private async replan(input: Input, step: number, trigger: PlanTrigger, refusedGiveUp?: string): Promise<void> {
+    const actions = speechChoices(input.allowedActions, input.inputs).map(({ id, label }) => ({ id, label }));
     const started = performance.now();
     this.plannerCalls++;
-    const { draft, model, prompt, retried } = await this.planner.plan({ goal: input.goal, ...(input.context ? { context: input.context } : {}), ...currentItemState(input), trigger, ...(help ? { help } : {}), speech: [...input.observation.speech], ...(input.observation.title ? { title: input.observation.title } : {}), actions,
+    const { draft, model, prompt, retried } = await this.planner.plan({ goal: input.goal, ...(input.context ? { context: input.context } : {}), ...currentItemState(input), trigger, speech: [...input.observation.speech], ...(input.observation.title ? { title: input.observation.title } : {}), actions,
       ...(this.doc ? { document: structuredClone(this.doc) } : {}), attempts: this.attempts(input.history, input), effort: this.effort(input), ...(refusedGiveUp ? { refusedGiveUp } : {}) }, { signal: input.signal });
     input.signal.throwIfAborted();
     // Asking again for an unusable reply is another planner call.
     if (retried) { this.plannerCalls++; this.evidence.push({ kind: 'model-retry', role: 'planner', step, failure: retried }); }
     if (!draft.complete && !draft.giveUp && !draft.phases.some(p => p.tasks.length)) throw new Error('The planner returned no tasks for an unfinished goal.');
     const before = this.doc && new Map(planTasks(this.doc).map(t => [t.id, t.status]));
-    this.doc = applyDraft(this.doc, draft, { goal: input.goal, step, trigger, ...(help ? { help } : {}) });
+    this.doc = applyDraft(this.doc, draft, { goal: input.goal, step, trigger });
     this.planFrom = input.history.length;
     // What the planner just read is known to it: hearing it again is not news.
     for (const line of [...input.observation.speech, currentItem(input.observation, [])]) if (line?.trim()) this.noticed.add(line.trim());
-    this.evidence.push({ kind: 'orchestration-plan', role: 'planner', trigger, ...(help ? { help } : {}), version: this.doc.version, plannerCalls: this.plannerCalls,
+    this.evidence.push({ kind: 'orchestration-plan', role: 'planner', trigger, version: this.doc.version, plannerCalls: this.plannerCalls,
       revision: structuredClone(this.doc.revisions.at(-1)), document: structuredClone(this.doc), model, ...(prompt ? { prompt } : {}), elapsedMs: performance.now() - started,
       uncertainty: 'The plan comes from common UI conventions and what was heard; it is an expectation, not a fact about this page.' });
     for (const task of this.doc.retired) if (before?.get(task.id) && before.get(task.id) !== task.status) this.taskEvent(task, before.get(task.id)!);
@@ -440,14 +300,13 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
         : draft.giveUp.tried.some(id => !broken.has(id)) ? `it names assumptions that are not broken (${draft.giveUp.tried.filter(id => !broken.has(id)).join(', ')})` : undefined;
       this.evidence.push({ kind: 'orchestration-give-up', step, version: this.doc.version, reason: draft.giveUp.reason, tried: [...draft.giveUp.tried], accepted: !refused, ...(refused ? { refused } : {}), effort: this.effort(input) });
       if (!refused) { this.gaveUp = structuredClone(draft.giveUp); return; }
-      if (!currentTask(this.doc) && !this.outOfCalls()) return this.replan(input, step, trigger, help, refused);
+      if (!currentTask(this.doc) && !this.outOfCalls()) return this.replan(input, step, trigger, refused);
     }
     this.startTask(input);
   }
   /** The current task (if any) starts now: its attempts count from here. */
   private startTask(input: Input): void {
     this.taskFrom = input.history.length;
-    this.lowConfidence = 0;
     this.asked.clear();
     const task = this.doc && currentTask(this.doc);
     if (task && task.actions === 0) this.evidence.push({ kind: 'orchestration-task', taskId: task.id, planVersion: this.doc!.version, fromStatus: 'pending', toStatus: 'active', actions: 0 });

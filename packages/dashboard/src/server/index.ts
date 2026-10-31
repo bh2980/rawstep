@@ -9,7 +9,7 @@ import { BUILTIN_PROFILES } from '@rawstep/browser/profiles';
 import { createBrowserSession } from '@rawstep/browser/browser';
 import { AtDriverBackend } from '@rawstep/screenreaders/at-driver';
 import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
-import { AT_DRIVER_COMMAND_ENV, atBackendSchema, atEndpointOf, type AtBackend, machineSchema, modelKeyEnv, modelKindSchema, suggestionModel, providerSchema, providersOf, type Connection } from '@rawstep/project/config';
+import { AT_DRIVER_COMMAND_ENV, atBackendSchema, atEndpointOf, type AtBackend, machineSchema, modelKeyEnv, suggestionModel, providerSchema, providersOf, type Connection } from '@rawstep/project/config';
 import { ProjectStore, readOptional } from '@rawstep/project/store';
 import { ProjectError } from '@rawstep/project/errors';
 import { backendCapabilities } from '@rawstep/project/plan';
@@ -35,9 +35,9 @@ function defaultWebDir(): string {
 
 /** Environment presets a run can use: browser zoom needs a native controller the dashboard does not have, so those presets are left out. */
 const RUNNABLE_PRESETS = Object.fromEntries(Object.entries(BUILTIN_PROFILES).filter(([, preset]) => (preset as { browserZoom?: number }).browserZoom === undefined));
-/** A saved connection by id, or one being set up: a kind, a provider, a custom address and a key typed for it. */
+/** A saved connection by id, or one being set up: a provider, a custom address and a key typed for it. */
 const connectionTarget = z.object({
-  connectionId: z.string().optional(), kind: modelKindSchema.optional(), provider: providerSchema.optional(),
+  connectionId: z.string().optional(), provider: providerSchema.optional(),
   baseURL: z.url().optional(), apiKey: z.string().max(16384).optional(),
 }).strict();
 export type DashboardServerOptions = { projectDir?: string; port?: number; webDir?: string; allowedOrigin?: string; execute?: Executor };
@@ -89,9 +89,9 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
   /** A saved connection with its stored key, or one being set up with the key typed for it (presets fall back to the key saved for their provider). */
   async function targetConnection(body: z.infer<typeof connectionTarget>): Promise<{ connection: Connection; apiKey: string | undefined }> {
     if (body.connectionId) { const connection = await savedConnection(body.connectionId); return { connection, apiKey: await store.credential(connection) }; }
-    if (!body.kind || !body.provider || !providersOf(body.kind).some(p => p.id === body.provider)) throw new ProjectError('invalid-provider', 'Not a provider of this kind.');
+    if (!body.provider || !providersOf().some(p => p.id === body.provider)) throw new ProjectError('invalid-provider', 'Not a provider.');
     if (body.provider === 'custom' && !body.baseURL) throw new ProjectError('invalid-base-url', 'A custom provider needs a server address.');
-    const connection: Connection = { id: 'check', name: 'check', kind: body.kind, provider: body.provider, ...(body.baseURL ? { baseURL: body.baseURL } : {}), timeoutMs: RAWSTEP_DEFAULTS.modelTimeoutMs };
+    const connection: Connection = { id: 'check', name: 'check', provider: body.provider, ...(body.baseURL ? { baseURL: body.baseURL } : {}), timeoutMs: RAWSTEP_DEFAULTS.modelTimeoutMs };
     return { connection, apiKey: body.apiKey ?? (body.provider === 'custom' ? undefined : await store.credential(body.provider)) };
   }
   /** Reading a start page opens a browser, so only one page read (a suggestion or the element picker) runs at a time. */
@@ -144,11 +144,8 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
       // A saved connection by id, or one being set up (a key typed for a custom server is used once and not stored). With a model ID the check asks about that model.
       const body = connectionTarget.extend({ modelId: z.string().trim().min(1).max(500).optional() }).strict().parse(await jsonBody(req));
       const { connection, apiKey } = await targetConnection(body);
-      if (!body.modelId) {
-        if (connection.kind === 'decision' && connection.provider === 'custom') return send(res, await checkModel({ ...connection, modelId: 'check', maxChoices: 255 }, apiKey));
-        return send(res, await checkConnection(connection, apiKey));
-      }
-      return send(res, await checkModel({ ...connection, modelId: body.modelId, maxChoices: 255 }, apiKey));
+      if (!body.modelId) return send(res, await checkConnection(connection, apiKey));
+      return send(res, await checkModel({ ...connection, modelId: body.modelId }, apiKey));
     }
     if (path === '/api/connections/sign-in' && method === 'POST') {
       // Pressed by the person: the agent's own sign-in (it may reuse this computer's account or open a sign-in page).

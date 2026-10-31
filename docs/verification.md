@@ -1,4 +1,4 @@
-Version 0.2 note: the accounting below is historical. Legacy execution was removed. [Current SystemOne/native evidence gates](./systemone.md) are separate from these historical receipts.
+Version 0.2 note: the accounting below is historical. Legacy execution was removed. Current runs are described in the [configuration reference](./config.md#planner-and-plan) and the native evidence limits in [native Orca](./native-orca.md); both are separate from these historical receipts.
 
 # Completed refactor verification
 

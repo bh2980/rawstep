@@ -34,7 +34,7 @@ describe("hint sources and targets", () => {
     const keystrokes = hints.find(h => h.kind === "excess-keystrokes")!;
     expect(keystrokes).toMatchObject({ source: "page", target: { role: "button", name: "Checkout" } });
     expect(hints.find(h => h.kind === "focus-lost")).toMatchObject({ source: "page", target: { role: "button", name: "Checkout" } });
-    expect(HINT_SOURCES["model-hesitation"]).toBe("model");
+    expect(HINT_SOURCES["backtracking"]).toBe("model");
     expect(HINT_SOURCES["slow-run"]).toBe("run");
   });
 
@@ -59,11 +59,11 @@ describe("findings across runs", () => {
 
   it("leaves out run-level hints and sorts by how many runs show a finding", () => {
     const findings = aggregateHints([
-      report("a", [hint("slow-run"), hint("model-hesitation", { role: "link", name: "Coupon" }), hint("missing-announcement", { role: "button", name: "Pay" })]),
+      report("a", [hint("slow-run"), hint("focus-lost", { role: "link", name: "Coupon" }), hint("missing-announcement", { role: "button", name: "Pay" })]),
       report("b", [hint("missing-announcement", { role: "button", name: "Pay" }), hint("missing-announcement", { role: "button", name: "Pay" })]),
       report("c", []),
     ]);
-    expect(findings.map(f => [f.kind, f.runs, f.occurrences.length])).toEqual([["missing-announcement", 2, 3], ["model-hesitation", 1, 1]]);
+    expect(findings.map(f => [f.kind, f.runs, f.occurrences.length])).toEqual([["missing-announcement", 2, 3], ["focus-lost", 1, 1]]);
     expect(findings.every(f => f.totalRuns === 3)).toBe(true);
   });
 
