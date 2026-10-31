@@ -5,7 +5,6 @@ import {
 } from '@rawstep/project/config';
 import type { ConfigView } from '../../shared/config.js';
 import { i18n, t } from '../i18n/index.js';
-import { matchingPreset } from './presets.js';
 
 /** The modes in the order screens list them: screen reader first (the planned structure works there). */
 export const MODES = ['screenreader', 'keyboard'] as const;
@@ -71,16 +70,6 @@ export function unsupportedActions(actionSet: Pick<ActionSet, 'keyboard' | 'scre
     keyboard: missing(actionSet.keyboard, capabilities.keyboard),
     screenreader: Object.fromEntries(AT_BACKENDS.map(backend => [backend, missing(actionSet.screenreader, capabilities.screenreader[backend])])) as Record<AtBackend, string[]>,
   };
-}
-
-/** An action set in one line: the starting set it still equals, or how many actions each mode allows; and the screen readers that lack some. */
-export function actionSetSummary(actionSet: Pick<ActionSet, 'keyboard' | 'screenreader'>, capabilities: ConfigView['capabilities']): string {
-  const preset = matchingPreset(actionSet);
-  const base = preset ? t(`conditions.actionSet.presets.${preset}.summary`)
-    : t('conditions.summary.actions', { screenreader: actionSet.screenreader.intents.length + actionSet.screenreader.keys.length, keyboard: actionSet.keyboard.keys.length });
-  const typing = actionSet.screenreader.typeText || actionSet.keyboard.typeText ? ` · ${t('conditions.summary.typing')}` : '';
-  const gaps = unsupportedActions(actionSet, capabilities), lacking = AT_BACKENDS.filter(backend => gaps.screenreader[backend].length);
-  return base + typing + (lacking.length ? ` · ${t('conditions.summary.partly', { backends: lacking.map(b => t(`conditions.backends.${b}`)).join(', ') })}` : '');
 }
 
 const record = (value: unknown): Record<string, unknown> => value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};

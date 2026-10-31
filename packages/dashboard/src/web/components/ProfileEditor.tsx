@@ -81,7 +81,7 @@ export function ProfileEditor({ profile, onChange, view, inputNames, open: initi
     who: <div className="grid gap-4">
       <Segments label={t('persona.modeLabel')} value={runMode} onChange={mode => onChange({ ...profile, mode })} items={MODES.map(mode => ({ id: mode, name: t(`persona.modes.${mode}`) }))} tabs />
       <div className="grid gap-1.5">
-        <Segments label={t('persona.presetLabel')} value={persona}
+        <Segments label={t(`persona.presetLabel.${runMode}`)} value={persona}
           onChange={preset => { if (preset === 'custom') { setCustomFor(`${profile.id}:${runMode}`); return; } setCustomFor(undefined); onChange(withPreset(profile, runMode, preset)); }}
           items={[...PRESETS[runMode].map(preset => ({ id: preset, name: t(`persona.${preset}.preset`) })), { id: 'custom' as const, name: t('persona.custom.preset') }]} />
         <p className="text-[13px] leading-5 text-muted-foreground">{t(`persona.${persona}.hint`)}</p>
