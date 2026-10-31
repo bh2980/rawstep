@@ -53,9 +53,9 @@ async function withDashboard(inspect) {
 try {
   // 1. Build and pack: only the rawstep tarball exists.
   const pack = await packRawstep(directory, { environment });
-  const unexpected = pack.files.filter(file => !/^(?:dist\/|README(?:\.ko)?\.md$|LICENSE$|package\.json$|docs\/[^/]+\.md$|examples\/|fixtures\/)/.test(file.path) || /(?:node_modules|packages\/|\.safetensors$|\.gguf$|\.onnx$|\.node$|\.wasm$|__pycache__)/.test(file.path));
+  const unexpected = pack.files.filter(file => !/^(?:dist\/|README(?:\.ko)?\.md$|LICENSE$|THIRD-PARTY-NOTICES\.md$|package\.json$|docs\/(?:reference\/)?[^/]+\.md$|examples\/|fixtures\/)/.test(file.path) || /(?:node_modules|packages\/|\.safetensors$|\.gguf$|\.onnx$|\.node$|\.wasm$|__pycache__)/.test(file.path));
   assert.deepEqual(unexpected, [], 'unexpected files in the tarball');
-  for (const required of ['dist/index.js', 'dist/index.d.ts', 'dist/cli/bin.js', 'dist/dashboard-web/index.html', 'docs/cli.md', 'fixtures/simple-cta.html', 'examples/v2/mock-task.json']) assert.ok(pack.files.some(file => file.path === required), `tarball is missing ${required}`);
+  for (const required of ['dist/index.js', 'dist/index.d.ts', 'dist/cli/bin.js', 'dist/dashboard-web/index.html', 'docs/reference/cli.md', 'THIRD-PARTY-NOTICES.md', 'fixtures/simple-cta.html', 'examples/v2/mock-task.json']) assert.ok(pack.files.some(file => file.path === required), `tarball is missing ${required}`);
   assert.ok(pack.files.some(file => /^dist\/dashboard-web\/assets\/.+\.js$/.test(file.path)), 'tarball is missing the dashboard JS bundle');
   assert.deepEqual(Object.keys(pack.manifest.dependencies).sort(), ['@ai-sdk/openai-compatible', 'ai', 'playwright', 'zod']);
   check('tarball contents and third-party-only dependency list');

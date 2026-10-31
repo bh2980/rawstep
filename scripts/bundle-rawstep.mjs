@@ -25,7 +25,7 @@ export function bundleRawstep() {
   // `rawstep ui` serves the built dashboard from the package (see defaultWebDir in the dashboard server).
   cpSync(dashboardWeb, join(facade, 'dist/dashboard-web'), { recursive: true });
   // Documentation/examples are release assets, never runtime source dependencies.
-  for (const asset of ['docs', 'examples', 'fixtures', 'README.md', 'README.ko.md']) {
+  for (const asset of ['docs', 'examples', 'fixtures', 'README.md', 'README.ko.md', 'THIRD-PARTY-NOTICES.md']) {
     rmSync(join(facade, asset), { recursive: true, force: true });
     cpSync(join(root, asset), join(facade, asset), { recursive: true });
   }

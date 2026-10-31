@@ -5,7 +5,7 @@
 export default {
   extends: ['@commitlint/config-conventional'],
   rules: {
-    'scope-enum': [2, 'always', ['core', 'policies', 'browser', 'screenreaders', 'reports', 'cli', 'dashboard', 'rawstep', 'deps', 'repo']],
+    'scope-enum': [2, 'always', ['core', 'policies', 'browser', 'screenreaders', 'reports', 'project', 'cli', 'dashboard', 'rawstep', 'deps', 'repo']],
     // Korean subjects have no letter case.
     'subject-case': [0],
     'header-max-length': [2, 'always', 100],

@@ -97,7 +97,9 @@
     "README.md",
     "README.ko.md",
     "LICENSE",
+    "THIRD-PARTY-NOTICES.md",
     "docs/*.md",
+    "docs/reference/*.md",
     "examples",
     "fixtures"
   ],

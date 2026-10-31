@@ -28,7 +28,7 @@ const roleNames: Readonly<Record<string, string>> = {
 
 /**
  * Composite, evidence-informed navigation wording, not a version-specific VoiceOver emulator.
- * Only the rules referenced in docs/mock-voiceover-evidence.md have observed-output fixtures.
+ * Only the rules listed as evidence-backed in this directory's README have observed-output fixtures.
  * Other states, value/description timing, and activation announcements remain approximations.
  */
 export function formatSimulatedSpeech(node: SimulatedSemanticNode): string {
