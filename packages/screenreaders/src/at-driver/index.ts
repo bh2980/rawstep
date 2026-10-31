@@ -1,5 +1,5 @@
 import { AtDriverClient, AtDriverError, type AtDriverClientOptions, type AtDriverOperationOptions, type AtDriverTransportEvent, type CommandReceipt } from "./transport.js";
-import { getAtDriverProfile, type AtDriverAction, type AtDriverCapabilities, type AtDriverProfile, type AtDriverProfileName, type AtDriverListRoutine } from "./profiles.js";
+import { getAtDriverProfile, type AtDriverAction, type AtDriverCapabilities, type AtDriverProfile, type AtDriverProfileName, type AtDriverListRoutine, type AtDriverRotorList, type AtDriverRotorRoutine } from "./profiles.js";
 import { isRecord, positiveMilliseconds } from "../internal/guards.js";
 import type { BackendRunContext } from "@rawstep/core/contracts";
 import { isLoopbackUrl } from "@rawstep/core/defaults";
@@ -85,6 +85,8 @@ export class AtDriverBackend {
   private listeners = new Set<(event: AtDriverEvent) => void>();
   private state: "new" | "starting" | "ready" | "closed" = "new";
   private window?: Window;
+  /** The rotor list left open by the last action, if any. */
+  private rotor?: AtDriverRotorRoutine;
   private nextWindowId = 1;
   private outputs: AtDriverOutput[] = [];
   private lastOutputAt = 0;
@@ -188,7 +190,14 @@ export class AtDriverBackend {
     this.assertReady();
     if (this.busy || this.observationInProgress) throw new AtDriverError("Concurrent execution/observation is not supported", "invalid state");
     const routine = action.kind === "intent" && Object.hasOwn(this.profile.routines, action.intent) ? this.profile.routines[action.intent] : undefined;
-    const presses = routine ? [] : this.profile.mapAction(action); // Reject unsupported input before mutating the remote end.
+    const rotor = action.kind === "intent" && Object.hasOwn(this.profile.rotors, action.intent) ? this.profile.rotors[action.intent] : undefined;
+    // While a rotor list is open, moving and picking go to it, Escape only closes it, and anything else closes it first.
+    const open = this.rotor;
+    const rotorMoves: Readonly<Record<string, readonly string[]>> | undefined = open && { next: open.next, previous: open.previous, activate: open.pick };
+    const inRotor = rotorMoves && action.kind === "intent" && Object.hasOwn(rotorMoves, action.intent) ? rotorMoves[action.intent] : undefined;
+    const onlyClose = open && action.kind === "key" && action.key === "Escape";
+    // Reject unsupported input before mutating the remote end.
+    const presses = inRotor ? [inRotor] : onlyClose || routine || rotor ? [] : this.profile.mapAction(action);
     this.busy = true;
     const window = this.beginWindow();
     const commands: CommandReceipt[] = [];
@@ -205,7 +214,14 @@ export class AtDriverBackend {
     };
     try {
       options.signal?.throwIfAborted();
+      if (open && !inRotor) {
+        this.rotor = undefined;
+        await press(open.close);
+        if (!onlyClose) await this.quiet(options.signal);
+      }
+      if (open && action.kind === "intent" && action.intent === "activate") this.rotor = undefined;
       if (routine) await this.readList(routine, press, options.signal);
+      if (rotor) await this.openRotor(rotor, press, options.signal);
       for (const keys of presses) await press(keys);
       return { windowId: window.id, commandIds: commands.map(command => command.commandId), acknowledgedAt: window.acknowledgedAt, commands };
     } catch (error) {
@@ -223,34 +239,50 @@ export class AtDriverBackend {
     } finally { this.busy = false; }
   }
 
+  /** Presses keys and returns the last thing spoken once speech goes quiet; everything spoken stays in the output buffer. */
+  private async listen(keys: readonly string[], press: (keys: readonly string[]) => Promise<void>, signal?: AbortSignal): Promise<string | undefined> {
+    const from = this.outputs.length;
+    await press(keys);
+    await this.quiet(signal);
+    return this.outputs.slice(from).map(output => output.text.trim()).filter(Boolean).at(-1);
+  }
+
+  /** Opens the rotor and moves to the wanted list by ear. Returns whether its name was heard; the rotor is left open either way. */
+  private async findList(list: AtDriverRotorList, press: (keys: readonly string[]) => Promise<void>, signal?: AbortSignal): Promise<boolean> {
+    let heard = await this.listen(list.open, press, signal);
+    for (let i = 0; i < list.maxLists && !list.listName.test(heard ?? ""); i++) heard = await this.listen(list.nextList, press, signal);
+    return list.listName.test(heard ?? "");
+  }
+
   /**
    * Reads a screen reader list by listening between presses (see `AtDriverListRoutine`). The last thing spoken after each press
    * decides the next one; everything spoken stays in the output buffer for the next observation. The list is always closed.
    */
   private async readList(routine: AtDriverListRoutine, press: (keys: readonly string[]) => Promise<void>, signal?: AbortSignal): Promise<void> {
-    const step = async (keys: readonly string[]) => {
-      const from = this.outputs.length;
-      await press(keys);
-      await this.quiet(signal);
-      return this.outputs.slice(from).map(output => output.text.trim()).filter(Boolean).at(-1);
-    };
-    let heard = await step(routine.open);
     try {
-      for (let i = 0; i < routine.maxLists && !routine.listName.test(heard ?? ""); i++) heard = await step(routine.nextList);
-      if (!routine.listName.test(heard ?? "")) return;
+      if (!await this.findList(routine, press, signal)) return;
       // At the end the rotor either stays on the last item or wraps to the first. Two headings can share a name, so a repeat
       // ends the list only when the press after it repeats as well: the last item again, or the second item after the first.
       const items: string[] = [];
       while (items.length < routine.maxItems) {
-        const item = await step(routine.nextItem);
+        const item = await this.listen(routine.nextItem, press, signal);
         if (!item) break;
         const ending = item === items.at(-1) ? item : item === items[0] ? items[1] ?? item : undefined;
         if (ending === undefined) { items.push(item); continue; }
-        const next = await step(routine.nextItem);
+        const next = await this.listen(routine.nextItem, press, signal);
         if (!next || next === ending) break;
         items.push(item, next);
       }
     } finally { await press(routine.close); await this.quiet(signal); }
+  }
+
+  /** Opens a rotor list and leaves it open for the next actions (see `AtDriverRotorRoutine`); closes the rotor if the list is not found. */
+  private async openRotor(rotor: AtDriverRotorRoutine, press: (keys: readonly string[]) => Promise<void>, signal?: AbortSignal): Promise<void> {
+    this.rotor = rotor; // Marked first, so a failure part way still closes it before the next action.
+    if (await this.findList(rotor, press, signal)) return;
+    this.rotor = undefined;
+    await press(rotor.close);
+    await this.quiet(signal);
   }
   /** Waits until nothing has been spoken for the quiet interval, or the maximum wait passes. */
   private async quiet(signal?: AbortSignal): Promise<void> {
