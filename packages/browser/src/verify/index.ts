@@ -160,7 +160,7 @@ async function observeVerifyRule(
 
   if ("activatedAnnouncementIncludes" in rule) {
     const activation = context?.latestActivation;
-    if (!activation || activation.observation.kind !== 'screenreader') {
+    if (!activation) {
       return result('activatedAnnouncementIncludes', formatActivatedAnnouncementMissingFailure(rule.activatedAnnouncementIncludes));
     }
     const { observation } = activation;

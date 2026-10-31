@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { BrowserConnectError, createBrowserSession } from '@rawstep/browser/browser';
 import { AtDriverBackend } from '@rawstep/screenreaders/at-driver';
 import { discover } from '@rawstep/project/discover';
-import { hydrateScreenshots, readTrace } from '@rawstep/core/trace';
+import { readTrace } from '@rawstep/core/trace';
 import { findRawstepError } from '@rawstep/core/errors';
 import { analyzeSavedTrace, readAnalysis } from '@rawstep/reports/analyze';
 import { writeReport } from '@rawstep/reports/report';
@@ -88,8 +88,7 @@ export async function runCli(argv: string[] = process.argv.slice(2), dependencie
       case 'report': {
         const input = resolve(cwd, args.positionals[0]!), directory = await traceDirectory(input);
         const outDir = args.options.out ? resolve(cwd, String(args.options.out)) : directory;
-        // Reports may land anywhere, so embed the screenshots that traces keep as blobs next to trace.json.
-        const trace = await hydrateScreenshots(await readTrace(input), directory);
+        const trace = await readTrace(input);
         const analysis = args.options.analysis ? await readAnalysis(resolve(cwd, String(args.options.analysis)), trace) : undefined;
         const hints = await readHints(directory);
         const paths = await writeReport(trace, analysis, outDir, hints ? { hints } : {});
@@ -118,15 +117,12 @@ async function ui(args: CliArguments, projectDir: string, dependencies: CliDepen
 
 async function run(args: CliArguments, projectDir: string, cwd: string, dependencies: CliDependencies, stdout: (text: string) => void, stderr: (text: string) => void): Promise<number> {
   const { options } = args, task = args.positionals[0]!, repeat = options.repeat === undefined ? 1 : Number(options.repeat);
-  // The profile says the mode; --mode overrides it for these runs.
-  const mode = options.mode === 'screenreader' || options.mode === 'keyboard' ? options.mode : undefined;
-  if (!options.json) stderr(`Running ${task}${mode ? ` in ${mode} mode` : ''}${repeat > 1 ? `, ${repeat} times` : ''}...\n`);
+  if (!options.json) stderr(`Running ${task}${repeat > 1 ? `, ${repeat} times` : ''}...\n`);
   let cancelledBy: 'SIGINT' | 'SIGTERM' | undefined, result: RunTaskResult;
   try {
     result = await withRunSignals(dependencies.signals ?? process, stderr, signal => (dependencies.runTask ?? runTask)(task, {
-      projectDir, repeat, signal, ...(mode ? { mode } : {}),
+      projectDir, repeat, signal,
       ...(options.profile ? { profile: String(options.profile) } : {}),
-      ...(options['diagnose-stop'] ? { diagnoseStop: true } : {}),
       ...(options.rule ? { runRules: parseRunRules(options.rule as string[]) } : {}),
       ...(options.out ? { outDir: resolve(cwd, String(options.out)) } : {}),
     }), received => { cancelledBy = received; });
@@ -168,9 +164,9 @@ const countBy = (values: string[]) => values.reduce((counts, value) => counts.se
  */
 export function formatRunResult(result: RunTaskResult): string {
   const lines: string[] = [];
-  const c = result.conditions as { profile?: { name?: string }; combo?: { name?: string; structure?: string; executor?: string; planner?: string; planFile?: string }; pageEnvironment?: { profile?: unknown }; atEnvironment?: { backend?: string } };
+  const c = result.conditions as { profile?: { name?: string }; combo?: { name?: string; executor?: string; planner?: string; planFile?: string }; pageEnvironment?: { profile?: unknown }; atEnvironment?: { backend?: string } };
   if (c.combo) {
-    lines.push(`Conditions: ${c.profile?.name ?? c.combo.name} (${c.combo.structure === 'planned' ? `planned · planner ${c.combo.planner ?? (c.combo.planFile ? `plan file ${c.combo.planFile}` : '?')} → executor ${c.combo.executor ?? '?'}` : `solo · executor ${c.combo.executor ?? '?'}`})`,
+    lines.push(`Conditions: ${c.profile?.name ?? c.combo.name} (planned · planner ${c.combo.planner ?? (c.combo.planFile ? `plan file ${c.combo.planFile}` : '?')} → executor ${c.combo.executor ?? '?'})`,
       `  page ${typeof c.pageEnvironment?.profile === 'string' ? c.pageEnvironment.profile : 'custom'} · screen reader ${c.atEnvironment?.backend ?? '?'}`);
     for (const warning of result.warnings) lines.push(`  note: ${warning}`);
     lines.push('');

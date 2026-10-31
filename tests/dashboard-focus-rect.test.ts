@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { boxPercent, focusRectOf, scaleFocusRect } from '../packages/dashboard/src/web/lib/focusRect.js';
+import { boxPercent, scaleFocusRect } from '../packages/dashboard/src/web/lib/focusRect.js';
 
 const viewport = { width: 1280, height: 800 };
 
@@ -35,20 +35,5 @@ describe('focus outline scaling', () => {
 
   it('expresses the scaled box as percentages of the picture so it follows the picture when it is drawn at any size', () => {
     expect(boxPercent({ x: 320, y: 100, width: 640, height: 200 }, viewport)).toEqual({ left: '25%', top: '12.5%', width: '50%', height: '25%' });
-  });
-});
-
-describe('focus box of a step', () => {
-  const box = { x: 1, y: 2, width: 3, height: 4 };
-
-  it('takes the last focus recorded in the step', () => {
-    expect(focusRectOf([{ kind: 'focus', rect: { x: 9, y: 9, width: 9, height: 9 } }, { kind: 'state' }, { kind: 'focus', rect: box }])).toEqual(box);
-  });
-
-  it('has no box once focus was lost or left the page, or when the focus carried none', () => {
-    expect(focusRectOf([{ kind: 'focus', rect: box }, { kind: 'focus-lost' }])).toBeUndefined();
-    expect(focusRectOf([{ kind: 'focus', rect: box }, { kind: 'page-blur' }])).toBeUndefined();
-    expect(focusRectOf([{ kind: 'focus' }])).toBeUndefined();
-    expect(focusRectOf([])).toBeUndefined();
   });
 });

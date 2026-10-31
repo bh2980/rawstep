@@ -8,10 +8,8 @@ Rawstep has engine packages, the shared `@rawstep/project` package and one priva
 | Environment profile types/schema | `packages/core/src/profiles/` | profiles unit tests |
 | Ordered trace journal/privacy/schema | `packages/core/src/trace/` | trace/runner tests |
 | Scripted/custom policy loading | `packages/policies/src/policy/` | CLI/runner tests |
-| Screenshot choice model, policy, stop hypotheses | `packages/policies/src/screenshot/` | screenshot/stop-reason tests |
 | Browser lifecycle/navigation/read-only boundaries | `packages/browser/src/browser/` | native Chromium navigation/read-only suites |
 | Budgets, actions, named inputs, cancellation/verifier | `packages/browser/src/runner/`, `verify/` | runner, input and browser suites |
-| Screenshot keyboard backend | `packages/browser/src/screenshot/` | screenshot/keyboard integration |
 | SystemOne clients/policies | `packages/policies/src/systemone/` | fake and HTTP tests |
 | Every LLM call (Vercel AI SDK, OpenAI-compatible; `@rawstep/policies/llm`) | `packages/policies/src/llm/` | `tests/llm.test.ts` |
 | Explicit LLM analyzer | `packages/reports/src/analyze/llm.ts` | finalized trace/evidence tests |

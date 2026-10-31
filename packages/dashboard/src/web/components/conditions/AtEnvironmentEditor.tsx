@@ -36,7 +36,7 @@ export function AtEnvironmentEditor({ environment, onChange, compact, capabiliti
       setCheck({ state: 'failed', message: error instanceof ApiError && error.status === 0 ? t('machine.env.noServer') : error instanceof Error ? error.message : t('conditions.atEnv.checkFailed') });
     }
   }
-  const supported = capabilities?.screenreader[backend].intents ?? [];
+  const supported = capabilities?.[backend].intents ?? [];
   return <div className={cn('grid min-w-0', compact ? 'gap-3' : 'gap-4')}>
     <RadioRows legend={t('conditions.atEnv.backend')} value={backend} onChange={next => { onChange({ ...environment, backend: next }); setCheck({ state: 'idle' }); }}
       rows={AT_BACKENDS.map(id => ({ id, label: t(`conditions.backends.${id}`), hint: t(`conditions.atEnv.hints.${id}`) }))} />

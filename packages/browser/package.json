@@ -64,16 +64,6 @@
       "import": "./dist/runner/index.js",
       "default": "./dist/runner/index.js"
     },
-    "./screenshot/backend": {
-      "types": "./dist/screenshot/backend.d.ts",
-      "import": "./dist/screenshot/backend.js",
-      "default": "./dist/screenshot/backend.js"
-    },
-    "./screenshot": {
-      "types": "./dist/screenshot/index.d.ts",
-      "import": "./dist/screenshot/index.js",
-      "default": "./dist/screenshot/index.js"
-    },
     "./types": {
       "types": "./dist/types.d.ts",
       "import": "./dist/types.js",

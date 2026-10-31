@@ -39,11 +39,6 @@
       "import": "./dist/report/summary.js",
       "default": "./dist/report/summary.js"
     },
-    "./screenshot/analysis": {
-      "types": "./dist/screenshot/analysis.d.ts",
-      "import": "./dist/screenshot/analysis.js",
-      "default": "./dist/screenshot/analysis.js"
-    },
     "./package.json": "./package.json",
     "./endings": {
       "types": "./dist/endings/index.d.ts",

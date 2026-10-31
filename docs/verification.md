@@ -1,11 +1,11 @@
-Version 0.2 note: the accounting below is historical. Legacy execution was removed; its tests moved to screenshot-backend.test.ts and screenshot-workflow.integration.test.ts. [Current SystemOne/native evidence gates](./systemone.md) are separate from these historical receipts.
+Version 0.2 note: the accounting below is historical. Legacy execution was removed. [Current SystemOne/native evidence gates](./systemone.md) are separate from these historical receipts.
 
 # Completed refactor verification
 
 > Historical snapshot. The current checkout is validated with `npm run check`; see the [README](../README.md).
 Date: 2026-10-01 (UTC)
 
-This document records the earlier refactor snapshot. For the later first-class screenshot mode and combined461-test verification, see [screenshot verification](./screenshot-verification.md).
+This document records the earlier refactor snapshot.
 
 Baseline: `d567466074b99d9e2580a6da8fed7ab3ededdf3f`
 
@@ -13,11 +13,9 @@ This report includes the completed structural refactor, cancellation/evidence/us
 
 ## Final architecture
 
-The repository has one implementation under `src/`: contracts, policy, runner, AT Driver, browser, verification, trace, analysis, report, CLI, and a screenshot-keyboard adapter. The default runtime is model-neutral. The old Guidepup/virtual backends, registry, generated capability tables, generator scripts, LLMAgent/provider packages, prompt/config loader and workspace manifests are removed, not retained as a fallback.
+The repository has one implementation under `src/`: contracts, policy, runner, AT Driver, browser, verification, trace, analysis, report, and CLI. The default runtime is model-neutral. The old Guidepup/virtual backends, registry, generated capability tables, generator scripts, LLMAgent/provider packages, prompt/config loader and workspace manifests are removed, not retained as a fallback.
 
 Playwright is the only runtime dependency. The package publishes compiled JavaScript/types, explicit exports/bin/files, migration documentation and small policy examples. It includes no native AT server, browser binary, model weights, LLM SDK or Guidepup dependency.
-
-The screenshot workflow runs through `runScreenshotTask` (and `rawstep run --mode keyboard`), with real PNG observations and shared input gates, budgets, verifier and privacy. It never masquerades as screen-reader evidence.
 
 ## Clean dependency-graph validation
 
@@ -50,7 +48,7 @@ npm run check
 | Public JS exports | All 13 entry points import |
 | Installed executable and consumer types | Passed |
 | Installed actual WebSocket roundtrip | Passed: 2 commands, 22 trace events, 2 observation windows |
-| Installed actual Chromium CLI task | Passed: 2 keyboard actions, 3 real screenshot observations |
+| Installed actual Chromium CLI task | Passed: 2 key actions, 3 real observations |
 | Installed journal-failure cancellation | Passed: one key dispatched, next four prevented |
 | Installed real SIGINT/SIGTERM CLI processes | Passed: finalized aborted traces, interruption points, exit codes 130/143 and recovery commands |
 | Installed simulated-VoiceOver run with actual Chromium | Passed: real activation, two simulated observations, source/provenance isolation, analyze/report |
@@ -60,7 +58,7 @@ npm run check
 | Independent analysis/report reruns | Passed; recorded trace/outcome unchanged |
 | Release-file allowlist | Passed; no workspace/native/model payloads |
 
-The installed-package smoke removes provider/API-key environment variables. Its AT Driver roundtrip uses a real localhost WebSocket mock and an explicitly injected fake browser/verifier. Its separate screenshot task runs the installed CLI against actual Chromium. Neither is described as a real VoiceOver/NVDA session.
+The installed-package smoke removes provider/API-key environment variables. Its AT Driver roundtrip uses a real localhost WebSocket mock and an explicitly injected fake browser/verifier. Its separate task runs the installed CLI against actual Chromium. Neither is described as a real VoiceOver/NVDA session.
 
 ## Browser and safety coverage
 
@@ -68,11 +66,11 @@ Real Chromium checks cover allowed relative/multi-hop redirects, final URL and h
 
 AT Driver transport tests cover numeric command correlation, out-of-order/late responses, malformed messages, timeout/close behavior, duplicate/delayed output and command/window recording. An acknowledgement is never treated as speech completion or exact speech causality.
 
-Privacy checks cover whole and encoded values, per-character key frames, delayed echoes, policy rationale, browser diagnostics, typed metadata and image suppression after input. Input taint remains active through cleanup. Evidence-write failures synchronously cancel the backend and prevent subsequent physical key dispatch; cleanup still runs if diagnostic writes fail. Actual WebSocket fault injection covers failure before the first text key and between later keys.
+Privacy checks cover whole and encoded values, per-character key frames, delayed echoes, policy rationale, browser diagnostics, typed metadata and diagnostic screenshot suppression after input. Input taint remains active through cleanup. Evidence-write failures synchronously cancel the backend and prevent subsequent physical key dispatch; cleanup still runs if diagnostic writes fail. Actual WebSocket fault injection covers failure before the first text key and between later keys.
 
 The default verifier persists per-rule observed witnesses with stable evidence references. Actual title/URL/text, submit/button input values, request/response and DOM records, and activation speech windows remain independent of policy observations. After input, free content is suppressed but rule identity, outcomes, references and safe typed metadata remain. Native regression checks that input button values, rather than empty textContent or copied expectations, become the recorded witness.
 
-Rejected policy decisions are persisted with step/action/reason before the run exits. The analyzer recognizes those and browser-diagnostic navigation blocks. Keyboard summaries count screenshot evidence and privacy omissions rather than reporting irrelevant zero speech counts. The HTML report summarizes actions, terminal failure/interruption and verifier grounds, with escaped raw event data collapsed. Intermediate unmet verification checks do not label a successful run as failed.
+Rejected policy decisions are persisted with step/action/reason before the run exits. The analyzer recognizes those and browser-diagnostic navigation blocks. The HTML report summarizes actions, terminal failure/interruption and verifier grounds, with escaped raw event data collapsed. Intermediate unmet verification checks do not label a successful run as failed.
 
 SIGINT/SIGTERM are propagated to the runner and native command dispatch boundary. Installed CLI subprocess tests wait for a real Chromium task to reach its policy stage, send each OS signal, and verify finalized aborted outcomes, saved stage/step, prompt exit and recovery instructions. SIGKILL remains uncatchable; existing journal recovery continues to apply. Commands already transmitted cannot be retracted. No analyzer lifetime budget or hard plugin isolation was added in this follow-up.
 

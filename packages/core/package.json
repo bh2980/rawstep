@@ -39,11 +39,6 @@
       "import": "./dist/profiles/types.js",
       "default": "./dist/profiles/types.js"
     },
-    "./screenshot": {
-      "types": "./dist/screenshot.d.ts",
-      "import": "./dist/screenshot.js",
-      "default": "./dist/screenshot.js"
-    },
     "./trace": {
       "types": "./dist/trace/index.d.ts",
       "import": "./dist/trace/index.js",

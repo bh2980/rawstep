@@ -7,7 +7,7 @@ const timestamp = "2026-01-01T00:00:00.000Z";
 type Pair = readonly [type: string, data: Record<string, unknown>];
 function trace(runId: string, pairs: readonly Pair[]): RunTrace {
   return {
-    schemaVersion: "2.2", runId, task: { id: "checkout" },
+    schemaVersion: "3.0", runId, task: { id: "checkout" },
     environment: { platform: "test", platformVersion: "1", browser: "test", browserVersion: "1", screenReader: "none", screenReaderVersion: "0" },
     startedAt: timestamp, endedAt: "2026-01-01T00:00:05.000Z",
     events: pairs.map(([type, data], index): TraceEvent => ({ id: `event-${index + 1}`, seq: index + 1, timestamp, type, source: type.startsWith("policy.") ? "policy" : "runner", data, redacted: false })),

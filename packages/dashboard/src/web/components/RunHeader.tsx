@@ -15,7 +15,7 @@ import { runGlyphKind } from '../lib/runStrip';
 import { runEnding } from '@rawstep/reports/endings';
 import { roleLabel } from '../i18n/labels';
 import { describeHint } from '../lib/describe';
-import { durationSeconds, isLive, runConditions, runConditionsLine, runModelsName, runPath, runStepCount, type RunRef } from '../lib/runs';
+import { durationSeconds, isLive, runConditions, runModelsName, runPath, runStepCount, type RunRef } from '../lib/runs';
 import type { PageProps } from '../pages/types';
 import { describeAfterRunFailure, describeRunFailure } from '../lib/errors';
 import { ErrorState } from './layout/ErrorState';
@@ -72,7 +72,7 @@ export function RunHeader({ runRef, numbers, view, pageProps, navigate }: Props)
   const newest = view?.steps.at(-1);
   const failure = describeRunFailure(run), afterRun = describeAfterRunFailure(run);
   const reason = run.outcome?.reason && run.outcome.reason !== 'verified' && !failure ? outcomeReasonLabel(run.outcome.reason) : undefined;
-  const simulated = run.snapshot.spec.mode === 'screenreader' && run.snapshot.spec.backend === 'simulation';
+  const simulated = run.snapshot.spec.backend === 'simulation';
   // How the run ended in the question's terms; a run saved before the stop source was kept has it in its hints.
   const early = view?.hints.find(hint => hint.kind === 'early-stop');
   const ended = !live && !failure ? runEnding(run.outcome, run.outcome?.stopSource ?? (typeof early?.detail.stopSource === 'string' ? early.detail.stopSource : undefined)) : undefined;
@@ -100,7 +100,6 @@ export function RunHeader({ runRef, numbers, view, pageProps, navigate }: Props)
             {live && <DropdownMenuItem disabled={busy} onSelect={post(`/experiments/${experiment.id}/cancel`)}><Square aria-hidden="true" />{t('run.stopQueue')}</DropdownMenuItem>}
             {run.reportStatus === 'complete' && <DropdownMenuItem asChild><a href={`/api${base}/report`} target="_blank" rel="noreferrer"><ExternalLink aria-hidden="true" />{t('run.openReport')}</a></DropdownMenuItem>}
             {run.outcome && <DropdownMenuItem asChild><a href={`/api${base}/trace`}><Download aria-hidden="true" />{t('run.downloadTrace')}</a></DropdownMenuItem>}
-            {run.diagnoseStop && run.outcome && <DropdownMenuItem asChild><a href={`/api${base}/stop-reason`}><Download aria-hidden="true" />{t('run.downloadStopReason')}</a></DropdownMenuItem>}
             <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive" disabled={busy || live} onSelect={() => setDeleting(true)}><Trash2 aria-hidden="true" />{t('runDelete.action')}{live && <span className="sr-only"> — {t('runDelete.liveReason')}</span>}</DropdownMenuItem>
           </DropdownMenuContent>
@@ -129,7 +128,7 @@ export function RunHeader({ runRef, numbers, view, pageProps, navigate }: Props)
         : <Link key="f" to={{ task: run.taskId, run: fastest.runId }} navigate={navigate} className="rounded-sm text-trace underline-offset-2 hover:underline">{t('runHeader.factFastestOther', { steps: fastest.steps, number: own(fastest.runId) ?? '' })}</Link>),
       ended?.ending === 'reached' || ended?.ending === 'gave-up' ? undefined : reason,
       typeof stretch === 'number' && t('runHeader.factStretch', { n: stretch }),
-      runConditionsLine(conditions),
+      conditions.profile,
       <span key="m" title={[conditions.planner, conditions.executor].filter(Boolean).join(' → ')}>{runModelsName(run)}</span>,
       conditions.analysis && <span key="a" title={t('runConditions.noEffect')}>{t('runHeader.analysis', { model: conditions.analysis })}</span>,
       simulated && t('run.simulationNotice'),

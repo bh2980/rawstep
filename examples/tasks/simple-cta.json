@@ -2,7 +2,6 @@
   "id": "simple-cta",
   "url": "../../fixtures/simple-cta.html",
   "goal": "Find the Get started button, activate it, and leave the page in a state where the result message is visible.",
-  "mode": "keyboard",
   "maxSteps": 20,
   "timeoutMs": 180000,
   "verify": {

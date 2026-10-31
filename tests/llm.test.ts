@@ -19,17 +19,15 @@ const candidates = [{ id: 'key:Tab', label: 'Tab' }, { id: 'stop:success', label
 const llm = (fetcher: typeof fetch, extra: Partial<Parameters<typeof createLlmModel>[0]> = {}) => createLlmModel({ baseURL: BASE, modelId: 'fixture', apiKey: 'sk-secret-key', fetch: fetcher, ...extra });
 
 describe('shared AI SDK LLM module', () => {
-  it('sends an OpenAI-compatible JSON request with the key and screenshots as image parts', async () => {
+  it('sends an OpenAI-compatible JSON request with the key and the state as text', async () => {
     const { calls, fetcher } = recorder(() => reply({ choiceId: 'key:Tab' }));
-    const result = await chooseCandidate({ model: llm(fetcher), system: 'Pick wisely.', state: { goal: 'g' }, candidates, images: ['QUJD', 'REVG'] });
+    const result = await chooseCandidate({ model: llm(fetcher), system: 'Pick wisely.', state: { goal: 'g' }, candidates });
     expect(result).toEqual({ choiceId: 'key:Tab', modelId: 'fixture' });
     const { url, headers, body } = calls[0]!;
     expect(url).toBe(BASE + '/chat/completions'); expect(headers.authorization).toBe('Bearer sk-secret-key');
     expect(body).toMatchObject({ model: 'fixture', response_format: { type: 'json_object' } });
     expect(body.messages[0]).toMatchObject({ role: 'system' }); expect(body.messages[0].content).toContain('Pick wisely.'); expect(body.messages[0].content).toContain('Select only an ID');
-    const parts = body.messages[1].content as { type: string; text?: string; image_url?: { url: string } }[];
-    expect(JSON.parse(parts[0]!.text!)).toEqual({ state: { goal: 'g' }, candidates });
-    expect(parts.slice(1).map(p => p.image_url!.url)).toEqual(['data:image/png;base64,QUJD', 'data:image/png;base64,REVG']);
+    expect(JSON.parse(body.messages[1].content)).toEqual({ state: { goal: 'g' }, candidates });
   });
   it('asks once more when a reply has the wrong shape, saying what was wrong, and records why when the second reply fails too', async () => {
     const schema = z.object({ n: z.number() });
@@ -93,8 +91,8 @@ describe('shared AI SDK LLM module', () => {
 });
 
 describe('llmChoiceModel', () => {
-  const model: Model = { id: 'm', kind: 'llm', provider: 'custom', baseURL: BASE, modelId: 'fixture', name: 'm', inputs: ['text', 'image'], maxChoices: 255, maxImages: 2, timeoutMs: 5000 };
-  const prompt = { id: 'baseline', name: 'b', version: '1', instructions: DEFAULT_EXECUTOR_INSTRUCTIONS.keyboard };
+  const model: Model = { id: 'm', kind: 'llm', provider: 'custom', baseURL: BASE, modelId: 'fixture', name: 'm', maxChoices: 255, timeoutMs: 5000 };
+  const prompt = { id: 'baseline', name: 'b', version: '1', instructions: DEFAULT_EXECUTOR_INSTRUCTIONS };
   it('returns the choice with model and prompt evidence', async () => {
     const { fetcher } = recorder(() => reply({ choiceId: 'stop:success' }));
     const answer = await llmChoiceModel(model, prompt, 'sk-secret-key', fetcher).choose({ state: { goal: 'g' }, choices: candidates }, { signal: new AbortController().signal });

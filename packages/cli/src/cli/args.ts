@@ -15,14 +15,14 @@ export class CliUsageError extends Error {
 const optionsByCommand: Record<Command, readonly string[]> = {
   init: ['project'],
   ui: ['port', 'project'],
-  run: ['project', 'profile', 'mode', 'repeat', 'rule', 'diagnose-stop', 'out', 'json'],
+  run: ['project', 'profile', 'repeat', 'rule', 'out', 'json'],
   hints: ['reference'],
   report: ['analysis', 'out'],
   analyze: ['project', 'llm', 'out'],
   doctor: ['project'],
 };
 const repeatableOptions = new Set(['rule']);
-const booleanOptions = new Set(['json', 'llm', 'diagnose-stop']);
+const booleanOptions = new Set(['json', 'llm']);
 const positionalsByCommand: Record<Command, { count: number; noun: string }> = {
   init: { count: 0, noun: '' }, ui: { count: 0, noun: '' }, doctor: { count: 0, noun: '' },
   run: { count: 1, noun: 'task id or task JSON file' },
@@ -67,7 +67,6 @@ export function parseCliArguments(argv: readonly string[]): CliArguments {
   }
   if (command === 'ui' && result.options.port !== undefined && (!/^[0-9]+$/.test(String(result.options.port)) || Number(result.options.port) < 1 || Number(result.options.port) > 65535)) throw new CliUsageError('--port must be an integer from 1 to 65535.');
   if (command === 'run') {
-    if (result.options.mode !== undefined && !['keyboard', 'screenreader'].includes(String(result.options.mode))) throw new CliUsageError('--mode must be keyboard or screenreader.');
     if (result.options.repeat !== undefined && (!/^[0-9]+$/.test(String(result.options.repeat)) || Number(result.options.repeat) < 1 || Number(result.options.repeat) > 100)) throw new CliUsageError('--repeat must be an integer from 1 to 100.');
     parseRunRules(result.options.rule as string[] | undefined);
   }
@@ -105,12 +104,12 @@ export function parseRunRules(entries: readonly string[] | undefined): RunRulesO
   return runRulesOverrideSchema.parse(raw);
 }
 
-export const CLI_USAGE = `Rawstep: run a keyboard or screen reader task on a web page and see where the run got slow or took detours
+export const CLI_USAGE = `Rawstep: run a screen reader task on a web page and see where the run got slow or took detours
 
 Usage:
   rawstep init [--project <dir>]
   rawstep ui [--port <port>] [--project <dir>]
-  rawstep run <task> [--profile <id|name>] [--mode keyboard|screenreader] [--rule <name>=<value>]... [--diagnose-stop]
+  rawstep run <task> [--profile <id|name>] [--rule <name>=<value>]...
                      [--repeat <n>] [--out <dir>] [--json] [--project <dir>]
   rawstep hints <run-dir> [--reference <run-dir>]
   rawstep report <run-dir> [--analysis <analysis.json>] [--out <dir>]
@@ -122,12 +121,11 @@ Commands:
   ui        Open the dashboard to set up connections, experiment conditions and tasks, and to run experiments.
   run       Run a task from rawstep.config.json (by id) or a task JSON file with a run profile (models, allowed
             actions, page environment, screen reader, run rules), then print the conditions, each run's outcome and the
-            findings gathered across the runs, grouped as Page, Run and Model. Runs of a planned profile also write
-            plan.json and plan.md. With an analysis model (the project's) each run is also analysed.
+            findings gathered across the runs, grouped as Page, Run and Model. Runs also write plan.json and plan.md. With an analysis model (the project's) each run is also analysed.
   hints     List the places worth a look in a saved run (hints.json is written next to the trace).
   report    Write report.html and report.json for a saved run.
   analyze   Analyze a saved run. Without --llm the analysis is a local summary; --llm sends the saved
-            events (PNG bytes omitted) to the project's analysis model.
+            events to the project's analysis model.
   doctor    Check that a browser can launch, the config parses, credentials are set and, for a native
             screen reader, that its AT Driver endpoint answers.
 
@@ -142,13 +140,12 @@ Run defaults:
   --profile  <id|name>; the run profile to use: the task's own, else the project's first
   --rule     <name>=<value>, repeatable; overrides one run rule for these runs (the profile's, then these), e.g. --rule maxPlannerCalls=20 --rule survey=headings;
              see the runRules section of docs/config.md for the rules
-  --mode     keyboard
   --repeat   1; repeats are compared with the fastest run that reached the goal
   --out      <project>/.rawstep/runs/<timestamp>-<id>/, one run-<n> directory per repeat
 
 Exit codes: 0 when the runs completed, whether or not the goal was reached; 1 on errors; 2 on bad usage;
 130 or 143 when cancelled by SIGINT or SIGTERM. Rawstep reports friction hints, not pass or fail.
 
-Screenshots can expose private page contents; the model receives pixels, the goal, named input keys and the
-action history, never the DOM or verifier results. Saved traces redact input values.
+The model receives the speech the screen reader produces, the goal, named input keys and the action history,
+never the DOM, the diagnostic screenshots or verifier results. Saved traces redact input values.
 `;

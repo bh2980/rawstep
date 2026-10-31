@@ -2,21 +2,18 @@ import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
 import { i18n } from '../../i18n';
 import { Check, Minus } from 'lucide-react';
-import type { ActionSet, AtBackend, Mode, Permissions } from '@rawstep/project/config';
+import type { AtBackend, Permissions } from '@rawstep/project/config';
 import type { ConfigView } from '../../../shared/config';
-import { actionLabel, AT_BACKENDS, MODES, unsupportedActions } from '../../lib/conditions';
+import { actionLabel, AT_BACKENDS, unsupportedActions } from '../../lib/conditions';
 import { cn } from '../../lib/utils';
 import { MultiChoice, Toggle } from '../forms';
 import { InfoTip } from '../layout/InfoTip';
 import { Checkbox } from '../ui/checkbox';
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 
 type Capabilities = ConfigView['capabilities'];
 type Props = {
-  actionSet: ActionSet; onChange: (a: ActionSet) => void; capabilities: Capabilities; inputNames?: readonly string[]; compact?: boolean;
-  /** Only this mode's actions, without the mode tabs: a task page edits the mode it runs. */
-  only?: Mode;
+  value: Permissions; onChange: (p: Permissions) => void; capabilities: Capabilities; inputNames?: readonly string[]; compact?: boolean;
   /** The screen reader the profile runs on: only its missing actions are warned about. All three are warned about when unset. */
   backend?: AtBackend;
 };
@@ -31,35 +28,19 @@ const toggle = (list: readonly string[], name: string, on: boolean) => on ? [...
 const head = 'h-8 px-3 text-xs font-medium tracking-wide text-muted-foreground';
 
 /**
- * What the simulated user may do, per mode. Screen reader actions are listed with a column per assistive technology, because the same
- * action set can run on the simulation, VoiceOver or NVDA and a run with an action its screen reader lacks is stopped before it starts.
+ * What the simulated user may do. Screen reader actions are listed with a column per assistive technology, because the same action set
+ * can run on the simulation, VoiceOver or NVDA and a run with an action its screen reader lacks is stopped before it starts.
  */
-export function ActionSetEditor({ actionSet, onChange, capabilities, inputNames, compact, only, backend }: Props) {
+export function ActionSetEditor({ value, onChange, capabilities, inputNames, compact, backend }: Props) {
   const { t } = useTranslation();
-  const set = (mode: Mode) => (permissions: Permissions) => onChange({ ...actionSet, [mode]: permissions });
-  const gaps = unsupportedActions(actionSet, capabilities), warned = AT_BACKENDS.filter(b => (!backend || b === backend) && gaps.screenreader[b].length);
-  const screenreader = <div className="grid gap-4">
-    <ScreenreaderActions value={actionSet.screenreader} onChange={set('screenreader')} capabilities={capabilities.screenreader} compact={compact} backends={backend ? [backend] : AT_BACKENDS} />
+  const gaps = unsupportedActions({ actions: value }, capabilities), warned = AT_BACKENDS.filter(b => (!backend || b === backend) && gaps[b].length);
+  return <div className="grid gap-4">
+    <ScreenreaderActions value={value} onChange={onChange} capabilities={capabilities} compact={compact} backends={backend ? [backend] : AT_BACKENDS} />
     {warned.map(b => <p key={b} role="note" className="border-l-2 border-inspect bg-inspect-soft py-2 pr-3 pl-3 text-[13px] leading-5">
-      {t('conditions.actionSet.unsupportedWarning', { backend: t(`conditions.backends.${b}`), actions: gaps.screenreader[b].map(actionLabel).join(', ') })}
+      {t('conditions.actionSet.unsupportedWarning', { backend: t(`conditions.backends.${b}`), actions: gaps[b].map(actionLabel).join(', ') })}
     </p>)}
-    <Typing mode="screenreader" value={actionSet.screenreader} onChange={set('screenreader')} inputNames={inputNames} compact={compact} />
+    <Typing value={value} onChange={onChange} inputNames={inputNames} compact={compact} />
   </div>;
-  const keyboard = <div className="grid gap-4">
-    <KeyboardActions value={actionSet.keyboard} onChange={set('keyboard')} capabilities={capabilities.keyboard} />
-    {gaps.keyboard.length > 0 && <p role="note" className="border-l-2 border-inspect bg-inspect-soft py-2 pr-3 pl-3 text-[13px] leading-5">{t('conditions.actionSet.keyboardUnsupported', { actions: gaps.keyboard.join(', ') })}</p>}
-    <Typing mode="keyboard" value={actionSet.keyboard} onChange={set('keyboard')} inputNames={inputNames} compact={compact} />
-  </div>;
-  if (only) return only === 'keyboard' ? keyboard : screenreader;
-  return <Tabs defaultValue="screenreader" className={cn('min-w-0', compact ? 'gap-3' : 'gap-4')}>
-    <TabsList variant="line" aria-label={t('conditions.actionSet.modesLabel')}>
-      {MODES.map(mode => <TabsTrigger key={mode} value={mode}>{t(`conditions.modes.${mode}`)}
-        {(mode === 'keyboard' ? gaps.keyboard.length > 0 : warned.length > 0) && <span className="ml-1 font-normal text-inspect">· {t('conditions.actionSet.hasUnsupported')}</span>}
-      </TabsTrigger>)}
-    </TabsList>
-    <TabsContent value="screenreader">{screenreader}</TabsContent>
-    <TabsContent value="keyboard">{keyboard}</TabsContent>
-  </Tabs>;
 }
 
 /** A support mark: a check, or the words "지원 안 함" (never colour alone). */
@@ -90,7 +71,7 @@ function keyRole(key: string): string | undefined {
  * Screen reader actions with a support column per screen reader. Given one screen reader, only it is listed, and only what it supports
  * (plus anything already allowed). Raw keys are listed only once a profile uses them.
  */
-function ScreenreaderActions({ value, onChange, capabilities, compact, backends }: { value: Permissions; onChange: (p: Permissions) => void; capabilities: Capabilities['screenreader']; compact?: boolean | undefined; backends: readonly AtBackend[] }) {
+function ScreenreaderActions({ value, onChange, capabilities, compact, backends }: { value: Permissions; onChange: (p: Permissions) => void; capabilities: Capabilities; compact?: boolean | undefined; backends: readonly AtBackend[] }) {
   const { t } = useTranslation();
   const intents = ordered([...backends.flatMap(b => capabilities[b].intents), ...value.intents], INTENT_ORDER);
   const keys = ordered([...backends.flatMap(b => capabilities[b].keys), ...value.keys]);
@@ -114,31 +95,11 @@ function ScreenreaderActions({ value, onChange, capabilities, compact, backends 
   </div>;
 }
 
-function KeyboardActions({ value, onChange, capabilities }: { value: Permissions; onChange: (p: Permissions) => void; capabilities: Capabilities['keyboard'] }) {
-  const { t } = useTranslation();
-  const keys = ordered([...capabilities.keys, ...value.keys], capabilities.keys);
-  return <div className="grid gap-3">
-    <div className="overflow-x-auto border-y border-edge-strong">
-      <Table className="min-w-[20rem]">
-        <TableCaption className="sr-only">{t('conditions.actionSet.keyboardCaption')}</TableCaption>
-        <TableHeader><TableRow className="bg-raised hover:bg-raised">
-          <TableHead scope="col" className={head}>{t('conditions.actionSet.allowedKey')}</TableHead>
-          <TableHead scope="col" className={head}>{t('conditions.actionSet.keyboardBackend')}</TableHead>
-        </TableRow></TableHeader>
-        <TableBody>{keys.map(key => <TableRow key={key}>
-          <AllowCell label={key} note={keyRole(key)} checked={value.keys.includes(key)} onChange={on => onChange({ ...value, keys: toggle(value.keys, key, on) })} />
-          <TableCell className="px-3 py-2 text-[13px]"><Support ok={capabilities.keys.includes(key)} /></TableCell>
-        </TableRow>)}</TableBody>
-      </Table>
-    </div>
-  </div>;
-}
-
 /** Typing the task's named inputs: whether the model may type them, may replace what a field holds, and which inputs it may use. */
-function Typing({ mode, value, onChange, inputNames, compact }: { mode: Mode; value: Permissions; onChange: (p: Permissions) => void; inputNames?: readonly string[] | undefined; compact?: boolean | undefined }) {
+function Typing({ value, onChange, inputNames, compact }: { value: Permissions; onChange: (p: Permissions) => void; inputNames?: readonly string[] | undefined; compact?: boolean | undefined }) {
   const { t } = useTranslation();
   const typing = value.typeText || value.replaceText;
-  return <section className="grid gap-3 border-t border-edge pt-3" aria-label={t('conditions.actionSet.typingTitle', { mode: t(`conditions.modes.${mode}`) })}>
+  return <section className="grid gap-3 border-t border-edge pt-3" aria-label={t('conditions.actionSet.typingTitle')}>
     <Toggle label={t('conditions.actionSet.typeText')} info={compact ? undefined : t('conditions.actionSet.typeTextHint')} checked={value.typeText} onChange={typeText => onChange({ ...value, typeText })} />
     <Toggle label={t('conditions.actionSet.replaceText')} info={compact ? undefined : t('conditions.actionSet.replaceTextHint')} checked={value.replaceText} onChange={replaceText => onChange({ ...value, replaceText })} />
     {typing && inputNames && inputNames.length > 0 && <MultiChoice label={t('conditions.actionSet.inputKeys')} items={inputNames.map(name => ({ id: name, name }))} selected={value.inputKeys ?? [...inputNames]}

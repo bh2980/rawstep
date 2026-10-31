@@ -73,7 +73,7 @@ export const shell = {
     count: '실행 {{count}}번',
     run: '실행…',
     caption: '실행 기록, 최신순',
-    columns: { number: '실행 번호', time: '시간', task: '작업', model: '모델', mode: '모드', result: '결과', steps: '행동 수', duration: '소요 시간', hints: '살펴볼 지점' },
+    columns: { number: '실행 번호', time: '시간', task: '작업', model: '모델', result: '결과', steps: '행동 수', duration: '소요 시간', hints: '살펴볼 지점' },
     noHints: '없음',
     filterLabel: '실행 기록 조건',
     search: '실행 검색',

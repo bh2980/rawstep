@@ -5,7 +5,7 @@ UI 디렉터가 정리한 대시보드 디자인 언어와 화면 방향입니�
 ## 1. Product Definition
 
 Rawstep은 테스트 결과 대시보드가 아니다.
-키보드·스크린리더 사용자가 목표까지 이동한 경로를 기록하고, 사람이 병목의 근거를 조사할 수 있게 만드는 행동 추적 도구다.
+스크린리더 사용자가 목표까지 이동한 경로를 기록하고, 사람이 병목의 근거를 조사할 수 있게 만드는 행동 추적 도구다.
 Rawstep이 보여 주어야 하는 것은 결론이 아니라 흔적이다.
 
 ```
@@ -237,8 +237,8 @@ Search             10 / 10        7 / 6     ■■■■■■■■■■   0
 
 가장 중요한 overview screen. 화면 전체를 하나의 Task Investigation Sheet로 본다.
 
-- Header 왼쪽: 작업 이름, URL, 목표 문장, `완료 확인 2개 · 기본 키보드`.
-- Header 오른쪽: Run Control (MODEL, MODE, REPEAT, 실행). 카드처럼 떠 있지 않고 header 내부에서 명확하게 구획한다.
+- Header 왼쪽: 작업 이름, URL, 목표 문장, `완료 확인 2개 · 기본 프로필`.
+- Header 오른쪽: Run Control (MODEL, REPEAT, 실행). 카드처럼 떠 있지 않고 header 내부에서 명확하게 구획한다.
 
 ## 16. TASK / Overview
 
@@ -302,7 +302,7 @@ chat UI로 만들지 않는다. 명칭은 `AI 제안`. 각 suggestion을 candida
 ```
 실행 #14
 목표에 닿음
-Keyboard · Jev · 기본 프로필
+Jev · 기본 프로필
 행동 10번 · 4.4초 · 가장 빠른 실행
 ```
 
@@ -332,7 +332,7 @@ Keyboard · Jev · 기본 프로필
 
 다음 순서로 재편한다.
 
-1. **무엇을 보고 있었나** — Keyboard: Screenshot / Screen reader: Speech transcript. 모드에 따라 primary evidence를 바꾼다.
+1. **무엇을 보고 있었나** — Speech transcript가 primary evidence다.
 2. **무엇을 했나** — 가장 큰 technical text (`ACTION 07 / Tab`).
 3. **무엇이 바뀌었나** — `PAGE RESPONSE / Focus → button "상품 4"`. Action → Response가 Rawstep trace의 기본 단위다.
 4. **살펴볼 지점** — 있는 경우에만 amber.
@@ -341,11 +341,11 @@ Keyboard · Jev · 기본 프로필
 
 ## 27. Screenshot
 
-일반 이미지 카드가 아니라 Evidence viewport다. 주변 UI보다 높은 우선순위. Keyboard mode에서는 focus target을 명확히 표시한다. 가능하면 `Before | After` 토글. 두 screenshot을 항상 나란히 보여 주지는 않는다.
+진단 screenshot은 일반 이미지 카드가 아니라 Evidence viewport다. secondary evidence이며 모델은 받지 않는다. 가능하면 `Before | After` 토글. 두 screenshot을 항상 나란히 보여 주지는 않는다.
 
-## 28. Screen Reader Mode
+## 28. Screen Reader Output
 
-스크린리더 실행에서는 speech가 주 증거다. `SCREEN READER OUTPUT` 영역에 읽은 문장을 보여 주고 screenshot은 secondary evidence. Keyboard mode와 동일한 화면 배치를 강제하지 않는다.
+speech가 주 증거다. `SCREEN READER OUTPUT` 영역에 읽은 문장을 보여 주고 screenshot은 secondary evidence로 둔다.
 
 ## 29. Decision Candidate Scores
 
@@ -369,7 +369,7 @@ Trace Rail은 행동이 발생할 때마다 하나씩 늘어난다. 최신 단�
 
 ## 31. RUN HISTORY
 
-순수하게 log index. 가장 높은 정보 밀도. 열: 시간, 작업, 모델, 모드, 결과, 행동, 시간. 필터는 위쪽 한 줄(Search / task / model / outcome). 큰 filter cards는 사용하지 않는다.
+순수하게 log index. 가장 높은 정보 밀도. 열: 시간, 작업, 모델, 결과, 행동, 시간. 필터는 위쪽 한 줄(Search / task / model / outcome). 큰 filter cards는 사용하지 않는다.
 
 ## 32. SETTINGS
 
@@ -384,8 +384,8 @@ Dashboard 안의 또 다른 card collection으로 만들지 않는다. 전체 �
 Profile을 "설정 묶음"보다 실험 조건으로 이해할 수 있게 한다.
 
 ```
-기본 키보드
-Allowed actions    Keyboard only
+기본 프로필
+Allowed actions    Basic
 Blocked detection  5 repeated actions
 Viewport           1440 × 900
 Analysis           Default

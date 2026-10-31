@@ -1,5 +1,5 @@
 import { dirname, join } from 'node:path';
-import { readTrace, screenshotSha256, traceFilePath, writeJsonAtomic, type RunOutcome, type RunTrace, type TraceEvent } from '@rawstep/core/trace';
+import { readTrace, traceFilePath, writeJsonAtomic, type RunOutcome, type RunTrace, type TraceEvent } from '@rawstep/core/trace';
 import { goalLeads } from '@rawstep/policies/policy';
 
 /**
@@ -7,11 +7,11 @@ import { goalLeads } from '@rawstep/policies/policy';
  * Hints are pointers with evidence, never verdicts; reaching the goal is one signal among them.
  * Pure over the saved trace, so they can be recomputed later or extended with custom extractors.
  */
-export const HINTS_SCHEMA_VERSION = '2.2' as const;
+export const HINTS_SCHEMA_VERSION = '3.0' as const;
 export type HintKind =
-  | 'slow-run' | 'excess-keystrokes' | 'backtracking' | 'repeated-state'
+  | 'slow-run' | 'excess-keystrokes' | 'backtracking'
   | 'focus-lost' | 'focus-not-visible' | 'modal-focus-outside' | 'missing-announcement'
-  | 'invisible-focus-change' | 'model-hesitation' | 'early-stop' | 'goal-met-at-start' | 'focus-left-page'
+  | 'model-hesitation' | 'early-stop' | 'goal-met-at-start' | 'focus-left-page'
   | 'replan' | 'help-request' | 'task-limit' | 'unverified-done' | 'wanted-to-give-up' | 'goal-word-stretch' | 'expectation-broken';
 /**
  * Where a hint comes from. page: the page itself behaved this way (focus, announcements, dialogs, tab order).
@@ -29,8 +29,8 @@ export const HINT_SOURCES: Readonly<Record<HintKind, HintSource>> = Object.freez
   'slow-run': 'run', 'goal-met-at-start': 'run', 'replan': 'run', 'help-request': 'run', 'task-limit': 'run', 'unverified-done': 'run',
   'wanted-to-give-up': 'run', 'goal-word-stretch': 'run',
   'excess-keystrokes': 'page', 'focus-lost': 'page', 'focus-left-page': 'page', 'focus-not-visible': 'page',
-  'modal-focus-outside': 'page', 'missing-announcement': 'page', 'invisible-focus-change': 'page',
-  'backtracking': 'model', 'repeated-state': 'model', 'model-hesitation': 'model', 'early-stop': 'model', 'expectation-broken': 'model',
+  'modal-focus-outside': 'page', 'missing-announcement': 'page',
+  'backtracking': 'model', 'model-hesitation': 'model', 'early-stop': 'model', 'expectation-broken': 'model',
 });
 export type Hint = {
   kind: HintKind;
@@ -60,8 +60,6 @@ export type HintThresholds = {
   keystrokesToTarget: number;
   /** Direction reversals such as Tab followed by Shift+Tab. */
   backtrackReversals: number;
-  /** Visits to the same screenshot state. */
-  repeatedStateVisits: number;
   /**
    * The model hesitated when the runner-up scored at least this share of the chosen candidate's score. Relative, because a
    * decision model spreads its scores over every candidate: 0.42 against 0.10 is a clear choice, 0.42 against 0.38 is not.
@@ -70,7 +68,7 @@ export type HintThresholds = {
 };
 export const DEFAULT_HINT_THRESHOLDS: Readonly<HintThresholds> = Object.freeze({
   slowRunStepRatio: 1.5, slowRunMinExtraSteps: 3, keystrokesToTarget: 10, backtrackReversals: 2,
-  repeatedStateVisits: 3, hesitationRunnerUpRatio: 0.8,
+  hesitationRunnerUpRatio: 0.8,
 });
 export type HintOptions = { reference?: Readonly<RunTrace>; thresholds?: Partial<HintThresholds> };
 
@@ -83,7 +81,6 @@ const REDACTED = '[REDACTED]';
 
 type Action = { step: number; eventId: string; key?: string; intent?: string; text?: boolean; ok?: boolean };
 type ObserverRecord = { id: string; step: number; kind: string; role?: string | null; name?: string; visible?: boolean; inViewport?: boolean; modalOpen?: boolean; inDialog?: boolean; reason?: string; sameDocument?: boolean; attr?: string };
-type Screen = { step: number; eventId: string; sha256: string };
 
 const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
 const label = (o: { role?: string | null; name?: string }) => o.name && o.name !== REDACTED ? `${o.role ?? 'element'} "${o.name}"` : (o.role ?? 'element');
@@ -105,7 +102,7 @@ export function selectReference(traces: readonly Readonly<RunTrace>[]): Readonly
 }
 
 function collect(trace: Readonly<RunTrace>) {
-  const actions: Action[] = [], observer: ObserverRecord[] = [], screens: Screen[] = [], evidence: { step: number; id: string; data: Record<string, unknown> }[] = [], diagnostics: { step: number; id: string; data: Record<string, unknown> }[] = [];
+  const actions: Action[] = [], observer: ObserverRecord[] = [], evidence: { step: number; id: string; data: Record<string, unknown> }[] = [], diagnostics: { step: number; id: string; data: Record<string, unknown> }[] = [];
   let step = 0;
   for (const event of trace.events as readonly TraceEvent[]) {
     const data = record(event.data) ? event.data : {};
@@ -115,8 +112,6 @@ function collect(trace: Readonly<RunTrace>) {
       if (action) actions.push({ step, eventId: event.id, ...(typeof action.key === 'string' ? { key: action.key } : {}), ...(typeof action.intent === 'string' ? { intent: action.intent } : {}), ...(action.kind === 'typeText' || action.kind === 'replaceText' ? { text: true } : {}) });
     } else if (event.type === 'action.result' && typeof data.step === 'number') {
       const action = actions.find(a => a.step === data.step); if (action) action.ok = data.ok === true;
-    } else if (event.type === 'keyboard.observation' && screenshotSha256(data.screenshot)) {
-      screens.push({ step, eventId: event.id, sha256: screenshotSha256(data.screenshot)! });
     } else if (event.type.startsWith('observer.') && typeof data.step === 'number' && typeof data.kind === 'string') {
       observer.push({ ...(data as Omit<ObserverRecord, 'id'>), id: event.id });
     } else if (event.type === 'policy.evidence' && typeof data.step === 'number' && record(data.evidence)) {
@@ -125,12 +120,12 @@ function collect(trace: Readonly<RunTrace>) {
       diagnostics.push({ step: data.step, id: event.id, data: data.diagnostic });
     }
   }
-  return { actions, observer, screens, evidence, diagnostics };
+  return { actions, observer, evidence, diagnostics };
 }
 
 export function extractHints(trace: Readonly<RunTrace>, options: HintOptions = {}): HintReport {
   const t = { ...DEFAULT_HINT_THRESHOLDS, ...options.thresholds };
-  const run = summarizeRun(trace), { actions, observer, screens, evidence, diagnostics } = collect(trace);
+  const run = summarizeRun(trace), { actions, observer, evidence, diagnostics } = collect(trace);
   const hints: Hint[] = [];
   const add = (hint: Omit<Hint, 'source' | 'target'>, target?: { role?: string | null; name?: string }) => {
     const element = targetOf(target);
@@ -138,8 +133,6 @@ export function extractHints(trace: Readonly<RunTrace>, options: HintOptions = {
   };
   const focusBefore = (step: number) => [...observer].reverse().find(o => o.kind === 'focus' && o.step <= step);
   const at = (step: number) => observer.filter(o => o.step === step);
-  const screenAt = (step: number) => screens.find(s => s.step === step);
-  const previousScreen = (step: number) => [...screens].reverse().find(s => s.step < step);
 
   const reference = options.reference ? summarizeRun(options.reference) : undefined;
   if (reference?.goalReached && run.steps >= reference.steps * t.slowRunStepRatio && run.steps - reference.steps >= t.slowRunMinExtraSteps) add({
@@ -169,11 +162,6 @@ export function extractHints(trace: Readonly<RunTrace>, options: HintOptions = {
   }
   if (reversals.length >= t.backtrackReversals) add({ kind: 'backtracking', certainty: 'observed', steps: reversals.map(a => a.step),
     summary: `Navigation direction reversed ${reversals.length} times.`, detail: { reversals: reversals.length }, evidence: reversals.map(a => a.eventId) }, focusBefore(reversals[0]!.step - 1));
-
-  const visits = new Map<string, Screen[]>();
-  for (const screen of screens) visits.set(screen.sha256, [...(visits.get(screen.sha256) ?? []), screen]);
-  for (const [sha256, seen] of visits) if (seen.length >= t.repeatedStateVisits) add({ kind: 'repeated-state', certainty: 'observed', steps: seen.map(s => s.step),
-    summary: `The same screen was seen ${seen.length} times.`, detail: { visits: seen.length, sha256 }, evidence: seen.map(s => s.eventId) });
 
   for (const lost of observer.filter(o => o.kind === 'focus-lost' && o.step > 0)) {
     const action = actions.find(a => a.step === lost.step);
@@ -208,10 +196,9 @@ export function extractHints(trace: Readonly<RunTrace>, options: HintOptions = {
       summary: `${label(dialog)} opened but focus did not move into it.`, detail: { dialog: { role: dialog.role, name: dialog.name } }, evidence: [dialog.id] }, dialog);
   }
 
-  // A visible change with nothing a screen reader would announce: no live region, surface, focus move or page load.
+  // A page change with nothing a screen reader would announce: no live region, surface, focus move or page load.
   for (const action of actions.filter(a => isActivation(a) && a.ok !== false)) {
-    const events = at(action.step), screen = screenAt(action.step), before = previousScreen(action.step);
-    const pixelsChanged = !!screen && !!before && screen.sha256 !== before.sha256;
+    const events = at(action.step);
     const domChanged = events.some(o => o.kind === 'state' || o.kind === 'navigation' || o.kind === 'appeared' || o.kind === 'disappeared');
     const lastFocus = [...observer].reverse().find(o => o.kind === 'focus' && o.step <= action.step);
     const announced = events.some(o => o.kind === 'live-region' || o.kind === 'focus' || o.kind === 'focus-lost'
@@ -219,16 +206,10 @@ export function extractHints(trace: Readonly<RunTrace>, options: HintOptions = {
       || (o.kind === 'navigation' && o.sameDocument === false)
       || (o.kind === 'state' && !!lastFocus && o.name === lastFocus.name && o.role === lastFocus.role));
     // Attributed to the control that was activated (focused before this step), the element whose result went unannounced.
-    if ((pixelsChanged || domChanged) && !announced && observer.length) add({ kind: 'missing-announcement', certainty: 'suspected', steps: [action.step],
+    if (domChanged && !announced && observer.length) add({ kind: 'missing-announcement', certainty: 'suspected', steps: [action.step],
       summary: `${keyOf(action)} changed the page, but no announcement, focus move or page load was recorded.`,
-      detail: { pixelsChanged, changes: events.map(o => o.kind === 'state' ? `${o.attr} on ${label(o)}` : o.kind) },
-      evidence: [action.eventId, ...events.map(o => o.id), ...(screen ? [screen.eventId] : [])] }, focusBefore(action.step - 1));
-  }
-
-  for (const action of actions.filter(isNavigation)) {
-    const screen = screenAt(action.step), before = previousScreen(action.step), focus = at(action.step).find(o => o.kind === 'focus');
-    if (screen && before && focus && screen.sha256 === before.sha256) add({ kind: 'invisible-focus-change', certainty: 'observed', steps: [action.step],
-      summary: `Focus moved to ${label(focus)} but the screen did not change.`, detail: { target: { role: focus.role, name: focus.name } }, evidence: [action.eventId, focus.id, screen.eventId] }, focus);
+      detail: { changes: events.map(o => o.kind === 'state' ? `${o.attr} on ${label(o)}` : o.kind) },
+      evidence: [action.eventId, ...events.map(o => o.id)] }, focusBefore(action.step - 1));
   }
 
   // Plan choices (task done, help) are the executor talking to the planner, not a choice between page actions.

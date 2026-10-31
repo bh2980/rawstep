@@ -2,11 +2,11 @@ import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { resolveTask } from '@rawstep/core/contracts';
-import { hydrateScreenshots, type RunOutcome, type RunTrace, type TraceEvent } from '@rawstep/core/trace';
+import { type RunOutcome, type RunTrace, type TraceEvent } from '@rawstep/core/trace';
 import { resolveEnvironmentProfile } from '@rawstep/browser/profiles';
 import { analyzeTrace, writeReport, LlmTraceAnalyzer, type TraceAnalyzer } from '@rawstep/reports';
 import { aggregateHints, extractHints, selectReference, writeHints, type HintFinding, type HintReport } from '@rawstep/reports/hints';
-import { AT_DRIVER_COMMAND_ENV, findByIdOrName, modelKeyEnv, modelKeyRequired, profileConditions, projectAnalysisModel, firstProfile, type Mode, type Model, type ProjectConfig, type RunRules } from './config.js';
+import { AT_DRIVER_COMMAND_ENV, findByIdOrName, modelKeyEnv, modelKeyRequired, profileConditions, projectAnalysisModel, firstProfile, type Model, type ProjectConfig, type RunRules } from './config.js';
 import { ProjectError } from './errors.js';
 import { llmModelOf } from './llm.js';
 import { ProjectStore, atomicJson } from './store.js';
@@ -34,10 +34,10 @@ export async function finalizeRun(trace: RunTrace, outDir: string, options: Fina
   try {
     const analysis = await analyzeTrace(trace, await options.createAnalyzer?.());
     await atomicJson(join(outDir, 'analysis.json'), analysis);
-    await writeReport(await hydrateScreenshots(trace, outDir), analysis, outDir, withHints);
+    await writeReport(trace, analysis, outDir, withHints);
     return { ...(hints ? { hints } : {}), analysis: { status: analysis.status === 'failed' ? 'failed' : 'complete', ...(analysis.status === 'failed' ? { error: analysis.error ?? 'Analysis failed.' } : {}), threw: false }, report: { status: 'complete' } };
   } catch {
-    try { await writeReport(await hydrateScreenshots(trace, outDir), undefined, outDir, withHints); return { ...(hints ? { hints } : {}), analysis: { status: 'failed', threw: true }, report: { status: 'complete' } }; }
+    try { await writeReport(trace, undefined, outDir, withHints); return { ...(hints ? { hints } : {}), analysis: { status: 'failed', threw: true }, report: { status: 'complete' } }; }
     catch { return { ...(hints ? { hints } : {}), analysis: { status: 'failed', threw: true }, report: { status: 'failed' } }; }
   }
 }
@@ -49,10 +49,6 @@ export type RunTaskOptions = {
   profile?: string;
   /** Run rules for these runs only, over the profile's. */
   runRules?: Partial<RunRules>;
-  /** Keyboard runs: ask the executor, after a run that stopped early, why (never an action or verdict). */
-  diagnoseStop?: boolean;
-  /** Defaults to 'keyboard'. */
-  mode?: Mode;
   /** How many times to run the task (default 1). The runs are compared with each other. */
   repeat?: number;
   /** Where to write the runs, one `run-<n>` directory per repeat; a relative path resolves from the current directory. Defaults to `<projectDir>/.rawstep/runs/<timestamp>-<id>/`. */
@@ -63,7 +59,7 @@ export type RunTaskOptions = {
 export type RunTaskResult = {
   /** The conditions the runs were made with, as recorded in each trace. */
   conditions: Record<string, unknown>;
-  /** Things worth knowing that did not stop the runs (no analysis key, a planner unused in keyboard mode). */
+  /** Things worth knowing that did not stop the runs (no analysis key, an analysis model that is not an LLM). */
   warnings: string[];
   runs: { runId: string; outDir: string; outcome: RunOutcome | undefined; hints: HintReport }[];
   /** Hints gathered across all runs by kind and page element. */
@@ -105,15 +101,12 @@ function pick<T extends { id: string; name: string }>(kind: string, list: readon
 export async function runTask(task: string, options: RunTaskOptions = {}, internals: { execute?: RunExecutor } = {}): Promise<RunTaskResult> {
   const projectDir = resolve(options.projectDir ?? process.cwd());
   const repeat = options.repeat ?? 1;
-  if (options.mode !== undefined && options.mode !== 'keyboard' && options.mode !== 'screenreader') throw new ProjectError('invalid-mode', `The mode must be keyboard or screenreader, not "${String(options.mode)}".`);
   if (!Number.isInteger(repeat) || repeat < 1 || repeat > MAX_REPEAT) throw new ProjectError('invalid-repeat', `The repeat count must be an integer from 1 to ${MAX_REPEAT}.`);
   const store = new ProjectStore(projectDir), { config } = await store.read();
   const { entry, task: source } = await loadTask(store, config, task, projectDir);
   const profile = options.profile !== undefined ? pick('profile', config.profiles, options.profile) : firstProfile(config);
-  // The profile says how the user reaches the page; --mode overrides it for this run.
-  const mode = options.mode ?? profile.mode;
-  const conditions = profileConditions(profile, mode);
-  const check = assertRunnable(checkRun({ config, task: source, ...(entry ? { taskEntry: entry } : {}), runRules: options.runRules, mode, ...conditions, ...(options.diagnoseStop ? { diagnoseStop: true } : {}) }));
+  const conditions = profileConditions(profile);
+  const check = assertRunnable(checkRun({ config, task: source, ...(entry ? { taskEntry: entry } : {}), runRules: options.runRules, ...conditions }));
   const { settings, model, analysisModel, plannerModel } = check, warnings = [...check.warnings];
   const apiKey = await requireKey(store, model!);
   const plannerApiKey = plannerModel ? await requireKey(store, plannerModel) : undefined;
@@ -121,8 +114,8 @@ export async function runTask(task: string, options: RunTaskOptions = {}, intern
   const analysisKey = analysisModel ? await store.credential(analysisModel) : undefined;
   const analyse = analysisModel && (analysisKey || !modelKeyRequired(analysisModel)) ? analysisModel : undefined;
   if (analysisModel && !analyse) warnings.push(`The key for the analysis model "${analysisModel.name}" is not set; the runs get the rule-based analysis only.`);
-  const atDriverCommand = mode === 'screenreader' && conditions.atEnvironment.backend !== 'simulation' ? await store.localValue(AT_DRIVER_COMMAND_ENV) : undefined;
-  const spec: RunSpec = { ...runSpecOf(source, mode, conditions, check, options.diagnoseStop), ...(check.plannerPlanFile ? { plannerPlan: await loadPlanFile(store, check.plannerPlanFile) } : {}) };
+  const atDriverCommand = conditions.atEnvironment.backend !== 'simulation' ? await store.localValue(AT_DRIVER_COMMAND_ENV) : undefined;
+  const spec: RunSpec = { ...runSpecOf(source, conditions, check), ...(check.plannerPlanFile ? { plannerPlan: await loadPlanFile(store, check.plannerPlanFile) } : {}) };
   const root = options.outDir ? resolve(options.outDir) : join(projectDir, '.rawstep', 'runs', `${new Date().toISOString().replace(/[:.]/g, '-')}-${randomUUID().slice(0, 8)}`);
   const signal = options.signal ?? new AbortController().signal, execute = internals.execute ?? executeRun;
   const cancelled = () => new ProjectError('cancelled', 'The run was cancelled. Traces written so far are kept.');

@@ -21,7 +21,7 @@ type Props = {
   minimalSteps?: number | undefined;
 };
 
-const groupKey = (item: { profileId: string; mode: string }) => `${item.profileId}\u0000${item.mode}`;
+const groupKey = (item: { profileId: string }) => item.profileId;
 const sameTarget = (a: StuckPlace, b: StuckPlace) => a.target.role === b.target.role && a.target.name === b.target.name;
 /** The parts of a run's recorded conditions, without the profile itself (its name may change while nothing that matters does). */
 const CONDITION_PARTS = ['combo', 'actionSet', 'pageEnvironment', 'atEnvironment', 'runRules'] as const;
@@ -59,7 +59,7 @@ export function BatchCompare({ before, after, profiles, runs, minimalSteps }: Pr
           const kept = after.stuck.filter(place => place.byProfile.some(item => groupKey(item) === groupKey(key)));
           const runsAt = (place: StuckPlace) => place.byProfile.find(item => groupKey(item) === groupKey(key))?.runs ?? 0;
           return <tr key={groupKey(key)} className="border-t border-edge align-top">
-            <th scope="row" className="py-3 pr-3 pl-4 text-left font-semibold">{nameOf(key)}<div className="text-xs font-normal text-muted-foreground">{t(`sidebar.modes.${key.mode}`)}</div></th>
+            <th scope="row" className="py-3 pr-3 pl-4 text-left font-semibold">{nameOf(key)}</th>
             <td className="px-3 py-3 whitespace-nowrap"><Change before={a ? `${a.reached} / ${a.runs}` : undefined} after={b ? `${b.reached} / ${b.runs}` : undefined} /></td>
             <td className="px-3 py-3 whitespace-nowrap"><Change before={a ? formatSteps(a.medianSteps) : undefined} after={b ? formatSteps(b.medianSteps) : undefined} unit />
               {minimalSteps !== undefined && <div className="text-xs text-muted-foreground">{t('taskPage.results.minimal', { n: minimalSteps })}</div>}</td>

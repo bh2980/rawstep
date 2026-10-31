@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseRoute, routeSearch } from '../packages/dashboard/src/web/hooks/useRoute.js';
-import { matchingPreset, presetPermissions } from '../packages/dashboard/src/web/lib/presets.js';
+import { personaOf, withPreset } from '../packages/dashboard/src/web/lib/persona.js';
 import { formatSteps, relativeTime } from '../packages/dashboard/src/web/lib/format.js';
 import { DEFAULT_PERMISSIONS } from '@rawstep/project/config';
 
@@ -38,21 +38,17 @@ describe('routes', () => {
   });
 });
 
-describe('action set presets', () => {
-  it('starts novice, expert and widget sets and recognises them whatever the order', () => {
-    const novice = presetPermissions('novice');
-    expect(novice.keyboard.keys).toEqual(['Tab', 'Shift+Tab', 'Enter', 'Space']);
-    expect(novice.screenreader.intents).toEqual(['next', 'previous', 'activate']);
-    expect(novice.screenreader.typeText).toBe(false);
-    const expert = presetPermissions('expert');
-    expect(expert.screenreader.intents).toEqual(['next', 'previous', 'activate', 'heading.next', 'heading.previous', 'form.next', 'headings.list']);
-    expect(expert.screenreader.typeText).toBe(true);
-    expect(presetPermissions('widgets').keyboard.keys).toEqual(['Tab', 'Shift+Tab', 'Enter', 'Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Escape', 'Home', 'End']);
-    expect(matchingPreset(DEFAULT_PERMISSIONS)).toBe('novice');
-    expect(matchingPreset({ ...novice, keyboard: { ...novice.keyboard, keys: ['Space', 'Enter', 'Shift+Tab', 'Tab'] } })).toBe('novice');
-    expect(matchingPreset(expert)).toBe('expert');
-    expect(matchingPreset({ ...novice, screenreader: { ...novice.screenreader, intents: ['next'] } })).toBeUndefined();
-    expect(matchingPreset({ ...novice, screenreader: { ...novice.screenreader, inputKeys: ['q'] } })).toBeUndefined();
+describe('persona presets', () => {
+  it('starts novice, expert and skilled users and recognises them whatever the order', () => {
+    const novice = { actions: structuredClone(DEFAULT_PERMISSIONS) };
+    expect(personaOf(novice)).toBe('novice');
+    const expert = withPreset(novice, 'expert');
+    expect(expert.actions.intents).toEqual(['next', 'previous', 'activate', 'heading.next', 'heading.previous', 'form.next', 'headings.list']);
+    expect(expert.actions.typeText).toBe(true);
+    expect(personaOf(expert)).toBe('expert');
+    expect(withPreset(novice, 'skilled').actions.keys).toContain('Tab');
+    expect(personaOf({ actions: { ...novice.actions, intents: ['activate', 'previous', 'next'] } })).toBe('novice');
+    expect(personaOf({ actions: { ...novice.actions, intents: ['next'] } })).toBe('custom');
   });
 });
 

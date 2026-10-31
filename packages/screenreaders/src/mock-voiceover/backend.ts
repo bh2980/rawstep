@@ -60,7 +60,6 @@ type ActionReceipt = { backend: 'mock-voiceover'; evidenceProvenance: 'simulatio
 
 /** Browser-backed testing adapter. It never connects to or claims to measure native VoiceOver. */
 export class MockVoiceOverBackend implements Backend {
-  readonly observationKind = 'screenreader' as const;
   readonly evidenceProvenance = 'simulation' as const;
   readonly capabilities: Backend['capabilities'];
   private sourceCommand = 'next_item';
@@ -98,7 +97,7 @@ export class MockVoiceOverBackend implements Backend {
     if (this.state !== 'new') throw new Error('Mock VoiceOver backend has already started or closed.');
     this.state = 'ready';
     return {
-      backend: 'mock-voiceover', observationKind: this.observationKind, evidenceProvenance: this.evidenceProvenance,
+      backend: 'mock-voiceover', evidenceProvenance: this.evidenceProvenance,
       profile: this.wording?.profile ?? MOCK_VOICEOVER_PROFILE, capabilities: this.capabilities, limitations: MOCK_VOICEOVER_LIMITATIONS, ...(this.wording ? {wordingEvidenceProfile: structuredClone(this.wording.metadata)} : {}),
       environment: { atName: this.wording ? 'Corpus word-pattern mock (simulation)' : 'Mock VoiceOver (simulation)', atVersion: '2', platformName: 'chromium', locale: 'en', nativeScreenReader: false },
       semanticSource: 'Chromium CDP Accessibility.getFullAXTree', activation: 'guarded DOM click / editable-field focus approximation',

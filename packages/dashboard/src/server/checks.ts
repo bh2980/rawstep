@@ -7,7 +7,7 @@ import { discover } from '@rawstep/project/discover';
 import { ProjectError } from '@rawstep/project/errors';
 import type { BrowserCheck, CheckKind, ModelCheck } from '../shared/api.js';
 
-type CheckedModel = Pick<Model, 'kind' | 'provider' | 'modelId' | 'baseURL' | 'inputs' | 'maxChoices' | 'maxImages'>;
+type CheckedModel = Pick<Model, 'kind' | 'provider' | 'modelId' | 'baseURL' | 'maxChoices'>;
 type CheckOptions = { timeoutMs?: number; fetch?: typeof fetch };
 
 /** Starting an agent CLI takes seconds, and a first npx download longer. */
@@ -76,7 +76,7 @@ async function checkDecisionServer(model: CheckedModel, apiKey: string | undefin
   let client: DecisionClient;
   try {
     client = new DecisionClient({ provider: model.provider as DecisionProviderName, baseURL: resolveBaseURL(model), modelId: model.modelId, ...(apiKey ? { apiKey } : {}), timeoutMs,
-      capabilities: { inputs: model.inputs, maxChoices: model.maxChoices, maxImages: model.maxImages }, ...(fetcher ? { fetch: fetcher } : {}) });
+      capabilities: { maxChoices: model.maxChoices }, ...(fetcher ? { fetch: fetcher } : {}) });
   } catch { return result('invalid-address', 'decision-call'); }
   try {
     const signal = AbortSignal.timeout(timeoutMs);

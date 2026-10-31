@@ -29,7 +29,7 @@ type View = 'picture' | 'table';
 const VIEW_KEY = 'rawstep.taskResultsView';
 /** More profiles than this do not fit side by side as cards, so the table is shown first. */
 const CARD_LIMIT = 4;
-const groupKey = (item: { profileId: string; mode: string }) => `${item.profileId}\u0000${item.mode}`;
+const groupKey = (item: { profileId: string }) => item.profileId;
 const ENDING_ORDER: Record<RunEnding, number> = { 'gave-up': 0, mistaken: 1, unmeasured: 2, reached: 3 };
 const glyphOf = (ending: RunEnding) => ending === 'reached' ? 'reached' : ending === 'unmeasured' ? 'inconclusive' : 'missed';
 
@@ -67,7 +67,7 @@ function Picture(ctx: Ctx) {
   const groups = ctx.data.facts.byProfile;
   return <>
     <div className={cn('grid gap-4', groups.length > 1 && 'md:grid-cols-2')}>{groups.map(group => <ProfileCard key={groupKey(group)} group={group} {...ctx} />)}</div>
-    {ctx.data.results.some(result => result.mode === 'screenreader') && <StuckMap {...ctx} />}
+    {ctx.data.results.length > 0 && <StuckMap {...ctx} />}
     <Journeys {...ctx} />
     <GiveUps {...ctx} />
   </>;
@@ -76,7 +76,7 @@ function Picture(ctx: Ctx) {
 function Subtitle({ group, name }: { group: ProfileFacts; name: string }) {
   const { t } = useTranslation();
   // A combination or environment named after the profile says nothing the title does not.
-  const parts = [...new Set([t(`sidebar.modes.${group.mode}`), group.conditions.combo, group.conditions.at].filter((part): part is string => !!part && part !== name))];
+  const parts = [...new Set([group.conditions.combo, group.conditions.at].filter((part): part is string => !!part && part !== name))];
   return <div className="text-xs text-muted-foreground">{parts.join(' · ')}
     {group.differing > 0 && <> · <span className="inline-flex items-center gap-1 text-inspect">{t('taskPage.results.differing', { count: group.differing })}<InfoTip term={t('taskPage.results.differing', { count: group.differing })}>{t('taskPage.results.differingInfo')}</InfoTip></span></>}
   </div>;
@@ -116,9 +116,9 @@ function ProfileCard({ group, nameOf, minimalSteps, data, numbers, navigate, tas
       </div>
     </div>
     <div className="flex flex-wrap gap-x-4 gap-y-1.5 border-t border-edge pt-2.5 text-[13px]">
-      {group.mode === 'screenreader' && <span className="inline-flex items-center gap-1">{t('taskPage.results.unheard')} <strong className={cn('font-semibold tabular-nums', group.unheard > 0 && 'text-inspect')}>{group.unheard}</strong>
-        {group.reached > 0 && <span className="text-muted-foreground tabular-nums">/ {group.reached}</span>}<InfoTip term={t('taskPage.results.unheard')}>{t('taskPage.results.unheardInfo')}</InfoTip></span>}
-      {group.wrongGuesses !== null && group.mode === 'screenreader' && <span className="inline-flex items-center gap-1">{t('taskPage.results.wrongGuesses')} <strong className="font-semibold tabular-nums">{t('taskPage.results.moves', { n: formatSteps(group.wrongGuesses) })}</strong>
+      <span className="inline-flex items-center gap-1">{t('taskPage.results.unheard')} <strong className={cn('font-semibold tabular-nums', group.unheard > 0 && 'text-inspect')}>{group.unheard}</strong>
+        {group.reached > 0 && <span className="text-muted-foreground tabular-nums">/ {group.reached}</span>}<InfoTip term={t('taskPage.results.unheard')}>{t('taskPage.results.unheardInfo')}</InfoTip></span>
+      {group.wrongGuesses !== null && <span className="inline-flex items-center gap-1">{t('taskPage.results.wrongGuesses')} <strong className="font-semibold tabular-nums">{t('taskPage.results.moves', { n: formatSteps(group.wrongGuesses) })}</strong>
         <InfoTip term={t('taskPage.results.wrongGuesses')}>{t('taskPage.results.wrongGuessesInfo')}</InfoTip></span>}
       {group.longestStretch && <span className="inline-flex items-center gap-1">{t('taskPage.results.stretch')} <strong className="font-semibold tabular-nums">{t('taskPage.results.moves', { n: group.longestStretch.moves })}</strong>
         <RunLink taskId={taskId} runId={group.longestStretch.runId} numbers={numbers} navigate={navigate} /><InfoTip term={t('taskPage.results.stretch')}>{t('taskPage.results.stretchInfo')}</InfoTip></span>}
@@ -305,7 +305,7 @@ function Tables(ctx: Ctx) {
               {minimalSteps !== undefined && <div className="text-xs text-muted-foreground">{t('taskPage.results.minimal', { n: minimalSteps })}</div>}</>}</td>
           <td className={td}>{top ? <div className="flex gap-2"><Pin n={top.index + 1} place={top.place} /><div><div>{quoted(top.place)}</div><div className="text-xs text-muted-foreground">{t('taskPage.results.stuckRunsShort', { runs: top.runs, total: group.runs })}</div></div></div> : <span className="text-muted-foreground">{t('taskPage.results.none')}</span>}</td>
           <td className={cn(td, 'whitespace-nowrap tabular-nums')}>{group.longestStretch ? <>{t('taskPage.results.moves', { n: group.longestStretch.moves })} <RunLink taskId={taskId} runId={group.longestStretch.runId} numbers={numbers} navigate={navigate} /></> : '—'}</td>
-          <td className={cn(td, 'whitespace-nowrap tabular-nums', group.unheard > 0 && 'font-medium text-inspect')}>{group.mode === 'screenreader' ? `${group.unheard}${group.reached ? ` / ${group.reached}` : ''}` : '—'}</td>
+          <td className={cn(td, 'whitespace-nowrap tabular-nums', group.unheard > 0 && 'font-medium text-inspect')}>{`${group.unheard}${group.reached ? ` / ${group.reached}` : ''}`}</td>
         </tr>; })}</tbody>
     </TableBox>
     {data.stuck.length > 0 && <TableBox label={t('taskPage.results.tableStuck')} note={t('taskPage.results.stuckNote')} count={data.stuck.length}>
@@ -333,7 +333,7 @@ function Tables(ctx: Ctx) {
         <td className={cn(td, 'whitespace-nowrap')}><span className="inline-flex items-center gap-1.5"><RunGlyph kind={glyphOf(result.ending)} />{t(`taskPage.results.endings.${result.ending}`)}</span></td>
         <td className={cn(td, 'text-right tabular-nums')}>{result.steps ?? '—'}</td>
         <td className={td}>{result.stuck.length ? <span className="inline-flex gap-1">{[...new Set(result.stuck.map(item => item.place))].map(place => <Pin key={place} n={place + 1} place={data.stuck[place]!} />)}</span> : '—'}</td>
-        <td className={cn(td, 'text-right tabular-nums')}>{result.mode === 'screenreader' ? result.wrongGuesses : '—'}</td>
+        <td className={cn(td, 'text-right tabular-nums')}>{result.wrongGuesses}</td>
         <td className={cn(td, 'max-w-[28rem]')}><span className="line-clamp-2" title={line(result)}>{line(result)}</span></td>
       </tr>)}</tbody>
     </TableBox>

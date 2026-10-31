@@ -7,12 +7,11 @@ import { Link } from '../Link';
 import { TaskMark } from './PlanDocumentView';
 
 /**
- * A planned run of this task that is going now, as a summary of its plan document: each phase with its state, and inside the phase
+ * A run of this task that is going now, as a summary of its plan document: each phase with its state, and inside the phase
  * being worked on the current task with its actions against the limit. It follows the newest running run and links to its detail.
  */
 export function LivePlanCard({ runs, navigate }: { runs: RunRef[]; navigate: (change: RouteChange) => void }) {
-  const running = runs.find(ref => ref.run.state === 'running' && ref.run.structure === 'planned' && ref.run.mode === 'screenreader')
-    ?? runs.find(ref => isLive(ref.run) && ref.run.structure === 'planned' && ref.run.mode === 'screenreader');
+  const running = runs.find(ref => ref.run.state === 'running') ?? runs.find(ref => isLive(ref.run));
   if (!running) return null;
   return <LivePlan runRef={running} number={taskRunNumbers(runs, running.run.taskId).get(running.run.id)} navigate={navigate} />;
 }

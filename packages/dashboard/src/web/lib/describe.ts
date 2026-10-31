@@ -60,11 +60,6 @@ export function describeHint(hint: Pick<Hint, 'kind' | 'summary' | 'detail'> & P
       if (reversals === undefined) break;
       return t('hints.text.backtracking', { n: reversals });
     }
-    case 'repeated-state': {
-      const visits = num(d.visits);
-      if (visits === undefined) break;
-      return t('hints.text.repeatedState', { n: visits });
-    }
     case 'focus-lost': {
       if (str(d.reason) === undefined && !isRecord(d.from)) break;
       const params = { from: target(d.from) ?? t('hints.text.focusedElement'), action: str(d.action) ?? t('hints.text.action') };
@@ -84,13 +79,8 @@ export function describeHint(hint: Pick<Hint, 'kind' | 'summary' | 'detail'> & P
       break;
     }
     case 'missing-announcement': {
-      if (d.pixelsChanged === undefined && !Array.isArray(d.changes)) break;
+      if (!Array.isArray(d.changes)) break;
       return t('hints.text.missingAnnouncement', { action: str(d.action) ?? t('hints.text.action') });
-    }
-    case 'invisible-focus-change': {
-      const subject = target(d.target);
-      if (!subject) break;
-      return t('hints.text.invisibleFocusChange', { target: subject });
     }
     case 'model-hesitation': {
       const choice = str(d.choiceId), probability = num(d.probability), runnerUp = num(d.runnerUp);

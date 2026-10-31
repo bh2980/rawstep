@@ -1,7 +1,7 @@
 import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import { listGatewayDecisionModels, modelBaseURL } from '@rawstep/policies/systemone';
 import { AcpAgent, AcpError } from '@rawstep/policies/acp';
-import { providerPreset, resolveBaseURL, type DiscoverRequest, type ModelChoice } from './config.js';
+import { providerPreset, resolveBaseURL, type DiscoverRequest } from './config.js';
 import { ProjectError } from './errors.js';
 
 export async function boundedJson(response: Response): Promise<unknown> {
@@ -15,18 +15,19 @@ export async function boundedJson(response: Response): Promise<unknown> {
 /** A plain object view of untrusted JSON; anything else becomes `{}`. */
 const record = (v: unknown): Record<string, unknown> => v && typeof v === 'object' && !Array.isArray(v) ? v as Record<string, unknown> : {};
 export type DiscoverOptions = { timeoutMs?: number; fetch?: typeof fetch };
-/** A model a connection offers. `inputsKnown` is false when the provider does not say what the model takes. */
-/** `efforts`: the reasoning levels a coding-agent CLI offers (the same for each of its models), with its own default as `defaultEffort`. */
-export type DiscoveredModel = { modelId: string; name: string; inputs: ModelChoice['inputs']; inputsKnown: boolean; maxChoices?: number; efforts?: string[]; defaultEffort?: string };
+/**
+ * A model a connection offers. `efforts`: the reasoning levels a coding-agent CLI offers (the same for each of its models), with its
+ * own default as `defaultEffort`.
+ */
+export type DiscoveredModel = { modelId: string; name: string; maxChoices?: number; efforts?: string[]; defaultEffort?: string };
 
 /**
  * The models a connection offers, for a run profile to pick from.
  * - Coding-agent CLIs: the models the CLI offers the person's sign-in.
- * - LLM providers: the OpenAI-style `GET {base}/models` list. Only OpenRouter says which models take images; for the
- *   others the inputs are unknown (`inputsKnown: false`) and the provider's default is assumed for a person to correct.
+ * - LLM providers: the OpenAI-style `GET {base}/models` list, without models that do not produce text.
  * - Agent CLIs (Claude Code, Codex, ...): the agent is started, asked for its model list, and closed again. `default` leaves
- *   the choice to the agent's own setting. Whether images are taken comes from the agent itself.
- * - Decision providers: OpenRouter's `models?output_modalities=decisions` (with input modalities); TypeSafe's `/models`
+ *   the choice to the agent's own setting.
+ * - Decision providers: OpenRouter's `models?output_modalities=decisions`; TypeSafe's `/models`
  *   when it has one; the Vercel AI Gateway's decision and evaluation models; custom servers are typed by hand (empty list).
  * A failure means the list is unavailable: registering the model ID by hand always works.
  */
@@ -41,10 +42,9 @@ export async function discover(target: Pick<DiscoverRequest, 'kind' | 'provider'
     try {
       // Starting may download the adapter first: without an explicit limit it gets the agent start limit, not the list default.
       const info = await agent.start(options.timeoutMs ? AbortSignal.timeout(options.timeoutMs) : undefined);
-      const inputs: ModelChoice['inputs'] = info.images ? ['text', 'image'] : ['text'];
       const levels = info.efforts.length ? { efforts: info.efforts, ...(info.currentEffort ? { defaultEffort: info.currentEffort } : {}) } : {};
-      return [{ modelId: 'default', name: info.currentModel && info.currentModel !== 'default' ? `Default (${info.currentModel})` : 'Default', inputs, inputsKnown: true, ...levels },
-        ...info.models.filter(m => m.value !== 'default').map(m => ({ modelId: m.value, name: m.name, inputs, inputsKnown: true, ...levels }))];
+      return [{ modelId: 'default', name: info.currentModel && info.currentModel !== 'default' ? `Default (${info.currentModel})` : 'Default', ...levels },
+        ...info.models.filter(m => m.value !== 'default').map(m => ({ modelId: m.value, name: m.name, ...levels }))];
     } catch (error) {
       const reason = error instanceof AcpError ? error.reason : undefined;
       if (reason === 'sign-in') throw new ProjectError('agent-signed-out', `${preset.label} needs a sign-in. Sign in from the connection check.`, 502);
@@ -58,7 +58,7 @@ export async function discover(target: Pick<DiscoverRequest, 'kind' | 'provider'
     let models: { id: string; name: string }[];
     try { models = await listGatewayDecisionModels({ apiKey, signal: AbortSignal.timeout(timeoutMs), ...(options.fetch ? { fetch: options.fetch } : {}) }); }
     catch { throw new ProjectError('model-unreachable', 'Cannot read the Gateway model list. Check the key and the connection.', 502); }
-    return models.map(m => ({ modelId: m.id, name: m.name, inputs: ['text'], inputsKnown: true }));
+    return models.map(m => ({ modelId: m.id, name: m.name }));
   }
   let base: URL;
   try { base = modelBaseURL(resolveBaseURL({ kind, provider, baseURL: target.baseURL })); }
@@ -73,23 +73,19 @@ export async function discover(target: Pick<DiscoverRequest, 'kind' | 'provider'
   }
   const path = kind === 'decision' && provider === 'openrouter' ? 'models?output_modalities=decisions' : provider === 'anthropic' ? 'models?limit=1000' : 'models';
   const rows = record(await get(path)).data;
-  if (!Array.isArray(rows)) throw new ProjectError('model-list-missing', 'The server has no model list API. Register the model ID and its input support by hand.', 502);
+  if (!Array.isArray(rows)) throw new ProjectError('model-list-missing', 'The server has no model list API. Register the model ID by hand.', 502);
   const result: DiscoveredModel[] = [];
   for (const raw of rows) {
-    const m = record(raw), arch = record(m.architecture), modalities = record(m.modalities);
+    const m = record(raw), arch = record(m.architecture);
     const listed = kind === 'decision' && typeof m.canonical_slug === 'string' ? m.canonical_slug : m.id;
     if (typeof listed !== 'string' || !listed || (apiKey && JSON.stringify(m).includes(apiKey))) continue;
     const modelId = provider === 'google' ? listed.replace(/^models\//, '') : listed;
     // OpenRouter's chat catalog also lists models that make images or audio; only text-producing models can choose.
     const output = Array.isArray(arch.output_modalities) ? arch.output_modalities : undefined;
     if (kind === 'llm' && output && (!output.includes('text') || output.includes('decisions'))) continue;
-    const reported = arch.input_modalities ?? modalities.input ?? m.inputs;
-    const confirmed = Array.isArray(reported) && reported.includes('text');
-    const inputs: ModelChoice['inputs'] = ['text'];
-    if (confirmed ? preset.images && reported.includes('image') : preset.images) inputs.push('image');
     if (result.some(v => v.modelId === modelId)) continue;
     const name = [m.name, m.display_name].find((v): v is string => typeof v === 'string' && !!v) ?? modelId;
-    result.push({ modelId, name, inputs, inputsKnown: confirmed, ...(typeof m.maxChoices === 'number' ? { maxChoices: m.maxChoices } : {}) });
+    result.push({ modelId, name, ...(typeof m.maxChoices === 'number' ? { maxChoices: m.maxChoices } : {}) });
   }
   return result;
 }

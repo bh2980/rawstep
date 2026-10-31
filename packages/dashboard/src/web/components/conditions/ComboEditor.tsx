@@ -1,10 +1,10 @@
 import { useId, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { RotateCcw } from 'lucide-react';
-import { DEFAULT_EXECUTOR_INSTRUCTIONS, executorModel, followsPlan, isFilePlanner, type Combo, type Connection, type Executor, type Mode, type PlanFollowerChoice } from '@rawstep/project/config';
+import { DEFAULT_EXECUTOR_INSTRUCTIONS, executorModel, followsPlan, isFilePlanner, type Combo, type Connection, type Executor, type PlanFollowerChoice } from '@rawstep/project/config';
 import { blankExecutor } from '../../lib/conditions';
 import { cn } from '../../lib/utils';
-import { Advanced, Choice, Field, Panel, Toggle } from '../forms';
+import { Advanced, Choice, Field, Panel } from '../forms';
 import { SPEECH_PLANNER_INSTRUCTIONS } from '@rawstep/policies/llm/rules';
 import { InfoTip } from '../layout/InfoTip';
 import { effortOf, ModelPicker } from '../ModelPicker';
@@ -14,46 +14,35 @@ import { Button } from '../ui/button';
 
 type Props = {
   combo: Combo; onChange: (combo: Combo) => void; connections: readonly Connection[]; compact?: boolean;
-  /** The profile's mode: a screen reader run plans, a keyboard run's executor picks every move. */
-  mode: Mode;
   /** Tasks that run with this profile, so a plan file path is checked for each of them. */
   tasks?: readonly { name: string; file: string }[];
 };
 
 /**
- * Who thinks in a run profile. Screen reader runs always plan: a planner (an LLM, or a plan file) writes the plan, and Rawstep carries
- * it out itself or an executor model picks within each task. Keyboard runs do not plan yet, so their executor model picks every move.
+ * Who thinks in a run profile. Runs always plan: a planner (an LLM, or a plan file) writes the plan, and Rawstep carries it out itself
+ * or an executor model picks within each task.
  */
-export function ComboEditor({ combo, onChange, connections, compact, mode, tasks }: Props) {
+export function ComboEditor({ combo, onChange, connections, compact, tasks }: Props) {
   const { t } = useTranslation();
   const llms = connections.filter(c => c.kind === 'llm');
   const setExecutor = (executor: Executor | PlanFollowerChoice | undefined) => {
-    const { [mode]: _old, ...rest } = combo.executors;
-    onChange({ ...combo, executors: executor ? { ...rest, [mode]: executor } : rest });
+    const { executor: _old, ...rest } = combo;
+    onChange(executor ? { ...rest, executor } : rest);
   };
-  const tip = (info: ReactNode) => compact ? undefined : info;
-  const follows = followsPlan(combo, mode);
-  const fields = !follows && <ExecutorFields mode={mode} executor={executorModel(combo, mode)} onChange={setExecutor} connections={connections} planned={mode === 'screenreader'} compact={compact} />;
+  const follows = followsPlan(combo);
   return <div className={cn('grid min-w-0 [&>section:not(:first-child)]:border-t', compact ? 'gap-4 [&>section:not(:first-child)]:pt-4' : 'gap-8 [&>section:not(:first-child)]:pt-6')}>
     {!connections.length && <p className="border-l-2 border-inspect bg-inspect-soft py-2 pr-3 pl-3 text-sm leading-6">{t('conditions.combo.noConnections')}</p>}
-    {mode === 'screenreader' ? <>
-      <PlannerGroup combo={combo} onChange={onChange} llms={llms} compact={compact} tasks={tasks ?? []} />
-      <Group title={t('conditions.combo.executor.runnerTitle')} compact={compact}>
-        <div className="grid gap-4">
-          <div className="grid gap-1">
-            <InlineRadio legend={t('conditions.combo.executor.runner')} value={follows ? 'plan' : 'model'} onChange={runner => setExecutor(runner === 'plan' ? { followPlan: true } : undefined)}
-              rows={(['plan', 'model'] as const).map(id => ({ id, label: t(`conditions.combo.executor.runners.${id}`) }))} />
-            <p className="text-xs leading-5 text-muted-foreground">{t(`conditions.combo.executor.runnerHints.${follows ? 'plan' : 'model'}`)}</p>
-          </div>
-          {fields}
-        </div>
-      </Group>
-    </> : <Group title={t('conditions.combo.executor.keyboardTitle')} compact={compact} info={tip(t('conditions.combo.executor.intro'))}>
+    <PlannerGroup combo={combo} onChange={onChange} llms={llms} compact={compact} tasks={tasks ?? []} />
+    <Group title={t('conditions.combo.executor.runnerTitle')} compact={compact}>
       <div className="grid gap-4">
-        <p className="text-[13px] leading-5 text-muted-foreground">{t('conditions.combo.executor.keyboardAlone')}</p>
-        {fields}
+        <div className="grid gap-1">
+          <InlineRadio legend={t('conditions.combo.executor.runner')} value={follows ? 'plan' : 'model'} onChange={runner => setExecutor(runner === 'plan' ? { followPlan: true } : undefined)}
+            rows={(['plan', 'model'] as const).map(id => ({ id, label: t(`conditions.combo.executor.runners.${id}`) }))} />
+          <p className="text-xs leading-5 text-muted-foreground">{t(`conditions.combo.executor.runnerHints.${follows ? 'plan' : 'model'}`)}</p>
+        </div>
+        {!follows && <ExecutorFields executor={executorModel(combo)} onChange={setExecutor} connections={connections} compact={compact} />}
       </div>
-    </Group>}
+    </Group>
   </div>;
 }
 
@@ -122,52 +111,36 @@ function PlannerGroup({ combo, onChange, llms, compact, tasks }: { combo: Combo;
   </Group>;
 }
 
-type ExecutorProps = { mode: Mode; executor: Executor | undefined; onChange: (executor: Executor | undefined) => void; connections: readonly Connection[]; planned?: boolean; compact?: boolean | undefined };
+type ExecutorProps = { executor: Executor | undefined; onChange: (executor: Executor | undefined) => void; connections: readonly Connection[]; compact?: boolean | undefined };
 
-/**
- * The executor of one mode: the model, what it takes, the instructions it gets on every action and how much history it sees. Keyboard
- * runs send two screenshots, so a keyboard executor needs image input; the probability-based focus judgement is for decision models
- * in keyboard mode only.
- */
-function ExecutorFields({ mode, executor, onChange, connections, planned, compact }: ExecutorProps) {
+/** The executor: the model, how much it decides inside a task, the instructions it gets on every action and how much history it sees. */
+function ExecutorFields({ executor, onChange, connections, compact }: ExecutorProps) {
   const { t } = useTranslation();
-  const keyboard = mode === 'keyboard', images = executor?.inputs.includes('image') ?? false;
-  const connection = executor && connections.find(c => c.id === executor.connectionId);
   const set = (part: Partial<Executor>) => executor && onChange({ ...executor, ...part });
   const tip = (info: ReactNode) => compact ? undefined : info;
   return <div className="grid content-start gap-4">
-    <ModelPicker hideLabel label={t('conditions.combo.executor.model', { mode: t(`conditions.modes.${mode}`) })} connections={connections} connectionId={executor?.connectionId} modelId={executor?.modelId ?? ''} reasoningEffort={executor?.reasoningEffort}
+    <ModelPicker hideLabel label={t('conditions.combo.executor.model')} connections={connections} connectionId={executor?.connectionId} modelId={executor?.modelId ?? ''} reasoningEffort={executor?.reasoningEffort}
       onChange={next => {
         const picked = connections.find(c => c.id === next.connectionId)!;
-        const base = !executor || executor.connectionId !== next.connectionId ? { ...blankExecutor(picked, mode), ...(executor ? { instructions: executor.instructions, historyLimit: executor.historyLimit } : {}) } : executor;
-        const inputs = next.picked?.inputsKnown ? next.picked.inputs : base.inputs;
+        const base = !executor || executor.connectionId !== next.connectionId ? { ...blankExecutor(picked), ...(executor ? { instructions: executor.instructions, historyLimit: executor.historyLimit } : {}) } : executor;
         const { reasoningEffort: _old, ...kept } = base;
-        onChange({ ...kept, connectionId: next.connectionId, modelId: next.modelId, ...effortOf(next), inputs, ...(next.picked?.maxChoices ? { maxChoices: next.picked.maxChoices } : {}), ...(picked.kind === 'llm' ? { focusGate: false } : {}) });
+        onChange({ ...kept, connectionId: next.connectionId, modelId: next.modelId, ...effortOf(next), ...(next.picked?.maxChoices ? { maxChoices: next.picked.maxChoices } : {}) });
       }} />
     {!executor && <p className="text-[13px] leading-5 text-muted-foreground">{t('conditions.combo.executor.pickModel')}</p>}
     {executor && <>
-      {keyboard && <Toggle label={t('conditions.combo.executor.images')} info={tip(t('conditions.combo.executor.imagesHint'))} checked={images}
-        onChange={on => set({ inputs: on ? ['text', 'image'] : ['text'], maxImages: on ? Math.max(2, executor.maxImages) : executor.maxImages })} />}
-      {keyboard && !images && <p className="text-[13px] leading-5 text-inspect">{t('conditions.combo.executor.keyboardNeedsImages')}</p>}
-      {/* How much the executor decides inside a planned task (screen reader runs only). */}
-      {planned && !keyboard && <Choice label={t('conditions.combo.executor.latitude')} value={executor.latitude} onChange={latitude => set({ latitude: latitude as Executor['latitude'] })} info={tip(t('conditions.combo.executor.latitudeHint'))}
-        options={(['none', 'direction', 'method'] as const).map(value => ({ id: value, name: t(`conditions.combo.executor.latitudes.${value}`) }))} />}
+      <Choice label={t('conditions.combo.executor.latitude')} value={executor.latitude} onChange={latitude => set({ latitude: latitude as Executor['latitude'] })} info={tip(t('conditions.combo.executor.latitudeHint'))}
+        options={(['none', 'direction', 'method'] as const).map(value => ({ id: value, name: t(`conditions.combo.executor.latitudes.${value}`) }))} />
       <div className="grid gap-1.5">
         <Field label={t('conditions.combo.executor.instructions')} multiline value={executor.instructions} onChange={instructions => set({ instructions })} info={tip(t('conditions.combo.executor.instructionsHint'))} />
-        {executor.instructions !== DEFAULT_EXECUTOR_INSTRUCTIONS[mode] && <Button type="button" variant="ghost" size="sm" className="-ml-2 justify-self-start text-muted-foreground"
-          onClick={() => set({ instructions: DEFAULT_EXECUTOR_INSTRUCTIONS[mode] })}><RotateCcw aria-hidden="true" />{t('conditions.combo.executor.resetInstructions')}</Button>}
+        {executor.instructions !== DEFAULT_EXECUTOR_INSTRUCTIONS && <Button type="button" variant="ghost" size="sm" className="-ml-2 justify-self-start text-muted-foreground"
+          onClick={() => set({ instructions: DEFAULT_EXECUTOR_INSTRUCTIONS })}><RotateCcw aria-hidden="true" />{t('conditions.combo.executor.resetInstructions')}</Button>}
       </div>
       <div className="grid items-start gap-4 sm:grid-cols-2">
         <Field label={t('conditions.combo.executor.historyLimit')} type="number" value={String(executor.historyLimit)} onChange={s => set({ historyLimit: Number(s) })} info={tip(t('conditions.combo.executor.historyLimitHint'))} />
-        {keyboard && (connection?.kind === 'decision' || executor.focusGate) && <div className="grid gap-1.5 sm:pt-7">
-          <Toggle label={t('conditions.combo.executor.focusGate')} info={tip(t('conditions.combo.executor.focusGateHint'))} checked={executor.focusGate} onChange={focusGate => set({ focusGate })} />
-          {executor.focusGate && connection?.kind === 'llm' && <p className="text-[13px] leading-5 text-inspect">{t('conditions.combo.executor.focusGateLlm')}</p>}
-        </div>}
       </div>
       <Advanced>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label={t('conditions.combo.executor.maxChoices')} type="number" value={String(executor.maxChoices)} onChange={s => set({ maxChoices: Number(s) })} hint={t('conditions.combo.executor.maxChoicesHint')} />
-          {keyboard && <Field label={t('conditions.combo.executor.maxImages')} type="number" value={String(executor.maxImages)} onChange={s => set({ maxImages: Number(s) })} />}
         </div>
       </Advanced>
     </>}

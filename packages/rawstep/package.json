@@ -1,7 +1,7 @@
 {
   "name": "rawstep",
   "version": "0.2.0",
-  "description": "Record screen-reader or screenshot-keyboard task traces and get friction hints: CLI, local dashboard and API in one package",
+  "description": "Record screen-reader task traces and get friction hints: CLI, local dashboard and API in one package",
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
@@ -76,11 +76,6 @@
       "default": "./dist/cli/index.js"
     },
     "./package.json": "./package.json",
-    "./screenshot": {
-      "types": "./dist/screenshot/index.d.ts",
-      "import": "./dist/screenshot/index.js",
-      "default": "./dist/screenshot/index.js"
-    },
     "./profiles": {
       "types": "./dist/profiles/index.d.ts",
       "import": "./dist/profiles/index.js",

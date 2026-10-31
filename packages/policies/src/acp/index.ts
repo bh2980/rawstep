@@ -11,13 +11,13 @@ import { join } from 'node:path';
  */
 export type AcpAgentSpec = { command: string; args: readonly string[] };
 export type AcpModelOption = { value: string; name: string };
-export type AcpAgentInfo = { name: string; version: string; images: boolean; models: AcpModelOption[]; currentModel?: string; efforts: string[]; currentEffort?: string };
-export type AcpPromptRequest = { text: string; images?: readonly string[]; modelId?: string; reasoningEffort?: string; signal?: AbortSignal };
+export type AcpAgentInfo = { name: string; version: string; models: AcpModelOption[]; currentModel?: string; efforts: string[]; currentEffort?: string };
+export type AcpPromptRequest = { text: string; modelId?: string; reasoningEffort?: string; signal?: AbortSignal };
 
 export class AcpError extends Error {
   /** The JSON-RPC error code when the agent answered with an error. */
   code?: number;
-  constructor(readonly reason: 'start-failed' | 'exited' | 'protocol' | 'agent-error' | 'sign-in' | 'no-images' | 'unknown-model' | 'stopped', message: string) { super(message); this.name = 'AcpError'; }
+  constructor(readonly reason: 'start-failed' | 'exited' | 'protocol' | 'agent-error' | 'sign-in' | 'unknown-model' | 'stopped', message: string) { super(message); this.name = 'AcpError'; }
 }
 
 type Pending = { resolve(value: unknown): void; reject(error: Error): void };
@@ -55,15 +55,14 @@ export class AcpAgent {
 
   /** One prompt in a new session; resolves with the agent's reply text. */
   async prompt(request: AcpPromptRequest): Promise<string> {
-    const info = await this.start(request.signal);
-    if (request.images?.length && !info.images) throw new AcpError('no-images', 'This agent does not take images.');
+    await this.start(request.signal);
     const session = await this.request('session/new', { cwd: this.cwd, mcpServers: [] }, request.signal) as Session;
     try {
       if (request.modelId && request.modelId !== 'default') await this.choose(session, 'model', request.modelId, request.signal);
       // Agents that offer no thinking levels take none; one that does must offer the level asked for.
       if (request.reasoningEffort && session.configOptions?.some(o => o.category === 'thought_level')) await this.choose(session, 'thought_level', request.reasoningEffort, request.signal);
       this.chunks.set(session.sessionId, []);
-      const prompt = [{ type: 'text', text: request.text }, ...(request.images ?? []).map(data => ({ type: 'image', mimeType: 'image/png', data }))];
+      const prompt = [{ type: 'text', text: request.text }];
       const cancel = () => this.notify('session/cancel', { sessionId: session.sessionId });
       request.signal?.addEventListener('abort', cancel, { once: true });
       try {
@@ -139,7 +138,7 @@ export class AcpAgent {
       clientInfo: { name: 'rawstep', version: '1' },
     }, timeout).catch(error => { throw timeout.aborted ? new AcpError('start-failed', 'The agent did not answer in time.') : error; }) as {
       protocolVersion?: number; agentInfo?: { name?: string; version?: string };
-      agentCapabilities?: { promptCapabilities?: { image?: boolean }; sessionCapabilities?: { delete?: unknown; close?: unknown } };
+      agentCapabilities?: { sessionCapabilities?: { delete?: unknown; close?: unknown } };
     };
     if (init?.protocolVersion !== PROTOCOL_VERSION) throw new AcpError('protocol', `The agent speaks ACP version ${String(init?.protocolVersion)}, not ${PROTOCOL_VERSION}.`);
     if (this.signInWith) {
@@ -157,7 +156,6 @@ export class AcpAgent {
     const thought = probe.configOptions?.find(o => o.category === 'thought_level'), efforts = thought?.options?.map(o => o.value) ?? [];
     return {
       name: init.agentInfo?.name ?? this.spec.command, version: init.agentInfo?.version ?? 'unknown',
-      images: init.agentCapabilities?.promptCapabilities?.image === true,
       models: (models?.options ?? []).map(({ value, name }) => ({ value, name })),
       ...(models?.currentValue ? { currentModel: models.currentValue } : {}), efforts, ...(thought?.currentValue ? { currentEffort: thought.currentValue } : {}),
     };

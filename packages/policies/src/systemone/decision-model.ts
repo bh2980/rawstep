@@ -12,12 +12,10 @@ type DecisionResult = Awaited<ReturnType<DecisionModelV4['doDecide']>>;
  *
  * The decision API in `ai` is experimental (`experimental_decide`, `Experimental_DecisionModelV4`) and may change in
  * patch releases, so the SDK versions are pinned exactly in package.json and this file is the only place that
- * implements the model contract. One class serves every /systemone server; `dialect` only changes how images travel:
- * - `onejev` (TypeSafe, custom servers): the OneJev `media` field, referenced from `state.screens` as `<image:N>`.
- * - `openrouter`: image content parts inside `state`, `provider.allow_fallbacks: false`, and the model pinned to the
- *   `canonical_slug` found in the decision catalog.
+ * implements the model contract. One class serves every /systemone server; `dialect` only changes the request:
+ * - `onejev` (TypeSafe, custom servers): the state and questions as they are.
+ * - `openrouter`: `provider.allow_fallbacks: false`, and the model pinned to the `canonical_slug` found in the decision catalog.
  *
- * Images are not part of the SDK's call options, so callers pass base64 PNGs in `providerOptions.rawstep.images`.
  * Server text never reaches an error: failures carry fixed messages only.
  */
 export type SystemOneDialect = 'onejev' | 'openrouter';
@@ -28,18 +26,11 @@ export type SystemOneDecisionModelOptions = {
   modelId: string;
   apiKey?: string;
   dialect: SystemOneDialect;
-  /** Inputs the model must accept; the openrouter dialect confirms them against the catalog before inference. */
-  inputs?: readonly ('text' | 'image')[];
   /** Test seam; the default is global fetch. Redirects always fail so credentials never follow them. */
   fetch?: typeof fetch;
 };
 
-/** The provider-options key that carries the PNG images of one decision. */
-export const SYSTEMONE_PROVIDER_OPTIONS_KEY = 'rawstep';
-export const systemOneProviderOptions = (images: readonly string[]) => images.length ? { [SYSTEMONE_PROVIDER_OPTIONS_KEY]: { images: [...images] } } : undefined;
-
 const MAX_RESPONSE_BYTES = 1_000_000;
-const PNG_SIGNATURE = '89504e470d0a1a0a';
 const record = (value: unknown): Record<string, unknown> => value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
 
 /** Response cap avoids retaining arbitrary server output in errors or memory. Returns the raw text so credential echoes can be rejected. */
@@ -56,27 +47,6 @@ async function boundedText(response: Response): Promise<string> {
     }
   } finally { await reader.cancel().catch(() => {}); }
   return Buffer.concat(chunks).toString('utf8');
-}
-
-function readImages(providerOptions: DecisionCallOptions['providerOptions']): string[] {
-  const images = record(providerOptions?.[SYSTEMONE_PROVIDER_OPTIONS_KEY]).images;
-  if (images === undefined) return [];
-  if (!Array.isArray(images) || images.some(image => typeof image !== 'string')) throw new Error('SystemOne images must be base64 strings.');
-  for (const image of images as string[]) {
-    if (!/^[A-Za-z0-9+/]+={0,2}$/.test(image) || Buffer.from(image, 'base64').subarray(0, 8).toString('hex') !== PNG_SIGNATURE) throw new Error('SystemOne images must contain inline PNG bytes.');
-  }
-  return images as string[];
-}
-/** OpenRouter bounds: 4 MiB and 16 megapixels per PNG, 8 MiB in total, a readable IHDR header. */
-export function checkOpenRouterImages(images: readonly string[]): void {
-  let total = 0;
-  for (const image of images) {
-    const bytes = Buffer.from(image, 'base64'); total += bytes.length;
-    if (bytes.length > 4 * 1024 * 1024 || bytes.length < 24 || bytes.toString('ascii', 12, 16) !== 'IHDR' ||
-        bytes.readUInt32BE(16) < 1 || bytes.readUInt32BE(20) < 1 || bytes.readUInt32BE(16) * bytes.readUInt32BE(20) > 16_000_000)
-      throw new Error('OpenRouter PNG exceeds the image byte/pixel limit or has an invalid header.');
-  }
-  if (total > 8 * 1024 * 1024) throw new Error('OpenRouter images exceed the total byte limit.');
 }
 
 export class SystemOneDecisionModel implements DecisionModelV4 {
@@ -120,7 +90,7 @@ export class SystemOneDecisionModel implements DecisionModelV4 {
 
   /**
    * Network preflight with no inference. For openrouter it reads the decision catalog, confirms the model is a native
-   * decision model with the required inputs and pins inference to its `canonical_slug`: no aliases, auto routers or
+   * decision model that takes text and pins inference to its `canonical_slug`: no aliases, auto routers or
    * generative fallback. Other dialects have nothing to check.
    */
   async prepare({ signal }: { signal?: AbortSignal } = {}): Promise<void> {
@@ -129,38 +99,25 @@ export class SystemOneDecisionModel implements DecisionModelV4 {
     let catalog: Record<string, unknown>;
     try { catalog = record(JSON.parse(await this.request('models?output_modalities=decisions', undefined, signal))); } catch { throw new Error('Cannot read the OpenRouter decision catalog.'); }
     const model = Array.isArray(catalog.data) ? catalog.data.map(record).find(m => m.id === this.modelId || m.canonical_slug === this.modelId) : undefined;
-    const architecture = record(model?.architecture), required = this.options.inputs ?? ['text'];
+    const architecture = record(model?.architecture);
     if (!model || !Array.isArray(architecture.output_modalities) || architecture.output_modalities.length !== 1 || architecture.output_modalities[0] !== 'decisions' ||
-        !Array.isArray(architecture.input_modalities) || !required.every(input => (architecture.input_modalities as unknown[]).includes(input)) ||
+        !Array.isArray(architecture.input_modalities) || !architecture.input_modalities.includes('text') ||
         typeof model.canonical_slug !== 'string' || !model.canonical_slug.trim() || model.canonical_slug.includes(this.apiKey!))
-      throw new Error('Configured OpenRouter model is not a confirmed native decision model with the required inputs.');
+      throw new Error('Configured OpenRouter model is not a confirmed native decision model that takes text.');
     if (!/^[a-z0-9._:-]+\/[a-z0-9._:-]+$/i.test(model.canonical_slug)) throw new Error('Invalid OpenRouter canonical model identity.');
     this.resolved = model.canonical_slug;
   }
 
-  async doDecide({ state, questions, abortSignal, headers, providerOptions }: DecisionCallOptions): Promise<DecisionResult> {
-    const images = readImages(providerOptions);
+  async doDecide({ state, questions, abortSignal, headers }: DecisionCallOptions): Promise<DecisionResult> {
     const wireQuestions = Object.fromEntries(Object.entries(questions).map(([id, q]) => {
       if (q.type !== 'choice') throw new Error('Only choice questions are supported.');
       return [id, { type: 'choice', instructions: q.instructions, criteria: q.criteria }];
     }));
     let body: Record<string, unknown>;
     if (this.options.dialect === 'openrouter') {
-      checkOpenRouterImages(images);
       await this.prepare({ signal: abortSignal });
-      body = { model: this.resolved, questions: wireQuestions, provider: { allow_fallbacks: false },
-        state: images.length ? [
-          { type: 'text', text: JSON.stringify(state) },
-          ...images.map(image => ({ type: 'image_url', image_url: { url: `data:image/png;base64,${image}` } })),
-        ] : state };
-    } else {
-      // Media references are reserved: only this adapter may create them.
-      if (/<(?:image|video):\d+>/.test(JSON.stringify(state))) throw new Error('Media references are reserved for the SystemOne adapter.');
-      if (images.length && (typeof state !== 'object' || Array.isArray(state))) throw new Error('Images need an object state.');
-      body = { model: this.modelId, questions: wireQuestions,
-        state: images.length ? { ...(state as object), screens: images.map((_, i) => `<image:${i + 1}>`) } : state,
-        ...(images.length ? { media: images.map(image => ({ type: 'image', data: `data:image/png;base64,${image}` })) } : {}) };
-    }
+      body = { model: this.resolved, questions: wireQuestions, provider: { allow_fallbacks: false }, state };
+    } else body = { model: this.modelId, questions: wireQuestions, state };
     const text = await this.request('systemone', body, abortSignal, headers);
     let value: unknown;
     try { value = JSON.parse(text); } catch { throw new Error('Invalid SystemOne JSON; response body omitted for privacy.'); }

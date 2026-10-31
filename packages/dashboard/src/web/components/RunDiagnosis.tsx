@@ -26,8 +26,7 @@ export function RunDiagnosis({ run, steps, notices, plan, onSelect }: Props) {
     lines.push({ key: 'stop', icon: OctagonAlert, step: stopped.step, text: t('diagnosis.gaveUpStop', { n: stopped.step }), note: t('diagnosis.gaveUpStopNote') });
   } else if (source === 'model' && stopped && stopped.stop!.stop !== 'success') {
     lines.push({ key: 'stop', icon: OctagonAlert, step: stopped.step,
-      text: t('diagnosis.modelStop', { n: stopped.step, reason: t(`steps.stopReasons.${stopped.stop!.stop}`, { defaultValue: stopped.stop!.stop }) }),
-      note: rules.modelGiveUp ? t('diagnosis.modelStopAllowed') : undefined });
+      text: t('diagnosis.modelStop', { n: stopped.step, reason: t(`steps.stopReasons.${stopped.stop!.stop}`, { defaultValue: stopped.stop!.stop }) }) });
   } else if (stopped?.stop?.stop === 'success' && reason === 'verification-failed') {
     lines.push({ key: 'stop', icon: OctagonAlert, step: stopped.step, text: t('diagnosis.successStopFailed', { n: stopped.step }), note: t('diagnosis.successStopFailedNote') });
   } else if (source === 'exploration-guard' && stopped) {

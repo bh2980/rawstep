@@ -2,8 +2,6 @@ export { ANALYSIS_SCHEMA_VERSION, analyzeSavedTrace, analyzeTrace, deterministic
 export type { AnalysisFailure, AnalysisFinding, AnalysisReport, AnalyzerResult, AnalyzeSavedTraceOptions, EvidenceModality, TraceAnalyzer, TraceEvidenceSummary } from './analyze/index.js';
 export { renderReportHtml, summarizeTrace, writeReport } from './report/index.js';
 export type { ReportAction, ReportCounts, ReportFailure, ReportSummary, ReportVerification, ReportVerificationRule } from './report/index.js';
-export { summarizeVisualExploration } from './screenshot/analysis.js';
-export type { VisualExplorationSummary } from './screenshot/analysis.js';
 export { LlmTraceAnalyzer } from './analyze/llm.js';
 export type { LlmAnalyzerOptions } from './analyze/llm.js';
 export { aggregateHints, DEFAULT_HINT_THRESHOLDS, extractHints, HINT_SOURCES, HINTS_SCHEMA_VERSION, selectReference, summarizeRun, writeHints } from './hints/index.js';

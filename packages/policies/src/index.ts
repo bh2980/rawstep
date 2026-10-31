@@ -1,13 +1,5 @@
 export { loadPolicy, OrchestratedSpeechPolicy, renderPlanMarkdown, ScriptedPolicy, SpeechDecisionPolicy, speechChoices } from './policy/index.js';
 export type { ChoiceModel, ChoiceRequest, ChoiceResult, ModelHistoryEntry, OrchestrationOptions, PlanDocument, PlanDraft, Planner, PlanRequest, PlanResult, SpeechPolicyOptions } from './policy/index.js';
 export type { AllowedActions, Decision, DecisionPolicy, PolicyAction } from './policy/index.js';
-export { DecisionClient, decisionError, FakeSystemOneClient, listGatewayDecisionModels, modelBaseURL, SCREENSHOT_DECISION_PROMPT, SPEECH_DECISION_PROMPT, SystemOneChoiceModel, SystemOneDecisionModel, systemOneProviderOptions, SystemOneScreenshotAdapter } from './systemone/index.js';
-export type { DecisionClientOptions, DecisionProviderName, SystemOneCapabilities, SystemOneChoice, SystemOneClient, SystemOneDecisionModelOptions, SystemOneDialect, SystemOneImage, SystemOneInput, SystemOnePrompt, SystemOnePromptEvidence, SystemOneRequest, SystemOneResult } from './systemone/index.js';
-export { SCREENSHOT_MODEL_PROTOCOL, validateModelResponse } from './screenshot/model.js';
-export type { ScreenshotChoice, ScreenshotModelAdapter, ScreenshotModelRequest, ScreenshotModelResponse } from './screenshot/model.js';
-export { FOCUS_CONTEXT_CHOICES, restrictChoicesByVisualFocus, screenshotChoices, ScreenshotDecisionPolicy } from './screenshot/policy.js';
-export type { FocusGateOptions, ScreenshotPolicyOptions } from './screenshot/policy.js';
-export { diagnoseScreenshotStop, STOP_REASON_CHOICES } from './screenshot/stop-reason.js';
-export type { StopReasonReport } from './screenshot/stop-reason.js';
-export { assertScreenshotReplayTaskSafety, exportScreenshotReplay, ScreenshotReplayPolicy, screenshotReplayTaskHash, validateScreenshotReplay } from './screenshot/replay.js';
-export type { ScreenshotReplay } from './screenshot/replay.js';
+export { DecisionClient, decisionError, FakeSystemOneClient, listGatewayDecisionModels, modelBaseURL, SPEECH_DECISION_PROMPT, SystemOneChoiceModel, SystemOneDecisionModel } from './systemone/index.js';
+export type { DecisionClientOptions, DecisionProviderName, SystemOneCapabilities, SystemOneChoice, SystemOneClient, SystemOneDecisionModelOptions, SystemOneDialect, SystemOnePrompt, SystemOnePromptEvidence, SystemOneRequest, SystemOneResult } from './systemone/index.js';

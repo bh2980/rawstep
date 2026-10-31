@@ -21,7 +21,7 @@ type Outcome = (typeof outcomes)[number];
 
 /**
  * The run log (spec §31): chronology and density, nothing else. One line of filters (search, task, result, and the rest of the filters behind
- * one button), then run number, time, task, model, mode, result, actions and duration for every run, newest first.
+ * one button), then run number, time, task, model, result, actions and duration for every run, newest first.
  */
 export function RunsPage({ pageProps, runs, navigate, onRun }: ListProps & { onRun: () => void }) {
   const { t } = useTranslation();

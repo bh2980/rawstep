@@ -1,7 +1,5 @@
-import type { ChoiceModel } from '@rawstep/policies/policy';
 import { closeLlmModel, createAgentModel, createLlmModel, LlmChoiceModel, type LlmModel } from '@rawstep/policies/llm';
 import { AcpAgent } from '@rawstep/policies/acp';
-import type { ScreenshotModelAdapter, ScreenshotModelRequest } from '@rawstep/policies/screenshot/model';
 import { agentOf, resolveBaseURL, type Model, type Prompt } from './config.js';
 
 /**
@@ -15,7 +13,7 @@ export function llmModelOf(model: Pick<Model, 'kind' | 'provider' | 'baseURL' | 
 }
 /** The LLM a model combo chose, as a choice model with the run's prompt. */
 export function llmChoiceModel(model: Model, prompt: Prompt, apiKey?: string, fetcher?: typeof fetch): LlmChoiceModel {
-  return new LlmChoiceModel(llmModelOf(model, 'rawstep-choice', apiKey, fetcher), prompt, model.inputs);
+  return new LlmChoiceModel(llmModelOf(model, 'rawstep-choice', apiKey, fetcher), prompt);
 }
 /** Starts an agent CLI ahead of its first call (its own time limit, not the task's); a no-op for an endpoint. */
 export async function prepareLlmModel(llm: LlmModel, label: string, signal: AbortSignal): Promise<void> {
@@ -24,14 +22,3 @@ export async function prepareLlmModel(llm: LlmModel, label: string, signal: Abor
   catch { signal.throwIfAborted(); throw new Error(`Could not start ${label}: check that the CLI is installed and signed in.`); }
 }
 export { closeLlmModel };
-/** Keyboard-mode bridge: the screenshot policy's request as a choice model's state and images. */
-export class LlmScreenshotAdapter implements ScreenshotModelAdapter {
-  constructor(private readonly model: ChoiceModel) {}
-  choose(request: ScreenshotModelRequest, { signal }: { signal: AbortSignal }) {
-    return this.model.choose({
-      state: { goal: request.goal, purpose: request.purpose, viewport: request.screenshot.viewport, history: request.history, visualState: request.visualState },
-      choices: request.choices.map(({ id, label }) => ({ id, label })),
-      images: [request.screenshot.pngBase64, ...(request.previousScreenshot ? [request.previousScreenshot.pngBase64] : [])],
-    }, { signal });
-  }
-}

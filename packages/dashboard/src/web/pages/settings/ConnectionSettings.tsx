@@ -23,18 +23,17 @@ import type { PageProps } from '../types';
 
 const head = 'h-8 px-3 text-xs font-medium text-muted-foreground';
 
-type Role = 'planner' | 'screenreader' | 'keyboard' | 'analysis' | 'suggestions';
-const ROLES: readonly Role[] = ['planner', 'screenreader', 'keyboard', 'analysis', 'suggestions'];
+type Role = 'planner' | 'executor' | 'analysis' | 'suggestions';
+const ROLES: readonly Role[] = ['planner', 'executor', 'analysis', 'suggestions'];
 type Use = { role: Role; names: { label: string; to: RouteChange }[] };
 
-/** What uses a connection, by role: run profiles that plan or execute in a mode with it, and the project's analysis and suggestion models. */
+/** What uses a connection, by role: run profiles that plan or execute with it, and the project's analysis and suggestion models. */
 function usesOf(config: ProjectConfig, id: string, projectLabel: string): Use[] {
   const profile = (p: Profile) => ({ label: p.name, to: { view: 'settings', section: 'profiles' } as RouteChange });
   const project = { label: projectLabel, to: { view: 'settings', section: 'connections' } as RouteChange };
   const by: Record<Role, { label: string; to: RouteChange }[]> = {
     planner: config.profiles.filter(p => !isFilePlanner(p.planner) && p.planner?.connectionId === id).map(profile),
-    screenreader: config.profiles.filter(p => executorModel(p, 'screenreader')?.connectionId === id).map(profile),
-    keyboard: config.profiles.filter(p => executorModel(p, 'keyboard')?.connectionId === id).map(profile),
+    executor: config.profiles.filter(p => executorModel(p)?.connectionId === id).map(profile),
     analysis: config.project.analysis.model?.connectionId === id ? [project] : [],
     suggestions: config.project.suggestions.model?.connectionId === id ? [project] : [],
   };
@@ -42,14 +41,11 @@ function usesOf(config: ProjectConfig, id: string, projectLabel: string): Use[] 
 }
 /** A profile without the roles a removed connection played: it may lose its planner or executor, and cannot run until new ones are picked. */
 function withoutConnection(profile: Profile, id: string): Profile {
-  const { planner, executors } = profile, { screenreader, keyboard } = executors;
+  const { planner, executor } = profile;
   const keepPlanner = planner && (isFilePlanner(planner) || planner.connectionId !== id);
-  const keepScreenReader = screenreader && ('followPlan' in screenreader || screenreader.connectionId !== id);
-  const { planner: _planner, ...rest } = profile;
-  return {
-    ...rest, ...(keepPlanner ? { planner } : {}),
-    executors: { ...(keepScreenReader ? { screenreader } : {}), ...(keyboard && keyboard.connectionId !== id ? { keyboard } : {}) },
-  };
+  const keepExecutor = executor && ('followPlan' in executor || executor.connectionId !== id);
+  const { planner: _planner, executor: _executor, ...rest } = profile;
+  return { ...rest, ...(keepPlanner ? { planner } : {}), ...(keepExecutor ? { executor } : {}) };
 }
 /** The project settings without models on a removed connection: analysis falls back to rules, suggestions to the analysis model. */
 function projectWithout(project: ProjectSettings, id: string): ProjectSettings {
@@ -71,8 +67,8 @@ export function ConnectionSettings({ navigate, ...props }: PageProps & { navigat
   const [deleting, setDeleting] = useState<Connection>();
   const [checks, setChecks] = useState<Record<string, CheckState>>({});
   const { config, credentialStatus } = props.view;
-  // Profiles that used the connection lose that role (a mode without an executor cannot run until another is picked, a profile without
-  // its planner decides alone); the project's analysis falls back to the rule-based analysis.
+  // Profiles that used the connection lose that role (a profile without an executor or planner cannot run until another is picked);
+  // the project's analysis falls back to the rule-based analysis.
   const remove = (connection: Connection) => { setDeleting(undefined); void props.act(async () => {
     const latest = props.view.config;
     await props.save({ ...latest, profiles: latest.profiles.map(profile => withoutConnection(profile, connection.id)), project: projectWithout(latest.project, connection.id), connections: latest.connections.filter(c => c.id !== connection.id) });

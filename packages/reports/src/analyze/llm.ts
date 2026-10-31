@@ -15,11 +15,10 @@ const resultSchema = z.object({
 
 /** `llm` replaces `baseURL` with a ready model (an agent CLI, say); the analyzer then ends that model after each analysis. */
 export type LlmAnalyzerOptions = { baseURL?: string; llm?: LlmModel; model: string; apiKey?: string; timeoutMs?: number; maxInputBytes?: number; fetch?: typeof fetch; instructions?: string; signal?: AbortSignal };
-/** All saved events remain; binary PNG payloads are explicitly omitted, never captioned. */
+/** All saved events, as saved. */
 export function analysisTracePayload(trace: Readonly<RunTrace>): string {
   if (!trace.endedAt || !trace.outcome || trace.privacy.inputValues !== 'redacted') throw new Error('LLM analysis requires a finalized, input-redacted trace.');
-  return JSON.stringify({ limitations: ['PNG bytes are omitted from text-only analysis. All saved events are included. Redacted evidence cannot be reconstructed. Model judgments do not change the recorded outcome.'],
-    trace }, (key, value: unknown) => key === 'pngBase64' ? '[PNG binary omitted]' : value);
+  return JSON.stringify({ limitations: ['All saved events are included. Redacted evidence cannot be reconstructed. Model judgments do not change the recorded outcome.'], trace });
 }
 export class LlmTraceAnalyzer implements TraceAnalyzer {
   readonly id = 'rawstep/llm-openai-compatible-v1';

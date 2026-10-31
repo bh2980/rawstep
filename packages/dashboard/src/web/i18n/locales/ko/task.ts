@@ -67,7 +67,7 @@ export const taskUi = {
       stuckView: '실행 #{{number}} {{step}}번째 행동 보기',
       stuckOffPage: '시작 페이지 밖',
       startPage: '시작 페이지 화면. 번호는 아래 목록의 막힌 곳입니다.',
-      startPageNone: '시작 페이지 화면이 기록된 실행이 없습니다. 스크린리더 모드로 다시 실행하면 생깁니다.',
+      startPageNone: '시작 페이지 화면이 기록된 실행이 없습니다. 다시 실행하면 생깁니다.',
       goal: '목표',
       journeyTitle: '실행마다 얼마나 넘겼나',
       journeyMinimal: '위치를 알면 {{n}}번',
@@ -188,7 +188,6 @@ export const taskUi = {
   taskInputs: {
     note: '행동 조합에서 타이핑을 허용해야 모델이 이 값을 입력창에 넣을 수 있습니다. 무엇을 칠지는 작업을 만드는 사람이 정하고, 모델은 언제 어느 칸에 칠지를 고릅니다. 로컬 Task 파일에는 값이 그대로 저장됩니다.',
     secret: '비밀값으로 다루기',
-    secretNote: '키보드 실행의 화면 이미지에는 입력된 글자가 보일 수 있습니다.',
     secretOn: '모델에게는 이름만 보이고, 실행 기록에서도 값을 가립니다.',
     secretOff: '모델에게 값이 그대로 보입니다. 검색어처럼 드러나도 되는 값에 씁니다.',
     description: '입력 {{n}} 설명',
@@ -237,7 +236,6 @@ export const taskUi = {
     more: '외 {{count}}개',
     pickTasks: '작업 고르기', pickProfiles: '프로필 고르기',
     tasksTitle: '실행할 작업', profilesTitle: '실행할 프로필',
-    keyboard: '키보드',
     many: '실행이 {{count}}번입니다. 실행마다 계획 모델을 여러 번 부르니 사용량과 시간을 확인하세요.',
     editProfiles: '프로필 편집',
     run: '{{count}}번 실행',
@@ -246,8 +244,6 @@ export const taskUi = {
     title: '다음 실행',
     sentence: {
       planned: '%who%가 %where%로 %ai%가 세운 계획을 따라 %times%번 해 봅니다.',
-      solo: '%who%가 %where%로 %ai%가 고르는 대로 %times%번 해 봅니다.',
-      keyboard: '%who%가 %ai%가 고르는 대로 %times%번 해 봅니다.',
     },
     pickWho: '누가 하나요', pickWhere: '어떤 스크린리더로 듣나요', pickAi: 'AI(고르기)',
     pickActions: '쓰는 동작을 직접 고르기',
@@ -266,8 +262,6 @@ export const taskUi = {
   runBox: {
     title: '실행',
     run: '실행',
-    mode: '모드',
-    modeUnsupported: '이 실행 프로필에는 {{mode}} 모드의 실행 모델이 없습니다.',
     profile: '실행 프로필',
     profileInfo: '이 작업을 어떤 모델·허용 행동·환경·실행 규칙으로 실행할지 담은 묶음입니다. 고르면 바로 저장됩니다. 프로필 자체는 설정 › 실행 프로필에서도 고칠 수 있습니다.',
     editProfile: '프로필 편집',
@@ -283,11 +277,10 @@ export const taskUi = {
     active: '이 작업의 실행 중이거나 대기 중인 실행이 {{count}}개 있습니다.',
     openActive: '열기',
     problem: {
-      noExecutor: '이 실행 프로필에는 {{mode}} 실행 모델이 없습니다. 프로필을 고쳐 이 모드의 실행 모델을 고르세요.',
+      noExecutor: '이 실행 프로필에는 실행 모델이 없습니다. 프로필을 고쳐 실행 모델을 고르세요.',
       noKey: '실행 모델 연결에 인증키가 없습니다. 연결에서 인증키를 입력하세요.',
       noPlanner: '이 실행 프로필에 계획 모델(LLM)이 없습니다.',
       noPlannerKey: '계획 모델 연결에 인증키가 없습니다. 연결에서 인증키를 입력하세요.',
-      needsImages: '이 실행 프로필의 키보드 실행 모델은 화면 이미지를 받지 않아 키보드 모드로 실행할 수 없습니다.',
     },
   },
   /** A task's default conditions as plain choices (edit sheet, new task, task settings). */
@@ -330,7 +323,6 @@ export const taskUi = {
   /** The experiment planner: tasks × modes × conditions × repeats. */
   experiments: {
     description: '작업 × 모드 × 실행 프로필을 조합해 같은 작업을 프로필별로 비교합니다.',
-    modes: '모드',
     compare: '실행 프로필 골라 비교',
     compareInfo: '고른 프로필마다 같은 작업을 실행합니다. 프로필은 모델, 행동, 페이지 환경, 보조기술, 실행 규칙을 한데 묶은 것입니다.',
     compareOff: '각 작업에 정한 프로필로 실행합니다.',
@@ -344,8 +336,6 @@ export const taskUi = {
   },
   /** Names of the experiment conditions and model roles, shared by the run box, experiments, the run log and the run header. */
   runConditions: {
-    structure: '구조',
-    structures: { solo: '계획 없음', planned: '계획' },
     profile: '프로필',
     roles: { planner: '계획 모델', executor: '실행 모델', analysis: '해설 모델' },
     noEffect: '결과에 영향 없음',
@@ -372,10 +362,8 @@ export const taskUi = {
     modalFocusOutside: '대화상자가 열려 있는 동안 포커스가 뒤쪽의 이 요소로 이동했습니다.',
     dialogFocusNotMoved: '열린 뒤 포커스가 대화상자 안으로 이동하지 않았습니다.',
     missingAnnouncement: '눌러서 페이지가 바뀌었지만 안내 문구와 포커스 이동이 기록되지 않았습니다.',
-    invisibleFocusChange: '포커스가 이 요소로 이동했지만 화면 변화는 기록되지 않았습니다.',
     backtracking: '같은 두 요소 사이를 한 실행에서 최대 {{max}}번 이동했습니다.',
     backtrackingPlain: '같은 두 요소 사이를 오가며 탐색 방향이 바뀌었습니다.',
-    repeatedState: '같은 화면이 한 실행에서 최대 {{max}}번 나타났습니다.',
     modelHesitation: '다음 행동을 고를 때 1순위와 2순위 후보의 점수가 비슷했습니다 (평균 {{score}} 대 {{runnerUp}}).',
     modelHesitationPlain: '다음 행동을 고를 때 1순위와 2순위 후보의 점수가 비슷했습니다.',
     earlyStopGuard: '반복 감시 장치가 실행을 중단했습니다.',
@@ -412,7 +400,6 @@ export const taskUi = {
     legendLimit: '계획 호출 한도로 멈춘 곳',
     announce: '행동 {{n}}: {{action}}',
     stepLabel: '선택한 행동',
-    noScreen: '이 행동 뒤의 화면 기록이 없습니다.',
     screenOpen: '행동 {{n}} 화면을 새 탭에서 크게 보기',
     screenLive: '현재 화면 (실시간)',
     waitingForPerson: '봇 확인 화면이 떴습니다. 열린 브라우저 창에서 직접 통과해 주세요.',

@@ -4,7 +4,6 @@ import { request as httpRequest } from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { MemoryTraceSink, TraceRecorder, type TraceEvent } from '@rawstep/core/trace';
 import { verifyTask, type VerificationContext } from '@rawstep/browser/verify';
 import type { BrowserSession } from '@rawstep/browser/browser';
 import type { ObserverEvent } from '@rawstep/browser/observer';
@@ -19,27 +18,6 @@ afterEach(async () => {
   await Promise.all(dirs.splice(0).map(dir => rm(dir, { recursive: true, force: true })));
 });
 async function temp(prefix: string) { const dir = await mkdtemp(join(tmpdir(), prefix)); dirs.push(dir); return dir; }
-
-const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2nV8AAAAASUVORK5CYII=';
-
-describe('trace redaction keeps screenshot refs intact', () => {
-  it('redacts sensitive values in sibling fields while preserving sha256, blob and bytes', async () => {
-    const sink = new MemoryTraceSink();
-    const recorder = new TraceRecorder({ id: 'redact-shot', mode: 'keyboard', input: { password: 'hunter2secret' } }, sink);
-    await recorder.initialize();
-    const event = recorder.append('keyboard.observation', { kind: 'keyboard', screenshot: { pngBase64: png, note: 'typed hunter2secret' } }, { source: 'runner' }) as TraceEvent;
-    const shot = (event.data as { screenshot: { sha256: string; blob: string; bytes: number; note: string; pngBase64?: string } }).screenshot;
-    expect(shot.note).not.toContain('hunter2secret');
-    expect(shot.note).toBe('typed [REDACTED]');
-    expect(shot.pngBase64).toBeUndefined();
-    expect(shot.sha256).toMatch(/^[a-f0-9]{64}$/);
-    expect(shot.blob).toBe(`blobs/${shot.sha256}.png`);
-    expect(shot.bytes).toBe(Buffer.from(png, 'base64').length);
-    expect(sink.blobs.has(shot.blob)).toBe(true);
-    expect(Buffer.from(sink.blobs.get(shot.blob)!).equals(Buffer.from(png, 'base64'))).toBe(true);
-    expect(JSON.stringify(sink.events)).not.toContain('hunter2secret');
-  });
-});
 
 describe('focused rule uses the focus record that still holds', () => {
   const at = '2026-01-01T00:00:00.000Z';

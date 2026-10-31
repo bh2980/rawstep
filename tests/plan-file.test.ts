@@ -21,7 +21,7 @@ const written = { strategy: 'Move down to the button and press it', criteria: [{
   phases: [{ title: 'Buy', tasks: [{ goal: "Move to the 'Add to cart' button", done: "Hear 'Add to cart'", cue: 'Add to cart' }, { goal: 'Press it', done: 'Hear the confirmation', cue: 'Product added' }] }] };
 function executor(answer: string) {
   const requests: ChoiceRequest[] = [];
-  const value: ChoiceModel = { inputs: ['text'], choose: async request => { requests.push(structuredClone(request)); return { choiceId: answer, model: { id: 'jev', runtime: 'test' }, probabilities: request.choices.map(c => c.id === answer ? 0.9 : 0.1 / (request.choices.length - 1)) }; } };
+  const value: ChoiceModel = { choose: async request => { requests.push(structuredClone(request)); return { choiceId: answer, model: { id: 'jev', runtime: 'test' }, probabilities: request.choices.map(c => c.id === answer ? 0.9 : 0.1 / (request.choices.length - 1)) }; } };
   return { executor: value, requests };
 }
 

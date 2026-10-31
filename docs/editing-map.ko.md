@@ -5,11 +5,11 @@
 | 책임 | 위치 |
 |---|---|
 | 작업·행동·관찰 계약, trace, 프로필 스키마 | `packages/core/src/` |
-| 정책 로딩·스크립트·화면 모델·정지 가설 | `packages/policies/src/` |
+| 정책 로딩·스크립트·SystemOne 선택 모델 | `packages/policies/src/` |
 | 브라우저·탐색 경계·runner·독립 검증·프로필 적용 | `packages/browser/src/` |
 | AT Driver·Orca·VoiceOver 시뮬레이션·코퍼스 | `packages/screenreaders/src/` |
 | 선택적인 Python Orca 브리지 | `packages/screenreaders/native/` |
-| 사후 분석·보고서·화면 상태 요약 | `packages/reports/src/` |
+| 사후 분석·보고서 | `packages/reports/src/` |
 | `rawstep.config.json` 스키마·스토어·실행 계획/실행·`runTask`·모델 탐색·LLM | `packages/project/src/` (`config.ts`, `store.ts`, `plan.ts`, `execution.ts`, `run.ts`, `discover.ts`, `llm.ts`) |
 | CLI 명령 | `packages/cli/src/` |
 | `rawstep` 실행 파일과 `rawstep/*` 하위 경로 import(번들 entry), `tsdown.config.ts` | `packages/rawstep/src/` |

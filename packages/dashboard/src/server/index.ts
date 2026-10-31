@@ -1,8 +1,6 @@
 import { isLoopbackHostname } from '@rawstep/core/defaults';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import { createHash } from 'node:crypto';
 import { readFile, stat } from 'node:fs/promises';
-import { isScreenshotRef } from '@rawstep/core/trace';
 import { resolve, relative, isAbsolute, sep, extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { existsSync } from 'node:fs';
@@ -11,7 +9,7 @@ import { BUILTIN_PROFILES } from '@rawstep/browser/profiles';
 import { createBrowserSession } from '@rawstep/browser/browser';
 import { AtDriverBackend } from '@rawstep/screenreaders/at-driver';
 import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
-import { AT_DRIVER_COMMAND_ENV, atBackendSchema, atEndpointOf, type AtBackend, type Mode, defaultInputs, machineSchema, modelKeyEnv, modelKindSchema, suggestionModel, providerSchema, providersOf, type Connection } from '@rawstep/project/config';
+import { AT_DRIVER_COMMAND_ENV, atBackendSchema, atEndpointOf, type AtBackend, machineSchema, modelKeyEnv, modelKindSchema, suggestionModel, providerSchema, providersOf, type Connection } from '@rawstep/project/config';
 import { ProjectStore, readOptional } from '@rawstep/project/store';
 import { ProjectError } from '@rawstep/project/errors';
 import { backendCapabilities } from '@rawstep/project/plan';
@@ -79,9 +77,9 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
   async function state(): Promise<ConfigView> {
     const { config, revision } = await store.read();
     const credentialStatus = await store.credentialStatus(config);
-    const actions = (backend: AtBackend, mode: Mode) => { const c = backendCapabilities(backend, mode); return { keys: [...c.keys], intents: [...c.intents] }; };
+    const actions = (backend: AtBackend) => { const c = backendCapabilities(backend); return { keys: [...c.keys], intents: [...c.intents] }; };
     return { config, revision, credentialStatus, tasks: await store.taskFiles(config), environmentPresets: RUNNABLE_PRESETS,
-      capabilities: { keyboard: actions('simulation', 'keyboard'), screenreader: { simulation: actions('simulation', 'screenreader'), voiceover: actions('voiceover', 'screenreader'), nvda: actions('nvda', 'screenreader') } } };
+      capabilities: { simulation: actions('simulation'), voiceover: actions('voiceover'), nvda: actions('nvda') } };
   }
   const send = (res: ServerResponse, value: unknown, status = 200) => { res.writeHead(status, { 'content-type': 'application/json', 'cache-control': 'no-store' }); res.end(JSON.stringify(value)); };
   async function savedConnection(id: string): Promise<Connection> {
@@ -145,14 +143,13 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
     }
     if (path === '/api/connections/check' && method === 'POST') {
       // A saved connection by id, or one being set up (a key typed for a custom server is used once and not stored). With a model ID the check asks about that model.
-      const body = connectionTarget.extend({ modelId: z.string().trim().min(1).max(500).optional(), inputs: z.array(z.enum(['text', 'image'])).min(1).max(2).optional() }).strict().parse(await jsonBody(req));
+      const body = connectionTarget.extend({ modelId: z.string().trim().min(1).max(500).optional() }).strict().parse(await jsonBody(req));
       const { connection, apiKey } = await targetConnection(body);
       if (!body.modelId) {
-        if (connection.kind === 'decision' && connection.provider === 'custom') return send(res, await checkModel({ ...connection, modelId: 'check', inputs: ['text'], maxChoices: 255, maxImages: 0 }, apiKey));
+        if (connection.kind === 'decision' && connection.provider === 'custom') return send(res, await checkModel({ ...connection, modelId: 'check', maxChoices: 255 }, apiKey));
         return send(res, await checkConnection(connection, apiKey));
       }
-      const inputs = body.inputs ?? defaultInputs(connection);
-      return send(res, await checkModel({ ...connection, modelId: body.modelId, inputs, maxChoices: 255, maxImages: inputs.includes('image') ? 2 : 0 }, apiKey));
+      return send(res, await checkModel({ ...connection, modelId: body.modelId, maxChoices: 255 }, apiKey));
     }
     if (path === '/api/connections/sign-in' && method === 'POST') {
       // Pressed by the person: the agent's own sign-in (it may reuse this computer's account or open a sign-in page).
@@ -248,7 +245,7 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
       const body = z.object({ runs: z.array(z.object({ experiment: z.string().regex(/^[0-9a-f-]{36}$/), run: z.string().regex(/^[0-9a-f-]{36}$/) }).strict()).min(1).max(1000) }).strict().parse(await jsonBody(req));
       return send(res, { removed: await queue.deleteMany(body.runs) });
     }
-    const match = path.match(/^\/api\/experiments\/([0-9a-f-]{36})(?:\/runs\/([0-9a-f-]{36}))?(?:\/(cancel|retry|events|steps|hints|trace|analysis|stop-reason|report|png)(?:\/([^/]+))?)?$/);
+    const match = path.match(/^\/api\/experiments\/([0-9a-f-]{36})(?:\/runs\/([0-9a-f-]{36}))?(?:\/(cancel|retry|events|steps|hints|trace|analysis|report|png)(?:\/([^/]+))?)?$/);
     if (match) {
       const [, experimentId, runId, operation, eventId] = match;
       if (!operation && method === 'DELETE') return send(res, { removed: await queue.deleteRuns(experimentId!, runId ? [runId] : undefined) });
@@ -264,11 +261,11 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
       if (operation === 'events' && method === 'GET') {
         const raw = await readOptional(await store.file(prefix + 'trace.jsonl')) ?? '';
         const events = raw.split('\n').filter(Boolean).map(line => JSON.parse(line));
-        return send(res, events.map(event => JSON.parse(JSON.stringify(event, (key, value) => key === 'pngBase64' ? '[PNG: open screenshot]' : value))));
+        return send(res, events);
       }
       if (operation === 'steps' && method === 'GET') return send(res, await views.steps(experimentId!, runId));
       if (operation === 'hints' && method === 'GET') return send(res, await views.hints(experimentId!, runId));
-      if ((operation === 'trace' || operation === 'analysis' || operation === 'stop-reason') && method === 'GET') {
+      if ((operation === 'trace' || operation === 'analysis') && method === 'GET') {
         const content = await readFile(await store.file(prefix + operation + '.json', true));
         res.writeHead(200, { 'content-type': 'application/json', 'content-disposition': 'attachment; filename="' + operation + '.json"' }); return res.end(content);
       }
@@ -280,18 +277,12 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
       if (operation === 'png' && method === 'GET') {
         const raw = await readOptional(await store.file(prefix + 'trace.jsonl')) ?? '';
         const event = raw.split('\n').filter(Boolean).map(l => JSON.parse(l)).find(e => e.id === decodeURIComponent(eventId ?? ''));
-        const shot = record(event?.data).screenshot, diagnostic = record(event?.data).path;
-        // A screen reader run's diagnostic screenshot is a plain file whose path the runner wrote and the pattern pins.
-        if ((event?.type === 'browser.screenshot' || event?.type === 'browser.start-page') && typeof diagnostic === 'string' && DIAGNOSTIC_PATH.test(diagnostic)) {
-          const file = await readFile(await store.file(prefix + diagnostic, true)).catch(() => undefined);
-          if (event.redacted || !file) throw new HttpError(404, '스크린샷이 없거나 입력 보호를 위해 가려졌습니다.');
-          res.writeHead(200, { 'content-type': 'image/png', 'cache-control': 'no-store' }); return res.end(file);
-        }
-        // The path comes from the validated reference (blobs/<sha256>.png), never from the client.
-        const blob = isScreenshotRef(shot) ? await readFile(await store.file(prefix + shot.blob, true)).catch(() => undefined) : undefined;
-        const bytes = blob && createHash('sha256').update(blob).digest('hex') === (shot as { sha256: string }).sha256 ? blob : undefined;
-        if (event?.redacted || !bytes) throw new HttpError(404, '스크린샷이 없거나 입력 보호를 위해 가려졌습니다.');
-        res.writeHead(200, { 'content-type': 'image/png', 'cache-control': 'no-store' }); return res.end(bytes);
+        const diagnostic = record(event?.data).path;
+        // A diagnostic screenshot is a plain file whose path the runner wrote and the pattern pins, never a path from the client.
+        const file = (event?.type === 'browser.screenshot' || event?.type === 'browser.start-page') && typeof diagnostic === 'string' && DIAGNOSTIC_PATH.test(diagnostic)
+          ? await readFile(await store.file(prefix + diagnostic, true)).catch(() => undefined) : undefined;
+        if (event?.redacted || !file) throw new HttpError(404, '스크린샷이 없거나 입력 보호를 위해 가려졌습니다.');
+        res.writeHead(200, { 'content-type': 'image/png', 'cache-control': 'no-store' }); return res.end(file);
       }
     }
     if (path.startsWith('/api/')) throw new HttpError(404, 'API를 찾을 수 없습니다.');

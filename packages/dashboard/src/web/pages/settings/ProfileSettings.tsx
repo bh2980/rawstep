@@ -21,8 +21,9 @@ const same = sameValue;
 
 /** A new profile from a starting point for who decides, with Rawstep's default actions, page, screen reader and rules. */
 export function profileFromPreset(preset: (typeof COMBO_PRESETS)[number], id: string, name: string, config: Pick<ProjectConfig, 'connections'>): Profile {
-  const { planner, executors } = comboFromPreset(preset, id, name, config.connections);
-  return { ...defaultProfile(id, name), executors, ...(planner ? { planner } : {}) };
+  const { planner, executor } = comboFromPreset(preset, id, name, config.connections);
+  const { executor: _default, ...profile } = defaultProfile(id, name);
+  return { ...profile, ...(executor ? { executor } : {}), ...(planner ? { planner } : {}) };
 }
 
 /** Why a profile cannot be saved yet, if it cannot. */
@@ -78,7 +79,7 @@ export function ProfileSettings({ navigate, onDirty, ...props }: PageProps & { n
             <button type="button" aria-current={item.id === selected?.id ? 'true' : undefined} onClick={() => setSelectedId(item.id)}
               data-selected={item.id === selected?.id} className={cn('row-rail rail-divider grid min-h-11 w-full gap-0.5 py-2 pr-3 pl-4 text-left text-sm', item.id === selected?.id ? 'bg-trace-soft font-medium' : 'hover:bg-raised')}>
               <span className="break-words">{item.name || t('profile.unnamed')}{!same(item, saved.find(s => s.id === item.id)) && <span className="ml-1 text-trace" aria-label={t('settingsNav.unsaved')}>•</span>}</span>
-              <span className="text-xs leading-4 font-normal break-words text-muted-foreground">{comboSummary(item, config.connections, item.mode)} · {t(`conditions.backends.${item.screenReader}`)}</span>
+              <span className="text-xs leading-4 font-normal break-words text-muted-foreground">{comboSummary(item, config.connections)} · {t(`conditions.backends.${item.screenReader}`)}</span>
             </button>
           </li>)}
         </ul>
