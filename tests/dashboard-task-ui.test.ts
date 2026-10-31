@@ -6,7 +6,7 @@ import { describeFinding, firstOccurrence, stepRange } from '../packages/dashboa
 import { eventsByStep } from '../packages/dashboard/src/web/lib/rawEvents.js';
 import { taskRunNumbers, type RunRef } from '../packages/dashboard/src/web/lib/runs.js';
 import { inputFields, inputProblems, taskInputOptions, taskInputs } from '../packages/dashboard/src/web/lib/taskInputs.js';
-import { defaultStep, dotKind, dotLabel, isUnsure } from '../packages/dashboard/src/web/lib/stepDots.js';
+import { defaultStep, dotKind, dotLabel } from '../packages/dashboard/src/web/lib/stepDots.js';
 
 const hangul = /[가-힣]/;
 
@@ -33,12 +33,8 @@ describe('finding descriptions', () => {
     expect(describeFinding(finding('early-stop', [{ reason: 'policy-uncertain' }]))).toContain('확신하지');
   });
 
-  it('uses the largest or average number across occurrences for model findings', () => {
+  it('uses the largest number across occurrences for model findings', () => {
     expect(describeFinding(finding('backtracking', [{ reversals: 2 }, { reversals: 5 }]))).toBe('같은 두 요소 사이를 한 실행에서 최대 5번 이동했습니다.');
-    const hesitation = describeFinding(finding('model-hesitation', [{ probability: 0.4, runnerUp: 0.35 }, { probability: 0.5, runnerUp: 0.45 }]))!;
-    expect(hesitation).toContain('0.45 대 0.40');
-    expect(hesitation).not.toContain('%');
-    expect(describeFinding(finding('model-hesitation', [{}]))).toMatch(hangul);
   });
 
   it('has no sentence for a kind or detail it does not know, so the card falls back to the kind label', () => {
@@ -73,17 +69,6 @@ describe('step dots', () => {
     expect(dotKind(step(5, undefined, { stop: { stop: 'success' } }))).toBe('press');
   });
 
-  it('marks a Decision model\'s pick as hesitant when the runner-up scored close to it, not for a low but clear pick, and never an LLM\'s', () => {
-    const chose = (probability: number | undefined, runnerUp = 0.1): StepView => step(1, { kind: 'key', key: 'Tab' }, { model: { choiceId: 'key:Tab', candidates: [{ id: 'key:Tab', ...(probability === undefined ? {} : { probability }) }, { id: 'key:Enter', probability: runnerUp }] } });
-    expect(isUnsure(chose(0.45, 0.4), 'decision')).toBe(true);
-    expect(isUnsure(chose(0.42, 0.1), 'decision')).toBe(false); // low in absolute terms, four times the runner-up
-    expect(isUnsure(chose(0.9, 0.05), 'decision')).toBe(false);
-    expect(isUnsure(chose(undefined), 'decision')).toBe(false);
-    expect(isUnsure(chose(0.45, 0.4), 'llm')).toBe(false);
-    expect(isUnsure(step(1), 'decision')).toBe(false);
-    expect(isUnsure(step(1, undefined, { model: { choiceId: 'missing', candidates: [{ id: 'a', probability: 0.1 }] } }), 'decision')).toBe(false);
-  });
-
   it('opens a finished run at its first hint, otherwise the end, and a live run at its newest step', () => {
     const steps = [step(0), step(1, { kind: 'key', key: 'Tab' }, { hints: ['excess-keystrokes'] }), step(2), step(3, { kind: 'key', key: 'Enter' }, { hints: ['missing-announcement'] })];
     expect(defaultStep({ steps, live: false })).toBe(1);
@@ -93,10 +78,9 @@ describe('step dots', () => {
   });
 
   it('labels a dot with its number, action and whether it is worth a look', () => {
-    expect(dotLabel(step(4, { kind: 'key', key: 'Tab' }, { hints: ['backtracking'] }), true)).toBe('행동 4: Tab, 살펴볼 지점, 모델 확신 낮음');
-    expect(dotLabel(step(7, { kind: 'key', key: 'Tab' }, { hints: ['backtracking'] }), false)).toBe('행동 7: Tab, 살펴볼 지점');
-    expect(dotLabel(step(2, { kind: 'key', key: 'Enter' }), false)).toBe('행동 2: Enter');
-    expect(dotLabel(step(0), false)).toBe('시작 화면');
+    expect(dotLabel(step(7, { kind: 'key', key: 'Tab' }, { hints: ['backtracking'] }))).toBe('행동 7: Tab, 살펴볼 지점');
+    expect(dotLabel(step(2, { kind: 'key', key: 'Enter' }))).toBe('행동 2: Enter');
+    expect(dotLabel(step(0))).toBe('시작 화면');
   });
 });
 

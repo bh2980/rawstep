@@ -11,7 +11,7 @@ import { Button } from '../../components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
-import { COMBO_PRESETS, comboBlocker, comboFromPreset, comboSummary, sameValue } from '../../lib/conditions';
+import { comboBlocker, comboSummary, newCombo, sameValue } from '../../lib/conditions';
 import { cn } from '../../lib/utils';
 import { t as translate } from '../../i18n/index.js';
 import type { PageProps } from '../types';
@@ -19,11 +19,10 @@ import type { PageProps } from '../types';
 const newId = () => crypto.randomUUID();
 const same = sameValue;
 
-/** A new profile from a starting point for who decides, with Rawstep's default actions, page, screen reader and rules. */
-export function profileFromPreset(preset: (typeof COMBO_PRESETS)[number], id: string, name: string, config: Pick<ProjectConfig, 'connections'>): Profile {
-  const { planner, executor } = comboFromPreset(preset, id, name, config.connections);
-  const { executor: _default, ...profile } = defaultProfile(id, name);
-  return { ...profile, ...(executor ? { executor } : {}), ...(planner ? { planner } : {}) };
+/** A new profile planned by the first connection's model, with Rawstep's default actions, page, screen reader and rules. */
+export function newProfile(id: string, name: string, config: Pick<ProjectConfig, 'connections'>): Profile {
+  const { planner } = newCombo(id, name, config.connections);
+  return { ...defaultProfile(id, name), ...(planner ? { planner } : {}) };
 }
 
 /** Why a profile cannot be saved yet, if it cannot. */
@@ -59,15 +58,7 @@ export function ProfileSettings({ navigate, onDirty, ...props }: PageProps & { n
   });
   return <div className="grid gap-5">
     <PageHeader title={t('settingsNav.sections.profiles')} info={t('settingsNav.info.profiles')} actions={
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild><Button variant="outline"><Plus aria-hidden="true" />{t('profile.add')}</Button></DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-80">
-        {COMBO_PRESETS.map(preset => <DropdownMenuItem key={preset} onSelect={() => add(profileFromPreset(preset, newId(), t('profile.newName', { n: items.length + 1 }), config))} className="grid items-start gap-0.5">
-          <span className="font-medium">{t(`conditions.combo.presets.${preset}.name`)}</span>
-          <span className="text-xs leading-4 text-muted-foreground">{t(`conditions.combo.presets.${preset}.hint`)}</span>
-        </DropdownMenuItem>)}
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <Button variant="outline" onClick={() => add(newProfile(newId(), t('profile.newName', { n: items.length + 1 }), config))}><Plus aria-hidden="true" />{t('profile.add')}</Button>
     } />
     <div className="grid items-start gap-6 lg:grid-cols-[15rem_minmax(0,1fr)] lg:items-stretch">
       <div className="flex flex-col gap-3">

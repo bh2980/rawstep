@@ -109,7 +109,7 @@ describe("init", () => {
 
 const result: RunTaskResult = {
   conditions: {
-    profile: { id: "default", name: "Careful reader" }, combo: { id: "default", name: "Default", planner: "Claude · plan", executor: "Jev · jev-latest" }, actionSet: { id: "basic", name: "Basic" },
+    profile: { id: "default", name: "Careful reader" }, combo: { id: "default", name: "Default", planner: "Claude · plan" }, actionSet: { id: "basic", name: "Basic" },
     pageEnvironment: { id: "default", name: "Careful reader", profile: "default" }, atEnvironment: { id: "default", name: "Careful reader", backend: "simulation" },
   },
   warnings: [],
@@ -130,7 +130,7 @@ describe("run", () => {
     expect(await runCli(["run", "login", "--profile", "zoom", "--repeat", "2", "--out", "out"], { ...io, runTask })).toBe(0);
     expect(runTask).toHaveBeenCalledWith("login", expect.objectContaining({ projectDir: directory, profile: "zoom", repeat: 2, outDir: join(directory, "out"), signal: expect.any(AbortSignal) }));
     const out = text(io.stdout);
-    expect(out.startsWith("Conditions: Careful reader (planned · planner Claude · plan → executor Jev · jev-latest)\n  page default · screen reader simulation\n")).toBe(true);
+    expect(out.startsWith("Conditions: Careful reader (planner Claude · plan)\n  page default · screen reader simulation\n")).toBe(true);
     expect(out.indexOf("Conditions:")).toBeLessThan(out.indexOf("Run 1 of 2"));
     expect(out).toContain("(no element) · replan · 1 of 2 runs");
     expect(out).toContain("Run 1 of 2: reached the goal · 7 moves");
@@ -150,8 +150,8 @@ describe("run", () => {
     await runCli(["run", "t", "--rule", "stepActionLimit=5"], { ...io, runTask });
     expect(runTask.mock.calls[1]![1]).toMatchObject({ runRules: { stepActionLimit: 5 } }); expect((runTask.mock.calls[1]![1] as { runRules: object }).runRules).not.toHaveProperty("maxPlannerCalls");
     // Each value is read as its rule's type, and the last of a repeated rule wins.
-    await runCli(["run", "t", "--rule", "maxPlannerCalls=2", "--rule", "repetitionGuard=false", "--rule", "confidenceFloor=0.5", "--rule", "survey=headings", "--rule", "maxPlannerCalls=3"], { ...io, runTask });
-    expect((runTask.mock.calls[2]![1] as { runRules: object }).runRules).toEqual({ maxPlannerCalls: 3, repetitionGuard: false, confidenceFloor: 0.5, survey: "headings" });
+    await runCli(["run", "t", "--rule", "maxPlannerCalls=2", "--rule", "repetitionGuard=false", "--rule", "stepActionLimit=7", "--rule", "survey=headings", "--rule", "maxPlannerCalls=3"], { ...io, runTask });
+    expect((runTask.mock.calls[2]![1] as { runRules: object }).runRules).toEqual({ maxPlannerCalls: 3, repetitionGuard: false, stepActionLimit: 7, survey: "headings" });
     await runCli(["run", "t"], { ...io, runTask });
     for (const key of ["profile", "runRules"]) expect(runTask.mock.calls[3]![1]).not.toHaveProperty(key);
   });
@@ -176,9 +176,9 @@ describe("run", () => {
     expect(out).not.toContain('cell "1%"');
     expect(out).toContain("Could a first-time user do it? reached the goal in 0 of 1 runs · gave up 1");
   });
-  it("lists the warnings under the conditions, and shows a planned profile with its planner", () => {
-    const planned = formatRunResult({ ...result, conditions: { ...result.conditions, profile: { name: "Planner pair" }, combo: { name: "Planner pair", planFile: "plans/t.json", executor: "Jev · jev-latest" } }, warnings: ["The analysis model is not an LLM; no analysis is written."] });
-    expect(planned).toContain("Conditions: Planner pair (planned · planner plan file plans/t.json → executor Jev · jev-latest)");
+  it("lists the warnings under the conditions, and shows a profile that reads a plan file as its planner", () => {
+    const planned = formatRunResult({ ...result, conditions: { ...result.conditions, profile: { name: "Planner pair" }, combo: { name: "Planner pair", planFile: "plans/t.json" } }, warnings: ["The analysis model is not an LLM; no analysis is written."] });
+    expect(planned).toContain("Conditions: Planner pair (planner plan file plans/t.json)");
     expect(planned).toContain("  note: The analysis model is not an LLM");
     expect(planned.indexOf("note:")).toBeLessThan(planned.indexOf("Run 1 of 2"));
   });
@@ -361,7 +361,7 @@ describe("doctor", () => {
   });
   it("checks that the key of each provider and keyed custom connection is set, without printing it", async () => {
     const present = "RAWSTEP_DOCTOR_PRESENT_KEY", absent = "RAWSTEP_DOCTOR_ABSENT_KEY", optional = "RAWSTEP_DOCTOR_OPTIONAL_KEY";
-    const base = { kind: "llm" as const, timeoutMs: 1000 };
+    const base = { timeoutMs: 1000 };
     const directory = await project(config => {
       config.connections.push(
         { ...base, id: "a", name: "With key", provider: "custom", baseURL: "http://127.0.0.1:1234/v1", apiKeyEnv: present },

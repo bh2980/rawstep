@@ -107,8 +107,7 @@ export async function runTask(task: string, options: RunTaskOptions = {}, intern
   const profile = options.profile !== undefined ? pick('profile', config.profiles, options.profile) : firstProfile(config);
   const conditions = profileConditions(profile);
   const check = assertRunnable(checkRun({ config, task: source, ...(entry ? { taskEntry: entry } : {}), runRules: options.runRules, ...conditions }));
-  const { settings, model, analysisModel, plannerModel } = check, warnings = [...check.warnings];
-  const apiKey = await requireKey(store, model!);
+  const { settings, analysisModel, plannerModel } = check, warnings = [...check.warnings];
   const plannerApiKey = plannerModel ? await requireKey(store, plannerModel) : undefined;
   // Analysis never blocks a run: without its key the runs get the rule-based analysis only.
   const analysisKey = analysisModel ? await store.credential(analysisModel) : undefined;
@@ -123,7 +122,7 @@ export async function runTask(task: string, options: RunTaskOptions = {}, intern
   for (let i = 1; i <= repeat; i++) {
     if (signal.aborted) throw cancelled();
     const outDir = join(root, `run-${i}`);
-    const trace = await execute(spec, { outDir, apiKey, plannerApiKey, signal, atDriverCommand, browserProfileDir: join(projectDir, '.rawstep', 'browser-profile'), ...(options.onEvent ? { onEvent: options.onEvent } : {}) });
+    const trace = await execute(spec, { outDir, plannerApiKey, signal, atDriverCommand, browserProfileDir: join(projectDir, '.rawstep', 'browser-profile'), ...(options.onEvent ? { onEvent: options.onEvent } : {}) });
     if (signal.aborted) throw cancelled();
     done.push({ outDir, trace });
   }

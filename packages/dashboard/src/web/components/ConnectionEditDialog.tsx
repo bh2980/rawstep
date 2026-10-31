@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { credentialId, modelKeyEnv, providerPreset, type Connection } from '@rawstep/project/config';
 import { api } from '../api';
-import { ENV_NAME, generateEnvName, kindLabelKey, providerTextKey } from '../lib/connections';
+import { ENV_NAME, generateEnvName, kindLabelKey } from '../lib/connections';
 import { useGuardedAct } from '../lib/useGuardedAct';
 import type { PageProps } from '../pages/types';
 import { Choice, Field, Panel, ReadonlyField, SecretField } from './forms';
@@ -40,7 +40,7 @@ function EditFlow({ initial, pageProps: props, close }: { initial: Connection; p
     if (ok) close();
   }
 
-  const providerName = t(`connections.providers.${providerTextKey(connection.kind, connection.provider)}.name`);
+  const providerName = t(`connections.providers.${connection.provider}.name`);
   const keyInfo = custom ? undefined : t('connections.keySharedHint', { provider: providerName });
   const reveal = async () => (await api<{ value: string | null }>('/credentials/reveal', { method: 'POST', body: custom ? { connectionId: connection.id } : { provider: connection.provider } })).value ?? undefined;
   return <>

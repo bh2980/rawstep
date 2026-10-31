@@ -19,7 +19,7 @@ export function runEnding(outcome: { status: string; reason?: string } | undefin
   if (stopSource === 'exploration-guard') return { ending: 'unmeasured', by: 'repetition-guard' };
   switch (outcome.reason) {
     case 'verification-failed': return { ending: 'mistaken' };
-    // An executor offered the choice to give up (a speech policy's `modelGiveUp`) that stops as stuck gave up; one that stops as unsure did not say either way.
+    // A custom decision policy that stops as stuck gave up; one that stops as unsure did not say either way.
     case 'policy-stuck': return { ending: 'gave-up' };
     case 'policy-uncertain': return { ending: 'unmeasured', by: 'model-uncertain' };
     case 'maxSteps': return { ending: 'unmeasured', by: 'max-steps' };

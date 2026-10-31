@@ -51,8 +51,6 @@ const korean: Record<string, string> = {
   'model-list-missing': '모델 목록 API가 없습니다. 모델 ID를 직접 등록하세요.',
   'unsupported-action': '이 백엔드가 지원하지 않는 행동이 선택되었습니다.',
   'unknown-input': '작업에 없는 입력 이름이 선택되었습니다.',
-  'profile-without-executor': '이 실행 프로필에는 실행 모델이 없습니다. 실행 프로필에서 실행 모델을 고르거나 계획대로 따르기를 고르세요.',
-  'too-many-choices': '선택한 행동의 후보 수가 모델 지원 범위를 초과합니다.',
   'voiceover-macos': 'VoiceOver는 macOS에서 실행하세요.',
   'nvda-windows': 'NVDA는 Windows에서 실행하세요.',
   'at-driver-not-running': 'AT Driver 서버가 응답하지 않습니다. 직접 실행하거나, 이 컴퓨터 설정에 서버 실행 명령을 저장하세요.',

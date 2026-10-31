@@ -111,7 +111,7 @@ BUTTON
 
 특징: solid border, 명확한 왼쪽 rail, element identity 강조, 실행 증거 바로 연결, 높은 visual weight.
 
-**Model Behavior** — 모델 자체가 망설이거나 돌아간 현상. 별도의 보조 layer로 다룬다.
+**Model Behavior** — 시뮬레이션한 사용자(계획 모델의 계획)가 돌아가거나 일찍 멈춘 현상. 별도의 보조 layer로 다룬다.
 
 ```
 MODEL BEHAVIOR
@@ -266,7 +266,7 @@ Page Evidence보다 한 단계 아래에 둔다. 영역 전체의 grammar가 달
 모델이 헤맨 지점
 
 이 항목은 페이지 문제라고 단정할 수 없습니다.
-실행 중 모델이 반복하거나 확신이 낮았던 위치입니다.
+실행 중 계획이 같은 곳을 반복했거나 새 계획을 세워야 했던 위치입니다.
 
 ○ BUTTON · 할인 적용
   같은 두 요소 사이를 4번 이동했습니다.
@@ -302,7 +302,7 @@ chat UI로 만들지 않는다. 명칭은 `AI 제안`. 각 suggestion을 candida
 ```
 실행 #14
 목표에 닿음
-Jev · 기본 프로필
+기본 프로필 · 계획 OpenAI · gpt-5
 행동 10번 · 4.4초 · 가장 빠른 실행
 ```
 
@@ -320,7 +320,7 @@ Jev · 기본 프로필
 ```
 ·        이동
 ●        실행 / activate
-◌        모델 확신 낮음
+◌        새 계획을 세운 지점
 ◎ amber  살펴볼 지점
 ┄        아직 실행되지 않음
 ▣ blue   현재 보고 있는 행동
@@ -336,7 +336,7 @@ Jev · 기본 프로필
 2. **무엇을 했나** — 가장 큰 technical text (`ACTION 07 / Tab`).
 3. **무엇이 바뀌었나** — `PAGE RESPONSE / Focus → button "상품 4"`. Action → Response가 Rawstep trace의 기본 단위다.
 4. **살펴볼 지점** — 있는 경우에만 amber.
-5. **Model detail** — 접힘 (`모델이 본 선택지`).
+5. **Plan detail** — 접힘 (`이 행동이 따른 계획 작업`: 작업 번호, 목표, cue).
 6. **Raw record** — 가장 아래, 접힘.
 
 ## 27. Screenshot
@@ -347,9 +347,9 @@ Jev · 기본 프로필
 
 speech가 주 증거다. `SCREEN READER OUTPUT` 영역에 읽은 문장을 보여 주고 screenshot은 secondary evidence로 둔다.
 
-## 29. Decision Candidate Scores
+## 29. Plan Task
 
-분석의 보조 정보. 기본적으로 접힌 상태. 열면 `MODEL CANDIDATES`와 막대 + 점수, 반드시 "모델 점수 · 확률로 보정된 값이 아님"을 표시. `43%`처럼 확률로 오해할 표현보다는 raw score 표현도 고려한다.
+분석의 보조 정보. 기본적으로 접힌 상태. 열면 이 행동이 어느 계획 버전의 어느 작업을 따른 것인지(번호, 목표, cue, 그 작업에서 한 행동 수)를 보여 준다. 행동을 고른 모델은 없으므로 후보 점수나 확률은 보여 주지 않는다.
 
 ## 30. LIVE RUN
 
@@ -377,7 +377,7 @@ Dashboard 안의 또 다른 card collection으로 만들지 않는다. 전체 �
 
 ## 33. SETTINGS / Models
 
-목록 열: NAME, KIND, PROVIDER, STATUS. `+ 모델 추가` wizard: 1. 종류 2. 제공자 3. 모델 4. 연결 확인. 종류를 plain language로 설명한다 (LLM: 상황을 읽고 다음 행동을 직접 선택합니다. / Decision model: 주어진 행동 후보에 점수를 매기고 하나를 고릅니다.).
+목록 열: NAME, PROVIDER, STATUS. `+ 모델 추가` wizard: 1. 제공자 2. 모델 3. 연결 확인. 모든 연결은 언어 모델이며, 계획·해설·제안 중 어느 역할이 쓰는지 함께 보여 준다.
 
 ## 34. SETTINGS / Run Profiles
 
@@ -399,7 +399,7 @@ Allowed actions는 카드 세 개보다 큰 radio row가 더 compact하다.
 
 ## 36. Empty States
 
-illustration을 넣지 않는다. 항상 "무엇이 없는가 / 왜 필요한가 / 다음 행동" 세 가지로 구성한다. (예: 등록된 모델이 없습니다 / 작업을 실행하려면 행동을 선택할 모델이 필요합니다. / [모델 연결])
+illustration을 넣지 않는다. 항상 "무엇이 없는가 / 왜 필요한가 / 다음 행동" 세 가지로 구성한다. (예: 등록된 모델이 없습니다 / 작업을 실행하려면 계획을 세울 모델이 필요합니다. / [모델 연결])
 
 ## 37. Error States
 
@@ -416,7 +416,7 @@ Tablet / Mobile — 단순히 column을 아래로 쌓는 것에서 끝내지 않
 
 ## 40. Accessibility
 
-Rawstep의 자체 접근성은 제품 신뢰도의 일부다. **Every visualization has a navigable textual equivalent.** Trace rail → 방향키 탐색 + step label, Run strip → 각 실행에 accessible name, 행동 수 chart → 동일 숫자를 text로, Model score bar → score text, 색상 → shape + text 병행.
+Rawstep의 자체 접근성은 제품 신뢰도의 일부다. **Every visualization has a navigable textual equivalent.** Trace rail → 방향키 탐색 + step label, Run strip → 각 실행에 accessible name, 행동 수 chart → 동일 숫자를 text로, 색상 → shape + text 병행.
 
 ## 41. Motion Language
 
@@ -450,7 +450,7 @@ Generic shadcn Dashboard(모든 내용을 `rounded-lg border p-4` 카드로), Te
 
 1. `TaskOverview` — 여러 finding card를 Element Evidence Ledger로.
 2. `StepDots` — 단일 horizontal dot row를 Overview Rail + Detail Rail 구조로.
-3. `StepDetail` — Evidence → Action → Page Response → Inspect → Model detail → Raw 순서로.
+3. `StepDetail` — Evidence → Action → Page Response → Inspect → Plan detail → Raw 순서로.
 
 ## 46. Core Formula
 

@@ -82,11 +82,6 @@ export function describeHint(hint: Pick<Hint, 'kind' | 'summary' | 'detail'> & P
       if (!Array.isArray(d.changes)) break;
       return t('hints.text.missingAnnouncement', { action: str(d.action) ?? t('hints.text.action') });
     }
-    case 'model-hesitation': {
-      const choice = str(d.choiceId), probability = num(d.probability), runnerUp = num(d.runnerUp);
-      if (!choice || probability === undefined || runnerUp === undefined) break;
-      return t('hints.text.modelHesitation', { choiceId: choiceLabel(choice), score: probability.toFixed(2), runnerUp: runnerUp.toFixed(2) });
-    }
     case 'early-stop': {
       if (str(d.stopSource) === 'exploration-guard') return t('hints.text.earlyStopGuard');
       if (str(d.stopSource) === 'orchestration-limit') return t('hints.text.earlyStopPlanLimit');
@@ -100,13 +95,8 @@ export function describeHint(hint: Pick<Hint, 'kind' | 'summary' | 'detail'> & P
       // The report marks the hint observed only when every goal rule held; otherwise it is suspected.
       return hint.certainty === 'observed' ? t('hints.text.goalMetAll') : t('hints.text.goalMetSome', { n: d.rules.length });
     }
-    case 'help-request': {
-      const help = str(d.help);
-      return t('hints.text.helpRequest', { reason: help ? t(`hints.text.helpReasons.${help}`, { defaultValue: help }) : t('hints.text.helpReasons.none'), version: String(d.version ?? '') });
-    }
-    case 'replan': return t(str(d.trigger) === 'failures' ? 'hints.text.replanFailures' : str(d.trigger) === 'low-confidence' ? 'hints.text.replanLowConfidence' : str(d.trigger) === 'oscillation' ? 'hints.text.replanOscillation' : 'hints.text.replanNoChange', { version: String(d.version ?? '') });
+    case 'replan': return t(str(d.trigger) === 'failures' ? 'hints.text.replanFailures' : str(d.trigger) === 'oscillation' ? 'hints.text.replanOscillation' : 'hints.text.replanNoChange', { version: String(d.version ?? '') });
     case 'task-limit': return t('hints.text.taskLimit', { version: String(d.version ?? '') });
-    case 'unverified-done': return t('hints.text.unverifiedDone', { task: str(d.taskId) ?? '' });
     case 'wanted-to-give-up': return t('hints.text.wantedToGiveUp', { reason: str(d.reason) ?? '' });
     case 'goal-word-stretch': return t('hints.text.goalWordStretch', { from: String(d.from ?? ''), to: String(d.to ?? ''), moves: String(d.moves ?? '') });
     case 'expectation-broken': {
@@ -120,10 +110,4 @@ export function describeHint(hint: Pick<Hint, 'kind' | 'summary' | 'detail'> & P
     }
   }
   return hint.summary;
-}
-
-/** Candidate ids look like `key:Tab` or `intent:next`; people read the key or command. */
-export function choiceLabel(id: string): string {
-  const [kind, value] = id.split(/:(.*)/s);
-  return value && (kind === 'key' || kind === 'intent') ? value : id;
 }

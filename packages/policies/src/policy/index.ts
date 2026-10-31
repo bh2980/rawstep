@@ -20,13 +20,13 @@ export async function loadPolicy(modulePath: string, options: { fresh?: boolean 
   if (!policy || typeof policy.decide !== 'function') throw new Error('Policy module must export a default or named policy object with decide(input).');
   return policy;
 }
-export type { ChoiceCandidate, ChoiceModel, ChoiceRequest, ChoiceResult, ModelFailure } from './choice.js';
+export type { ChoiceCandidate, ModelFailure } from './choice.js';
 export { actionOnly, modelHistory } from './history.js';
 export type { ModelHistoryEntry } from './history.js';
-export { SpeechDecisionPolicy, currentItem, currentItemState, speechChoices, speechGuardStop, speechRepetition } from './speech.js';
+export { currentItem, currentItemState, speechChoices, speechGuardStop, speechRepetition } from './speech.js';
 export type { SpeechGuard, SpeechPolicyOptions } from './speech.js';
-export { ACTION_ONLY_EXECUTOR_GUIDE, ORCHESTRATED_EXECUTOR_GUIDE, OrchestratedSpeechPolicy, confidenceOf, followPlan, goalWordStretch, orchestratedPrompt } from './orchestration.js';
+export { OrchestratedSpeechPolicy, followPlan, goalWordStretch } from './orchestration.js';
 export { FixedPlanner, planDraftSchema, plannerDraftSchema, planFileSchema } from './fixed-plan.js';
-export type { CueRequest, CueResult, Effort, ExecutorLatitude, OrchestrationOptions, PlanRequest, PlanResult, Planner, TaskAttempt } from './orchestration.js';
-export { activateNext, applyDraft, currentTask, failCurrent, finishCurrent, goalLeads, goalRelated, markCheckpoint, needsCheckpoint, phaseOf, planOutline, planTasks, renderPlanMarkdown, cueText, matchCue, verifyCue, type CueRole, type CueState, type DraftCue } from './plan-document.js';
-export type { Assumption, AssumptionStatus, Criterion, CriterionStatus, GiveUp, HelpReason, PlanDocument, PlanDraft, PlanPhase, PlanRevision, PlanTask, PlanTrigger, TaskEnding, TaskStatus } from './plan-document.js';
+export type { CueRequest, CueResult, Effort, OrchestrationOptions, PlanRequest, PlanResult, Planner, TaskAttempt } from './orchestration.js';
+export { activateNext, applyDraft, currentTask, failCurrent, finishCurrent, goalLeads, goalRelated, markCheckpoint, needsCheckpoint, phaseOf, planTasks, renderPlanMarkdown, cueText, matchCue, verifyCue, type CueRole, type CueState, type DraftCue } from './plan-document.js';
+export type { Assumption, AssumptionStatus, Criterion, CriterionStatus, GiveUp, PlanDocument, PlanDraft, PlanPhase, PlanRevision, PlanTask, PlanTrigger, TaskEnding, TaskStatus } from './plan-document.js';

@@ -4,14 +4,14 @@ import { RUN_ERROR } from '../packages/dashboard/src/shared/config.js';
 import '../packages/dashboard/src/web/i18n/index.js';
 import { ApiError } from '../packages/dashboard/src/web/api.js';
 import { describeAfterRunFailure, describeApiError, describeRunFailure, errorKindOf } from '../packages/dashboard/src/web/lib/errors.js';
-import { generateEnvName, keyStatus, providerTextKey } from '../packages/dashboard/src/web/lib/connections.js';
-import { choiceName, comboBlocker, comboSummary, environmentViewport, hasExecutor, profileReady, sameValue, unsupportedActions } from '../packages/dashboard/src/web/lib/conditions.js';
+import { generateEnvName, keyStatus } from '../packages/dashboard/src/web/lib/connections.js';
+import { choiceName, comboBlocker, comboSummary, environmentViewport, profileReady, sameValue, unsupportedActions } from '../packages/dashboard/src/web/lib/conditions.js';
 import { runConditions } from '../packages/dashboard/src/web/lib/runs.js';
 import { displayState, recentRuns, resultLabel } from '../packages/dashboard/src/web/lib/runStrip.js';
 import { failureDetail, publicOutcome } from '../packages/dashboard/src/server/queue.js';
 import { ProjectError } from '@rawstep/project/errors';
-import { DEFAULT_PERMISSIONS, defaultConfig, defaultProfile, type Executor } from '@rawstep/project/config';
-import { profileWith, connection, plannedWith } from './helpers/project-config.js';
+import { DEFAULT_PERMISSIONS, defaultConfig, defaultProfile } from '@rawstep/project/config';
+import { profileWith, connection } from './helpers/project-config.js';
 
 const hangul = /[가-힣]/;
 type Run = Pick<RunRecord, 'state' | 'outcome' | 'error' | 'taskId'>;
@@ -116,12 +116,12 @@ describe('result and run strip helpers', () => {
 
 describe('settings helpers', () => {
   it('reads a connection\'s key as missing, set or nothing to check without asking anyone', () => {
-    const preset = connection('p', { kind: 'llm', provider: 'openai' });
+    const preset = connection('p', { provider: 'openai' });
     expect(keyStatus(preset, {})).toBe('missing');
     expect(keyStatus(preset, { 'provider:openai': true })).toBe('set');
-    const local = connection('l', { kind: 'llm', baseURL: 'http://127.0.0.1:1234/v1' });
+    const local = connection('l', { baseURL: 'http://127.0.0.1:1234/v1' });
     expect(keyStatus(local, {})).toBe('unchecked');
-    const keyed = connection('k', { kind: 'llm', baseURL: 'http://127.0.0.1:1234/v1', apiKeyEnv: 'RAWSTEP_CUSTOM_API_KEY' });
+    const keyed = connection('k', { baseURL: 'http://127.0.0.1:1234/v1', apiKeyEnv: 'RAWSTEP_CUSTOM_API_KEY' });
     expect(keyStatus(keyed, { 'connection:k': true })).toBe('set');
     expect(keyStatus(keyed, {})).toBe('unchecked');
   });
@@ -131,43 +131,36 @@ describe('settings helpers', () => {
     expect(generateEnvName([])).toBe('RAWSTEP_CUSTOM_API_KEY');
     expect(generateEnvName(list)).toBe('RAWSTEP_CUSTOM_API_KEY_3');
     expect(generateEnvName(list, 'a')).toBe('RAWSTEP_CUSTOM_API_KEY');
-    expect(providerTextKey('decision', 'typesafe')).toBe('decisionTypesafe'); expect(providerTextKey('llm', 'custom')).toBe('llmCustom');
   });
 
-  it('names run profiles by their models, and tells whether a profile can run', () => {
+  it('names run profiles by their planners, and tells whether a profile can run', () => {
     const presets = { narrow: { viewport: { width: 375, height: 667 } } };
-    const connections = [connection('jev', { name: 'Jev server' }), connection('writer', { name: 'Writer', kind: 'llm' })];
+    const connections = [connection('writer', { name: 'Writer' }), connection('other', { name: 'Other' })];
     expect(environmentViewport('default', presets)).toEqual({ width: 1280, height: 800 });
     expect(environmentViewport('narrow', presets)).toEqual({ width: 375, height: 667 });
     expect(environmentViewport({ id: 'x', viewport: { width: 800, height: 600 } }, presets)).toEqual({ width: 800, height: 600 });
     expect(environmentViewport({ viewport: { width: -1, height: 'x' } }, presets)).toEqual({ width: 1280, height: 800 });
     const bare = defaultProfile('p', 'Plain');
-    // The default executor follows the plan, so it needs no model.
-    expect(comboSummary(bare, connections)).toBe('모델 없음 계획 → Rawstep · 계획대로');
-    expect(hasExecutor(bare, connections)).toBe(true);
-    const solo = profileWith('s', 'jev', 'jev-latest');
-    expect(hasExecutor(solo, connections)).toBe(true);
-    expect(hasExecutor(profileWith('g', 'gone', 'x'), connections)).toBe(false);
-    expect(hasExecutor(profileWith('e', 'jev', ' '), connections)).toBe(false);
-    const planned = plannedWith(solo, 'writer', 'planner-fixture');
-    const { executor: _executor, ...none } = planned;
-    expect(comboSummary(none, connections)).toBe('실행 모델 없음');
-    expect(hasExecutor({}, connections)).toBe(false);
-    expect(comboSummary(planned, connections)).toBe('planner-fixture 계획 → jev-latest');
-    // Ready to run: a new project's profile follows the plan but has no planner yet, so it is not.
+    // A new project's profile has no planner yet: it shows no model and cannot run.
+    expect(comboSummary(bare, connections)).toBe('모델 없음');
     expect(profileReady(bare, connections)).toBe(false);
-    expect(profileReady(solo, connections)).toBe(false);
+    const planned = profileWith('s', 'writer', 'planner-fixture');
+    expect(comboSummary(planned, connections)).toBe('planner-fixture');
+    expect(comboSummary(profileWith('s', 'writer', ' '), connections)).toBe('Writer');
+    expect(comboSummary(profileWith('g', 'gone', 'x'), connections)).toBe('모델 없음');
+    expect(comboSummary({ ...bare, planner: { planFile: 'plans/p.json' } }, connections)).toBe('계획 파일 · plans/p.json');
+    // Ready to run: a plan file, or a planner model with an ID on a connection that exists.
     expect(profileReady(planned, connections)).toBe(true);
-    expect(profileReady(plannedWith(solo, 'writer', ' '), connections)).toBe(false);
+    expect(profileReady(profileWith('e', 'writer', ' '), connections)).toBe(false);
+    expect(profileReady(profileWith('g', 'gone', 'x'), connections)).toBe(false);
     expect(profileReady({ ...bare, planner: { planFile: 'plans/p.json' } }, connections)).toBe(true);
-    // A missing planner only stops runs, not saving.
+    // A missing planner only stops runs, not saving; a planner model without its ID stops saving.
     expect(comboBlocker(bare)).toBeUndefined();
-    // A combo whose executor follows the plan has no model there to finish.
-    expect(comboBlocker({ ...bare, executor: { followPlan: true }, planner: { planFile: 'plans/p.json' } })).toBeUndefined();
-    expect(comboBlocker(plannedWith(solo, 'writer', ''))).toBe('modelId');
+    expect(comboBlocker({ ...bare, planner: { planFile: 'plans/p.json' } })).toBeUndefined();
+    expect(comboBlocker(profileWith('s', 'writer', ''))).toBe('modelId');
+    expect(comboBlocker({ ...bare, name: ' ' })).toBe('name');
     expect(comboBlocker(planned)).toBeUndefined();
-    const executor = solo.executor as Executor;
-    expect(choiceName(executor, connections)).toBe('Jev server · jev-latest');
+    expect(choiceName(planned.planner as { connectionId: string; modelId: string }, connections)).toBe('Writer · planner-fixture');
     // A model on a connection that no longer exists reads as none.
     expect(choiceName({ connectionId: 'gone', modelId: 'x' }, connections)).toBeUndefined();
     expect(choiceName(undefined, connections)).toBeUndefined();
@@ -181,7 +174,7 @@ describe('settings helpers', () => {
     expect(unsupportedActions({ actions: quick }, capabilities)).toEqual({ simulation: ['form.next'], voiceover: [], nvda: ['form.next'] });
     const config = defaultConfig();
     // A run names its profile as recorded; older runs fall back to their preset or combo, then to the project's profile by id.
-    const spec = (conditions: unknown) => ({ backend: 'simulation', model: { name: 'm' }, conditions });
+    const spec = (conditions: unknown) => ({ backend: 'simulation', plannerModel: { name: 'm' }, conditions });
     const ran = (conditions: unknown, profileId?: string) => runConditions({ snapshot: { spec: spec(conditions) }, ...(profileId ? { profileId } : {}) } as never, config).profile;
     expect(ran({ profile: { id: 'default', name: 'Recorded' } }, 'default')).toBe('Recorded');
     expect(ran({ preset: { name: 'Old preset' }, combo: { name: 'Old combo' } })).toBe('Old preset');

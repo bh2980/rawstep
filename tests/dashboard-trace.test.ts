@@ -51,21 +51,16 @@ describe('rail keys', () => {
 });
 
 describe('step glyphs', () => {
-  const chose = (probability: number, runnerUp = 0.1): Partial<StepView> => ({ model: { choiceId: 'key:Tab', candidates: [{ id: 'key:Tab', probability }, { id: 'key:Enter', probability: runnerUp }] } });
-
   it('draws · for a move and ● for a press or page change', () => {
-    expect(stepGlyph(step(1, tab), 'llm')).toBe('move');
-    expect(stepGlyph(step(1, { kind: 'key', key: 'Enter' }), 'llm')).toBe('press');
-    expect(stepGlyph(step(1, tab, { observed: [{ kind: 'navigation', url: 'https://example.com' }] }), 'llm')).toBe('press');
-    expect(stepGlyph(step(0), 'llm')).toBe('press');
+    expect(stepGlyph(step(1, tab))).toBe('move');
+    expect(stepGlyph(step(1, { kind: 'key', key: 'Enter' }))).toBe('press');
+    expect(stepGlyph(step(1, tab, { observed: [{ kind: 'navigation', url: 'https://example.com' }] }))).toBe('press');
+    expect(stepGlyph(step(0))).toBe('press');
   });
 
-  it('draws ◌ for a Decision model pick whose runner-up scored close to it and ◎ for a step with a hint, the hint winning', () => {
-    expect(stepGlyph(step(1, tab, chose(0.3, 0.28)), 'decision')).toBe('unsure');
-    expect(stepGlyph(step(1, tab, chose(0.3, 0.28)), 'llm')).toBe('move');
-    expect(stepGlyph(step(1, tab, chose(0.3)), 'decision')).toBe('move');
-    expect(stepGlyph(step(1, tab, { hints: ['backtracking'] }), 'llm')).toBe('inspect');
-    expect(stepGlyph(step(1, tab, { ...chose(0.3, 0.28), hints: ['backtracking'] }), 'decision')).toBe('inspect');
+  it('draws ◎ for a step with a hint, the hint winning over the move or press', () => {
+    expect(stepGlyph(step(1, tab, { hints: ['backtracking'] }))).toBe('inspect');
+    expect(stepGlyph(step(1, { kind: 'key', key: 'Enter' }, { hints: ['missing-announcement'] }))).toBe('inspect');
   });
 });
 

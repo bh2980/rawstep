@@ -1,5 +1,5 @@
 import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
-import { listGatewayDecisionModels, modelBaseURL } from '@rawstep/policies/systemone';
+import { modelBaseURL } from '@rawstep/policies/llm';
 import { AcpAgent, AcpError } from '@rawstep/policies/acp';
 import { providerPreset, resolveBaseURL, type DiscoverRequest } from './config.js';
 import { ProjectError } from './errors.js';
@@ -19,7 +19,7 @@ export type DiscoverOptions = { timeoutMs?: number; fetch?: typeof fetch };
  * A model a connection offers. `efforts`: the reasoning levels a coding-agent CLI offers (the same for each of its models), with its
  * own default as `defaultEffort`.
  */
-export type DiscoveredModel = { modelId: string; name: string; maxChoices?: number; efforts?: string[]; defaultEffort?: string };
+export type DiscoveredModel = { modelId: string; name: string; efforts?: string[]; defaultEffort?: string };
 
 /**
  * The models a connection offers, for a run profile to pick from.
@@ -27,16 +27,13 @@ export type DiscoveredModel = { modelId: string; name: string; maxChoices?: numb
  * - LLM providers: the OpenAI-style `GET {base}/models` list, without models that do not produce text.
  * - Agent CLIs (Claude Code, Codex, ...): the agent is started, asked for its model list, and closed again. `default` leaves
  *   the choice to the agent's own setting.
- * - Decision providers: OpenRouter's `models?output_modalities=decisions`; TypeSafe's `/models`
- *   when it has one; the Vercel AI Gateway's decision and evaluation models; custom servers are typed by hand (empty list).
  * A failure means the list is unavailable: registering the model ID by hand always works.
  */
-export async function discover(target: Pick<DiscoverRequest, 'kind' | 'provider' | 'baseURL'>, apiKey?: string, options: DiscoverOptions = {}): Promise<DiscoveredModel[]> {
-  const { kind, provider } = target, preset = (providerPreset({ kind, provider }) as ReturnType<typeof providerPreset> | undefined);
-  if (!preset) throw new ProjectError('invalid-provider', `${provider} is not a provider of ${kind} models.`);
+export async function discover(target: Pick<DiscoverRequest, 'provider' | 'baseURL'>, apiKey?: string, options: DiscoverOptions = {}): Promise<DiscoveredModel[]> {
+  const { provider } = target, preset = (providerPreset({ provider }) as ReturnType<typeof providerPreset> | undefined);
+  if (!preset) throw new ProjectError('invalid-provider', `${provider} is not a provider Rawstep knows.`);
   if (provider === 'custom' && !target.baseURL) throw new ProjectError('invalid-base-url', 'A custom provider needs a server address.');
   const timeoutMs = options.timeoutMs ?? Math.min(RAWSTEP_DEFAULTS.modelTimeoutMs, 30000);
-  if (kind === 'decision' && provider === 'custom') return [];
   if (preset.agent) {
     const agent = new AcpAgent(preset.agent);
     try {
@@ -53,15 +50,8 @@ export async function discover(target: Pick<DiscoverRequest, 'kind' | 'provider'
     }
     finally { await agent.close(); }
   }
-  if (kind === 'decision' && provider === 'gateway') {
-    if (!apiKey) throw new ProjectError('missing-credential', 'Listing Vercel AI Gateway models needs its key. Enter the key first.');
-    let models: { id: string; name: string }[];
-    try { models = await listGatewayDecisionModels({ apiKey, signal: AbortSignal.timeout(timeoutMs), ...(options.fetch ? { fetch: options.fetch } : {}) }); }
-    catch { throw new ProjectError('model-unreachable', 'Cannot read the Gateway model list. Check the key and the connection.', 502); }
-    return models.map(m => ({ modelId: m.id, name: m.name }));
-  }
   let base: URL;
-  try { base = modelBaseURL(resolveBaseURL({ kind, provider, baseURL: target.baseURL })); }
+  try { base = modelBaseURL(resolveBaseURL({ provider, baseURL: target.baseURL })); }
   catch { throw new ProjectError('invalid-base-url', 'The server address must be an https:// URL (http:// only for a server on this computer) without credentials.'); }
   const fetcher = options.fetch ?? fetch;
   async function get(path: string) {
@@ -71,21 +61,21 @@ export async function discover(target: Pick<DiscoverRequest, 'kind' | 'provider'
       redirect: 'error', signal: AbortSignal.timeout(timeoutMs),
     })); } catch (e) { if (e instanceof ProjectError) throw e; throw new ProjectError('model-unreachable', 'Cannot reach the model server. Check the address and that the server is running.', 502); }
   }
-  const path = kind === 'decision' && provider === 'openrouter' ? 'models?output_modalities=decisions' : provider === 'anthropic' ? 'models?limit=1000' : 'models';
+  const path = provider === 'anthropic' ? 'models?limit=1000' : 'models';
   const rows = record(await get(path)).data;
   if (!Array.isArray(rows)) throw new ProjectError('model-list-missing', 'The server has no model list API. Register the model ID by hand.', 502);
   const result: DiscoveredModel[] = [];
   for (const raw of rows) {
     const m = record(raw), arch = record(m.architecture);
-    const listed = kind === 'decision' && typeof m.canonical_slug === 'string' ? m.canonical_slug : m.id;
+    const listed = m.id;
     if (typeof listed !== 'string' || !listed || (apiKey && JSON.stringify(m).includes(apiKey))) continue;
     const modelId = provider === 'google' ? listed.replace(/^models\//, '') : listed;
-    // OpenRouter's chat catalog also lists models that make images or audio; only text-producing models can choose.
+    // OpenRouter's chat catalog also lists models that make images or audio; only text-producing models can plan.
     const output = Array.isArray(arch.output_modalities) ? arch.output_modalities : undefined;
-    if (kind === 'llm' && output && (!output.includes('text') || output.includes('decisions'))) continue;
+    if (output && (!output.includes('text') || output.includes('decisions'))) continue;
     if (result.some(v => v.modelId === modelId)) continue;
     const name = [m.name, m.display_name].find((v): v is string => typeof v === 'string' && !!v) ?? modelId;
-    result.push({ modelId, name, ...(typeof m.maxChoices === 'number' ? { maxChoices: m.maxChoices } : {}) });
+    result.push({ modelId, name });
   }
   return result;
 }

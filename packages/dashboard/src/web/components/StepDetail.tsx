@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Check, Minus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import type { ModelKind } from '@rawstep/project/config';
 import type { Hint, RunPlanView, StepView } from '../../shared/api';
 import type { RunRecord } from '../../shared/config';
 import { describeChange, hintKindLabel } from '../i18n/labels';
@@ -20,8 +19,8 @@ import { Button } from './ui/button';
 import { Collapsible, CollapsibleContent } from './ui/collapsible';
 
 type Props = {
-  step: StepView; experimentId: string; run: RunRecord; modelKind: ModelKind;
-  /** The step just before this one: a stop has no evidence of its own, so it shows what the model was looking at when it chose. */
+  step: StepView; experimentId: string; run: RunRecord;
+  /** The step just before this one: a stop has no evidence of its own, so it shows the state it stopped on. */
   before?: StepView | undefined;
   /** The hints that point at this step, with their details. */
   hints: Hint[];
@@ -37,10 +36,10 @@ const label = 'text-xs leading-4 font-medium';
 
 /**
  * One step, in the order a person investigates it: the evidence (what was heard, then the screen), the action, what the page did in
- * response, the places worth a look, and only then the model's candidates and the raw record, both closed.
+ * response, the places worth a look, and only then the options Rawstep chose between and the raw record, both closed.
  * Wide: evidence 3fr beside analysis 2fr. Narrow: the action first, then evidence, response, inspect.
  */
-export function StepDetail({ step, experimentId, run, modelKind, before, hints, baselineMet, live, plan }: Props) {
+export function StepDetail({ step, experimentId, run, before, hints, baselineMet, live, plan }: Props) {
   const { t } = useTranslation();
   return <section aria-label={t('runPage.stepLabel')} className="motion-reveal grid items-start gap-x-6 gap-y-5 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
     <Action step={step} baselineMet={baselineMet} />
@@ -56,8 +55,8 @@ export function StepDetail({ step, experimentId, run, modelKind, before, hints, 
     {hints.length > 0 && <Inspect hints={hints} />}
     <Verification step={step} run={run} />
     <PlanNotes step={step} plan={plan} />
-    {step.calls && (plan || step.calls.length > 1) && <div className="border-t pt-2.5 lg:col-start-2"><ModelCalls step={step.step} calls={step.calls} plan={plan} /></div>}
-    <Candidates step={step} modelKind={modelKind} />
+    {step.calls && step.calls.length > 0 && <div className="border-t pt-2.5 lg:col-start-2"><ModelCalls step={step.step} calls={step.calls} /></div>}
+    <Candidates step={step} />
     <Collapsible className="border-t pt-2.5 lg:col-start-2">
       <Disclosure label={t('stepDetail.raw')} />
       <CollapsibleContent className="motion-reveal pt-3"><RawRecord experimentId={experimentId} run={run} step={step.step} /></CollapsibleContent>
@@ -139,11 +138,10 @@ function Verification({ step, run }: { step: StepView; run: RunRecord }) {
 function PlanNotes({ step, plan }: { step: StepView; plan: RunPlanView | undefined }) {
   const { t } = useTranslation();
   const events = step.plan?.events ?? [], task = plan ? servedTask(plan, step.step) : undefined, served = plan?.stepTasks[step.step];
-  if (!task && !events.length && !step.plan?.stepGoal) return null;
+  if (!task && !events.length) return null;
   return <div className="grid gap-2 border-t pt-2.5 lg:col-start-2">
     <h3 className={cn(label, 'text-model')}>{t('stepDetail.plan.title')}</h3>
-    {task && served ? <p className="text-sm"><span className="text-muted-foreground">{t('stepDetail.plan.task')}:</span> <span className="font-mono text-xs">{task.number}</span> {task.goal} <span className="text-xs text-muted-foreground">(v{served.planVersion})</span></p>
-      : step.plan?.stepGoal && <p className="text-sm"><span className="text-muted-foreground">{t('stepDetail.plan.task')}:</span> {step.plan.stepGoal}</p>}
+    {task && served && <p className="text-sm"><span className="text-muted-foreground">{t('stepDetail.plan.task')}:</span> <span className="font-mono text-xs">{task.number}</span> {task.goal} <span className="text-xs text-muted-foreground">(v{served.planVersion})</span></p>}
     {events.length > 0 && <ul className="grid gap-1 text-sm">
       {events.map((event, i) => <li key={i}>
         {event.kind === 'step-done' && <span><span className="text-muted-foreground">{t('stepDetail.plan.taskDone')}:</span> {plan ? taskName(plan, event.goal) : event.goal}</span>}
@@ -154,46 +152,27 @@ function PlanNotes({ step, plan }: { step: StepView; plan: RunPlanView | undefin
   </div>;
 }
 
-const score = (value: number) => value.toFixed(2);
-
-/**
- * What the model chose between, closed by default. A Decision model gives one score per candidate (a raw model score, not a
- * probability: bars and numbers, no percent sign); an LLM gives none, so only the candidate it picked is shown.
- */
-function Candidates({ step, modelKind }: { step: StepView; modelKind: ModelKind }) {
+/** The actions the page allowed when Rawstep followed the plan, in the order it saw them, closed by default; the one it took is marked. */
+function Candidates({ step }: { step: StepView }) {
   const { t } = useTranslation();
   const [all, setAll] = useState(false);
-  const model = step.model;
-  if (!model) return null;
-  const candidates = [...(model.candidates ?? [])].sort((a, b) => (b.probability ?? -1) - (a.probability ?? -1));
-  const chosen = candidates.find(candidate => candidate.id === model.choiceId);
+  const follow = step.follow;
+  if (!follow) return null;
+  const candidates = follow.candidates ?? [];
   const shown = all ? candidates : candidates.slice(0, MAX_CANDIDATES);
   return <Collapsible className="border-t pt-2.5 lg:col-start-2">
     <Disclosure label={t('stepDetail.candidates')} />
     <CollapsibleContent className="motion-reveal grid gap-2 pt-2">
-      {modelKind === 'llm'
-        ? <>
-          <p className="text-sm"><span className="text-muted-foreground">{t('stepDetail.chosen')}:</span> <span className="font-mono">{chosen?.label ?? chosen?.id ?? model.choiceId}</span></p>
-          <p className="text-xs leading-5 text-muted-foreground">{t('stepDetail.llmNote')}</p>
-        </>
-        : <>
-          {candidates.length === 0 && <p className="text-sm"><span className="text-muted-foreground">{t('stepDetail.chosen')}:</span> <span className="font-mono">{model.choiceId}</span></p>}
-          <ul className="grid gap-1.5">
-            {shown.map(candidate => {
-              const pick = candidate.id === model.choiceId, name = candidate.label ?? candidate.id, value = candidate.probability;
-              return <li key={candidate.id} className="grid grid-cols-[minmax(0,9rem)_minmax(3rem,1fr)_2.5rem] items-center gap-2 text-xs">
-                <span className={cn('truncate font-mono', pick && 'font-semibold')} title={name}>{pick && <span className="mr-1 font-sans">[{t('stepDetail.chosenMark')}]</span>}{name}</span>
-                {value === undefined ? <span /> : <span aria-hidden="true" className="h-1.5 rounded-[2px] bg-edge"><span className={cn('block h-full rounded-[2px]', pick ? 'bg-model' : 'bg-muted-foreground')} style={{ width: `${Math.min(100, Math.max(0, value * 100))}%` }} /></span>}
-                <span className="text-right font-mono tabular-nums">{value === undefined ? '' : <><span className="sr-only">{t('stepDetail.score', { score: score(value) })}</span><span aria-hidden="true">{score(value)}</span></>}</span>
-              </li>;
-            })}
-          </ul>
-          {candidates.length > MAX_CANDIDATES && <Button variant="ghost" size="xs" className="justify-self-start" aria-expanded={all} onClick={() => setAll(!all)}>
-            {all ? t('steps.candidateCount', { n: MAX_CANDIDATES }) : t('steps.showAllCandidates', { n: candidates.length })}
-          </Button>}
-          <p className="text-xs text-muted-foreground">{t('stepDetail.scoreNote')}</p>
-        </>}
-      <p className="font-mono text-xs text-muted-foreground">{[model.modelId, model.inferenceMs !== undefined ? t('steps.inference', { ms: Math.round(model.inferenceMs) }) : undefined].filter(Boolean).join(' · ')}</p>
+      {candidates.length === 0 && <p className="text-sm"><span className="text-muted-foreground">{t('stepDetail.chosen')}:</span> <span className="font-mono">{follow.choiceId}</span></p>}
+      <ul className="grid gap-1.5">
+        {shown.map(candidate => {
+          const pick = candidate.id === follow.choiceId, name = candidate.label ?? candidate.id;
+          return <li key={candidate.id} className="text-xs"><span className={cn('block truncate font-mono', pick && 'font-semibold')} title={name}>{pick && <span className="mr-1 font-sans">[{t('stepDetail.chosenMark')}]</span>}{name}</span></li>;
+        })}
+      </ul>
+      {candidates.length > MAX_CANDIDATES && <Button variant="ghost" size="xs" className="justify-self-start" aria-expanded={all} onClick={() => setAll(!all)}>
+        {all ? t('steps.candidateCount', { n: MAX_CANDIDATES }) : t('steps.showAllCandidates', { n: candidates.length })}
+      </Button>}
     </CollapsibleContent>
   </Collapsible>;
 }

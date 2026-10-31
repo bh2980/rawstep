@@ -87,7 +87,7 @@ async function modelServer(status: number, models: string[]): Promise<{ url: str
 
 describe('checking a connection', () => {
   const check = (url: string, body: unknown) => call(url, 'POST', '/api/connections/check', body);
-  const typed = (baseURL: string, extra: Record<string, unknown> = {}) => ({ kind: 'llm', provider: 'custom', baseURL, ...extra });
+  const typed = (baseURL: string, extra: Record<string, unknown> = {}) => ({ provider: 'custom', baseURL, ...extra });
 
   it('asks the model list once and answers ready, or says why not, by kind', async () => {
     const { dir } = await project(), app = await startDashboard({ projectDir: dir, port: 0 }); apps.push(app);
@@ -116,7 +116,7 @@ describe('checking a connection', () => {
   it('needs the key of a keyed provider before it asks anyone, and never stores a key typed for a custom server', async () => {
     const { dir } = await project(), app = await startDashboard({ projectDir: dir, port: 0 }); apps.push(app);
     for (const extra of [{}, { modelId: 'claude' }])
-      expect(await (await check(app.url, { kind: 'llm', provider: 'anthropic', ...extra })).json() as ModelCheck).toMatchObject({ ok: false, kind: 'missing-key', via: 'none' });
+      expect(await (await check(app.url, { provider: 'anthropic', ...extra })).json() as ModelCheck).toMatchObject({ ok: false, kind: 'missing-key', via: 'none' });
     const server = await modelServer(200, ['alpha']);
     await check(app.url, typed(server.url, { apiKey: 'typed-key-123' }));
     expect(server.requests[0]!.headers.authorization).toBe('Bearer typed-key-123');
@@ -126,7 +126,7 @@ describe('checking a connection', () => {
   it('checks a saved connection by its id with the key stored for it, and lists its models', async () => {
     const { dir } = await project(), store = new ProjectStore(dir), server = await modelServer(200, ['alpha']);
     const current = await store.read(), config = structuredClone(current.config);
-    config.connections.push(connection('c1', { name: 'C1', kind: 'llm', baseURL: server.url, apiKeyEnv: 'RAWSTEP_MANAGE_TEST_KEY' }));
+    config.connections.push(connection('c1', { name: 'C1', baseURL: server.url, apiKeyEnv: 'RAWSTEP_MANAGE_TEST_KEY' }));
     await store.save(config, current.revision);
     await store.setCredential(config.connections[0]!, 'stored-key-456');
     const app = await startDashboard({ projectDir: dir, port: 0 }); apps.push(app);
@@ -138,9 +138,9 @@ describe('checking a connection', () => {
     expect(server.requests.at(-1)!.headers.authorization).toBe('Bearer stored-key-456');
     expect((await check(app.url, { connectionId: 'ghost' })).status).toBe(404);
     expect((await call(app.url, 'POST', '/api/connections/models', { connectionId: 'ghost' })).status).toBe(404);
-    expect((await check(app.url, { kind: 'llm', provider: 'typesafe' })).status).toBe(400);
-    expect((await check(app.url, { kind: 'llm', provider: 'custom' })).status).toBe(400);
-    expect((await call(app.url, 'POST', '/api/connections/models', { kind: 'llm', provider: 'custom' })).status).toBe(400);
+    expect((await check(app.url, { provider: 'typesafe' })).status).toBe(400);
+    expect((await check(app.url, { provider: 'custom' })).status).toBe(400);
+    expect((await call(app.url, 'POST', '/api/connections/models', { provider: 'custom' })).status).toBe(400);
   });
 });
 

@@ -21,7 +21,7 @@ rawstep run <task> [--profile <id|name>] [--rule <name>=<value>]...
                    [--repeat <n>] [--out <dir>] [--json] [--project <dir>]
 ```
 
-`<task>`는 `rawstep.config.json`에 등록한 작업 id이거나 작업 JSON 파일 경로입니다. 상대 경로는 프로젝트 폴더 기준이며, 등록하지 않은 파일은 프로젝트의 첫 번째 프로필로 실행합니다. 프로필의 계획 모델이 계획하고 실행 모델이 매 단계를 결정하며, 실행 모델이나 계획 모델이 없는 프로필은 실행할 수 없습니다. [실행 프로필](./config.ko.md#실행-프로필)이 실행을 바꾸는 모든 것을 담으므로, 모델이나 프롬프트, 사용자가 할 수 있는 행동, 페이지 조건, 시뮬레이션과 네이티브 스크린리더를 비교하려면 그 부분만 다른 프로필을 만들어 같은 작업을 각각 실행합니다. 작업 파일 형식은 [작업 안내](./task.ko.md)에 있습니다.
+`<task>`는 `rawstep.config.json`에 등록한 작업 id이거나 작업 JSON 파일 경로입니다. 상대 경로는 프로젝트 폴더 기준이며, 등록하지 않은 파일은 프로젝트의 첫 번째 프로필로 실행합니다. 프로필의 계획 모델이 계획하고 Rawstep이 그 계획을 따르며, 계획 모델이 없는 프로필은 실행할 수 없습니다. [실행 프로필](./config.ko.md#실행-프로필)이 실행을 바꾸는 모든 것을 담으므로, 모델이나 프롬프트, 사용자가 할 수 있는 행동, 페이지 조건, 시뮬레이션과 네이티브 스크린리더를 비교하려면 그 부분만 다른 프로필을 만들어 같은 작업을 각각 실행합니다. 작업 파일 형식은 [작업 안내](./task.ko.md)에 있습니다.
 
 기본값은 다음과 같습니다.
 
@@ -32,10 +32,10 @@ rawstep run <task> [--profile <id|name>] [--rule <name>=<value>]...
 
 `--rule`은 그 실행에서만 실행 규칙을 덮어씁니다(프로필의 규칙 위에 이 옵션). 덮어쓰지 않은 실행 규칙은 설정 파일이나 대시보드에서 정합니다.
 
-출력은 실행 조건, 실행별 블록, 전체 실행에서 모은 발견 사항으로 이루어집니다.
+출력은 실행 조건, 실행별 블록, 전체 실행에서 모은 발견 사항으로 이루어집니다. 조건 줄은 `Conditions: <프로필> (planner <연결 · 모델>)` 형식이고, 계획 파일을 쓰면 `(planner plan file <경로>)`입니다.
 
 ```text
-Conditions: Expert (planned · planner Grok · grok-4.7-build-fast → executor Rawstep · follows the plan)
+Conditions: Headings (planner Grok · grok-4.7-build-fast)
   page default · screen reader simulation
 
 Run 1 of 2: gave up · 34 moves
@@ -70,7 +70,7 @@ Page
 | `hints.json` | 마찰 힌트 |
 | `analysis.json` | 분석. 규칙 기반 분석은 실행 후 항상 만들고, 프로젝트에 분석 모델이 있으면 LLM 분석이 더해집니다(키가 없으면 규칙 기반 분석만 하고 알림을 남깁니다) |
 | `diagnostics/step-<n>.png` | 단계별 참고 스크린샷. 사람이 볼 용도이며 모델은 받지 않습니다 |
-| `plan.json`, `plan.md` | 최종 계획 문서(`plan.md`는 사람이 읽는 체크박스 형식, [계획과 실행](./config.ko.md#계획과-실행-orchestration)) |
+| `plan.json`, `plan.md` | 최종 계획 문서(`plan.md`는 사람이 읽는 체크박스 형식, [계획과 계획 따르기](./config.ko.md#계획과-계획-따르기)) |
 | `report.html`, `report.json` | 보고서([보고서 안내](./report.ko.md)) |
 
 ## hints, report, analyze
@@ -88,17 +88,17 @@ Node 버전, `rawstep.config.json`을 읽을 수 있는지, 브라우저를 실�
 | 코드 | 의미 |
 |---|---|
 | 0 | 실행이 끝났습니다(목표 달성 여부와 무관) |
-| 1 | 오류(설정 파일 없음, 실행 모델이 없는 프로필, 지원하지 않는 행동·조건, 키 누락, 예전 설정 버전, 실행 실패, `doctor` 점검 실패) |
+| 1 | 오류(설정 파일 없음, 계획 모델이 없는 프로필, 지원하지 않는 행동·조건, 키 누락, 예전 설정 버전, 실행 실패, `doctor` 점검 실패) |
 | 2 | 잘못된 사용법 |
 | 130 / 143 | SIGINT(Ctrl+C) / SIGTERM으로 취소. 그때까지 쓴 trace는 보존합니다 |
 
 ## 인증 정보
 
-API 키는 `rawstep.config.json`에 저장하지 않습니다. 연결 제공자의 환경변수(`RAWSTEP_OPENAI_API_KEY`, `RAWSTEP_TYPESAFE_API_KEY` 등, [설정 안내](./config.ko.md) 참고. `custom` 연결은 `apiKeyEnv`로 직접 지정)를 프로세스 환경 또는 프로젝트의 `.env.local`에서 읽으며, 대시보드가 입력받은 키도 `.env.local`(권한 0600)에 씁니다. `.env.local`은 커밋하지 마세요.
+API 키는 `rawstep.config.json`에 저장하지 않습니다. 연결 제공자의 환경변수(`RAWSTEP_OPENAI_API_KEY`, `RAWSTEP_ANTHROPIC_API_KEY` 등, [설정 안내](./config.ko.md) 참고. `custom` 연결은 `apiKeyEnv`로 직접 지정)를 프로세스 환경 또는 프로젝트의 `.env.local`에서 읽으며, 대시보드가 입력받은 키도 `.env.local`(권한 0600)에 씁니다. `.env.local`은 커밋하지 마세요.
 
 ## 개인정보
 
-모델은 스크린리더가 읽는 발화, 목표, 이름 있는 입력 키와 행동 기록만 받고 DOM이나 독립 검증 결과는 받지 않습니다. 저장된 trace에서는 입력값을 가립니다. 이전 결과를 덮어쓰지 않도록 실행마다 새 출력 폴더를 만들며, 실행 결과는 `.rawstep/`에 쌓이므로 git에서 제외하세요.
+계획 모델은 스크린리더가 읽는 발화, 목표, 이름 있는 입력 키와 행동 기록만 받고 DOM이나 독립 검증 결과는 받지 않습니다. 저장된 trace에서는 입력값을 가립니다. 이전 결과를 덮어쓰지 않도록 실행마다 새 출력 폴더를 만들며, 실행 결과는 `.rawstep/`에 쌓이므로 git에서 제외하세요.
 
 ## runTask
 

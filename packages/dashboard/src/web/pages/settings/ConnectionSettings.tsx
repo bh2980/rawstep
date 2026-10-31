@@ -1,14 +1,13 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { MoreHorizontal, Pencil, Plus, Trash2, Zap } from 'lucide-react';
-import { agentOf, executorModel, isFilePlanner, type Connection, type Profile, type ProjectConfig, type ProjectSettings } from '@rawstep/project/config';
+import { agentOf, isFilePlanner, type Connection, type Profile, type ProjectConfig, type ProjectSettings } from '@rawstep/project/config';
 import type { ModelCheck } from '../../../shared/api';
 import type { RouteChange } from '../../hooks/useRoute';
 import { ApiError, api } from '../../api';
 import { ConnectionEditDialog } from '../../components/ConnectionEditDialog';
 import { ConnectionSetupDialog } from '../../components/ConnectionSetupDialog';
 import { CheckStatus, type CheckState } from '../../components/CheckStatus';
-import { InfoTip } from '../../components/layout/InfoTip';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
 import { EmptyState } from '../../components/layout/EmptyState';
 import { PageHeader } from '../../components/layout/PageHeader';
@@ -17,35 +16,31 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Button } from '../../components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '../../components/ui/popover';
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
-import { keyStatus, kindLabelKey, providerTextKey } from '../../lib/connections';
+import { keyStatus, kindLabelKey } from '../../lib/connections';
 import { cn } from '../../lib/utils';
 import type { PageProps } from '../types';
 
 const head = 'h-8 px-3 text-xs font-medium text-muted-foreground';
 
-type Role = 'planner' | 'executor' | 'analysis' | 'suggestions';
-const ROLES: readonly Role[] = ['planner', 'executor', 'analysis', 'suggestions'];
+type Role = 'planner' | 'analysis' | 'suggestions';
+const ROLES: readonly Role[] = ['planner', 'analysis', 'suggestions'];
 type Use = { role: Role; names: { label: string; to: RouteChange }[] };
 
-/** What uses a connection, by role: run profiles that plan or execute with it, and the project's analysis and suggestion models. */
+/** What uses a connection, by role: run profiles that plan with it, and the project's analysis and suggestion models. */
 function usesOf(config: ProjectConfig, id: string, projectLabel: string): Use[] {
   const profile = (p: Profile) => ({ label: p.name, to: { view: 'settings', section: 'profiles' } as RouteChange });
   const project = { label: projectLabel, to: { view: 'settings', section: 'connections' } as RouteChange };
   const by: Record<Role, { label: string; to: RouteChange }[]> = {
     planner: config.profiles.filter(p => !isFilePlanner(p.planner) && p.planner?.connectionId === id).map(profile),
-    executor: config.profiles.filter(p => executorModel(p)?.connectionId === id).map(profile),
     analysis: config.project.analysis.model?.connectionId === id ? [project] : [],
     suggestions: config.project.suggestions.model?.connectionId === id ? [project] : [],
   };
   return ROLES.filter(role => by[role].length).map(role => ({ role, names: by[role] }));
 }
-/** A profile without the roles a removed connection played: it may lose its planner or executor, and cannot run until new ones are picked. */
+/** A profile without the planner a removed connection played: it cannot run until another is picked. */
 function withoutConnection(profile: Profile, id: string): Profile {
-  const { planner, executor } = profile;
-  const keepPlanner = planner && (isFilePlanner(planner) || planner.connectionId !== id);
-  const keepExecutor = executor && ('followPlan' in executor || executor.connectionId !== id);
-  const { planner: _planner, executor: _executor, ...rest } = profile;
-  return { ...rest, ...(keepPlanner ? { planner } : {}), ...(keepExecutor ? { executor } : {}) };
+  const { planner, ...rest } = profile;
+  return planner && (isFilePlanner(planner) || planner.connectionId !== id) ? { ...rest, planner } : rest;
 }
 /** The project settings without models on a removed connection: analysis falls back to rules, suggestions to the analysis model. */
 function projectWithout(project: ProjectSettings, id: string): ProjectSettings {
@@ -67,7 +62,7 @@ export function ConnectionSettings({ navigate, ...props }: PageProps & { navigat
   const [deleting, setDeleting] = useState<Connection>();
   const [checks, setChecks] = useState<Record<string, CheckState>>({});
   const { config, credentialStatus } = props.view;
-  // Profiles that used the connection lose that role (a profile without an executor or planner cannot run until another is picked);
+  // Profiles that used the connection lose that role (a profile without a planner cannot run until another is picked);
   // the project's analysis falls back to the rule-based analysis.
   const remove = (connection: Connection) => { setDeleting(undefined); void props.act(async () => {
     const latest = props.view.config;
@@ -110,9 +105,9 @@ export function ConnectionSettings({ navigate, ...props }: PageProps & { navigat
             return <TableRow key={connection.id} className="h-12 align-top">
               <TableCell className="px-3 py-2.5 whitespace-normal">
                 <span className="block min-w-32 font-medium break-words">{connection.name}</span>
-                <span className="block text-xs text-muted-foreground">{t(`connections.providers.${providerTextKey(connection.kind, connection.provider)}.name`)}{connection.baseURL && <> · <span className="font-mono break-all">{connection.baseURL}</span></>}{agentOf(connection) && <> · <span className="font-mono break-all">{agentOf(connection)!.command}</span></>}</span>
+                <span className="block text-xs text-muted-foreground">{t(`connections.providers.${connection.provider}.name`)}{connection.baseURL && <> · <span className="font-mono break-all">{connection.baseURL}</span></>}{agentOf(connection) && <> · <span className="font-mono break-all">{agentOf(connection)!.command}</span></>}</span>
               </TableCell>
-              <TableCell className="px-3 py-2.5 text-[13px] whitespace-nowrap"><span className="inline-flex items-center gap-1">{t(`connections.kinds.${kindLabelKey(connection)}.name`)}{connection.kind === 'decision' && <InfoTip term={t(`connections.kinds.${kindLabelKey(connection)}.name`)}>{t('help.decisionModel')}</InfoTip>}</span></TableCell>
+              <TableCell className="px-3 py-2.5 text-[13px] whitespace-nowrap">{t(`connections.kinds.${kindLabelKey(connection)}.name`)}</TableCell>
               <TableCell className="px-3 py-2.5 text-[13px] whitespace-normal">
                 {users.length
                   ? <ul className="flex flex-wrap gap-1.5">{users.map(use => <li key={use.role}><UsePopover use={use} navigate={navigate} /></li>)}</ul>

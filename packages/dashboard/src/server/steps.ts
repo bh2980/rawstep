@@ -1,5 +1,5 @@
 import type { TraceEvent } from '@rawstep/core/trace';
-import type { HelpReason, PlanTrigger } from '@rawstep/policies/policy';
+import type { PlanTrigger } from '@rawstep/policies/policy';
 import type { Hint, ModelCall, ObservedChange, PlanDocument, PlanTask, PlanVersionView, RunNotice, RunPlanView, RunStepsView, StepView } from '../shared/api.js';
 
 const REDACTED = '[REDACTED]';
@@ -77,7 +77,7 @@ function planTask(value: unknown): PlanTask | undefined {
   if (!record(value) || !text(value.id)) return undefined;
   const end = ending(value.ending);
   return { id: text(value.id)!, number: text(value.number) ?? '', goal: text(value.goal) ?? '', done: text(value.done) ?? '', cue: text(value.cue) ?? '', ...(text(value.cueRole) ? { cueRole: text(value.cueRole) as PlanTask['cueRole'] } : {}), ...(text(value.cueState) ? { cueState: text(value.cueState) as PlanTask['cueState'] } : {}), serves: strings(value.serves), relies: strings(value.relies),
-    status: taskStatus(value.status) ?? 'pending', actions: int(value.actions) ?? 0, rejected: int(value.rejected) ?? 0, addedIn: int(value.addedIn) ?? 1, ...(end ? { ending: end } : {}) };
+    status: taskStatus(value.status) ?? 'pending', actions: int(value.actions) ?? 0, addedIn: int(value.addedIn) ?? 1, ...(end ? { ending: end } : {}) };
 }
 /** A plan document as the trace holds it, keeping only well-formed parts; redacted wording reads as empty. */
 function planDocument(value: unknown): PlanDocument | undefined {
@@ -99,27 +99,20 @@ function planDocument(value: unknown): PlanDocument | undefined {
 }
 function revisionOf(value: unknown): PlanVersionView | undefined {
   if (!record(value) || int(value.version) === undefined) return undefined;
-  return { version: int(value.version)!, step: int(value.step) ?? 0, trigger: text(value.trigger) ?? 'start', ...(text(value.help) ? { help: text(value.help)! } : {}), rationale: text(value.rationale) ?? '',
+  return { version: int(value.version)!, step: int(value.step) ?? 0, trigger: text(value.trigger) ?? 'start', rationale: text(value.rationale) ?? '',
     added: strings(value.added), abandoned: strings(value.abandoned), broken: strings(value.broken), met: strings(value.met) };
 }
 const allTasks = (doc: PlanDocument): PlanTask[] => [...doc.phases.flatMap(p => p.tasks), ...doc.retired];
-/** One model call from a model-inference or orchestration-plan record (full evidence or the structure kept after text entry). */
+/** One planner call from an orchestration-plan record (full evidence or the structure kept after text entry). */
 function callOf(e: Record<string, unknown>): ModelCall | undefined {
+  if (e.kind !== 'orchestration-plan') return undefined;
   const modelId = record(e.model) ? text(e.model.id) : undefined;
-  const elapsed = typeof e.elapsedMs === 'number' ? e.elapsedMs : typeof e.inferenceMs === 'number' ? e.inferenceMs : undefined;
-  if (e.kind === 'orchestration-plan') return { role: 'planner', ...(modelId ? { modelId } : {}), ...(elapsed !== undefined ? { elapsedMs: elapsed } : {}),
-    ...(text(e.trigger) ? { trigger: text(e.trigger)! } : {}), ...(text(e.help) ? { help: text(e.help)! } : {}), ...(int(e.version) !== undefined ? { version: int(e.version)! } : {}) };
-  if (e.kind !== 'model-inference') return undefined;
-  const choiceId = text(e.choiceId), choices = Array.isArray(e.choices) ? e.choices : [], index = choices.findIndex(c => record(c) && c.id === choiceId);
-  const choice = index >= 0 ? choices[index] as Record<string, unknown> : undefined, probabilities = Array.isArray(e.probabilities) ? e.probabilities : [];
-  return { role: text(e.role) ?? 'executor', ...(text(e.taskId) ? { taskId: text(e.taskId)! } : {}), ...(int(e.planVersion) !== undefined ? { planVersion: int(e.planVersion)! } : {}),
-    ...(choiceId ? { choiceId } : {}), ...(choice && text(choice.label) ? { choiceLabel: text(choice.label)! } : {}),
-    ...(typeof probabilities[index] === 'number' ? { score: probabilities[index] as number } : {}),
-    ...(modelId ? { modelId } : {}), ...(elapsed !== undefined ? { elapsedMs: elapsed } : {}), ...(e.accepted === false ? { accepted: false } : {}) };
+  const elapsed = typeof e.elapsedMs === 'number' ? e.elapsedMs : undefined;
+  return { ...(modelId ? { modelId } : {}), ...(elapsed !== undefined ? { elapsedMs: elapsed } : {}), ...(text(e.trigger) ? { trigger: text(e.trigger)! } : {}), ...(int(e.version) !== undefined ? { version: int(e.version)! } : {}) };
 }
 /**
  * The plan document of an orchestrated run from its policy evidence: each `orchestration-plan` brings a whole version, task events
- * move statuses in between, and executor calls link each action step to its task. After text entry the evidence keeps only its
+ * move statuses in between, and follow records link each action step to its task. After text entry the evidence keeps only its
  * structure (`summary`), so those versions keep the last wording and only statuses, versions and links move on. Action counts are
  * recounted from the steps, so a live run shows them as they grow.
  */
@@ -140,7 +133,7 @@ export function buildPlan(events: readonly TraceEvent[]): RunPlanView | undefine
       any = true;
       const doc = full ? planDocument(e.document) : undefined, version = int(e.version) ?? doc?.version;
       const revision = full ? revisionOf(e.revision) : undefined;
-      if (version !== undefined) versions.set(version, revision ?? { version, step, trigger: text(e.trigger) ?? 'start', ...(text(e.help) ? { help: text(e.help)! } : {}), rationale: '', added: [], abandoned: [], broken: [], met: [] });
+      if (version !== undefined) versions.set(version, revision ?? { version, step, trigger: text(e.trigger) ?? 'start', rationale: '', added: [], abandoned: [], broken: [], met: [] });
       if (doc && record(e.document)) for (const r of Array.isArray(e.document.revisions) ? e.document.revisions : []) { const old = revisionOf(r); if (old && !versions.has(old.version)) versions.set(old.version, old); }
       if (doc) adopt(doc);
       else if (latest && version !== undefined) adopt({ ...structuredClone(latest), version });
@@ -154,18 +147,11 @@ export function buildPlan(events: readonly TraceEvent[]): RunPlanView | undefine
         if (end) task.ending = end;
         if (to === 'active') doc.current = task.id; else if (doc.current === task.id) delete doc.current;
       }
-    } else if (e.kind === 'orchestration-claim' && text(e.taskId)) {
-      any = true;
-      for (const doc of [latest, latest && documents.get(latest.version)]) {
-        const task = doc && allTasks(doc).find(t => t.id === text(e.taskId));
-        if (task) task.rejected = Math.max(task.rejected, int(e.rejected) ?? task.rejected + 1);
-      }
     } else if (e.kind === 'orchestration-limit') {
       any = true;
       const doc = full ? planDocument(e.document) : undefined;
       if (doc) adopt(doc);
-    } else if (e.kind === 'model-inference' && text(e.taskId) && int(e.planVersion) !== undefined) {
-      // The last executor call of a step is the one whose choice became the step's action.
+    } else if (e.kind === 'orchestration-follow' && text(e.taskId) && int(e.planVersion) !== undefined) {
       stepTasks[step] = { taskId: text(e.taskId)!, planVersion: int(e.planVersion)! };
     }
   }
@@ -177,7 +163,7 @@ export function buildPlan(events: readonly TraceEvent[]): RunPlanView | undefine
       const counted = Object.entries(stepTasks).filter(([step, served]) => served.taskId === task.id && served.planVersion <= doc.version && actionSteps.has(Number(step))).length;
       task.actions = Math.max(task.actions, counted);
     }
-    doc.revisions = [...versions.values()].filter(v => v.version <= doc.version).sort((a, b) => a.version - b.version).map(({ help, ...v }) => ({ ...v, trigger: v.trigger as PlanTrigger, ...(help ? { help: help as HelpReason } : {}) }));
+    doc.revisions = [...versions.values()].filter(v => v.version <= doc.version).sort((a, b) => a.version - b.version).map(v => ({ ...v, trigger: v.trigger as PlanTrigger }));
   };
   for (const doc of documents.values()) recount(doc);
   recount(latest);
@@ -187,7 +173,7 @@ export function buildPlan(events: readonly TraceEvent[]): RunPlanView | undefine
 export type StepsInput ={ experimentId: string; runId: string; events: readonly TraceEvent[]; hints?: readonly Pick<Hint, 'kind' | 'steps'>[]; live: boolean };
 
 /** Folds recorded trace events into one view per policy step. Step 0 is the initial page; steps are keyed by policy.decision.step. */
-export function buildSteps({ experimentId, runId, events, hints = [], live }: StepsInput): Omit<RunStepsView, 'modelKind' | 'hints'> {
+export function buildSteps({ experimentId, runId, events, hints = [], live }: StepsInput): Omit<RunStepsView, 'hints'> {
   const byStep = new Map<number, StepView>();
   const step = (n: number, at?: string): StepView => {
     let view = byStep.get(n);
@@ -232,13 +218,10 @@ export function buildSteps({ experimentId, runId, events, hints = [], live }: St
         plan().events.push({ kind: 'plan', reason: text(e.trigger) ?? 'start', outline: text(doc.strategy) ? [text(doc.strategy)!] : [],
           steps: tasks.map(t => [text(t.number), text(t.goal)].filter(Boolean).join(' ')).filter(Boolean) });
       } else if (e.kind === 'orchestration-task' && e.toStatus === 'done' && text(e.taskId)) plan().events.push({ kind: 'step-done', goal: text(e.taskId)! });
-      else if (e.kind === 'orchestration-limit') plan().events.push({ kind: 'limit', reason: text(e.reason) ?? 'help' });
-      if (e.kind === 'model-inference' && text(e.stepGoal)) plan().stepGoal = text(e.stepGoal)!;
-      if (e.kind === 'model-inference' && text(e.choiceId)) {
-        const probabilities = Array.isArray(e.probabilities) ? e.probabilities : [];
-        const candidates = Array.isArray(e.choices) ? e.choices.filter(record).filter(c => text(c.id)).map((c, i) => ({ id: text(c.id)!, ...(text(c.label) ? { label: text(c.label)! } : {}), ...(typeof probabilities[i] === 'number' ? { probability: probabilities[i] as number } : {}) })) : undefined;
-        const modelId = record(e.model) ? text(e.model.id) : undefined;
-        target.model = { choiceId: text(e.choiceId)!, ...(candidates?.length ? { candidates } : {}), ...(modelId ? { modelId } : {}), ...(typeof e.inferenceMs === 'number' ? { inferenceMs: e.inferenceMs } : {}) };
+      else if (e.kind === 'orchestration-limit') plan().events.push({ kind: 'limit', reason: text(e.reason) ?? 'plan-finished' });
+      if (e.kind === 'orchestration-follow' && text(e.choiceId)) {
+        const candidates = Array.isArray(e.choices) ? e.choices.filter(record).filter(c => text(c.id)).map(c => ({ id: text(c.id)!, ...(text(c.label) ? { label: text(c.label)! } : {}) })) : undefined;
+        target.follow = { choiceId: text(e.choiceId)!, ...(candidates?.length ? { candidates } : {}) };
       }
     } else if (event.type === 'verifier.result') {
       if (typeof data.passed === 'boolean') target.verification = { passed: data.passed, rules: rules(data.rules) };

@@ -7,7 +7,7 @@ import { elementsFromAriaSnapshot } from '../packages/dashboard/src/server/struc
 import { ProjectStore } from '@rawstep/project/store';
 import { defaultConfig } from '@rawstep/project/config';
 import { TraceRecorder } from '@rawstep/core/trace';
-import { profileWith, plannedWith, connection } from './helpers/project-config.js';
+import { profileWith, connection } from './helpers/project-config.js';
 import { HINT_SOURCES, type Hint, type HintKind, type HintReport } from '@rawstep/reports/hints';
 import type { TaskFindings, TaskSummary } from '../packages/dashboard/src/shared/api.js';
 
@@ -26,7 +26,7 @@ const checkout = { role: 'button', name: 'Checkout' };
 async function launch(outcomes: { status: 'success' | 'failure'; steps: number; hints: Hint[]; heard?: boolean; reason?: 'policy-stuck'; stopSource?: 'user-gave-up' }[]) {
   const dir = await mkdtemp(join(tmpdir(), 'rawstep-findings-')); dirs.push(dir);
   const store = new ProjectStore(dir), initial = await store.initialize(), config = defaultConfig();
-  config.connections.push(connection('a'), connection('llm', { kind: 'llm' })); config.profiles[0] = plannedWith(profileWith('default', 'a', 'm-a', 'Default'), 'llm');
+  config.connections.push(connection('llm')); config.profiles[0] = profileWith('default', 'llm', 'planner', 'Default');
   config.tasks.push({ id: 'task', name: 'Fixture', file: 'task.json' });
   await store.save(config, initial.revision, { file: 'task.json', task });
   const app = await startDashboard({ projectDir: dir, port: 0, execute: async (run, actual, out) => {
@@ -47,10 +47,10 @@ async function launch(outcomes: { status: 'success' | 'failure'; steps: number; 
 }
 
 const outcomes = [
-  { status: 'success' as const, steps: 11, hints: [hint('excess-keystrokes', checkout, { count: 12 }), hint('focus-lost', checkout), hint('model-hesitation', undefined, {}), hint('slow-run', undefined, {})] },
-  { status: 'success' as const, steps: 2, hints: [hint('model-hesitation', undefined, {})] },
-  { status: 'failure' as const, steps: 20, hints: [hint('excess-keystrokes', checkout, { count: 20 }), hint('model-hesitation', undefined, {})] },
-  { status: 'success' as const, steps: 7, hints: [hint('excess-keystrokes', checkout, { count: 9 }), hint('model-hesitation', undefined, {})] },
+  { status: 'success' as const, steps: 11, hints: [hint('excess-keystrokes', checkout, { count: 12 }), hint('focus-lost', checkout), hint('backtracking', undefined, {}), hint('slow-run', undefined, {})] },
+  { status: 'success' as const, steps: 2, hints: [hint('backtracking', undefined, {})] },
+  { status: 'failure' as const, steps: 20, hints: [hint('excess-keystrokes', checkout, { count: 20 }), hint('backtracking', undefined, {})] },
+  { status: 'success' as const, steps: 7, hints: [hint('excess-keystrokes', checkout, { count: 9 }), hint('backtracking', undefined, {})] },
 ];
 
 describe('task findings and summary', () => {
@@ -63,7 +63,7 @@ describe('task findings and summary', () => {
     // Reaching the goal is what the cost is counted over; a run that ended another way is counted by how it ended.
     expect(findings.results.map(r => [r.ending, r.steps])).toEqual([['reached', 11], ['reached', 2], ['unmeasured', 20], ['reached', 7]]);
     // Run-level hints (slow-run) are not findings; findings are ordered by how many runs show them.
-    expect(findings.findings.map(f => [f.kind, f.source, f.runs, f.totalRuns])).toEqual([['model-hesitation', 'model', 4, 4], ['excess-keystrokes', 'page', 3, 4], ['focus-lost', 'page', 1, 4]]);
+    expect(findings.findings.map(f => [f.kind, f.source, f.runs, f.totalRuns])).toEqual([['backtracking', 'model', 4, 4], ['excess-keystrokes', 'page', 3, 4], ['focus-lost', 'page', 1, 4]]);
     const keystrokes = findings.findings[1]!;
     expect(keystrokes.target).toEqual(checkout); expect(keystrokes.counts).toEqual({ min: 9, max: 20, mean: 41 / 3 });
     expect(keystrokes.occurrences.map(o => o.runId)).toEqual([runs[0]!.id, runs[2]!.id, runs[3]!.id]);
@@ -135,7 +135,7 @@ describe('task findings and summary', () => {
     expect(row.taskId).toBe('task');
     expect(row.facts.medianSteps).toBe(9);
     expect(row).not.toHaveProperty('recent');
-    // model-hesitation is more frequent but is about the model; the table shows page findings.
+    // backtracking is more frequent but is about the model; the table shows page findings.
     expect(row.topFinding).toEqual({ kind: 'excess-keystrokes', target: checkout, runs: 3, totalRuns: 4 });
     expect(row.findingCount).toBeGreaterThanOrEqual(1);
     expect(Date.parse(row.lastRunAt!)).not.toBeNaN();

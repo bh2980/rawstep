@@ -7,8 +7,7 @@ import { AtDriverBackend, AT_DRIVER_KEYS, ScriptedPolicy, readTrace, resolveTask
 import { runTask } from "rawstep/runner";
 import { runMockVoiceOverTask } from "rawstep/mock-voiceover";
 import { runCli } from "rawstep/cli";
-import { DecisionClient, SystemOneChoiceModel } from 'rawstep/systemone';
-import { SpeechDecisionPolicy } from 'rawstep/policy';
+import { FixedPlanner, OrchestratedSpeechPolicy, planFileSchema } from 'rawstep/policy';
 import { mockAtDriverServer } from "./mock-at-driver-server.mjs";
 
 assert.equal(fileURLToPath(import.meta.resolve("rawstep")), join(process.cwd(), "node_modules", "rawstep", "dist", "index.js"));
@@ -72,7 +71,7 @@ try {
   assert.match(await readFile(join(out, "report.html"), "utf8"), /installed-websocket-roundtrip/);
   assert.deepEqual(stderr, []);
   let simulatedVoiceOverBrowser = { status: "not-requested" };
-  let speechModelBrowser = { status: "not-requested" };
+  let planBrowser = { status: "not-requested" };
   if (process.env.RAWSTEP_TEST_BROWSER_PATH) {
     await writeFile("browser-fixture.html", '<!doctype html><title>Before</title><button onclick="document.title=&quot;Completed&quot;">Start</button>');
     await writeFile("mock-decisions.json", JSON.stringify([{ action: { kind: "intent", intent: "activate" } }]));
@@ -91,34 +90,21 @@ try {
     assert.equal(await runCli(["report", mockOut, "--analysis", join(mockOut, "analysis.json")], io), 0);
     assert.match(await readFile(join(mockOut, "report.html"), "utf8"), /[Ss]imulat/);
     simulatedVoiceOverBrowser = { status: "passed", observations: simulatedObservations.length, actualBrowser: true, nativeVoiceOverTested: false };
-    // This HTTP endpoint is an explicitly labelled fixture adapter, not a real model claim.
-    const { createServer } = await import('node:http');
-    let modelRequests = 0;
-    const httpModel = createServer(async (request, response) => {
-      let body = ''; for await (const chunk of request) body += chunk;
-      const modelInput = JSON.parse(body);
-      assert.equal(request.url, '/v1/systemone');
-      assert.ok(Array.isArray(modelInput.state.speech) && !('verify' in modelInput) && !('inputs' in modelInput));
-      modelRequests++;
-      const criteria = Object.keys(modelInput.questions.next.criteria), choice = 'intent:activate';
-      assert.ok(criteria.includes(choice));
-      response.writeHead(200, { 'Content-Type': 'application/json' });
-      response.end(JSON.stringify({ model: modelInput.model, answers: { next: { type: 'choice', choice, probabilities: Object.fromEntries(criteria.map(id => [id, id === choice ? 1 : 0])) } } }));
-    });
-    await new Promise(resolve => httpModel.listen(0, '127.0.0.1', resolve));
-    try {
-      const speechOut = join(process.cwd(), 'installed-speech-model');
-      const client = new DecisionClient({ provider: 'custom', baseURL: 'http://127.0.0.1:' + httpModel.address().port + '/v1', modelId: 'package-smoke-fixture-adapter', capabilities: { maxChoices: 255 } });
-      await runMockVoiceOverTask(resolveTask(JSON.parse(await readFile("mock-task.json", "utf8")), process.cwd()), { policy: new SpeechDecisionPolicy(new SystemOneChoiceModel(client)), outDir: speechOut, browserExecutablePath: process.env.RAWSTEP_TEST_BROWSER_PATH, warn: () => {} });
-      const speechTrace = await readTrace(speechOut);
-      assert.equal(speechTrace.outcome.status, 'success');
-      assert.equal(speechTrace.events.filter(event => event.type === 'policy.evidence').length, modelRequests);
-      assert.equal(await runCli(['analyze', speechOut], io), 0);
-      assert.equal(await runCli(['report', speechOut, '--analysis', join(speechOut, 'analysis.json')], io), 0);
-      speechModelBrowser = { status: 'passed', modelRequests, actualBrowser: true, adapter: 'HTTP fixture, not real inference' };
-    } finally { await new Promise(resolve => httpModel.close(resolve)); }
+    // A plan written beforehand, carried out by Rawstep as written: no model is called.
+    const draft = planFileSchema.parse({ strategy: 'Find Start and press it', criteria: [], assumptions: [], phases: [{ title: 'Start', tasks: [
+      { goal: 'Move to Start', done: 'Hear Start', cue: { name: 'Start', role: 'button' }, activates: false, moves: ['next'] },
+      { goal: 'Press Start', done: 'The page says it completed', cue: '', activates: true }] }] });
+    const planOut = join(process.cwd(), 'installed-plan');
+    await runMockVoiceOverTask(resolveTask(JSON.parse(await readFile("mock-task.json", "utf8")), process.cwd()), { policy: new OrchestratedSpeechPolicy(new FixedPlanner(draft, { file: 'inline', sha256: 'inline' })), outDir: planOut, browserExecutablePath: process.env.RAWSTEP_TEST_BROWSER_PATH, warn: () => {} });
+    const planTrace = await readTrace(planOut);
+    assert.equal(planTrace.outcome.status, 'success');
+    const followed = planTrace.events.filter(event => event.type === 'policy.evidence' && event.data.kind === 'orchestration-follow').length;
+    assert.ok(followed >= 2);
+    assert.equal(await runCli(['analyze', planOut], io), 0);
+    assert.equal(await runCli(['report', planOut, '--analysis', join(planOut, 'analysis.json')], io), 0);
+    planBrowser = { status: 'passed', followed, actualBrowser: true };
   }
-  console.log(JSON.stringify({ wireCommands: server.commands.length, traceEvents: recorded.events.length, observationWindows: observations.length, simulatedVoiceOverBrowser, speechModelBrowser, nativeScreenReaderTested: false }));
+  console.log(JSON.stringify({ wireCommands: server.commands.length, traceEvents: recorded.events.length, observationWindows: observations.length, simulatedVoiceOverBrowser, planBrowser, nativeScreenReaderTested: false }));
 } finally {
   await server.close();
 }

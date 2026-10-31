@@ -1,4 +1,4 @@
-import { comboExecutor, comboPlanner, isFilePlanner, credentialId, modelKeyRequired, type Combo, type Model, type ProjectConfig } from '@rawstep/project/config';
+import { comboPlanner, isFilePlanner, credentialId, modelKeyRequired, type Combo, type Model, type ProjectConfig } from '@rawstep/project/config';
 import { api } from '../api';
 import { t } from '../i18n';
 import type { Combination, ConfigView, Experiment, PlanRequest } from '../../shared/config.js';
@@ -7,14 +7,11 @@ import type { Combination, ConfigView, Experiment, PlanRequest } from '../../sha
 export const QUICK_RUN_REPEATS = 3;
 
 /**
- * Why a model combo cannot run as far as the dashboard can tell without asking the server: no executor, or no key for the executor or
- * the planner. Undefined when it looks ready. The analysis model never blocks a run.
+ * Why a model combo cannot run as far as the dashboard can tell without asking the server: no planner, or no key for the planner.
+ * Undefined when it looks ready. The analysis model never blocks a run.
  */
-export function comboProblem(config: Pick<ProjectConfig, 'connections'>, credentialStatus: Record<string, boolean>, combo: Pick<Combo, 'planner' | 'executor'>): string | undefined {
+export function comboProblem(config: Pick<ProjectConfig, 'connections'>, credentialStatus: Record<string, boolean>, combo: Pick<Combo, 'planner'>): string | undefined {
   const missingKey = (model: Model) => modelKeyRequired(model) && !credentialStatus[credentialId(model)];
-  const executor = comboExecutor(config, combo);
-  if (!executor) return t('runBox.problem.noExecutor');
-  if (missingKey(executor)) return t('runBox.problem.noKey');
   if (!isFilePlanner(combo.planner)) {
     const planner = comboPlanner(config, combo);
     if (!planner) return t('runBox.problem.noPlanner');

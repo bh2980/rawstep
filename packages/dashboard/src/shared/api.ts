@@ -3,7 +3,6 @@
  * Type-only imports keep this file free of Node code so the browser bundle can use it.
  */
 import type { VerifyRule } from '@rawstep/core/contracts';
-import type { ModelKind } from '@rawstep/project/config';
 import type { PlanDocument, PlanPhase, PlanTask } from '@rawstep/policies/policy';
 import type { Hint, HintFinding, HintReport, HintTarget } from '@rawstep/reports/hints';
 import type { RunEnding, UnmeasuredBy } from '@rawstep/reports/endings';
@@ -23,28 +22,19 @@ export type ObservedChange = {
   rect?: { x: number; y: number; width: number; height: number };
 };
 
-/** A planner event: a new plan and why it was asked for, a small step the decision model finished, or the run stopping after too many plans. */
+/** A planner event: a new plan and why it was asked for, a task Rawstep finished, or the run stopping after too many plans. */
 export type PlanEvent = { kind: 'plan'; reason: string; outline: string[]; steps: string[] } | { kind: 'step-done'; goal: string } | { kind: 'limit'; reason: string };
-/**
- * One model call inside a runner step, in the order it was made. `role` is `planner` (wrote or revised the plan document; `trigger`
- * says why and `version` which version it made) or `executor` (picked a candidate; `choiceId` and, for decision models, the score of
- * that choice). Calls recorded after text entry keep only their structure (role, task, version, choice id).
- */
-export type ModelCall = {
-  role: string; taskId?: string; planVersion?: number; choiceId?: string; choiceLabel?: string; score?: number;
-  modelId?: string; elapsedMs?: number; trigger?: string; help?: string; version?: number;
-  /** false when the executor said the task was done and Rawstep turned the claim down (the cue was not heard). */
-  accepted?: boolean;
-};
+/** One planner call inside a runner step, in the order it was made: which plan version it wrote and why (`trigger`). Calls recorded after text entry keep only their structure. */
+export type ModelCall = { modelId?: string; elapsedMs?: number; trigger?: string; version?: number };
 /** One version of a run's plan: when it was made (before which runner step), why, and the planner's own account of the change. */
 export type PlanVersionView = {
-  version: number; step: number; trigger: string; help?: string; rationale: string;
+  version: number; step: number; trigger: string; rationale: string;
   added: string[]; abandoned: string[]; broken: string[]; met: string[];
 };
 /**
  * The plan document of an orchestrated run, rebuilt from policy evidence so it is live while the run records. `document` is the
  * newest version with task statuses and action counts brought up to date; `documents` holds each version as it stood while it was
- * current. `stepTasks` links each action step to the task and plan version it served; `calls` lists every model call per step.
+ * current. `stepTasks` links each action step to the task and plan version it served; `calls` lists every planner call per step.
  */
 export type RunPlanView = {
   document: PlanDocument;
@@ -69,16 +59,11 @@ export type StepView = {
   cursor?: { rect: { x: number; y: number; width: number; height: number }; viewport: { w: number; h: number } };
   /** Screen-reader speech collected after this step (simulated or native, see provenance). */
   speech?: { lines: string[]; provenance: 'native' | 'simulation' | 'unspecified' };
-  model?: {
-    choiceId: string;
-    /** Candidates in the order the model saw them; probabilities are uncalibrated model scores. */
-    candidates?: { id: string; label?: string; probability?: number }[];
-    modelId?: string;
-    inferenceMs?: number;
-  };
-  /** With a planner model: the small step the decision model worked on, and what the planner did during this step. */
-  plan?: { stepGoal?: string; events: PlanEvent[] };
-  /** Every model call of this step in order (a planned step can ask the planner and the executor several times); absent when none. */
+  /** How Rawstep took this step from the plan: the choice it made among the actions the page allowed, in the order it saw them. */
+  follow?: { choiceId: string; candidates?: { id: string; label?: string }[] };
+  /** What the plan did during this step: a new plan, a finished task, the replanning limit. */
+  plan?: { events: PlanEvent[] };
+  /** Every planner call of this step in order (a step can ask the planner several times); absent when none. */
   calls?: ModelCall[];
   /** Page observer changes recorded during this step. */
   observed: ObservedChange[];
@@ -119,8 +104,6 @@ export type RunStepsView = {
   baseline?: { passed: boolean; rules: { ruleIndex: number; ruleType: string; passed: boolean }[] };
   /** The run is still recording; more steps will arrive. */
   live: boolean;
-  /** Kind of the model that decided the actions. Decision models give calibrated-looking probabilities (uncalibrated scores), LLMs give none. */
-  modelKind: ModelKind;
   /** Every hint of the run with its details; `StepView.hints` only has the kinds. Run-level hints have no steps. */
   hints: Hint[];
   /** Runs with a planner: the plan document, its versions and which task each action served. */
@@ -256,8 +239,8 @@ export type SuggestionResult = { page: { title: string; url: string }; suggestio
  * `unverified` is not a failure: the server answered but gave no model list to confirm the model against.
  */
 /** `cli-missing` / `cli-signed-out`: a coding-agent CLI connection whose program is not installed, or that needs the person to sign in first. */
-export type CheckKind = 'ready' | 'missing-key' | 'invalid-address' | 'unreachable' | 'rejected' | 'model-not-listed' | 'unverified' | 'timeout' | 'failed' | 'cli-missing' | 'cli-signed-out';
-export type ModelCheck = { ok: boolean; kind: CheckKind; /** What was asked: the model list, the decision catalog, one minimal decision, or a coding-agent CLI started over ACP. */ via: 'model-list' | 'decision-catalog' | 'decision-call' | 'agent' | 'none'; checkedAt: string };
+export type CheckKind = 'ready' | 'missing-key' | 'invalid-address' | 'unreachable' | 'rejected' | 'model-not-listed' | 'unverified' | 'failed' | 'cli-missing' | 'cli-signed-out';
+export type ModelCheck = { ok: boolean; kind: CheckKind; /** What was asked: the model list, or a coding-agent CLI started over ACP. */ via: 'model-list' | 'agent' | 'none'; checkedAt: string };
 /** One browser launch on request: the engine, its version and where it came from. */
 export type BrowserCheck = { ok: true; name: string; version: string; source: 'custom' | 'auto' | 'connected' } | { ok: false; kind: 'not-found' | 'launch-failed' | 'connect-not-listening' | 'connect-refused' | 'connect-not-devtools'; source: 'custom' | 'auto' | 'connected' };
 

@@ -1,4 +1,3 @@
-import type { ModelKind } from '@rawstep/project/config';
 import type { RunStepsView, StepView } from '../../shared/api.js';
 import { describeStep } from './describe.js';
 import { t } from '../i18n/index.js';
@@ -19,32 +18,11 @@ export function dotKind(step: Pick<StepView, 'step' | 'action' | 'stop' | 'obser
   return action.kind === 'intent' && action.intent && NAVIGATION_INTENTS.has(action.intent) ? 'move' : 'press';
 }
 
-/** The same rule as the model-hesitation hint: the runner-up scored at least this share of the chosen option. */
-export const UNSURE_RUNNER_UP_RATIO = 0.8;
+/** What a step is drawn as on the rails: `inspect` (◎, a hint points at it) wins over `press` (●) and `move` (·). The step's accessible label always names every one that applies. */
+export type StepGlyph = 'move' | 'press' | 'inspect';
 
-/**
- * Whether a Decision model hesitated at this step: the runner-up scored close to its pick. A low score alone is not hesitation —
- * scores are spread over every candidate, so 0.42 against 0.10 is a clear choice. LLMs give no scores, so they are never unsure here;
- * a step without a recorded choice or scores is not either.
- */
-export function isUnsure(step: Pick<StepView, 'model'>, modelKind: ModelKind): boolean {
-  if (modelKind !== 'decision' || !step.model?.candidates) return false;
-  const chosen = step.model.candidates.find(candidate => candidate.id === step.model!.choiceId)?.probability;
-  if (chosen === undefined || chosen <= 0) return false;
-  const runnerUp = Math.max(0, ...step.model.candidates.filter(candidate => candidate.id !== step.model!.choiceId).map(candidate => candidate.probability ?? 0));
-  return runnerUp >= chosen * UNSURE_RUNNER_UP_RATIO;
-}
-
-/**
- * What a step is drawn as on the rails: `inspect` (◎, a hint points at it) wins over `unsure` (◌, low model certainty),
- * which wins over `press` (●) and `move` (·). The step's accessible label always names every one that applies.
- */
-export type StepGlyph = 'move' | 'press' | 'unsure' | 'inspect';
-
-export function stepGlyph(step: Pick<StepView, 'step' | 'action' | 'stop' | 'observed' | 'hints' | 'model'>, modelKind: ModelKind): StepGlyph {
-  if (step.hints.length > 0) return 'inspect';
-  if (isUnsure(step, modelKind)) return 'unsure';
-  return dotKind(step);
+export function stepGlyph(step: Pick<StepView, 'step' | 'action' | 'stop' | 'observed' | 'hints'>): StepGlyph {
+  return step.hints.length > 0 ? 'inspect' : dotKind(step);
 }
 
 /** How many steps the detail rail shows at once. */
@@ -77,11 +55,10 @@ export function defaultStep(view: Pick<RunStepsView, 'steps' | 'live'>): number 
   return (steps.find(step => step.hints.length > 0) ?? steps[steps.length - 1]!).step;
 }
 
-/** What a screen reader hears for a step on the rail: `행동 7: Tab, 살펴볼 지점, 모델 확신 낮음, 다시 계획`. */
-export function dotLabel(step: StepView, unsure: boolean): string {
+/** What a screen reader hears for a step on the rail: `행동 7: Tab, 살펴볼 지점, 다시 계획`. */
+export function dotLabel(step: StepView): string {
   const parts = [step.step === 0 ? describeStep(step) : t('runPage.dotLabel', { n: step.step, action: describeStep(step) })];
   if (step.hints.length) parts.push(t('runPage.dotHints'));
-  if (unsure) parts.push(t('runPage.dotUnsure'));
   const mark = planMark(step);
   if (mark) parts.push(t(mark === 'replan' ? 'runPage.dotReplan' : mark === 'broken' ? 'runPage.dotBroken' : 'runPage.dotLimit'));
   return parts.join(', ');

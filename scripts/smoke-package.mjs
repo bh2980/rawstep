@@ -89,7 +89,7 @@ try {
   assert.match(command(npx, ['--no-install', 'rawstep', '--help']), /rawstep\.config\.json/);
   assert.equal(command(npx, ['--no-install', 'rawstep', '--version']).trim(), installed.version);
   assert.match(command(npx, ['--no-install', 'rawstep', 'init']), /Created .*rawstep\.config\.json/);
-  assert.equal(JSON.parse(await readFile(join(directory, 'rawstep.config.json'), 'utf8')).version, 6);
+  assert.equal(JSON.parse(await readFile(join(directory, 'rawstep.config.json'), 'utf8')).version, 7);
   assert.throws(() => command(npx, ['--no-install', 'rawstep', 'init']), /already exists/);
   check('npx rawstep --help / --version / init');
 
@@ -106,7 +106,7 @@ try {
 
   // 5. Imports (root, advanced subpaths and every export-map entry) resolve from the installed package.
   const exportedModules = Object.keys(installed.exports).filter(name => name !== './package.json');
-  assert.deepEqual(['./project', './hints', './runner', './systemone', './trace', './cli'].filter(name => !exportedModules.includes(name)), []);
+  assert.deepEqual(['./project', './hints', './runner', './trace', './cli'].filter(name => !exportedModules.includes(name)), []);
   command(process.execPath, ['--input-type=module', '-e', `
     import assert from 'node:assert/strict';
     import { runTask, aggregateHints, readTrace } from 'rawstep';
@@ -124,17 +124,14 @@ try {
   // 6. A TypeScript consumer compiles against the bundled declarations.
   await writeFile(join(directory, 'consumer.ts'), [
     'import { ScriptedPolicy, runTask, aggregateHints, type DecisionPolicy, type Task, type TraceAnalyzer, type RunTaskOptions, type RunTaskResult, type HintReport, type RunTrace } from "rawstep";',
-    'import { DecisionClient, FakeSystemOneClient, SystemOneChoiceModel, type SystemOneClient } from "rawstep/systemone";',
-    'import { SpeechDecisionPolicy } from "rawstep/policy";',
+    'import { FixedPlanner, OrchestratedSpeechPolicy, planFileSchema } from "rawstep/policy";',
     'import { LlmTraceAnalyzer } from "rawstep/analyze";',
     'import { ProjectStore, type ProjectConfig } from "rawstep/project";',
     'import { extractHints, type Hint } from "rawstep/hints";',
     'const policy: DecisionPolicy = new ScriptedPolicy([{ stop: "stuck" }]);',
     'const task: Task = { url: "https://example.com", goal: "Read the page", verify: { all: [{ titleIncludes: "Example" }] } };',
     'const analyzer: TraceAnalyzer = { id: "example", analyze: async () => ({ summary: "Done", findings: [] }) };',
-    'const decision: SystemOneClient = new DecisionClient({ provider: "custom", baseURL: "http://127.0.0.1:8000/v1", modelId: "fixture", capabilities: { maxChoices: 255 } });',
-    'const client: SystemOneClient = new FakeSystemOneClient(["stop:uncertain"]);',
-    'const speechPolicy = new SpeechDecisionPolicy(new SystemOneChoiceModel(client));',
+    'const planPolicy: DecisionPolicy = new OrchestratedSpeechPolicy(new FixedPlanner(planFileSchema.parse({ strategy: "", criteria: [], assumptions: [], phases: [] }), { file: "plan.json", sha256: "x" }));',
     'const llm = new LlmTraceAnalyzer({ baseURL: "http://127.0.0.1:31415/v1", model: "auto" });',
     'const options: RunTaskOptions = { projectDir: "." };',
     'const run: Promise<RunTaskResult> = runTask("task", options);',
@@ -142,7 +139,7 @@ try {
     'const report = (reports: HintReport[]) => aggregateHints(reports);',
     'const store: ProjectStore = new ProjectStore(".");',
     'const config = async (): Promise<ProjectConfig> => (await store.read()).config;',
-    'void [policy, task, analyzer, decision, speechPolicy, llm, run, hints, report, config];',
+    'void [policy, task, analyzer, planPolicy, llm, run, hints, report, config];',
   ].join('\n'));
   command(process.execPath, [join(root, 'node_modules/typescript/bin/tsc'), '--noEmit', '--strict', '--module', 'NodeNext', '--moduleResolution', 'NodeNext', '--target', 'ES2022', '--skipLibCheck', '--typeRoots', join(root, 'node_modules/@types'), '--types', 'node', 'consumer.ts']);
   // The consumer file must also fail on a wrong type, proving the declarations are not just `any`.

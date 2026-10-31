@@ -10,7 +10,6 @@ const str = (value: unknown): string | undefined => typeof value === 'string' &&
 const numbers = (finding: Pick<HintFinding, 'occurrences'>, key: string): number[] =>
   finding.occurrences.flatMap(occurrence => isRecord(occurrence.detail) && typeof occurrence.detail[key] === 'number' && Number.isFinite(occurrence.detail[key]) ? [occurrence.detail[key] as number] : []);
 const first = (finding: Pick<HintFinding, 'occurrences'>): Detail => isRecord(finding.occurrences[0]?.detail) ? finding.occurrences[0]!.detail : {};
-const mean = (values: number[]) => values.reduce((sum, value) => sum + value, 0) / values.length;
 
 /**
  * What a recurring finding says in plain Korean, from the details of its occurrences. The element it is about is
@@ -36,10 +35,6 @@ export function describeFinding(finding: Pick<HintFinding, 'kind' | 'counts' | '
     case 'backtracking': {
       const reversals = numbers(finding, 'reversals');
       return reversals.length ? t('findings.backtracking', { max: Math.max(...reversals) }) : t('findings.backtrackingPlain');
-    }
-    case 'model-hesitation': {
-      const probabilities = numbers(finding, 'probability'), runnerUps = numbers(finding, 'runnerUp');
-      return probabilities.length && runnerUps.length ? t('findings.modelHesitation', { score: mean(probabilities).toFixed(2), runnerUp: mean(runnerUps).toFixed(2) }) : t('findings.modelHesitationPlain');
     }
     case 'early-stop':
       if (str(detail.stopSource) === 'exploration-guard') return t('findings.earlyStopGuard');

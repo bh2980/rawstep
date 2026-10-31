@@ -60,7 +60,7 @@ Orca의 입력은 특정 X11 창·프로세스·포커스를 확인한 후에만
 
 ## 3. 기본 예제와 모델 예제
 
-연결은 `rawstep.config.json`에 등록하고 실행 프로필의 실행 모델로 고릅니다(`npm run rawstep -- ui`). 연결과 실행 프로필 설정 방법은 [SystemOne](./systemone.md)과 [config](./config.md)를 참고하세요. 등록한 뒤:
+연결은 `rawstep.config.json`에 등록하고 실행 프로필의 계획 모델로 고릅니다(`npm run rawstep -- ui`). 연결과 실행 프로필 설정 방법은 [설정 안내](./config.ko.md)를 참고하세요. 등록한 뒤:
 
 ```sh
 npm run rawstep -- run examples/profiles/task.json --profile PROFILE --out runs/first
@@ -68,7 +68,7 @@ npm run rawstep -- run examples/profiles/task.json --profile PROFILE --out runs/
 
 `examples/profiles/task.json`은 함께 제공되는 환경 fixture에 맞춰져 있습니다. 실제 사이트의 탐색 정책으로 사용하지 마세요. 모델 없이 고정 행동을 쓰는 회귀 테스트는 라이브러리(`runMockVoiceOverTask`와 `ScriptedPolicy` 등)로 작성하며, 실제 모델 추론이라고 표현하지 않습니다.
 
-`npx rawstep ui`에서 LLM 연결, 또는 `typesafe`·`openrouter`·`custom` 제공자의 결정 모델 연결을 만들고 실행 프로필의 실행 모델로 고르세요([설정 안내](./config.ko.md)). 직접 띄운 `/systemone` 서버는 제공자 `custom`과 서버 주소로 연결합니다.
+`npx rawstep ui`에서 연결을 만들고 실행 프로필의 계획 모델로 고르세요([설정 안내](./config.ko.md)). 직접 띄운 OpenAI 호환 서버(LM Studio, Ollama 등)는 제공자 `custom`과 서버 주소로 연결합니다.
 
 기본 npm 의존성에는 모델 SDK·가중치·Python·GPU 런타임이 없으며, 원격 모델은 스크린리더가 읽은 페이지 텍스트를 받는다는 점에 유의하세요.
 

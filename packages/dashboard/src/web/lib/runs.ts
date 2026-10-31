@@ -10,10 +10,10 @@ export const isFinished = (run: RunRecord) => run.state === 'success' || run.sta
 /** The model ID alone of a model a run recorded ("connection · model ID" otherwise). */
 export const shortModel = (model: { modelId?: string; name: string }): string => model.modelId || model.name;
 
-/** The models a run used, by role: "계획 gemini → 실행 jev" with a planner, otherwise the executor alone. */
+/** What planned a run: its planner model's ID, or the plan file it read. */
 export const runModelsName = (run: Pick<RunRecord, 'snapshot'>): string => {
-  const { model, plannerModel } = run.snapshot.spec;
-  return plannerModel ? t('runConditions.plannedModels', { planner: shortModel(plannerModel), executor: shortModel(model) }) : shortModel(model);
+  const { plannerModel, plannerPlan } = run.snapshot.spec;
+  return plannerModel ? shortModel(plannerModel) : plannerPlan ? t('conditions.summary.planFile', { path: plannerPlan.file }) : '—';
 };
 
 export function runStartedAt(ref: RunRef): number {
@@ -57,8 +57,8 @@ export type RunConditionsView = {
   backend: string;
   /** The run profile's name; older runs recorded a preset or model combo instead. */
   profile: string;
-  /** Model names by role; `analysis` never changes an outcome. */
-  executor: string; planner?: string; analysis?: string;
+  /** Model names by role; `analysis` never changes an outcome. A plan file run has no planner model. */
+  planner?: string; analysis?: string;
 };
 export function runConditions(run: Pick<RunRecord, 'snapshot' | 'analysisModel'> & Partial<Pick<RunRecord, 'profileId'>>, config?: Partial<Pick<ProjectConfig, 'profiles'>>): RunConditionsView {
   const { spec } = run.snapshot, c = recorded(spec.conditions) as Record<string, unknown>;
@@ -66,7 +66,7 @@ export function runConditions(run: Pick<RunRecord, 'snapshot' | 'analysisModel'>
   const profile = named ?? config?.profiles?.find(p => p.id === run.profileId)?.name ?? run.profileId ?? '—';
   return {
     backend: spec.backend, profile,
-    executor: spec.model.name, ...(spec.plannerModel ? { planner: spec.plannerModel.name } : {}),
+    ...(spec.plannerModel ? { planner: spec.plannerModel.name } : {}),
     ...(run.analysisModel ? { analysis: run.analysisModel.name } : {}),
   };
 }

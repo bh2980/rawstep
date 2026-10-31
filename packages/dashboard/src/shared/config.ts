@@ -19,13 +19,13 @@ export type PlanRequest = z.infer<typeof planSchema>;
 /** `tasks` holds each task's JSON as written in its file (not resolved), so edits keep relative URLs and omitted defaults. */
 export type ConfigView = { config: ProjectConfig; revision: string; credentialStatus: Record<string, boolean>; tasks: Record<string, unknown>; environmentPresets: Record<string, unknown>; capabilities: Record<'simulation' | 'voiceover' | 'nvda', { keys: string[]; intents: string[] }> };
 /**
- * One run to make: a task with one run profile. `modelName` is the profile's executor and `plannerName` its planner;
+ * One run to make: a task with one run profile. `plannerName` is its planner (the model, or the plan file);
  * `reason` says why it cannot run, `warnings` what is worth knowing.
  */
 export type Combination = {
   key: string; taskId: string; repeat: number;
   profileId: string;
-  modelName?: string; plannerName?: string;
+  plannerName?: string;
   supported: boolean; reason?: string; warnings: string[]; permissions: Permissions;
 };
 export type RunState = 'queued' | 'running' | 'success' | 'failure' | 'inconclusive' | 'cancelled' | 'interrupted';
