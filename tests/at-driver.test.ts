@@ -502,6 +502,97 @@ describe("AT Driver backend", () => {
     await driver.close();
   });
 
+  it("lists links on VoiceOver through the rotor, passing a list whose item only mentions links", async () => {
+    const { socket, backend: driver } = await backend();
+    await settle(driver);
+    const links = ["Home, link", "Cart, link"];
+    let at = 0, rights = 0;
+    socket.onSend = command => {
+      socket.reply(command.id);
+      const keys = command.params.keys as string[];
+      if (keys.includes("u")) socket.output("Headings");
+      else if (keys.length === 1 && keys[0] === AT_DRIVER_KEYS.ArrowRight) socket.output(++rights === 1 ? "Quick links, heading level 2" : "Links");
+      else if (keys[0] === AT_DRIVER_KEYS.ArrowDown) socket.output(links[Math.min(at++, links.length - 1)]!);
+    };
+    const action = driver.execute({ kind: "intent", intent: "links.list" });
+    await vi.advanceTimersByTimeAsync(5_000);
+    await action;
+    const keys = socket.sent.slice(1).map(command => command.params.keys as string[]);
+    expect(keys.filter(k => k.length === 1 && k[0] === AT_DRIVER_KEYS.ArrowRight)).toHaveLength(2);
+    expect(keys.filter(k => k[0] === AT_DRIVER_KEYS.ArrowDown)).toHaveLength(4);
+    expect(keys.at(-1)).toEqual([AT_DRIVER_KEYS.Escape]);
+    expect((await settle(driver)).speech).toEqual(["Headings", "Quick links, heading level 2", "Links", ...links, "Cart, link", "Cart, link"]);
+    await driver.close();
+  });
+
+  it("opens the VoiceOver rotor on Form Controls and leaves it open: Down/Up move, Return picks and closes it", async () => {
+    const { socket, backend: driver } = await backend();
+    await settle(driver);
+    socket.onSend = command => {
+      socket.reply(command.id);
+      const keys = command.params.keys as string[];
+      if (keys.includes("u")) socket.output("Headings");
+      else if (keys.length === 1 && keys[0] === AT_DRIVER_KEYS.ArrowRight) socket.output("Form Controls");
+    };
+    const sentKeys = () => socket.sent.slice(1).map(command => command.params.keys as string[]);
+    const run = async (action: Parameters<AtDriverBackend["execute"]>[0]) => {
+      const from = sentKeys().length;
+      const done = driver.execute(action);
+      await vi.advanceTimersByTimeAsync(5_000);
+      await done;
+      await settle(driver);
+      return sentKeys().slice(from);
+    };
+    const vo = [AT_DRIVER_KEYS.Control, AT_DRIVER_KEYS.Alt];
+    expect(await run({ kind: "intent", intent: "formControls.rotor" })).toEqual([[...vo, "u"], [AT_DRIVER_KEYS.ArrowRight]]);
+    expect(await run({ kind: "intent", intent: "next" })).toEqual([[AT_DRIVER_KEYS.ArrowDown]]);
+    expect(await run({ kind: "intent", intent: "previous" })).toEqual([[AT_DRIVER_KEYS.ArrowUp]]);
+    expect(await run({ kind: "intent", intent: "activate" })).toEqual([[AT_DRIVER_KEYS.Enter]]);
+    expect(await run({ kind: "intent", intent: "next" })).toEqual([[...vo, AT_DRIVER_KEYS.ArrowRight]]);
+    expect(getAtDriverProfile("voiceover").capabilities.intents).toEqual(expect.arrayContaining(["links.list", "formControls.rotor"]));
+    expect(getAtDriverProfile("nvda").capabilities.intents).not.toEqual(expect.arrayContaining(["formControls.rotor"]));
+    await driver.close();
+  });
+
+  it("closes an open VoiceOver rotor before any other action, and Escape only closes it", async () => {
+    const { socket, backend: driver } = await backend();
+    await settle(driver);
+    socket.onSend = command => { socket.reply(command.id); if ((command.params.keys as string[]).includes("u")) socket.output("양식 컨트롤"); };
+    const sentKeys = () => socket.sent.slice(1).map(command => command.params.keys as string[]);
+    const run = async (action: Parameters<AtDriverBackend["execute"]>[0]) => {
+      const from = sentKeys().length;
+      const done = driver.execute(action);
+      await vi.advanceTimersByTimeAsync(5_000);
+      await done;
+      await settle(driver);
+      return sentKeys().slice(from);
+    };
+    const vo = [AT_DRIVER_KEYS.Control, AT_DRIVER_KEYS.Alt];
+    expect(await run({ kind: "intent", intent: "formControls.rotor" })).toEqual([[...vo, "u"]]);
+    expect(await run({ kind: "intent", intent: "heading.next" })).toEqual([[AT_DRIVER_KEYS.Escape], [...vo, AT_DRIVER_KEYS.Meta, "h"]]);
+    await run({ kind: "intent", intent: "formControls.rotor" });
+    expect(await run({ kind: "key", key: "Escape" })).toEqual([[AT_DRIVER_KEYS.Escape]]);
+    expect(await run({ kind: "key", key: "Escape" })).toEqual([[AT_DRIVER_KEYS.Escape]]);
+    expect(await run({ kind: "intent", intent: "next" })).toEqual([[...vo, AT_DRIVER_KEYS.ArrowRight]]);
+    await driver.close();
+  });
+
+  it("closes the rotor when no Form Controls list is found, so next moves the VoiceOver cursor again", async () => {
+    const { socket, backend: driver } = await backend();
+    await settle(driver);
+    socket.onSend = command => { socket.reply(command.id); if ((command.params.keys as string[]).includes("u")) socket.output("Links"); };
+    const action = driver.execute({ kind: "intent", intent: "formControls.rotor" });
+    await vi.advanceTimersByTimeAsync(10_000);
+    await action;
+    const keys = socket.sent.slice(1).map(command => command.params.keys as string[]);
+    expect(keys.filter(k => k.length === 1 && k[0] === AT_DRIVER_KEYS.ArrowRight)).toHaveLength(12);
+    expect(keys.at(-1)).toEqual([AT_DRIVER_KEYS.Escape]);
+    await settle(driver);
+    await driver.execute({ kind: "intent", intent: "next" });
+    expect(socket.sent.at(-1)!.params.keys).toEqual([AT_DRIVER_KEYS.Control, AT_DRIVER_KEYS.Alt, AT_DRIVER_KEYS.ArrowRight]);
+    await driver.close();
+  });
+
   it("types by ordered per-character keypresses, never as one simultaneous chord", async () => {
     const { socket, backend: driver } = await backend();
     const receipt = await driver.execute({ kind: "replaceText", text: "A@b.co" });
