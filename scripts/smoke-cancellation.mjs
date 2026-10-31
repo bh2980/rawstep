@@ -5,7 +5,7 @@ import { readFile, writeFile, access } from 'node:fs/promises';
 import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { AtDriverBackend, TraceRecorder } from 'rawstep';
-import { runTask } from 'rawstep/runner';
+import { runWithPolicy } from 'rawstep/runner';
 import { mockAtDriverServer } from './mock-at-driver-server.mjs';
 
 const root = process.cwd();
@@ -19,7 +19,7 @@ try {
     if (type === 'backend.command' && options?.commandId === '3') throw new Error('Injected installed-package journal failure');
     return original.call(this, type, data, options);
   };
-  const trace = await runTask({url:'https://example.test',goal:'Enter provided text',input:{q:'ABCDE'},verify:{all:[{titleIncludes:'Done'}]}},{
+  const trace = await runWithPolicy({url:'https://example.test',goal:'Enter provided text',input:{q:'ABCDE'},verify:{all:[{titleIncludes:'Done'}]}},{
     backend:new AtDriverBackend({url:server.url,profile:'voiceover',quietMs:5,maxWaitMs:30}),outDir:join(root,'installed-journal-failure'),
     browserSessionFactory:async()=>fakeBrowser,verifier:async()=>({passed:false,failures:['missing']}),policy:{decide:()=>({action:{kind:'typeText',input:'q'}})}
   });

@@ -317,7 +317,7 @@ export const suggestionModel = (config: Pick<ProjectConfig, 'connections' | 'pro
 export const discoverRequestSchema = z.object({ provider: providerSchema, baseURL: z.url().optional(), apiKey: z.string().max(16384).optional() }).strict();
 export type DiscoverRequest = z.infer<typeof discoverRequestSchema>;
 /** The actions a new project starts with: basic reading. */
-export const DEFAULT_PERMISSIONS: Permissions = { keys: [], intents: ['next', 'previous', 'activate'], typeText: false, replaceText: false };
+export const DEFAULT_PERMISSIONS: Permissions = { keys: [], intents: ['next', 'previous', 'activate'], typeText: true, replaceText: false };
 export function defaultProfile(id = 'default', name = 'Default'): Profile {
   return profileSchema.parse({ id, name, actions: structuredClone(DEFAULT_PERMISSIONS) });
 }

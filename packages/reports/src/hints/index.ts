@@ -283,12 +283,13 @@ export function extractHints(trace: Readonly<RunTrace>, options: HintOptions = {
   }
 
   const outcome = trace.outcome;
-  const ruleStop = outcome?.policyStopSource === 'exploration-guard' || outcome?.policyStopSource === 'orchestration-limit' || outcome?.policyStopSource === 'user-gave-up';
+  const ruleStop = outcome?.policyStopSource === 'exploration-guard' || outcome?.policyStopSource === 'orchestration-limit' || outcome?.policyStopSource === 'no-allowed-action' || outcome?.policyStopSource === 'user-gave-up';
   const gaveUp = [...evidence].reverse().find(e => e.data.kind === 'orchestration-give-up' && e.data.accepted === true);
   if (outcome && (outcome.reason === 'policy-stuck' || outcome.reason === 'policy-uncertain' || ruleStop)) add({
     kind: 'early-stop', certainty: 'observed', steps: typeof outcome.step === 'number' ? [outcome.step] : [],
     summary: outcome.policyStopSource === 'exploration-guard' ? 'The repetition guard stopped the run.'
       : outcome.policyStopSource === 'orchestration-limit' ? 'The run reached its planner-call limit before the user reached the goal or gave up: not measured.'
+      : outcome.policyStopSource === 'no-allowed-action' ? 'The run profile allows no action the task in the plan needs: not measured.'
       : outcome.policyStopSource === 'user-gave-up' ? `The user gave up: ${String(gaveUp?.data.reason ?? '')}`
       : `The model stopped as ${outcome.reason === 'policy-stuck' ? 'stuck' : 'uncertain'}.`,
     detail: { reason: outcome.reason, ...(outcome.policyStopSource ? { stopSource: outcome.policyStopSource } : {}),

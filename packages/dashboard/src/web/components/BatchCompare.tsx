@@ -2,15 +2,16 @@ import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import type { Profile } from '@rawstep/project/config';
 import type { ProfileFacts, StuckPlace, TaskBatch, TaskFindings } from '../../shared/api';
+import { currentLanguage } from '../i18n';
 import { roleLabel } from '../i18n/labels';
-import { formatSteps } from '../lib/format';
+import { countOf, formatSteps } from '../lib/format';
 import type { RunRef } from '../lib/runs';
 import { cn } from '../lib/utils';
 
 /** "10월 31일 14:05 · 담기를 button으로 바꿈 · 실행 4번": a batch as the pickers name it. */
 export function batchLabel(batch: TaskBatch, t: TFunction): string {
-  const when = new Date(batch.createdAt).toLocaleString('ko-KR', { month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
-  return batch.note ? t('taskPage.batch.label', { when, note: batch.note, runs: batch.runs }) : t('taskPage.batch.labelNoNote', { when, runs: batch.runs });
+  const when = new Date(batch.createdAt).toLocaleString(currentLanguage(), { month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
+  return batch.note ? t('taskPage.batch.label', { when, note: batch.note, runs: batch.runs, count: batch.runs }) : t('taskPage.batch.labelNoNote', { when, runs: batch.runs, count: batch.runs });
 }
 
 type Props = {
@@ -62,13 +63,13 @@ export function BatchCompare({ before, after, profiles, runs, minimalSteps }: Pr
             <th scope="row" className="py-3 pr-3 pl-4 text-left font-semibold">{nameOf(key)}</th>
             <td className="px-3 py-3 whitespace-nowrap"><Change before={a ? `${a.reached} / ${a.runs}` : undefined} after={b ? `${b.reached} / ${b.runs}` : undefined} /></td>
             <td className="px-3 py-3 whitespace-nowrap"><Change before={a ? formatSteps(a.medianSteps) : undefined} after={b ? formatSteps(b.medianSteps) : undefined} unit />
-              {minimalSteps !== undefined && <div className="text-xs text-muted-foreground">{t('taskPage.results.minimal', { n: minimalSteps })}</div>}</td>
+              {minimalSteps !== undefined && <div className="text-xs text-muted-foreground">{t('taskPage.results.minimal', { n: minimalSteps, count: minimalSteps })}</div>}</td>
             <td className="px-3 py-3 whitespace-nowrap"><Change before={a?.longestStretch ? String(a.longestStretch.moves) : a ? '—' : undefined} after={b?.longestStretch ? String(b.longestStretch.moves) : b ? '—' : undefined} unit /></td>
             <td className="px-3 py-3"><ul className="grid gap-1">
-              {gone.map(place => <li key={`gone:${place.target.role}:${place.target.name}`}>{target(place)} <span className="font-medium text-reach">{t('taskPage.batch.gone', { runs: runsAt(place) })}</span></li>)}
+              {gone.map(place => <li key={`gone:${place.target.role}:${place.target.name}`}>{target(place)} <span className="font-medium text-reach">{t('taskPage.batch.gone', { runs: runsAt(place), count: runsAt(place) })}</span></li>)}
               {kept.map(place => { const old = before.stuck.find(other => sameTarget(place, other));
                 return <li key={`now:${place.target.role}:${place.target.name}`}>{target(place)} <span className={cn('font-medium', old ? 'text-foreground' : 'text-inspect')}>
-                  {old ? t('taskPage.batch.still', { before: runsAt(old), after: runsAt(place) }) : t('taskPage.batch.new', { runs: runsAt(place) })}</span></li>; })}
+                  {old ? t('taskPage.batch.still', { before: t('taskPage.batch.runCount', { count: runsAt(old) }), after: t('taskPage.batch.runCount', { count: runsAt(place) }) }) : t('taskPage.batch.new', { runs: runsAt(place), count: runsAt(place) })}</span></li>; })}
               {!gone.length && !kept.length && <li className="text-muted-foreground">{t('taskPage.results.none')}</li>}
             </ul></td>
           </tr>;
@@ -86,7 +87,7 @@ function target(place: StuckPlace): string {
 /** "0 / 2 → 2 / 2": the after value stands out; a side the profile did not run in shows a dash. */
 function Change({ before, after, unit }: { before: string | undefined; after: string | undefined; unit?: boolean }) {
   const { t } = useTranslation();
-  const show = (value: string | undefined) => value === undefined ? t('taskPage.batch.notRun') : unit && value !== '—' ? t('taskPage.results.moves', { n: value }) : value;
+  const show = (value: string | undefined) => value === undefined ? t('taskPage.batch.notRun') : unit && value !== '—' ? t('taskPage.results.moves', { n: value, ...countOf(value) }) : value;
   return <span><span className="text-muted-foreground">{show(before)}</span> → <strong className="font-semibold">{show(after)}</strong></span>;
 }
 

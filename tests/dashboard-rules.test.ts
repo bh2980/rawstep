@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { VerifyRule } from '@rawstep/core/contracts';
-import '../packages/dashboard/src/web/i18n/index.js';
+import { i18n } from '../packages/dashboard/src/web/i18n/index.js';
 import { describeRule } from '../packages/dashboard/src/web/lib/describeRule.js';
 import { ADVANCED_KINDS, BASIC_KINDS, blankDraft, draftFromRule, draftMissing, ruleFromDraft, type RuleDraft } from '../packages/dashboard/src/web/lib/ruleEditor.js';
 import { parseTaskJson, sameTaskJson, taskRules, updateTaskJson, withRules } from '../packages/dashboard/src/web/lib/taskJson.js';
+
+// These tests read the Korean wording, so the language is pinned whatever the machine's own language is.
+await i18n.changeLanguage('ko');
 
 const hangul = /[가-힣]/;
 const draft = <T extends RuleDraft>(value: T): T => value;

@@ -12,7 +12,7 @@ const dirs: string[] = [];
 afterEach(async () => { await Promise.all(dirs.splice(0).map(dir => rm(dir, { recursive: true, force: true }))); });
 const said = (...speech: string[]) => ({ kind: 'screenreader' as const, provenance: 'simulation' as const, speech, outputEventIds: [], window: { id: 'w', startedAt: 's', endedAt: 'e', reason: 'fixture' } });
 const input = (over: Partial<Parameters<DecisionPolicy['decide']>[0]> = {}): Parameters<DecisionPolicy['decide']>[0] => ({
-  goal: 'Add the phone to the cart', observation: said('Samsung galaxy s6, heading level 2'), history: [],
+  goal: 'Add the phone to the cart', observation: said('Demo phone X1, heading level 2'), history: [],
   allowedActions: { intents: ['next', 'activate'], keys: [], inputKeys: [], replaceText: false }, inputs: {}, signal: new AbortController().signal, ...over,
 });
 const acted = (step: number, speech: string): HistoryEntry => ({ step, decision: { action: { kind: 'intent', intent: 'next' } }, observation: said(speech), execution: { ok: true } });
@@ -23,8 +23,14 @@ describe('plan files', () => {
   it('reads a person\'s plan without complete or rationale, and fills {task} from the task file name', () => {
     expect(planFileSchema.parse(written)).toMatchObject({ complete: false, rationale: '' });
     const planner = plannerSchema.parse({ planFile: 'plans/{task}/L2.json' });
-    expect(planFileOf(planner as { planFile: string }, { file: 'tasks/demoblaze-cart.json' })).toBe('plans/demoblaze-cart/L2.json');
+    expect(planFileOf(planner as { planFile: string }, { file: 'tasks/shop-cart.json' })).toBe('plans/shop-cart/L2.json');
     expect(plannerSchema.safeParse({ planFile: 'plans/a.txt' }).success).toBe(false);
+  });
+  it('reads a run\'s saved plan.json as the plan it holds: phases and tasks, without ids, statuses or history', () => {
+    const doc = applyDraft(undefined, { ...planFileSchema.parse(written), complete: false, rationale: '' } as PlanDraft, { goal: 'g', step: 1, trigger: 'start' });
+    doc.phases[0]!.tasks[0]!.status = 'done';
+    const again = planFileSchema.parse(JSON.parse(JSON.stringify(doc)));
+    expect(again).toEqual(planFileSchema.parse({ ...written, phases: written.phases.map(p => ({ ...p, criteria: [], tasks: p.tasks.map(t => ({ ...t, cue: { name: t.cue }, serves: [], relies: [] })) })) }));
   });
   it('loads a plan file inside the project with its fingerprint, and refuses one that is missing, outside or not a plan', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'rawstep-plan-')); dirs.push(dir);
@@ -61,17 +67,21 @@ describe('a fixed plan in the orchestrated policy', () => {
       expect(again.draft.rationale).toBe('Fixed plan: unchanged.');
     }
   });
-  it('abandons a stuck task instead of rewriting the plan, and ends when no task is left', async () => {
+  it('abandons a stuck task instead of rewriting the plan, and gives up when no task is left', async () => {
     const policy = new OrchestratedSpeechPolicy(fixed(), { noChangeLimit: 2, maxPlannerCalls: 5 });
-    let history: HistoryEntry[] = [];
+    let history: HistoryEntry[] = [], last: readonly unknown[] = [];
     // Speech never changes and no cue is heard, so each task runs into the no-change signal.
     for (let step = 1; step <= 8; step++) {
       const decision = await policy.decide(input({ observation: said('Same item'), history }));
-      if ('stop' in decision) { expect(decision).toMatchObject({ stop: 'success', stopSource: 'planner' }); break; }
+      last = policy.takeDecisionEvidence();
+      if ('stop' in decision) { expect(decision).toMatchObject({ stop: 'stuck', stopSource: 'user-gave-up' }); break; }
       history = [...history, { ...acted(step, 'Same item'), changed: false } as HistoryEntry];
     }
     const doc = policy.planDocument()!;
-    expect(doc.complete).toBe(true);
+    // A plan file claims nothing: it ran out, and the give-up needs no broken assumption.
+    expect(doc.complete).toBe(false);
+    expect(doc.revisions.at(-1)!.giveUp).toEqual({ reason: 'The written plan ran out of tasks before the goal was reached.', tried: [] });
+    expect(last.find(e => (e as { kind?: string }).kind === 'orchestration-give-up')).toMatchObject({ accepted: true, ranOut: true });
     expect(doc.retired.map(t => t.status)).toEqual(['abandoned', 'abandoned']);
     expect(doc.revisions.slice(1).every(r => r.rationale.startsWith('Fixed plan'))).toBe(true);
   });

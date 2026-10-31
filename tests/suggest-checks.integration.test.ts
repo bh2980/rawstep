@@ -66,6 +66,6 @@ describe('completion check suggestions', () => {
     const baseURL = await fakeModel('not json: sk-secret-provider-text', []);
     const dir = await project();
     await expect(suggestChecks({ url: 'shop.html', goal: '담기', projectDir: dir, model: model(baseURL), machine }))
-      .rejects.toThrow(/^완료 확인 제안 실패/);
+      .rejects.toThrow(/^suggest-failed$/);
   });
 });

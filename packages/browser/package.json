@@ -44,20 +44,10 @@
       "import": "./dist/profiles/index.js",
       "default": "./dist/profiles/index.js"
     },
-    "./profiles/native-zoom": {
-      "types": "./dist/profiles/native-zoom.d.ts",
-      "import": "./dist/profiles/native-zoom.js",
-      "default": "./dist/profiles/native-zoom.js"
-    },
     "./profiles/page-script": {
       "types": "./dist/profiles/page-script.d.ts",
       "import": "./dist/profiles/page-script.js",
       "default": "./dist/profiles/page-script.js"
-    },
-    "./profiles/ports": {
-      "types": "./dist/profiles/ports.d.ts",
-      "import": "./dist/profiles/ports.js",
-      "default": "./dist/profiles/ports.js"
     },
     "./runner": {
       "types": "./dist/runner/index.d.ts",

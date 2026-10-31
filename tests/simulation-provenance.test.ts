@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import type { Backend, BackendAction } from '@rawstep/core/contracts';
 import type { BrowserSession } from '@rawstep/browser/browser';
-import { runTask } from '@rawstep/browser/runner';
+import { runWithPolicy } from '@rawstep/browser/runner';
 
 const dirs:string[]=[];
 afterEach(async()=>{await Promise.all(dirs.splice(0).map(path=>rm(path,{recursive:true,force:true})));});
@@ -23,7 +23,7 @@ function fixture(){
 describe('explicit simulation provenance',()=>{
  it('keeps simulated speech separate from native evidence while exposing only the text observation contract',async()=>{
   const f=fixture();const observed:unknown[]=[];
-  const trace=await runTask({url:'https://example.test',goal:'Activate Save',input:{short:'a'},verify:{all:[{titleIncludes:'Done'}]}},{...f,outDir:await directory(),policy:{decide:input=>{observed.push(input.observation);return{action:{kind:'intent',intent:'next'}};}}});
+  const trace=await runWithPolicy({url:'https://example.test',goal:'Activate Save',input:{short:'a'},verify:{all:[{titleIncludes:'Done'}]}},{...f,outDir:await directory(),policy:{decide:input=>{observed.push(input.observation);return{action:{kind:'intent',intent:'next'}};}}});
   expect(trace.schemaVersion).toBe('3.0');expect(trace.environment.observationProvenance).toBe('simulation');
   expect(trace.events.filter(event=>event.source==='screen-reader')).toHaveLength(0);
   expect(trace.events.some(event=>event.source==='simulation'&&event.type==='simulation.observation')).toBe(true);
@@ -32,7 +32,7 @@ describe('explicit simulation provenance',()=>{
  });
  it('retains simulation identity while redacting later speech fragments after input',async()=>{
   const f=fixture();const out=await directory();
-  const trace=await runTask({url:'https://example.test',goal:'Enter provided input',input:{q:'Az'},verify:{all:[{titleIncludes:'Done'}]}},{...f,outDir:out,policy:{decide:()=>({action:{kind:'typeText',input:'q'}})}});
+  const trace=await runWithPolicy({url:'https://example.test',goal:'Enter provided input',input:{q:'Az'},verify:{all:[{titleIncludes:'Done'}]}},{...f,outDir:out,policy:{decide:()=>({action:{kind:'typeText',input:'q'}})}});
   expect(await readFile(join(out,'trace.json'),'utf8')).not.toContain('Echo A z');
   const events=trace.events.filter(event=>event.type==='simulation.observation');expect(events[1]?.redacted).toBe(true);expect(events[1]?.data).toMatchObject({provenance:'simulation'});
  });

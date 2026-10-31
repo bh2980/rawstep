@@ -47,7 +47,7 @@ export function PageEvidenceLedger({ findings, taskId, numbers, navigate }: Prop
       <div className="grid content-start gap-1">
         <p className="text-sm leading-6">{describeFinding(finding) ?? hintKindLabel(finding.kind)}</p>
         <p className="flex flex-wrap items-center gap-x-3 text-[13px]">
-          <span className="font-semibold tabular-nums">{t('taskPage.frequency', { total: finding.totalRuns, runs: finding.runs })}</span>
+          <span className="font-semibold tabular-nums">{t('taskPage.frequency', { total: finding.totalRuns, runs: finding.runs, count: finding.totalRuns })}</span>
           {isSuspected(finding) && <span className="rounded-sm border border-edge-strong px-1.5 text-xs">{t('taskPage.suspected')}</span>}
         </p>
       </div>
@@ -71,7 +71,7 @@ export function ModelBehaviorList({ findings, taskId, numbers, navigate }: Props
       <div className="grid content-start gap-1">
         <p className="text-sm leading-6">{describeFinding(finding) ?? hintKindLabel(finding.kind)}</p>
         <p className="flex flex-wrap items-center gap-x-3 text-[13px]">
-          <span className="tabular-nums">{t('taskPage.frequency', { total: finding.totalRuns, runs: finding.runs })}</span>
+          <span className="tabular-nums">{t('taskPage.frequency', { total: finding.totalRuns, runs: finding.runs, count: finding.totalRuns })}</span>
           {isSuspected(finding) && <span className="text-xs font-medium text-model">{t('taskPage.suspected')}</span>}
         </p>
       </div>

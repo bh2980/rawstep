@@ -10,7 +10,7 @@ export const EVIDENCE_CATALOG = {
   "ariaAtRawResponseSha256": "d4643389f6fc81b16bc20c8be137f7883714bf048bf3228a19613704c44e0405",
   "caseCount": 25,
   "nativeMeasurementByRawstep": false,
-  "attribution": "Accessibility Supported: Michael Fairchild and contributors; ARIA-AT: W3C and contributors. See docs/screenreader-evidence.md for distinct licenses."
+  "attribution": "Accessibility Supported: Michael Fairchild and contributors; ARIA-AT: W3C and contributors. See THIRD-PARTY-NOTICES.md for distinct licenses."
 } as const;
 export const EVIDENCE_CASES: readonly EvidenceCase[] = [
   {

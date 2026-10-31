@@ -138,13 +138,13 @@ Configuration:
   (do not commit it) or the process environment.
 
 Run defaults:
-  --profile  <id|name>; the run profile to use: the task's own, else the project's first
+  --profile  <id|name>; the run profile to use; without it, the project's first profile
   --rule     <name>=<value>, repeatable; overrides one run rule for these runs (the profile's, then these), e.g. --rule maxPlannerCalls=20 --rule survey=headings;
-             see the runRules section of docs/config.md for the rules
+             see the runRules section of docs/reference/config.md for the rules
   --repeat   1; repeats are compared with the fastest run that reached the goal
   --out      <project>/.rawstep/runs/<timestamp>-<id>/, one run-<n> directory per repeat
 
-Exit codes: 0 when the runs completed, whether or not the goal was reached; 1 on errors; 2 on bad usage;
+Exit codes: 0 when the runs completed, whether or not the goal was reached; 1 on errors, including any run that ended on one; 2 on bad usage;
 130 or 143 when cancelled by SIGINT or SIGTERM. Rawstep reports friction hints, not pass or fail.
 
 The model receives the speech the screen reader produces, the goal, named input keys and the action history,

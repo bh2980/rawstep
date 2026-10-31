@@ -7,7 +7,7 @@
  * Pure and free of Node APIs, so a browser page can use it too.
  */
 export type RunEnding = 'reached' | 'gave-up' | 'mistaken' | 'unmeasured';
-export type UnmeasuredBy = 'planner-calls' | 'max-steps' | 'timeout' | 'repetition-guard' | 'model-uncertain' | 'other';
+export type UnmeasuredBy = 'planner-calls' | 'no-allowed-action' | 'max-steps' | 'timeout' | 'repetition-guard' | 'model-uncertain' | 'other';
 export type EndingOf = { ending: RunEnding; by?: UnmeasuredBy };
 
 /** The ending of a finished run from its outcome and who stopped it (the trace's `policyStopSource`). */
@@ -16,6 +16,8 @@ export function runEnding(outcome: { status: string; reason?: string } | undefin
   if (outcome.status === 'success') return { ending: 'reached' };
   if (stopSource === 'user-gave-up') return { ending: 'gave-up' };
   if (stopSource === 'orchestration-limit') return { ending: 'unmeasured', by: 'planner-calls' };
+  // The profile cannot do what the plan's task needs: the run measured the conditions, not the user.
+  if (stopSource === 'no-allowed-action') return { ending: 'unmeasured', by: 'no-allowed-action' };
   if (stopSource === 'exploration-guard') return { ending: 'unmeasured', by: 'repetition-guard' };
   switch (outcome.reason) {
     case 'verification-failed': return { ending: 'mistaken' };

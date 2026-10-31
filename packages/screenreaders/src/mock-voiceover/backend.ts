@@ -10,7 +10,7 @@ export const MOCK_VOICEOVER_LIMITATIONS = Object.freeze([
   'Selected navigation-wording rules are calibrated to versioned third-party VoiceOver observations; this is a composite profile, not any one macOS/Safari version. Other wording and state-change announcements remain heuristic.',
   'A flat accessibility cursor is independent of keyboard focus. Only actual focus changes move the cursor to a focused exposed object.',
   'Activation uses guarded DOM click or editable-field focus as an approximation of AXPress; DOM clicks are untrusted and no missing widget behavior is repaired.',
-  'Quick navigation covers next/previous heading and next form control only. No macOS/Safari AX fidelity, group interaction, rotor, live-region announcement timing, speech queue, or cross-frame navigation simulation.',
+  'Quick navigation covers next/previous heading, form control and link; the rotor covers the headings, links and form controls lists only. No macOS/Safari AX fidelity, group interaction, Quick Nav settings, live-region announcement timing, speech queue, or cross-frame navigation simulation.',
   'Live regions (status, alert, log, aria-live polite/assertive): new text is spoken once after the speech of the action that caused it, without the role and without timing or interruption; an empty live region is not a cursor stop (documented VoiceOver/Safari support for role=status, a11ysupport.io 2020; the empty-region skip is inferred).',
   'List markers (bullets, "1.") are not cursor stops: VoiceOver reads a list item\'s content directly (inferred; markers are not separate accessibility objects in WebKit).',
   'Only the attached Chromium main document is traversed. Browser chrome and operating-system dialogs are outside the profile.',

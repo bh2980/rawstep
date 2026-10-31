@@ -35,7 +35,7 @@ export function stopSummary(profile: Pick<Profile, 'runRules' | 'actions'>): { t
   const surveys = rules.survey === 'headings' && profile.actions.intents.includes('headings.list');
   const parts: { text: string; changed: boolean }[] = [];
   if (surveys) parts.push({ text: translate('profile.questions.stopSurvey'), changed: false });
-  if (rules.confirmationGrace > 0) parts.push({ text: translate('profile.questions.stopGrace', { n: rules.confirmationGrace }), changed: rules.confirmationGrace !== defaults.confirmationGrace });
+  if (rules.confirmationGrace > 0) parts.push({ text: translate('profile.questions.stopGrace', { n: rules.confirmationGrace, count: rules.confirmationGrace }), changed: rules.confirmationGrace !== defaults.confirmationGrace });
   for (const [key, value] of Object.entries(changedRules(rules)) as [keyof RunRules, RunRules[keyof RunRules]][]) {
     if (key === 'confirmationGrace' || key === 'survey') continue;
     parts.push({ text: translate('profile.questions.stopChanged', { label: translate(`conditions.runRules.fields.${key}.label`), value: ruleValueLabel(key, value), base: ruleValueLabel(key, defaults[key]) }), changed: true });

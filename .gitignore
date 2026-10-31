@@ -18,7 +18,7 @@ artifacts/
 /packages/rawstep/fixtures/
 /packages/rawstep/README.md
 /packages/rawstep/README.ko.md
-/packages/rawstep/native/
+/packages/rawstep/THIRD-PARTY-NOTICES.md
 
 __pycache__/
 *.pyc

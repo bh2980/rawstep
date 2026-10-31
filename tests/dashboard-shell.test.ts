@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { parseRoute, routeSearch } from '../packages/dashboard/src/web/hooks/useRoute.js';
 import { personaOf, withPreset } from '../packages/dashboard/src/web/lib/persona.js';
 import { formatSteps, relativeTime } from '../packages/dashboard/src/web/lib/format.js';
+import { i18n } from '../packages/dashboard/src/web/i18n/index.js';
 import { defaultProfile } from '@rawstep/project/config';
+
+// These tests read the Korean wording, so the language is pinned whatever the machine's own language is.
+await i18n.changeLanguage('ko');
 
 describe('routes', () => {
   it('keeps the page in the URL: the task list first, tasks and runs under 작업, every setting under 설정', () => {

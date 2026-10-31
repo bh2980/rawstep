@@ -22,7 +22,7 @@ export function describeFinding(finding: Pick<HintFinding, 'kind' | 'counts' | '
       if (!finding.counts) return t('findings.excessKeystrokesPlain');
       return finding.counts.min === finding.counts.max
         ? t('findings.excessKeystrokesOnce', { count: finding.counts.min })
-        : t('findings.excessKeystrokes', { mean: formatSteps(Math.round(finding.counts.mean * 10) / 10), min: finding.counts.min, max: finding.counts.max });
+        : t('findings.excessKeystrokes', { mean: formatSteps(Math.round(finding.counts.mean * 10) / 10), min: finding.counts.min, max: finding.counts.max, count: Math.round(finding.counts.mean * 10) / 10 });
     case 'focus-lost': return str(detail.reason) === 'removed' ? t('findings.focusLostRemoved') : t('findings.focusLostLeft');
     case 'focus-left-page': return t('findings.focusLeftPage');
     case 'focus-not-visible':

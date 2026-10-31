@@ -1,5 +1,5 @@
 import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
-import { runTask } from '@rawstep/browser/runner';
+import { runWithPolicy } from '@rawstep/browser/runner';
 import { runMockVoiceOverTask } from '@rawstep/screenreaders/mock-voiceover';
 import { AtDriverBackend } from '@rawstep/screenreaders/at-driver';
 import { FixedPlanner, OrchestratedSpeechPolicy, renderPlanMarkdown, type PlanDraft, type Planner } from '@rawstep/policies/policy';
@@ -77,7 +77,7 @@ export const executeRun: RunExecutor = async ({ task, settings, environment, bac
     try {
       if (backend === 'simulation') return await runMockVoiceOverTask(resolvedTask, { ...common, diagnosticScreenshots: true, warn: () => {} });
       const url = atEndpointOf(machine, backend), driver = await ensureAtDriver({ endpoint: url, command: atDriverCommand, signal: setupSignal });
-      try { return await runTask(resolvedTask, { ...common, diagnosticScreenshots: true, backend: new AtDriverBackend({ profile: backend, url }) }); }
+      try { return await runWithPolicy(resolvedTask, { ...common, diagnosticScreenshots: true, backend: new AtDriverBackend({ profile: backend, url }) }); }
       finally { await driver.stop(); }
     } finally { await savePlan(policy, outDir); }
   }

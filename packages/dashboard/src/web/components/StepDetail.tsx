@@ -171,7 +171,7 @@ function Candidates({ step }: { step: StepView }) {
         })}
       </ul>
       {candidates.length > MAX_CANDIDATES && <Button variant="ghost" size="xs" className="justify-self-start" aria-expanded={all} onClick={() => setAll(!all)}>
-        {all ? t('steps.candidateCount', { n: MAX_CANDIDATES }) : t('steps.showAllCandidates', { n: candidates.length })}
+        {all ? t('steps.candidateCount', { n: MAX_CANDIDATES, count: MAX_CANDIDATES }) : t('steps.showAllCandidates', { n: candidates.length, count: candidates.length })}
       </Button>}
     </CollapsibleContent>
   </Collapsible>;

@@ -1,13 +1,14 @@
 import { Circle, GitBranch, Menu, Monitor, Moon, Sun } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../hooks/useTheme';
+import { LanguageSwitch } from './LanguageSwitch';
 import { Button } from './ui/button';
 
 type Props = { connected: boolean; running: number; queued: number; showNavigation: boolean; onNavigation: () => void };
 
 const themeIcons = { system: Monitor, light: Sun, dark: Moon } as const;
 
-/** Brand, the number of running and waiting runs, the connection to the local service and the theme switch. */
+/** Brand, the number of running and waiting runs, the connection to the local service, the language and the theme switch. */
 export function TopBar({ connected, running, queued, showNavigation, onNavigation }: Props) {
   const { t } = useTranslation();
   const { preference, cycle } = useTheme();
@@ -27,6 +28,7 @@ export function TopBar({ connected, running, queued, showNavigation, onNavigatio
           {connected ? t('topBar.connected') : t('topBar.reconnecting')}
         </span>
       </div>
+      <LanguageSwitch />
       <Button variant="ghost" size="icon-sm" aria-label={label} title={label} onClick={cycle}><ThemeIcon aria-hidden="true" /></Button>
     </div>
   </header>;

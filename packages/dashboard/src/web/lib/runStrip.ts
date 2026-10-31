@@ -15,7 +15,7 @@ export function runGlyphKind(state: RunState): RunGlyphKind {
 /** `실행 #12: 목표 도달, 행동 11번`. The action count is left out while it is unknown. */
 export function runStripLabel(number: number | undefined, state: RunState, steps: number | undefined): string {
   const label = runStateLabel(state), n = number ?? '?';
-  return steps === undefined ? t('runStrip.itemNoSteps', { number: n, state: label }) : t('runStrip.item', { number: n, state: label, steps });
+  return steps === undefined ? t('runStrip.itemNoSteps', { number: n, state: label }) : t('runStrip.item', { number: n, state: label, steps, count: steps });
 }
 
 /** A run that ended on an error says nothing about the goal, so it is drawn and worded as undecided whatever state it was recorded in. */

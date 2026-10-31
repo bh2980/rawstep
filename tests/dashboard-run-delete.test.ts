@@ -90,7 +90,7 @@ describe('deleting run records', () => {
       ['POST', '/api/runs/delete', { runs: [{ experiment: experiment.id, run: experiment.runs[1]!.id }] }],
     ] as const) {
       const response = await call(app.url, method, path, body);
-      expect(response.status).toBe(409); expect(((await response.json()) as { error: string }).error).toContain('진행 중');
+      expect(response.status).toBe(409); expect(((await response.json()) as { error: object }).error).toEqual({ code: 'delete-run-active' });
     }
     expect(experiment.runs).toHaveLength(2); expect(await exists(join(dir, '.rawstep/experiments', experiment.id, 'experiment.json'))).toBe(true);
     release(); await finished(experiment);

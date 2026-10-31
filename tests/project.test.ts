@@ -309,7 +309,7 @@ describe('project config', () => {
   it('starts a project with one default profile', () => {
     const config = defaultConfig();
     expect(config.profiles.map(p => p.id)).toEqual(['default']); expect(config.profiles[0]).toMatchObject({ page: 'default', screenReader: 'simulation' }); expect(config.profiles[0]).not.toHaveProperty('planner'); expect(config.profiles[0]).not.toHaveProperty('executor');
-    expect(config.profiles[0]!.actions).toEqual({ keys: [], intents: ['next', 'previous', 'activate'], typeText: false, replaceText: false }); expect(config.machine.atEndpoints).toEqual({ voiceover: '', nvda: '' });
+    expect(config.profiles[0]!.actions).toEqual({ keys: [], intents: ['next', 'previous', 'activate'], typeText: true, replaceText: false }); expect(config.machine.atEndpoints).toEqual({ voiceover: '', nvda: '' });
   });
   it('finds connections and profiles by id first, then by name', () => {
     const list = [{ id: 'one', name: 'two' }, { id: 'two', name: 'one' }];
@@ -397,7 +397,6 @@ describe('run checks', () => {
   it.each([
     ['unsupported-action', (c: ProjectConfig) => { c.profiles[0]!.actions.keys = ['F13']; }],
     ['planner-model-invalid', (c: ProjectConfig) => { delete c.profiles[0]!.planner; }],
-    ['environment-unsupported', (c: ProjectConfig) => { c.profiles[0]!.page = 'zoom-200'; }],
   ])('reports %s as the problem, not by throwing', (code, change) => {
     const result = check(setup(), change);
     expect(result.problem).toBeInstanceOf(ProjectError); expect(result.problem!.code).toBe(code);
@@ -641,8 +640,6 @@ describe('runTask', () => {
     const { dir } = await project();
     await expect(runTask('task', { projectDir: dir, repeat: 0 }, { execute })).rejects.toMatchObject({ code: 'invalid-repeat' });
     await expect(runTask('task', { projectDir: dir, repeat: 1.5 }, { execute })).rejects.toMatchObject({ code: 'invalid-repeat' });
-    const unsupported = await project(config => { config.profiles[0]!.page = 'zoom-200'; });
-    await expect(runTask('task', { projectDir: unsupported.dir }, { execute })).rejects.toMatchObject({ code: 'environment-unsupported' });
   });
   it('requires the provider key, reading it from .env.local, and hands it to the run; a custom server needs none', async () => {
     const { dir, store } = await project(config => { config.connections[0] = connection('a', { provider: 'openai' }); config.profiles[0] = profileWith('default', 'a'); config.profiles.push(profileWith('second', 'b')); });
@@ -677,12 +674,14 @@ describe('runTask', () => {
       await expect(projectAnalyzer(keyed.dir)).rejects.toMatchObject({ code: 'missing-credential' });
     });
   });
-  it('rejects on cancellation and keeps the traces written so far', async () => {
+  it('rejects on cancellation and keeps the traces written so far, with their hints and reports', async () => {
     const { dir } = await project(), controller = new AbortController();
     const out = join(dir, 'cancelled');
     const execute: RunExecutor = async (spec, { outDir }) => { const trace = await recorded(['Tab'], 'failure', 'cancelled')(spec, outDir); controller.abort('SIGINT'); return trace; };
     await expect(runTask('task', { projectDir: dir, repeat: 3, outDir: out, signal: controller.signal }, { execute })).rejects.toMatchObject({ code: 'cancelled' });
     expect((await readTrace(join(out, 'run-1'))).runId).toBeTruthy();
+    await expect(readFile(join(out, 'run-1', 'hints.json'), 'utf8')).resolves.toContain('"hints"');
+    await expect(readFile(join(out, 'run-1', 'report.html'), 'utf8')).resolves.toContain('<html');
     await expect(readFile(join(out, 'run-2', 'trace.json'))).rejects.toThrow();
     await expect(runTask('task', { projectDir: dir, signal: controller.signal }, { execute: player().execute })).rejects.toMatchObject({ code: 'cancelled' });
   });

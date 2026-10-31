@@ -38,19 +38,19 @@ describe('dashboard persistence', () => {
   });
 });
 describe('dashboard API and sequential queue', () => {
-  it('creates rawstep.config.json for a new project and answers project errors with their status and Korean text', async () => {
+  it('creates rawstep.config.json for a new project and answers project errors with their status and message code', async () => {
     const dir = await root(), app = await startDashboard({ projectDir: dir, port: 0 }); apps.push(app);
     const config = JSON.parse(await readFile(join(dir, 'rawstep.config.json'), 'utf8')) as ProjectConfig;
     expect(config.version).toBe(7);
     const post = (path: string, method: string, body: unknown) => fetch(app.url + path, { method, headers: { 'content-type': 'application/json', origin: app.url }, body: JSON.stringify(body) });
     const stale = await post('/api/config', 'PUT', { config, revision: 'stale' });
-    expect(stale.status).toBe(409); expect(((await stale.json()) as { error: string }).error).toContain('변경');
+    expect(stale.status).toBe(409); expect(((await stale.json()) as { error: object }).error).toEqual({ code: 'config-conflict' });
     const lost = await post('/api/connections/models', 'POST', { provider: 'custom', baseURL: 'http://127.0.0.1:1/v1' });
-    expect(lost.status).toBe(502); expect(((await lost.json()) as { error: string }).error).toContain('연결할 수 없습니다');
+    expect(lost.status).toBe(502); expect(((await lost.json()) as { error: object }).error).toEqual({ code: 'model-unreachable' });
     const missing = await post('/api/tasks/import', 'POST', { file: 'nothing.json' });
     expect(missing.status).toBe(404);
     const outside = await post('/api/tasks/import', 'POST', { file: '../outside.json' });
-    expect(outside.status).toBe(400); expect(((await outside.json()) as { error: string }).error).toContain('프로젝트 내부');
+    expect(outside.status).toBe(400); expect(((await outside.json()) as { error: object }).error).toEqual({ code: 'path-outside-project' });
   });
   it('runs a two-by-two matrix, snapshots settings, saves real trace files and restores history', async () => {
     const dir = await root(), store = new ProjectStore(dir); const initial = await store.initialize(); await store.save(setup(), initial.revision, { file: 'task.json', task });
@@ -114,7 +114,7 @@ describe('dashboard API and sequential queue', () => {
     expect(plan.rows.map(r => [r.profileId, r.supported, r.plannerName])).toEqual([['default', true, 'a · planner-a'], ['other', true, 'b · planner-b']]);
     // A run profile without a planner is a row that says so and has no planner name.
     const bare = (await app.queue.plan({ ...request, profileIds: ['bare'] })).rows[0]!;
-    expect(bare).toMatchObject({ supported: false, profileId: 'bare', reason: expect.stringContaining('계획 모델') }); expect(bare).not.toHaveProperty('plannerName');
+    expect(bare).toMatchObject({ supported: false, profileId: 'bare', reason: { code: 'planner-model-invalid' } }); expect(bare).not.toHaveProperty('plannerName');
     await expect(app.queue.create({ ...request, profileIds: ['default', 'bare'] })).rejects.toMatchObject({ status: 400 });
     expect(app.queue.experiments).toHaveLength(0);
   });
@@ -160,12 +160,12 @@ describe('dashboard API and sequential queue', () => {
     const app = await startDashboard({ projectDir: dir, port: 0 }); apps.push(app);
     const post = (path: string, body: unknown) => fetch(app.url + path, { method: 'POST', headers: { 'content-type': 'application/json', origin: app.url }, body: JSON.stringify(body) });
     const rowFor = async (profileId: string) => (await app.queue.plan({ ...request, profileIds: [profileId] })).rows[0]!;
-    expect(await rowFor('router')).toMatchObject({ supported: false, reason: expect.stringContaining('인증키') });
+    expect(await rowFor('router')).toMatchObject({ supported: false, reason: { code: 'missing-planner-credential' } });
     vi.stubEnv('RAWSTEP_OPENAI_API_KEY', '');
     try {
       // A missing analysis key never blocks a run: the row can run and says the analysis falls back to rules.
       const warned = await rowFor('default');
-      expect(warned).toMatchObject({ supported: true, plannerName: 'a · planner-a', warnings: [expect.stringContaining('인증키')] }); expect(warned).not.toHaveProperty('reason');
+      expect(warned).toMatchObject({ supported: true, plannerName: 'a · planner-a', warnings: [{ code: 'analysis-key-missing' }] }); expect(warned).not.toHaveProperty('reason');
       expect((await post('/api/credentials', { provider: 'openai', value: 'sk-openai-secret' })).status).toBe(200);
       expect(await rowFor('default')).toMatchObject({ supported: true, plannerName: 'a · planner-a', warnings: [] });
     } finally { vi.unstubAllEnvs(); }
@@ -251,7 +251,7 @@ describe('dashboard run views and live events', () => {
     const none = await (await get(failed, 0, 'hints')).json() as RunHintsView;
     expect(none.referenceRun).toBeUndefined(); expect(none.reference).toBeUndefined(); expect(none.steps).toBe(4);
     const noTrace = await get(missing, 0, 'hints');
-    expect(noTrace.status).toBe(404); expect((await noTrace.json() as { error: string }).error).toMatch(/추적/);
+    expect(noTrace.status).toBe(404); expect((await noTrace.json() as { error: object }).error).toEqual({ code: 'trace-missing' });
     const short = await experiment(['default']), slow = await experiment(['other']), middle = await experiment(['other']);
     const hints = await (await get(slow, 0, 'hints')).json() as RunHintsView;
     expect(hints.referenceRun).toEqual({ experimentId: short.id, runId: short.runs[0]!.id });
@@ -358,7 +358,7 @@ describe('dashboard conditions in plans and runs', () => {
     expect(spec.conditions).toMatchObject({ combo: { planner: 'a · planner-fixture' } }); expect((spec.conditions as { combo: object }).combo).not.toHaveProperty('structure');
     await waitFor(async () => !!made.runs[0]!.endedAt);
     // A run always plans, so a profile without a planner is not supported.
-    expect((await app.queue.plan({ ...planned, profileIds: ['reader'] })).rows[0]).toMatchObject({ supported: false, reason: expect.stringContaining('계획 모델') });
+    expect((await app.queue.plan({ ...planned, profileIds: ['reader'] })).rows[0]).toMatchObject({ supported: false, reason: { code: 'planner-model-invalid' } });
   });
   it('applies the profile\'s run rules, with the experiment\'s over them, to the snapshot, and the analysis instructions of the project or the task', async () => {
     const config = setup();

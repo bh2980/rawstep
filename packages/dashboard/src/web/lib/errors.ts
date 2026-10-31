@@ -1,5 +1,6 @@
 import { ApiError } from '../api.js';
-import { t } from '../i18n/index.js';
+import { serverText, t } from '../i18n/index.js';
+import { isServerMessageCode } from '../../shared/messages.js';
 import type { RouteChange } from '../hooks/useRoute.js';
 import { RUN_ERROR, type RunRecord } from '../../shared/config.js';
 
@@ -35,16 +36,17 @@ const isRuntime = (stage: string | undefined): stage is (typeof RUNTIME_STAGES)[
 /** The words for a stage: what stopped and what to do. */
 const stageText = (stage: Stage) => ({ what: t(`errors.stage.${stage}.what`), next: t(`errors.stage.${stage}.next`) });
 
-const goMachine: ErrorView['link'] = { to: { view: 'settings' }, label: t('errors.go.machine') };
-const goModels: ErrorView['link'] = { to: { view: 'settings', section: 'connections' }, label: t('errors.go.models') };
-const goConditions: ErrorView['link'] = { to: { view: 'settings', section: 'profiles' }, label: t('errors.go.conditions') };
+// Functions, not constants, so the label is in the language shown when the view is made.
+const goMachine = (): ErrorView['link'] => ({ to: { view: 'settings' }, label: t('errors.go.machine') });
+const goModels = (): ErrorView['link'] => ({ to: { view: 'settings', section: 'connections' }, label: t('errors.go.models') });
+const goConditions = (): ErrorView['link'] => ({ to: { view: 'settings', section: 'profiles' }, label: t('errors.go.conditions') });
 
 /** The recorded codes of a run's end, for the "원본 오류 보기" block: the state, reason, stage, action number and the server's own message. */
 export function rawRunRecord(run: Pick<RunRecord, 'state' | 'outcome' | 'error' | 'errorDetail'>): string {
   const { outcome } = run;
   return [
     `state: ${run.state}`, outcome?.status ? `status: ${outcome.status}` : '', outcome?.reason ? `reason: ${outcome.reason}` : '',
-    outcome?.stage ? `stage: ${outcome.stage}` : '', outcome?.step !== undefined ? `step: ${outcome.step}` : '', run.error ? `message: ${run.error}` : '',
+    outcome?.stage ? `stage: ${outcome.stage}` : '', outcome?.step !== undefined ? `step: ${outcome.step}` : '', run.error ? `error: ${run.error}` : '',
     run.errorDetail?.code ? `code: ${run.errorDetail.code}` : '', run.errorDetail ? `cause: ${run.errorDetail.message}` : '',
   ].filter(Boolean).join('\n');
 }
@@ -60,7 +62,11 @@ const progressOf = (run: Pick<RunRecord, 'outcome'>): string => {
  */
 export function describeRunFailure(run: Pick<RunRecord, 'state' | 'outcome' | 'error' | 'errorDetail' | 'taskId'>): ErrorView | undefined {
   const view = failureView(run);
-  return view && run.errorDetail ? { ...view, cause: run.errorDetail.message } : view;
+  return view && run.errorDetail ? { ...view, cause: causeText(run.errorDetail) } : view;
+}
+/** A recorded cause: the dashboard's words for its code when it has them, then the error's own (redacted) text. */
+function causeText(detail: NonNullable<RunRecord['errorDetail']>): string {
+  return isServerMessageCode(detail.code) ? `${serverText({ code: detail.code })} ${detail.message}`.trim() : detail.message;
 }
 function failureView(run: Pick<RunRecord, 'state' | 'outcome' | 'error' | 'errorDetail' | 'taskId'>): ErrorView | undefined {
   const reason = run.outcome?.reason, stage = run.outcome?.stage, raw = rawRunRecord(run);
@@ -69,17 +75,17 @@ function failureView(run: Pick<RunRecord, 'state' | 'outcome' | 'error' | 'error
   }
   if (run.error === RUN_ERROR.restarted) return { kind: 'runtime', what: t('errors.run.restartedWhat'), progress: progressOf(run), next: t('errors.run.restartedNext'), raw };
   if (reason === 'access-blocked') return { kind: 'start', what: t('errors.run.blockedWhat'), progress: t('errors.run.progressNone'), next: t('errors.run.blockedNext'), raw };
-  if (reason === 'unsupported-profile') return { kind: 'setup', what: t('errors.run.environmentWhat'), progress: t('errors.run.progressNone'), next: t('errors.run.environmentNext'), link: goConditions, raw };
+  if (reason === 'unsupported-profile') return { kind: 'setup', what: t('errors.run.environmentWhat'), progress: t('errors.run.progressNone'), next: t('errors.run.environmentNext'), link: goConditions(), raw };
   if (reason === 'unsupported-pattern') return { kind: 'setup', what: t('errors.run.patternWhat'), progress: progressOf(run), next: t('errors.run.patternNext'), raw };
   if (reason === 'error' && isStart(stage)) {
-    return { kind: 'start', ...stageText(stage), progress: t('errors.run.progressNone'), link: stage === 'browser-start' || stage === 'backend-start' ? goMachine : undefined, raw };
+    return { kind: 'start', ...stageText(stage), progress: t('errors.run.progressNone'), link: stage === 'browser-start' || stage === 'backend-start' ? goMachine() : undefined, raw };
   }
   if (reason === 'error' && isRuntime(stage)) {
-    return { kind: 'runtime', ...stageText(stage), progress: progressOf(run), link: stage === 'policy' ? goModels : stage === 'verification' ? { to: { task: run.taskId, tab: 'check' }, label: t('errors.go.check') } : undefined, raw };
+    return { kind: 'runtime', ...stageText(stage), progress: progressOf(run), link: stage === 'policy' ? goModels() : stage === 'verification' ? { to: { task: run.taskId, tab: 'check' }, label: t('errors.go.check') } : undefined, raw };
   }
   if (reason === 'error') return { kind: 'runtime', what: t('errors.run.unknownWhat'), progress: progressOf(run), next: t('errors.run.unknownNext'), raw };
   // The executor threw before a trace existed: the run never started.
-  if (run.state === 'failure' && !run.outcome && run.error) return { kind: 'start', what: t('errors.run.startWhat'), progress: t('errors.run.progressNone'), next: t('errors.run.startNext'), link: goMachine, raw };
+  if (run.state === 'failure' && !run.outcome && run.error) return { kind: 'start', what: t('errors.run.startWhat'), progress: t('errors.run.progressNone'), next: t('errors.run.startNext'), link: goMachine(), raw };
   if (run.state === 'interrupted') return { kind: 'runtime', what: t('errors.run.interruptedWhat'), progress: progressOf(run), next: t('errors.run.restartedNext'), raw };
   return undefined;
 };
@@ -101,10 +107,11 @@ export function errorKindOf(error: unknown, hint?: ErrorKind): ErrorKind {
 /** An API failure as an error view. The message is the server's already-sanitized text. */
 export function describeApiError(error: unknown, hint?: ErrorKind): ErrorView {
   const message = error instanceof Error ? error.message : t('apiErrors.requestFailed'), kind = errorKindOf(error, hint);
-  const status = error instanceof ApiError ? error.status : undefined, raw = status ? `status: ${status}\nmessage: ${message}` : `message: ${message}`;
+  const status = error instanceof ApiError ? error.status : undefined, code = error instanceof ApiError ? error.code : undefined;
+  const raw = [status ? `status: ${status}` : '', code ? `code: ${code}` : '', `message: ${message}`].filter(Boolean).join('\n');
   switch (kind) {
     case 'connection': return { kind, what: t('errors.api.connectionWhat'), progress: t('errors.api.connectionProgress'), next: t('errors.api.connectionNext'), raw };
-    case 'start': return { kind, what: message, progress: t('errors.api.startProgress'), next: t('errors.api.startNext'), link: goModels, raw };
+    case 'start': return { kind, what: message, progress: t('errors.api.startProgress'), next: t('errors.api.startNext'), link: goModels(), raw };
     case 'data': return { kind, what: message, progress: t('errors.api.dataProgress'), next: t('errors.api.dataNext'), raw };
     case 'runtime': return { kind, what: message, next: t('errors.api.dataNext'), raw };
     case 'setup': return { kind, what: message, progress: status === 409 ? t('errors.api.conflictProgress') : t('errors.api.setupProgress'), next: status === 409 ? t('errors.api.conflictNext') : t('errors.api.setupNext'), raw };

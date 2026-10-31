@@ -1,5 +1,6 @@
 import type { ObservedChange } from '../../shared/api.js';
 import { i18n, t } from './index.js';
+// The Korean files are the source shape (English has the same keys), so they serve to check that a key exists.
 import { core } from './locales/ko/core.js';
 import { shell } from './locales/ko/shell.js';
 
@@ -13,7 +14,7 @@ export function hintKindLabel(kind: string): string {
   return has(core.hints.kinds, kind) ? lookup(`hints.kinds.${kind}`) : kind;
 }
 
-/** Korean word for an accessibility role such as 'button'; unknown roles are shown as recorded. */
+/** The word for an accessibility role such as 'button' in the language shown; unknown roles are shown as recorded. */
 export function roleLabel(role: string): string {
   return has(shell.roles, role) ? lookup(`roles.${role}`) : role;
 }
@@ -24,7 +25,7 @@ export function targetLabel(target: { role: string; name?: string } | undefined)
   return target.name ? t('hints.text.targetNamed', { role: roleLabel(target.role), name: target.name }) : roleLabel(target.role);
 }
 
-/** Korean label for a recorded outcome reason; unknown reasons are shown as recorded. */
+/** The label for a recorded outcome reason; unknown reasons are shown as recorded. */
 export function outcomeReasonLabel(reason: string): string {
   return has(core.run.outcomeReasons, reason) ? lookup(`run.outcomeReasons.${reason}`) : reason;
 }

@@ -4,7 +4,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { AtDriverBackend, AT_DRIVER_KEYS, ScriptedPolicy, readTrace, resolveTask } from "rawstep";
-import { runTask } from "rawstep/runner";
+import { runWithPolicy } from "rawstep/runner";
 import { runMockVoiceOverTask } from "rawstep/mock-voiceover";
 import { runCli } from "rawstep/cli";
 import { FixedPlanner, OrchestratedSpeechPolicy, planFileSchema } from 'rawstep/policy';
@@ -29,7 +29,7 @@ try {
     id: "installed-websocket-roundtrip", url: "https://example.test", goal: "Activate the fixture control",
     verify: { all: [{ titleIncludes: "Done" }] }, timeoutMs: 5000,
   }));
-  const wireTrace = await runTask(resolveTask(JSON.parse(await readFile("wire-task.json", "utf8")), process.cwd()), {
+  const wireTrace = await runWithPolicy(resolveTask(JSON.parse(await readFile("wire-task.json", "utf8")), process.cwd()), {
     backend: new AtDriverBackend({ profile: "voiceover", url: server.url, quietMs: 10, maxWaitMs: 100, commandTimeoutMs: 1000, connectTimeoutMs: 1000 }),
     policy: new ScriptedPolicy([{ action: { kind: "intent", intent: "activate" } }]), outDir: out,
     // This explicit fake browser/verifier proves packaging and the real wire path,

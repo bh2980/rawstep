@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { CircleAlert, CircleCheck, CircleHelp, LoaderCircle } from 'lucide-react';
 import { AT_DRIVER_DEFAULTS, type MachineSettings as Machine } from '@rawstep/project/config';
 import type { BrowserCheck } from '../../../shared/api';
+import type { ServerMessage } from '../../../shared/messages';
+import { serverText } from '../../i18n';
 import { ApiError, api } from '../../api';
 import { SaveBar } from '../../components/conditions/SaveBar';
 import { Field, Toggle } from '../../components/forms';
@@ -75,8 +77,8 @@ export function MachineSettings({ onDirty, ...props }: PageProps & { onDirty: (d
     let status: Status;
     try {
       await storeCommand();
-      const result = await api<{ message: string }>('/backend/check', { method: 'POST', body: { backend, machine } });
-      status = { kind: 'ready', text: t(`conditions.backends.${backend}`), note: result.message };
+      const result = await api<{ message: ServerMessage }>('/backend/check', { method: 'POST', body: { backend, machine } });
+      status = { kind: 'ready', text: t(`conditions.backends.${backend}`), note: serverText(result.message) };
     } catch (error) { status = { kind: 'failed', reason: error instanceof ApiError && error.status === 0 ? t('machine.env.noServer') : error instanceof Error ? error.message : t('machine.env.driverFailed') }; }
     setDrivers(current => ({ ...current, [backend]: status }));
   }

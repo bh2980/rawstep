@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { RunRecord } from '../packages/dashboard/src/shared/config.js';
 import { RUN_ERROR } from '../packages/dashboard/src/shared/config.js';
-import '../packages/dashboard/src/web/i18n/index.js';
+import { i18n } from '../packages/dashboard/src/web/i18n/index.js';
 import { ApiError } from '../packages/dashboard/src/web/api.js';
 import { describeAfterRunFailure, describeApiError, describeRunFailure, errorKindOf } from '../packages/dashboard/src/web/lib/errors.js';
 import { generateEnvName, keyStatus } from '../packages/dashboard/src/web/lib/connections.js';
@@ -12,6 +12,9 @@ import { failureDetail, publicOutcome } from '../packages/dashboard/src/server/q
 import { ProjectError } from '@rawstep/project/errors';
 import { DEFAULT_PERMISSIONS, defaultConfig, defaultProfile } from '@rawstep/project/config';
 import { profileWith, connection } from './helpers/project-config.js';
+
+// These tests read the Korean wording, so the language is pinned whatever the machine's own language is.
+await i18n.changeLanguage('ko');
 
 const hangul = /[가-힣]/;
 type Run = Pick<RunRecord, 'state' | 'outcome' | 'error' | 'taskId'>;
@@ -63,17 +66,19 @@ describe('error states', () => {
     const detail = failureDetail(new Error('Request to https://x failed for sk-secret-123 and private-value'), ['sk-secret-123', 'private-value', 'ab']);
     expect(detail!.message).not.toMatch(/sk-secret-123|private-value/); expect(detail!.message).toContain('Request to');
     expect(failureDetail(new Error('x'.repeat(2000)), [])!.message.length).toBeLessThanOrEqual(600);
-    expect(failureDetail(new ProjectError('missing-credential', 'English text'), [])).toMatchObject({ code: 'missing-credential', message: expect.stringMatching(hangul) });
-    const failed = { ...run('failure', undefined, RUN_ERROR.start), errorDetail: { code: 'missing-credential', message: '연결의 인증키가 설정되지 않았습니다.' } };
-    expect(describeRunFailure(failed)).toMatchObject({ kind: 'start', cause: '연결의 인증키가 설정되지 않았습니다.' });
+    // The server keeps the code and the error's own text; the dashboard puts its words for the code in front, in the language shown.
+    expect(failureDetail(new ProjectError('missing-credential', 'No key for a.'), [])).toEqual({ code: 'missing-credential', message: 'No key for a.' });
+    const failed = { ...run('failure', undefined, RUN_ERROR.start), errorDetail: { code: 'missing-credential', message: 'No key for a.' } };
+    expect(describeRunFailure(failed)).toMatchObject({ kind: 'start', cause: '연결의 인증키가 설정되지 않았습니다. 연결에서 인증키를 입력하세요. No key for a.' });
+    expect(describeRunFailure({ ...failed, errorDetail: { message: 'Browser closed.' } })).toMatchObject({ cause: 'Browser closed.' });
     expect(describeRunFailure(failed)!.raw).toContain('code: missing-credential');
     expect(describeRunFailure(run('failure', undefined, RUN_ERROR.start))).not.toHaveProperty('cause');
   });
 
   it('reports an analysis or report that could not be written without touching the run\'s own outcome', () => {
     expect(describeAfterRunFailure({ analysisStatus: 'complete', reportStatus: 'complete' })).toBeUndefined();
-    expect(describeAfterRunFailure({ analysisStatus: 'failed', analysisError: '분석 실패', reportStatus: 'complete' })).toMatchObject({ kind: 'data', raw: '분석 실패' });
-    expect(describeAfterRunFailure({ analysisStatus: 'complete', reportStatus: 'failed', reportError: '보고서 생성 실패' })?.what).toContain('보고서');
+    expect(describeAfterRunFailure({ analysisStatus: 'failed', analysisError: 'analysis-failed', reportStatus: 'complete' })).toMatchObject({ kind: 'data', raw: 'analysis-failed' });
+    expect(describeAfterRunFailure({ analysisStatus: 'complete', reportStatus: 'failed', reportError: 'report-failed' })?.what).toContain('보고서');
   });
 
   it('classifies request failures: no answer is a lost connection, a conflict is a setup matter, a server fault is data', () => {
