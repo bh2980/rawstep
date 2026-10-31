@@ -25,7 +25,7 @@ describe('physical workspace ownership and aggregate verification contract',()=>
       const manifest=JSON.parse(await readFile(`packages/${name}/package.json`,'utf8'));
       expect(manifest.name).toBe(names(name));
       // `rawstep` is the only published package; the internal workspaces enforce dependency direction and are bundled into it.
-      if(name==='rawstep'){ expect(manifest.private).not.toBe(true); expect(manifest.files).toContain('dist'); expect(manifest.files).toContain('native'); }
+      if(name==='rawstep'){ expect(manifest.private).not.toBe(true); expect(manifest.files).toContain('dist'); expect(manifest.files).not.toContain('native'); }
       else { expect(manifest.private).toBe(true); expect(manifest.files).toBeUndefined(); expect(manifest.publishConfig).toBeUndefined(); }
       expect(JSON.stringify(manifest.dependencies)).not.toMatch(/guidepup|virtual-screen-reader|onnxruntime|transformers|torch|python/);
       const config=JSON.parse(await readFile(`packages/${name}/tsconfig.json`,'utf8'));

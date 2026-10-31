@@ -38,7 +38,7 @@ corepack pnpm --filter @rawstep/dashboard exec shadcn add dialog
 
 Configuration is in `rawstep.config.json`, the same file `rawstep run` and `runTask` read, so tasks, connections and experiment conditions set up in the dashboard run unchanged from the CLI and in tests. Task JSON keeps its engine contract. Keys are stored in `.env.local` and returned only as configured/not-configured status. Runs live in `.rawstep/experiments`. Save conflicts preserve frontend drafts. A server restart marks unfinished runs interrupted and never automatically calls a model again.
 
-Native screenreader execution needs a matching OS and separately prepared AT Driver. Simulated speech is labelled simulation. The assistive-technology environments support simulation, VoiceOver and NVDA; Orca remains available through the library API. Browser zoom and native OS environment controls unavailable to the dashboard are rejected before running.
+Native screenreader execution needs a matching OS and separately prepared AT Driver. Simulated speech is labelled simulation. The assistive-technology environments support simulation, VoiceOver and NVDA. Browser zoom and native OS environment controls unavailable to the dashboard are rejected before running.
 
 Verification:
 

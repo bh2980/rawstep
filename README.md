@@ -70,7 +70,7 @@ Build before using the checkout CLI. A trusted existing Chromium can be selected
 
 ## Screen reader
 
-A run is speech → plan → screen reader action. The profile's `screenReader` selects `simulation` (a Chromium-backed simulated screen reader, always labelled simulation) or a native `voiceover` / `nvda` AT Driver server on the supported host. Orca stays an advanced library backend; see [native Orca limits](./docs/native-orca.md).
+A run is speech → plan → screen reader action. The profile's `screenReader` selects `simulation` (a Chromium-backed simulated screen reader, always labelled simulation) or a native `voiceover` / `nvda` AT Driver server on the supported host.
 
 Hints are friction signals, not a verdict. They point at steps worth a human look. See [reports and hints](./docs/report.md).
 
@@ -114,14 +114,14 @@ You install one package, `rawstep`. Its dist contains the CLI, the dashboard UI 
 | `@rawstep/core` | Contracts, task/environment profile schema, trace data and persistence |
 | `@rawstep/policies` | Policy interface implementations, the planner and the plan Rawstep follows |
 | `@rawstep/browser` | Browser, runner, verifier and environment diagnostics |
-| `@rawstep/screenreaders` | AT Driver, Orca, simulations and versioned corpus evidence |
+| `@rawstep/screenreaders` | AT Driver, simulations and versioned corpus evidence |
 | `@rawstep/reports` | Saved-trace analysis, hints and reports |
 | `@rawstep/project` | Project model shared by UI, CLI and API: `rawstep.config.json`, task files, credentials and run assembly |
 | `@rawstep/dashboard` | shadcn/ui dashboard, local API and experiment queue |
 | `@rawstep/cli` | The `init`, `ui`, `run`, `hints`, `report`, `analyze` and `doctor` commands |
 | `rawstep` | The published package: bundles all of the above, plus the executable and the public entry points |
 
-Code lives in `packages/<name>/src`. `import { runTask } from 'rawstep'` is the main entry point. Subpaths such as `rawstep/runner`, `rawstep/trace`, `rawstep/hints`, `rawstep/project` and `rawstep/orca` stay available for advanced use. Third-party runtime dependencies (`playwright`, `ai`, `@ai-sdk/openai-compatible`, `zod`) are ordinary dependencies of `rawstep`; nothing under `@rawstep/*` is installed in a project.
+Code lives in `packages/<name>/src`. `import { runTask } from 'rawstep'` is the main entry point. Subpaths such as `rawstep/runner`, `rawstep/trace`, `rawstep/hints` and `rawstep/project` stay available for advanced use. Third-party runtime dependencies (`playwright`, `ai`, `@ai-sdk/openai-compatible`, `zod`) are ordinary dependencies of `rawstep`; nothing under `@rawstep/*` is installed in a project.
 
 ### Local tarball without publishing
 
@@ -144,9 +144,8 @@ Read-only public tests can block mutating methods and excluded account/edit/paym
 
 ```sh
 npm run check
-npm run test:orca-native
 ```
 
-The aggregate builds all workspaces, typechecks source/tests, runs all default tests and installs each package with its local dependency closure outside the checkout. The facade smoke covers actual Chromium, protocol roundtrips, cancellation, evidence-write failure and reports. Native Python tests are separate from live Orca validation.
+The aggregate builds all workspaces, typechecks source/tests, runs all default tests and installs each package with its local dependency closure outside the checkout. The facade smoke covers actual Chromium, protocol roundtrips, cancellation, evidence-write failure and reports.
 
-See [native Orca limits](./docs/native-orca.md), [corpus coverage](./docs/screenreader-evidence.md), [CLI guide](./docs/cli.md) and [source map](./docs/editing-map.md).
+See [corpus coverage](./docs/screenreader-evidence.md), [CLI guide](./docs/cli.md) and [source map](./docs/editing-map.md).

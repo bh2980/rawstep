@@ -14,9 +14,8 @@ Rawstep has engine packages, the shared `@rawstep/project` package and one priva
 | Every LLM call (Vercel AI SDK, OpenAI-compatible; `@rawstep/policies/llm`) | `packages/policies/src/llm/` | `tests/llm.test.ts` |
 | Explicit LLM analyzer | `packages/reports/src/analyze/llm.ts` | finalized trace/evidence tests |
 | Applied profiles/focus/layout/native zoom | `packages/browser/src/profiles/` | profiles browser tests |
-| AT Driver/Orca/simulated VoiceOver | `packages/screenreaders/src/` | protocol/native bridge/simulation suites |
+| AT Driver/simulated VoiceOver | `packages/screenreaders/src/` | protocol/simulation suites |
 | Corpus provenance/coverage/learned wording | `packages/screenreaders/src/evidence/` | evidence/extraction/heldout tests |
-| Optional native Python bridge | `packages/screenreaders/native/` | `npm run test:orca-native`; separate live native test |
 | Saved analysis and escaped reports | `packages/reports/src/` | analysis/report tests |
 | `rawstep.config.json` schema (browser-safe) | `packages/project/src/config.ts` | project/config tests |
 | Project store: config revision, task files, `.env.local` credentials | `packages/project/src/store.ts` | project store tests |

@@ -53,7 +53,7 @@ expect(findings.filter((f) => f.source === 'page')).toEqual([]);
 
 ## 스크린리더
 
-계획 모델은 스크린리더가 읽어 주는 음성 출력만 듣고 계획합니다. 프로필의 스크린리더(`screenReader`)가 `simulation`이면 Chromium 기반의 시뮬레이션 스크린리더를 쓰며, 만들어진 문구는 trace에서 항상 시뮬레이션으로 표시합니다. `voiceover`나 `nvda`는 해당 OS의 네이티브 AT Driver 서버에 연결하며, `machine.atEndpoints`를 비워 두면 서버의 일반적인 주소를 씁니다. 응답하는 서버가 없으면 이 컴퓨터의 `.env.local`에 둔 `RAWSTEP_AT_DRIVER_COMMAND`로 서버를 시작할 수 있습니다. Orca는 라이브러리 수준의 고급 백엔드로만 제공합니다.
+계획 모델은 스크린리더가 읽어 주는 음성 출력만 듣고 계획합니다. 프로필의 스크린리더(`screenReader`)가 `simulation`이면 Chromium 기반의 시뮬레이션 스크린리더를 쓰며, 만들어진 문구는 trace에서 항상 시뮬레이션으로 표시합니다. `voiceover`나 `nvda`는 해당 OS의 네이티브 AT Driver 서버에 연결하며, `machine.atEndpoints`를 비워 두면 서버의 일반적인 주소를 씁니다. 응답하는 서버가 없으면 이 컴퓨터의 `.env.local`에 둔 `RAWSTEP_AT_DRIVER_COMMAND`로 서버를 시작할 수 있습니다.
 
 ## 힌트는 판정이 아닙니다
 
@@ -118,14 +118,14 @@ npm run rawstep -- --help
 | `@rawstep/core` | 계약, 작업·환경 프로필 스키마, trace 기록 |
 | `@rawstep/policies` | 정책, 계획 모델과 Rawstep이 따르는 계획 |
 | `@rawstep/browser` | 브라우저, runner, 검증, 환경 진단 |
-| `@rawstep/screenreaders` | AT Driver, Orca, 시뮬레이션과 출처별 코퍼스 |
+| `@rawstep/screenreaders` | AT Driver, 시뮬레이션과 출처별 코퍼스 |
 | `@rawstep/reports` | 마찰 힌트, 저장된 trace 분석·보고서 |
 | `@rawstep/project` | `rawstep.config.json` 스키마와 저장소(작업 파일, `.env.local` 키), 실행 조립·실행, `runTask`, 모델 조회. 대시보드·CLI·API가 공유 |
 | `@rawstep/dashboard` | UI, 로컬 API, 실험 큐와 실행 이력 |
 | `@rawstep/cli` | `init`, `ui`, `run`, `hints`, `report`, `analyze`, `doctor` 명령 |
 | `rawstep` | 게시되는 유일한 패키지. 위 workspace를 묶고 실행 파일과 공개 진입점을 제공합니다 |
 
-각 구현은 `packages/<이름>/src`에 있습니다. 빌드 순서는 core, policies, browser, screenreaders, reports, project, dashboard, cli이고, 마지막에 `rawstep`이 나머지를 번들합니다. `rawstep`의 하위 경로(`rawstep/runner`, `rawstep/trace`, `rawstep/report`, `rawstep/hints`, `rawstep/project`, `rawstep/orca` 등)로 저수준 API를 쓸 수 있습니다. 서드파티 런타임 의존성(`playwright`, `ai`, `@ai-sdk/openai-compatible`, `zod`)은 `rawstep`의 일반 dependencies이며 프로젝트에는 `@rawstep/*`가 설치되지 않습니다.
+각 구현은 `packages/<이름>/src`에 있습니다. 빌드 순서는 core, policies, browser, screenreaders, reports, project, dashboard, cli이고, 마지막에 `rawstep`이 나머지를 번들합니다. `rawstep`의 하위 경로(`rawstep/runner`, `rawstep/trace`, `rawstep/report`, `rawstep/hints`, `rawstep/project` 등)로 저수준 API를 쓸 수 있습니다. 서드파티 런타임 의존성(`playwright`, `ai`, `@ai-sdk/openai-compatible`, `zod`)은 `rawstep`의 일반 dependencies이며 프로젝트에는 `@rawstep/*`가 설치되지 않습니다.
 
 ### npm 게시 없이 다른 프로젝트에서 쓰기
 
@@ -150,6 +150,6 @@ npx rawstep --help
 npm run check
 ```
 
-전체 검사는 workspace 빌드, 소스·테스트 타입 검사, 기본 테스트 전체, 각 패키지의 로컬 의존성 묶음 격리 설치를 포함합니다. facade 검사는 실제 Chromium, 프로토콜, 취소, 기록 실패와 보고서를 확인합니다. Python 단위 검사가 통과해도 실제 Orca 발화가 검증된 것은 아닙니다.
+전체 검사는 workspace 빌드, 소스·테스트 타입 검사, 기본 테스트 전체, 각 패키지의 로컬 의존성 묶음 격리 설치를 포함합니다. facade 검사는 실제 Chromium, 프로토콜, 취소, 기록 실패와 보고서를 확인합니다.
 
-추가 안내: [네이티브 Orca](./docs/native-orca.md), [코퍼스 범위](./docs/screenreader-evidence.md), [CLI](./docs/cli.ko.md), [소스 지도](./docs/editing-map.ko.md).
+추가 안내: [코퍼스 범위](./docs/screenreader-evidence.md), [CLI](./docs/cli.ko.md), [소스 지도](./docs/editing-map.ko.md).

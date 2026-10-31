@@ -21,7 +21,6 @@
     "check": "npm run build && npm run typecheck && npm run test:all && npm run test:package",
     "test:all": "npm test && npm run test:integration",
     "test:integration": "node scripts/test-browser.mjs",
-    "test:orca-native": "python3 -m unittest discover -s packages/screenreaders/native -p \"test_*.py\"",
     "test:source": "node scripts/smoke-source.mjs",
     "dashboard:dev": "corepack pnpm --filter @rawstep/dashboard dev",
     "pack:rawstep": "node scripts/pack-rawstep.mjs"

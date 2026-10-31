@@ -76,11 +76,6 @@
       "import": "./dist/profiles/index.js",
       "default": "./dist/profiles/index.js"
     },
-    "./orca": {
-      "types": "./dist/orca/index.d.ts",
-      "import": "./dist/orca/index.js",
-      "default": "./dist/orca/index.js"
-    },
     "./evidence": {
       "types": "./dist/evidence/index.d.ts",
       "import": "./dist/evidence/index.js",
@@ -99,7 +94,6 @@
   },
   "files": [
     "dist",
-    "native",
     "README.md",
     "README.ko.md",
     "LICENSE",
