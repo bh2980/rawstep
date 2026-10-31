@@ -22,8 +22,6 @@ export { formatSimulatedSpeech, MOCK_VOICEOVER_LIMITATIONS, MOCK_VOICEOVER_PROFI
 export type { MockVoiceOverRunOptions, MockWordingOptions, SimulatedSemanticNode } from './mock-voiceover/index.js';
 export { applyProfile, BUILTIN_PROFILES, collectBrowserDiagnostics, createChromiumTabZoomController, DEFAULT_PROFILE, ProfileApplicationError, resolveEnvironmentProfile, verifyLiveProfile } from './profiles/index.js';
 export type { AppliedProfile, BrowserDiagnostic, DiagnosticFinding, EnvironmentProfile, NativeZoomController, ProfileSetting } from './profiles/index.js';
-export { mapOrcaAction, ORCA_NATIVE_PROTOCOL, OrcaBackend, OrcaBridgeClient, OrcaBridgeError, orcaBridgePath } from './orca/index.js';
-export type { OrcaBackendOptions, OrcaBridgeOptions, OrcaCommandReceipt, OrcaEvent, OrcaMetadata, OrcaObservation, OrcaOutput, OrcaReceipt, OrcaTransportEvent } from './orca/index.js';
 // Corpus errors come from the data-free root so importing `rawstep` never loads the research corpus (use `rawstep/evidence`).
 export { UnsupportedCorpusPatternError } from '@rawstep/screenreaders';
 export type { CorpusSpeechResult } from './evidence/index.js';

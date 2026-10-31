@@ -44,7 +44,7 @@ The dashboard's experiment queue runs tasks × run profiles × repeats in one ba
 
 Outcomes distinguish task completion, model failure (only with recorded model provenance), runtime errors, unsupported environments and inconclusive outcomes. A model's `success`, `stuck` and `uncertain` stops remain separate from an exploration guard. Independent verification is required for success; uncertainty with unmet verification yields `inconclusive`.
 
-See `docs/native-orca.md` for actual native adapter requirements, and the evidence coverage API for source-backed wording patterns and explicitly missing coverage.
+See the evidence coverage API for source-backed wording patterns and explicitly missing coverage.
 
 ## Read-only public exploration
 

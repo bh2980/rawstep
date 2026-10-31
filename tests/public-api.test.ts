@@ -75,15 +75,9 @@ describe('public API surface', () => {
       "MOCK_VOICEOVER_PROFILE",
       "MOCK_VOICEOVER_WARNING",
       "MockVoiceOverBackend",
-      "ORCA_NATIVE_PROTOCOL",
-      "OrcaBackend",
-      "OrcaBridgeClient",
-      "OrcaBridgeError",
       "UnsupportedCorpusPatternError",
       "formatSimulatedSpeech",
       "getAtDriverProfile",
-      "mapOrcaAction",
-      "orcaBridgePath",
       "runMockVoiceOverTask",
     ]
   `); });
@@ -217,10 +211,6 @@ describe('public API surface', () => {
       "MOCK_VOICEOVER_WARNING",
       "MemoryTraceSink",
       "MockVoiceOverBackend",
-      "ORCA_NATIVE_PROTOCOL",
-      "OrcaBackend",
-      "OrcaBridgeClient",
-      "OrcaBridgeError",
       "OrchestratedSpeechPolicy",
       "ProfileApplicationError",
       "ProjectError",
@@ -244,9 +234,7 @@ describe('public API surface', () => {
       "getAtDriverProfile",
       "loadAnalyzer",
       "loadPolicy",
-      "mapOrcaAction",
       "matchesText",
-      "orcaBridgePath",
       "readAnalysis",
       "readTrace",
       "renderPlanMarkdown",
@@ -300,9 +288,8 @@ describe('public API surface', () => {
     expect(root).not.toContain('EVIDENCE_CATALOG');
     expect(await exportNames('@rawstep/screenreaders/evidence')).toContain('EVIDENCE_CATALOG');
     const exportsMap = JSON.parse(await readFile(manifestPath('@rawstep/screenreaders'), 'utf8')).exports;
-    for (const key of ['./evidence/data', './evidence/learned-data', './run-mock-voiceover', './orca/paths']) expect(exportsMap[key], key).toBeUndefined();
+    for (const key of ['./evidence/data', './evidence/learned-data', './run-mock-voiceover', './orca']) expect(exportsMap[key], key).toBeUndefined();
     expect(await exportNames('@rawstep/screenreaders/mock-voiceover')).toEqual(expect.arrayContaining(['runMockVoiceOverTask', 'MOCK_VOICEOVER_WARNING']));
-    expect(await exportNames('@rawstep/screenreaders/orca')).toContain('orcaBridgePath');
   });
 
   it('does not load the evidence corpus data when importing the screenreaders root', () => {

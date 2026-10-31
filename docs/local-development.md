@@ -32,7 +32,7 @@ Corepack을 제공하지 않는 Node 설치에서는 공식 pnpm 설치 안내�
 
 위의 Node/pnpm 설치·빌드·CLI 명령은 사용자 컴퓨터에서 직접 실행하는 소스 절차입니다. 과거 검증 기록은 Linux 기준이며, 0.2 browser 검증은 macOS에서도 수행합니다. 실제 VoiceOver 검증과는 구분합니다. macOS에서 `npm run check`는 별도 Chromium이 필요하지만 실제 VoiceOver나 모델 가중치를 요구하지 않습니다. 패키지의 설치·빌드·import는 OS 설정, 브라우저 권한 또는 VoiceOver를 바꾸지 않습니다.
 
-Python 단위 검사(`npm run test:orca-native`)는 Python 3이 있을 때 실행할 수 있는 별도 검사입니다. Orca 라이브 실행은 Linux X11 전용이며 macOS에서는 해당 경로를 실행하지 마세요. macOS의 실제 VoiceOver 검증은 대응 AT Driver 서버와 사용자가 준비한 권한이 필요하며 여기서는 검증하지 않았습니다.
+ macOS의 실제 VoiceOver 검증은 대응 AT Driver 서버와 사용자가 준비한 권한이 필요하며 여기서는 검증하지 않았습니다.
 
 첫 frozen 설치에서 아직 없는 `dist/cli/bin.js`에 대한 bin 생성 경고가 나올 수 있습니다. 정상 빌드 후 안내된 `npm run rawstep -- ...` 경로를 사용하세요. 이는 네이티브 AT나 모델 설치를 요청하는 경고가 아닙니다.
 
@@ -54,9 +54,7 @@ npm run dashboard:build
 | 실제 모델 호출 | 모델 서버와 별도 가중치·런타임 |
 | VoiceOver AT Driver | macOS, 실제 VoiceOver, 대응 AT Driver 서버와 필요한 사용자 권한 |
 | NVDA AT Driver | Windows, 실제 NVDA, 대응 추가 기능·서버 |
-| Orca 네이티브 어댑터 | Linux X11, Orca48.x, D-Bus/AT-SPI, 기존 Speech Dispatcher, 정확히 연결한 브라우저 창 |
 
-Orca의 입력은 특정 X11 창·프로세스·포커스를 확인한 후에만 전송됩니다. 다른 활성 창을 임의로 선택하지 않습니다. `examples/orca`의 안내와 `docs/native-orca.md`를 먼저 읽으세요. 개발 클라우드의 단위 검사는 실제 네이티브 발화 검증이 아닙니다.
 
 ## 3. 기본 예제와 모델 예제
 
@@ -121,19 +119,17 @@ import { TraceRecorder } from 'rawstep/trace';
 
 공개 하위 경로는 `packages/rawstep/package.json`의 exports와 `packages/rawstep/src/<이름>/index.ts`(번들 entry)가 정의합니다. 내부 workspace는 `private`이라 게시하지 않으며 설치된 프로젝트의 `node_modules`에 `@rawstep/*`가 나타나지 않습니다. 각 workspace는 선언된 패키지 exports만 사용하고 다른 패키지의 소스 경로를 직접 참조하지 않습니다(의존 방향 검사는 `tests/source-graph-migration.test.ts`). 번들에 서드파티 import가 새로 생기면 `rawstep`의 dependencies와 `packages/rawstep/tsdown.config.ts`의 `deps.onlyImport`에 함께 추가해야 빌드가 통과합니다.
 
-`npm run test:package`는 tarball만 임시 프로젝트에 npm으로 설치하고 `rawstep --help`/`init`, `rawstep ui`(시작, `index.html`·asset 요청, 종료), `import` 해석, TypeScript 소비자 컴파일, AT Driver·취소·Orca 자산 왕복을 검사하며 `@rawstep/*`가 설치되지 않았음을 확인합니다.
+`npm run test:package`는 tarball만 임시 프로젝트에 npm으로 설치하고 `rawstep --help`/`init`, `rawstep ui`(시작, `index.html`·asset 요청, 종료), `import` 해석, TypeScript 소비자 컴파일, AT Driver·취소 왕복을 검사하며 `@rawstep/*`가 설치되지 않았음을 확인합니다.
 
 ## 7. 전체 검사와 깨끗한 소스 재현
 
 ```sh
 npm run check
-npm run test:orca-native
 npm run test:source
 ```
 
 - `check`: workspace 빌드, 모든 소스·테스트 타입 검사, 테스트 전체, `rawstep` tarball 하나만 외부 폴더에 설치해 CLI·대시보드·import·타입을 검사
-- `test:orca-native`: Python 프로토콜·입력 경계 단위 검사. 실제 Orca 발화 성공을 뜻하지 않음
-- `test:source`: 소스를 깨끗한 외부 경로로 옮겨 frozen-lock 설치·전체 검사·네이티브 Python 단위 검사를 확인하는 재현 검사
+- `test:source`: 소스를 깨끗한 외부 경로로 옮겨 frozen-lock 설치·전체 검사를 확인하는 재현 검사
 
 실제 Chromium이 없는 상태의 브라우저 테스트를 통과로 간주하지 않습니다. 신뢰된 호환 바이너리를 지정하려면:
 

@@ -53,9 +53,9 @@ async function withDashboard(inspect) {
 try {
   // 1. Build and pack: only the rawstep tarball exists.
   const pack = await packRawstep(directory, { environment });
-  const unexpected = pack.files.filter(file => !/^(?:dist\/|native\/[^/]+\.py$|README(?:\.ko)?\.md$|LICENSE$|package\.json$|docs\/[^/]+\.md$|examples\/|fixtures\/)/.test(file.path) || /(?:node_modules|packages\/|\.safetensors$|\.gguf$|\.onnx$|\.node$|\.wasm$|__pycache__)/.test(file.path));
+  const unexpected = pack.files.filter(file => !/^(?:dist\/|README(?:\.ko)?\.md$|LICENSE$|package\.json$|docs\/[^/]+\.md$|examples\/|fixtures\/)/.test(file.path) || /(?:node_modules|packages\/|\.safetensors$|\.gguf$|\.onnx$|\.node$|\.wasm$|__pycache__)/.test(file.path));
   assert.deepEqual(unexpected, [], 'unexpected files in the tarball');
-  for (const required of ['dist/index.js', 'dist/index.d.ts', 'dist/cli/bin.js', 'dist/dashboard-web/index.html', 'native/orca_bridge.py', 'docs/cli.md', 'fixtures/simple-cta.html', 'examples/v2/mock-task.json']) assert.ok(pack.files.some(file => file.path === required), `tarball is missing ${required}`);
+  for (const required of ['dist/index.js', 'dist/index.d.ts', 'dist/cli/bin.js', 'dist/dashboard-web/index.html', 'docs/cli.md', 'fixtures/simple-cta.html', 'examples/v2/mock-task.json']) assert.ok(pack.files.some(file => file.path === required), `tarball is missing ${required}`);
   assert.ok(pack.files.some(file => /^dist\/dashboard-web\/assets\/.+\.js$/.test(file.path)), 'tarball is missing the dashboard JS bundle');
   assert.deepEqual(Object.keys(pack.manifest.dependencies).sort(), ['@ai-sdk/openai-compatible', 'ai', 'playwright', 'zod']);
   check('tarball contents and third-party-only dependency list');
@@ -148,17 +148,16 @@ try {
   assert.match(wrong, /TS2322/);
   check('TypeScript consumer compiles against the bundled .d.ts (and rejects a wrong type)');
 
-  // 7. Installed behaviour: one module instance across entry points (a spy on one entry is seen by another), AT-driver wire, cancellation, report/analyze, Orca assets.
+  // 7. Installed behaviour: one module instance across entry points (a spy on one entry is seen by another), AT-driver wire, cancellation, report/analyze.
   const fixture = await readFile(join(root, 'tests/helpers/mock-at-driver-server.ts'), 'utf8');
   const { outputText } = ts.transpileModule(fixture, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 }, fileName: 'mock-at-driver-server.ts' });
   await writeFile(join(directory, 'mock-at-driver-server.mjs'), outputText);
-  for (const script of ['smoke-installed-roundtrip.mjs', 'smoke-cancellation.mjs', 'smoke-orca-package.mjs']) await writeFile(join(directory, script), await readFile(join(root, 'scripts', script), 'utf8'));
+  for (const script of ['smoke-installed-roundtrip.mjs', 'smoke-cancellation.mjs']) await writeFile(join(directory, script), await readFile(join(root, 'scripts', script), 'utf8'));
   const roundtrip = JSON.parse(command(process.execPath, ['smoke-installed-roundtrip.mjs']));
   const cancellation = JSON.parse(command(process.execPath, ['smoke-cancellation.mjs']));
-  const orca = JSON.parse(command(process.execPath, ['smoke-orca-package.mjs']));
-  check('installed roundtrip (AT-driver wire, analyze, report), cancellation and Orca asset resolution');
+  check('installed roundtrip (AT-driver wire, analyze, report) and cancellation');
 
-  console.log(JSON.stringify({ package: pack.filename, packedBytes: pack.size, unpackedBytes: pack.unpackedSize, files: pack.files.length, exportsChecked: exportedModules.length, checks, roundtrip, cancellation, orca }, null, 2));
+  console.log(JSON.stringify({ package: pack.filename, packedBytes: pack.size, unpackedBytes: pack.unpackedSize, files: pack.files.length, exportsChecked: exportedModules.length, checks, roundtrip, cancellation }, null, 2));
 } catch (error) {
   if (error?.stdout) process.stderr.write(String(error.stdout));
   if (error?.stderr) process.stderr.write(String(error.stderr));

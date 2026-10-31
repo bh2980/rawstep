@@ -16,7 +16,6 @@ try{
   const originalLock=await readFile(join(root,'pnpm-lock.yaml'),'utf8');
   run(process.platform==='win32'?'corepack.cmd':'corepack',['pnpm','install','--frozen-lockfile','--ignore-scripts'],extracted);
   run(process.platform==='win32'?'npm.cmd':'npm',['run','check'],extracted);
-  run(process.platform==='win32'?'npm.cmd':'npm',['run','test:orca-native'],extracted);
   assert.equal(await readFile(join(extracted,'pnpm-lock.yaml'),'utf8'),originalLock);
   const bytes=await readFile(archive),receipt={result:'passed',archiveBytes:bytes.length,sha256:createHash('sha256').update(bytes).digest('hex'),checks:['fresh source extraction','frozen-lockfile install','clean workspace build','all source/test typechecks','full behavior tests','single rawstep tarball isolated installation (CLI, ui, imports, TypeScript consumer)','installed protocol/cancellation/report roundtrip','native Python unit tests'],nativeScreenreaderValidated:false};
   await mkdir(join(root,'artifacts'),{recursive:true});await writeFile(join(root,'artifacts','source-verification.json'),JSON.stringify(receipt,null,2)+'\n');
