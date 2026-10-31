@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { FixedPlanner, OrchestratedSpeechPolicy, planFileSchema, renderPlanMarkdown, type PlanDraft } from '@rawstep/policies/policy';
+import { applyDraft, FixedPlanner, OrchestratedSpeechPolicy, planFileSchema, planTasks, renderPlanMarkdown, type PlanDraft, type PlanRequest } from '@rawstep/policies/policy';
 import type { DecisionPolicy, HistoryEntry } from '@rawstep/core/contracts';
 import { loadPlanFile } from '@rawstep/project/plan';
 import { planFileOf, plannerSchema } from '@rawstep/project/config';
@@ -50,6 +50,16 @@ describe('a fixed plan in the orchestrated policy', () => {
     expect(await policy.decide(input({ observation: said('Add to cart, button'), history: [acted(1, 'Add to cart, button')] }))).toEqual({ action: { kind: 'intent', intent: 'next' } });
     expect(policy.planDocument()!.phases[0]!.tasks.map(t => t.status)).toEqual(['done', 'active']);
     expect(renderPlanMarkdown(policy.planDocument()!)).toContain('Press it');
+  });
+  it('keeps every task when nothing is stuck: a goal item heard on the way or taking stock of the effort', async () => {
+    const request: PlanRequest = { goal: 'g', trigger: 'start', speech: [], actions: [], attempts: [], effort: { moves: 0, sinceLastLook: 0, withoutGoalWords: 0, longestWithoutGoalWords: 0 } };
+    const planner = fixed(), first = await planner.plan(request);
+    const doc = applyDraft(undefined, first.draft, { goal: 'g', step: 1, trigger: 'start' });
+    for (const trigger of ['goal-heard', 'effort-review'] as const) {
+      const again = await planner.plan({ ...request, trigger, document: doc });
+      expect(again.draft.phases.flatMap(p => p.tasks.map(t => t.keep))).toEqual(planTasks(doc).map(t => t.id));
+      expect(again.draft.rationale).toBe('Fixed plan: unchanged.');
+    }
   });
   it('abandons a stuck task instead of rewriting the plan, and ends when no task is left', async () => {
     const policy = new OrchestratedSpeechPolicy(fixed(), { noChangeLimit: 2, maxPlannerCalls: 5 });

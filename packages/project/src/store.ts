@@ -6,6 +6,8 @@ import { resolveTask, type Task } from '@rawstep/core/contracts';
 import { resolveEnvironmentProfile } from '@rawstep/browser/profiles';
 import { modelBaseURL } from '@rawstep/policies/llm';
 import { CONFIG_FILE, KEYED_PROVIDERS, configSchema, credentialId, defaultConfig, modelKeyEnv, parseConfig, type Connection, type ProjectConfig, type ProviderId } from './config.js';
+import { DEMO_FILES, demoConfig } from './demo.js';
+export { DEMO_DIR, demoConfig, findAgentCli } from './demo.js';
 import { ProjectError } from './errors.js';
 
 export async function readOptional(path: string): Promise<string | undefined> {
@@ -20,12 +22,20 @@ export async function atomicJson(path: string, value: unknown, mode = 0o600): Pr
 const digest = (value: string) => createHash('sha256').update(value).digest('hex');
 const NO_CONFIG = `${CONFIG_FILE} was not found. Create it with \`rawstep init\` or \`rawstep ui\`.`;
 
-/** Writes a default rawstep.config.json into `root`; an existing file is never replaced. Returns its path. */
-export async function initProject(root: string): Promise<string> {
+/**
+ * Writes rawstep.config.json into `root` with the demo task and its files (see `demoConfig`); an existing config is never replaced,
+ * and demo files already there are kept. `agent` is a coding-agent CLI to plan with. Returns the config's path.
+ */
+export async function initProject(root: string, options: { agent?: ProviderId | undefined } = {}): Promise<string> {
   const path = resolve(root, CONFIG_FILE);
   await mkdir(root, { recursive: true });
-  try { await writeFile(path, JSON.stringify(defaultConfig(), null, 2) + '\n', { flag: 'wx' }); }
+  try { await writeFile(path, JSON.stringify(demoConfig(options.agent), null, 2) + '\n', { flag: 'wx' }); }
   catch (e) { if ((e as NodeJS.ErrnoException).code === 'EEXIST') throw new ProjectError('config-exists', `${CONFIG_FILE} already exists in ${root}; it was not overwritten.`, 409); throw e; }
+  for (const [file, content] of Object.entries(DEMO_FILES)) {
+    const target = resolve(root, file);
+    await mkdir(dirname(target), { recursive: true });
+    try { await writeFile(target, content, { flag: 'wx' }); } catch (e) { if ((e as NodeJS.ErrnoException).code !== 'EEXIST') throw e; }
+  }
   return path;
 }
 

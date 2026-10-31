@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { mkdtemp, readFile, writeFile, rm, symlink } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, writeFile, rm, symlink } from 'node:fs/promises';
+import { pathToFileURL } from 'node:url';
 import { basename, dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createServer } from 'node:http';
@@ -12,9 +13,9 @@ import {
   type Profile, type ProjectConfig,
 } from '@rawstep/project/config';
 import { ProjectError } from '@rawstep/project/errors';
-import { ProjectStore, initProject } from '@rawstep/project/store';
+import { ProjectStore, demoConfig, findAgentCli, initProject } from '@rawstep/project/store';
 import { discover } from '@rawstep/project/discover';
-import { assertRunnable, backendCapabilities, checkRun, conditionsRecord, resolvePermissions, runSpecOf } from '@rawstep/project/plan';
+import { assertRunnable, backendCapabilities, checkRun, conditionsRecord, loadPlanFile, resolvePermissions, runSpecOf } from '@rawstep/project/plan';
 import { projectAnalyzer, runTask } from '@rawstep/project/run';
 import type { RunExecutor, RunSpec } from '@rawstep/project/execution';
 import { connection, profileWith } from './helpers/project-config.js';
@@ -74,7 +75,29 @@ describe('project store', () => {
     await store.initialize();
     expect(JSON.parse(await readFile(join(dir, 'rawstep.config.json'), 'utf8'))).toEqual(defaultConfig());
   });
-  it('writes a default config once and never overwrites an existing one', async () => {
+  it('starts a project with the demo task and its files, plans with an installed agent CLI first, and keeps demo files already there', async () => {
+    const dir = await root();
+    await mkdir(join(dir, 'rawstep/demo'), { recursive: true }); await writeFile(join(dir, 'rawstep/demo/page.html'), 'mine');
+    await initProject(dir);
+    const config = parseConfig(JSON.parse(await readFile(join(dir, 'rawstep.config.json'), 'utf8')));
+    expect(config).toEqual(demoConfig(undefined));
+    // Without an agent CLI nothing can plan, so the profile that follows the written plan comes first and `rawstep run demo` works.
+    expect(config.profiles.map(p => [p.id, p.planner])).toEqual([['written-plan', { planFile: 'rawstep/demo/plan.json' }], ['item-by-item', undefined]]);
+    expect(config.tasks).toEqual([{ id: 'demo', name: 'Demo: add a mug to the cart', file: 'rawstep/demo/task.json' }]);
+    expect(await readFile(join(dir, 'rawstep/demo/page.html'), 'utf8')).toBe('mine');
+    expect((await new ProjectStore(dir).task('rawstep/demo/task.json')).url).toBe(pathToFileURL(join(dir, 'rawstep/demo/page.html')).href);
+    await loadPlanFile(new ProjectStore(dir), 'rawstep/demo/plan.json');
+    const withAgent = demoConfig('claudeCode');
+    expect(withAgent.connections).toEqual([{ id: 'claudeCode', name: 'Claude Code', provider: 'claudeCode', timeoutMs: 60000 }]);
+    expect(withAgent.profiles.map(p => [p.id, p.planner])).toEqual([['item-by-item', { connectionId: 'claudeCode', modelId: 'default', instructions: '' }], ['written-plan', { planFile: 'rawstep/demo/plan.json' }]]);
+  });
+  it('finds the first coding-agent CLI on PATH', async () => {
+    const dir = await root(), bin = join(dir, 'bin');
+    await mkdir(bin); expect(await findAgentCli(bin)).toBeUndefined();
+    await writeFile(join(bin, 'codex'), '#!/bin/sh\n', { mode: 0o755 }); await writeFile(join(bin, 'grok'), '#!/bin/sh\n', { mode: 0o755 });
+    expect(await findAgentCli(bin)).toBe('codex');
+  });
+  it('writes a config once and never overwrites an existing one', async () => {
     const dir = await root();
     expect(await initProject(dir)).toBe(join(dir, 'rawstep.config.json'));
     await expect(initProject(dir)).rejects.toMatchObject({ code: 'config-exists' });
