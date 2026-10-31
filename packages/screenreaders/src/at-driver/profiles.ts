@@ -50,23 +50,41 @@ const nvdaIntents: Readonly<Record<string, readonly string[]>> = Object.freeze({
   "link.previous": [AT_DRIVER_KEYS.Shift, "k"],
 });
 
-/**
- * A screen reader list read by listening: open it, move to the wanted list until its name is spoken, read item by item until an item
- * comes round again or nothing new is said, then close it. Every word spoken along the way is kept as the action's speech.
- */
-export interface AtDriverListRoutine {
+/** A rotor list found by ear: open the rotor, move to the next list until the wanted list's name is spoken, close it when done. */
+export interface AtDriverRotorList {
   open: readonly string[];
   nextList: readonly string[];
-  nextItem: readonly string[];
   close: readonly string[];
   /** Spoken when the wanted list is shown (English or Korean speech). */
   listName: RegExp;
   maxLists: number;
+}
+/**
+ * A screen reader list read by listening: open it, move to the wanted list until its name is spoken, read item by item until an item
+ * comes round again or nothing new is said, then close it. Every word spoken along the way is kept as the action's speech.
+ */
+export interface AtDriverListRoutine extends AtDriverRotorList {
+  nextItem: readonly string[];
   maxItems: number;
 }
-/** VoiceOver's rotor (VO+U) on its Headings list: Right/Left switch lists, Down reads the next item, Escape closes it. */
+/**
+ * A rotor list left open across actions: found like a list routine, then `next`/`previous` move through it, `activate` picks the item
+ * (closing it), and any other action closes it first.
+ */
+export interface AtDriverRotorRoutine extends AtDriverRotorList {
+  next: readonly string[];
+  previous: readonly string[];
+  pick: readonly string[];
+}
+/** VoiceOver's rotor (VO+U): Right/Left switch lists, Down/Up move through one, Return goes to the item, Escape closes it. */
+const voiceoverRotor = { open: [...vo, "u"], nextList: [AT_DRIVER_KEYS.ArrowRight], close: [AT_DRIVER_KEYS.Escape], maxLists: 12 } as const;
 const voiceoverRoutines: Readonly<Record<string, AtDriverListRoutine>> = Object.freeze({
-  "headings.list": { open: [...vo, "u"], nextList: [AT_DRIVER_KEYS.ArrowRight], nextItem: [AT_DRIVER_KEYS.ArrowDown], close: [AT_DRIVER_KEYS.Escape], listName: /\bheadings\b|머리말/i, maxLists: 12, maxItems: 100 },
+  "headings.list": { ...voiceoverRotor, nextItem: [AT_DRIVER_KEYS.ArrowDown], listName: /\bheadings\b|머리말/i, maxItems: 100 },
+  // Anchored: a heading or form control can have "links" or "링크" in its name.
+  "links.list": { ...voiceoverRotor, nextItem: [AT_DRIVER_KEYS.ArrowDown], listName: /^(?:links|링크)(?![^\s,.])/i, maxItems: 300 },
+});
+const voiceoverRotors: Readonly<Record<string, AtDriverRotorRoutine>> = Object.freeze({
+  "formControls.rotor": { ...voiceoverRotor, next: [AT_DRIVER_KEYS.ArrowDown], previous: [AT_DRIVER_KEYS.ArrowUp], pick: [AT_DRIVER_KEYS.Enter], listName: /form controls|폼 컨트롤|양식 컨트롤/i },
 });
 
 export interface AtDriverProfile {
@@ -79,6 +97,8 @@ export interface AtDriverProfile {
   mapAction(action: AtDriverAction): string[][];
   /** Intents carried out by listening between key presses (see `AtDriverListRoutine`). */
   routines: Readonly<Record<string, AtDriverListRoutine>>;
+  /** Intents that open a rotor list and leave it open (see `AtDriverRotorRoutine`). */
+  rotors: Readonly<Record<string, AtDriverRotorRoutine>>;
 }
 
 const shiftedDigits: Readonly<Record<string, string>> = Object.freeze({
@@ -116,7 +136,8 @@ export function getAtDriverProfile(name: AtDriverProfileName): AtDriverProfile {
   if (name !== "voiceover" && name !== "nvda") throw new Error(`Unsupported AT Driver profile: ${String(name)}`);
   const intents = name === "voiceover" ? voiceoverIntents : nvdaIntents;
   const routines = name === "voiceover" ? voiceoverRoutines : {};
-  const capabilities = Object.freeze({ intents: Object.freeze([...Object.keys(intents), ...Object.keys(routines)]), keys: allowedKeys, textEntry: true, replaceText: true });
+  const rotors = name === "voiceover" ? voiceoverRotors : {};
+  const capabilities = Object.freeze({ intents: Object.freeze([...Object.keys(intents), ...Object.keys(routines), ...Object.keys(rotors)]), keys: allowedKeys, textEntry: true, replaceText: true });
   return {
     name,
     atName: name === "voiceover" ? "VoiceOver" : "NVDA",
@@ -125,7 +146,8 @@ export function getAtDriverProfile(name: AtDriverProfileName): AtDriverProfile {
     assumptions: [
       "US keyboard layout and default key bindings; actual layout and bindings are unknown",
       ...(name === "voiceover" ? ["VoiceOver modifier is Control+Option", "Printable ASCII text only; punctuation uses Bocoup macOS server key names",
-        "headings.list opens the rotor (VO+U), presses Right until English or Korean speech names the Headings list, reads with Down until the list wraps to its start, stays on its last item or goes silent, then presses Escape; not yet checked against a live VoiceOver"] : [
+        "headings.list and links.list open the rotor (VO+U), press Right until English or Korean speech names the Headings or Links list, read with Down until the list wraps to its start, stays on its last item or goes silent, then press Escape; not yet checked against a live VoiceOver",
+        "formControls.rotor opens the rotor on its Form Controls list the same way and leaves it open: next/previous press Down/Up, activate presses Return (goes to the item), Escape closes it, and any other action presses Escape first. The Korean list name (폼 컨트롤 or 양식 컨트롤) and where the list starts are not checked against a live VoiceOver"] : [
         "Navigation intents require NVDA browse mode; next/previous move by line",
         "No interact/stopInteracting mapping: NVDA mode toggling is not an idempotent semantic action",
         "Text is limited to ASCII letters, digits, spaces, shifted digits, semicolon, colon, equals and plus by the PAC server key parser",
@@ -142,6 +164,7 @@ export function getAtDriverProfile(name: AtDriverProfileName): AtDriverProfile {
       "https://download.nvaccess.org/documentation/en/userGuide.html#BrowseMode",
     ],
     routines,
+    rotors,
     mapAction(action) {
       if (action.kind === "intent") {
         if (!Object.hasOwn(intents, action.intent)) throw new AtDriverError(`Unsupported ${name} intent: ${action.intent}`, "unsupported action");
