@@ -5,7 +5,7 @@ import '../packages/dashboard/src/web/i18n/index.js';
 import { ApiError } from '../packages/dashboard/src/web/api.js';
 import { describeAfterRunFailure, describeApiError, describeRunFailure, errorKindOf } from '../packages/dashboard/src/web/lib/errors.js';
 import { generateEnvName, keyStatus, providerTextKey } from '../packages/dashboard/src/web/lib/connections.js';
-import { actionSetSummary, choiceName, comboBlocker, comboModesOf, comboSummary, environmentViewport, profileReady, runRulesSummary, sameValue, unsupportedActions } from '../packages/dashboard/src/web/lib/conditions.js';
+import { choiceName, comboBlocker, comboModesOf, comboSummary, environmentViewport, profileReady, runRulesSummary, sameValue, unsupportedActions } from '../packages/dashboard/src/web/lib/conditions.js';
 import { runConditions } from '../packages/dashboard/src/web/lib/runs.js';
 import { displayState, recentRuns, resultLabel } from '../packages/dashboard/src/web/lib/runStrip.js';
 import { failureDetail, publicOutcome } from '../packages/dashboard/src/server/queue.js';
@@ -182,10 +182,8 @@ describe('settings helpers', () => {
       screenreader: { simulation: { keys: [], intents: ['next', 'previous', 'activate'] }, voiceover: { keys: [], intents: ['next', 'previous', 'activate', 'form.next'] }, nvda: { keys: [], intents: ['next', 'previous', 'activate'] } },
     };
     const basic = DEFAULT_PERMISSIONS;
-    expect(actionSetSummary(basic, capabilities)).toBe('초보: 다음·이전·누르기');
     const quick = { ...basic, screenreader: { ...basic.screenreader, intents: [...basic.screenreader.intents, 'form.next'] } };
     expect(unsupportedActions(quick, capabilities).screenreader).toEqual({ simulation: ['form.next'], voiceover: [], nvda: ['form.next'] });
-    expect(actionSetSummary(quick, capabilities)).toContain('모의 VoiceOver, NVDA에서 일부 지원 안 함');
     const config = defaultConfig();
     // A run names its profile as recorded; older runs fall back to their preset or combo, then to the project's profile by id.
     const spec = (conditions: unknown) => ({ mode: 'keyboard' as const, backend: 'simulation', model: { name: 'm' }, conditions });

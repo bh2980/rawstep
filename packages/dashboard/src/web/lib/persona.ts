@@ -1,24 +1,26 @@
 import type { Mode, Permissions, Profile } from '@rawstep/project/config';
-import { t } from '../i18n';
-import { KEYBOARD_ALL, KEYBOARD_BASIC, KEYBOARD_WIDGETS, SCREENREADER_BASIC, SCREENREADER_KEYS, SCREENREADER_MORE, SCREENREADER_QUICK } from './presets';
+import { t } from '../i18n/index.js';
+import { KEYBOARD_ALL, KEYBOARD_BASIC, KEYBOARD_WIDGETS, SCREENREADER_BASIC, SCREENREADER_FORM_CONTROLS, SCREENREADER_HEADINGS, SCREENREADER_LINKS } from './presets.js';
 
 /**
- * Who the simulated user is: first how they use the page (the profile's mode), then a starting point within it, in the words a person
- * picks it by. A screen reader user new to their screen reader reads item by item; one who knows it jumps by heading, lists the
- * headings and types the task's inputs; a skilled one also jumps by link, lists the links, picks a button from the rotor's form controls and uses Tab and the arrow keys in forms and
- * menus. A keyboard user moves with the basic keys, also works menus and dialogs with the arrow keys, or uses every key including
- * scrolling and the browser's back.
+ * How the simulated user uses the page (the profile's mode), then a starting point within it, in the words a person picks it by.
+ * A screen reader user is described by how they look for things, not by how skilled they are: item by item, or item by item plus
+ * one way of jumping (headings, form controls or links, each with its rotor list). People differ in the way they pick, so each way
+ * is run and costed on its own rather than one guess at what a skilled user does. A keyboard user moves with the basic keys, also
+ * works menus and dialogs with the arrow keys, or uses every key including scrolling and the browser's back.
  * `custom` is a user whose actions were picked one by one.
  */
-export type Persona = 'novice' | 'expert' | 'skilled' | 'basic' | 'widgets' | 'full' | 'custom';
+export type Persona = 'linear' | 'headings' | 'formControls' | 'links' | 'basic' | 'widgets' | 'full' | 'custom';
 type Preset = Exclude<Persona, 'custom'>;
-export const PRESETS: Record<Mode, readonly Preset[]> = { screenreader: ['novice', 'expert', 'skilled'], keyboard: ['basic', 'widgets', 'full'] };
+export const PRESETS: Record<Mode, readonly Preset[]> = { screenreader: ['linear', 'headings', 'formControls', 'links'], keyboard: ['basic', 'widgets', 'full'] };
 
 const permissions = (keys: readonly string[], intents: readonly string[], typeText: boolean): Permissions => ({ keys: [...keys], intents: [...intents], typeText, replaceText: false });
+// Typing the task's inputs is part of the task, not a way of finding things, so every screen reader way allows it.
 const PERMISSIONS: Record<Preset, Permissions> = {
-  novice: permissions([], SCREENREADER_BASIC, false),
-  expert: permissions([], [...SCREENREADER_BASIC, ...SCREENREADER_QUICK], true),
-  skilled: permissions(SCREENREADER_KEYS, [...SCREENREADER_BASIC, ...SCREENREADER_QUICK, ...SCREENREADER_MORE], true),
+  linear: permissions([], SCREENREADER_BASIC, true),
+  headings: permissions([], [...SCREENREADER_BASIC, ...SCREENREADER_HEADINGS], true),
+  formControls: permissions([], [...SCREENREADER_BASIC, ...SCREENREADER_FORM_CONTROLS], true),
+  links: permissions([], [...SCREENREADER_BASIC, ...SCREENREADER_LINKS], true),
   basic: permissions(KEYBOARD_BASIC, [], false),
   widgets: permissions(KEYBOARD_WIDGETS, [], true),
   full: permissions(KEYBOARD_ALL, [], true),
@@ -36,7 +38,7 @@ export function withPreset<P extends Pick<Profile, 'actions'>>(profile: P, mode:
   return { ...profile, actions: { ...profile.actions, [mode]: structuredClone(PERMISSIONS[preset]) } };
 }
 
-/** The user in a few words, such as "처음 쓰는 스크린리더 사용자". */
+/** The user in a few words, such as "제목으로 찾는 스크린리더 사용자". */
 export function personaName(mode: Mode, persona: Persona): string {
   return persona === 'custom' ? t(`persona.custom.${mode}`) : t(`persona.${persona}.name`);
 }

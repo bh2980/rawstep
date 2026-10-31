@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { parseRoute, routeSearch } from '../packages/dashboard/src/web/hooks/useRoute.js';
-import { matchingPreset, presetPermissions } from '../packages/dashboard/src/web/lib/presets.js';
+import { personaOf, withPreset } from '../packages/dashboard/src/web/lib/persona.js';
 import { formatSteps, relativeTime } from '../packages/dashboard/src/web/lib/format.js';
-import { DEFAULT_PERMISSIONS } from '@rawstep/project/config';
+import { defaultProfile } from '@rawstep/project/config';
 
 describe('routes', () => {
   it('keeps the page in the URL: the task list first, tasks and runs under 작업, every setting under 설정', () => {
@@ -38,21 +38,22 @@ describe('routes', () => {
   });
 });
 
-describe('action set presets', () => {
-  it('starts novice, expert and widget sets and recognises them whatever the order', () => {
-    const novice = presetPermissions('novice');
-    expect(novice.keyboard.keys).toEqual(['Tab', 'Shift+Tab', 'Enter', 'Space']);
-    expect(novice.screenreader.intents).toEqual(['next', 'previous', 'activate']);
-    expect(novice.screenreader.typeText).toBe(false);
-    const expert = presetPermissions('expert');
-    expect(expert.screenreader.intents).toEqual(['next', 'previous', 'activate', 'heading.next', 'heading.previous', 'form.next', 'headings.list']);
-    expect(expert.screenreader.typeText).toBe(true);
-    expect(presetPermissions('widgets').keyboard.keys).toEqual(['Tab', 'Shift+Tab', 'Enter', 'Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Escape', 'Home', 'End']);
-    expect(matchingPreset(DEFAULT_PERMISSIONS)).toBe('novice');
-    expect(matchingPreset({ ...novice, keyboard: { ...novice.keyboard, keys: ['Space', 'Enter', 'Shift+Tab', 'Tab'] } })).toBe('novice');
-    expect(matchingPreset(expert)).toBe('expert');
-    expect(matchingPreset({ ...novice, screenreader: { ...novice.screenreader, intents: ['next'] } })).toBeUndefined();
-    expect(matchingPreset({ ...novice, screenreader: { ...novice.screenreader, inputKeys: ['q'] } })).toBeUndefined();
+describe('screen reader ways of finding things', () => {
+  it('starts each way from item-by-item reading plus one way of jumping, and recognises it whatever the order', () => {
+    const profile = defaultProfile();
+    expect(personaOf('screenreader', profile)).toBe('linear');
+    const headings = withPreset(profile, 'screenreader', 'headings');
+    expect(headings.actions.screenreader.intents).toEqual(['next', 'previous', 'activate', 'heading.next', 'heading.previous', 'headings.list']);
+    expect(headings.actions.screenreader.typeText).toBe(true);
+    expect(headings.actions.keyboard).toEqual(profile.actions.keyboard);
+    expect(withPreset(profile, 'screenreader', 'formControls').actions.screenreader.intents).toContain('formControls.rotor');
+    expect(withPreset(profile, 'screenreader', 'links').actions.screenreader.intents).toContain('links.list');
+    const reordered = { ...headings, actions: { ...headings.actions, screenreader: { ...headings.actions.screenreader, intents: [...headings.actions.screenreader.intents].reverse() } } };
+    expect(personaOf('screenreader', reordered)).toBe('headings');
+    // Two ways at once is not one of the starting points.
+    const both = { ...headings, actions: { ...headings.actions, screenreader: { ...headings.actions.screenreader, intents: [...headings.actions.screenreader.intents, 'link.next'] } } };
+    expect(personaOf('screenreader', both)).toBe('custom');
+    expect(personaOf('keyboard', withPreset(profile, 'keyboard', 'widgets'))).toBe('widgets');
   });
 });
 
