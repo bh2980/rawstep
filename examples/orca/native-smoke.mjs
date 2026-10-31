@@ -20,7 +20,7 @@ try {
   const {OrcaBackend}=await import('rawstep/orca');
   const {runTask}=await import('rawstep/runner');
   const url=new URL('./fixture.html',import.meta.url).href;
-  const task={id:'orca-native-confirmation',mode:'screenreader',url,goal:'Choose Continue, then Confirm to complete the action.',maxSteps:6,timeoutMs:60000,verify:{all:[{textVisibleExact:'Action completed'},{titleIncludes:'Completed native Orca confirmation'}]}};
+  const task={id:'orca-native-confirmation',url,goal:'Choose Continue, then Confirm to complete the action.',maxSteps:6,timeoutMs:60000,verify:{all:[{textVisibleExact:'Action completed'},{titleIncludes:'Completed native Orca confirmation'}]}};
   session=await createBrowserSession(url,{headless:false,executablePath:process.env.RAWSTEP_NATIVE_BROWSER??'/usr/bin/chromium',verify:task.verify});
   // A setup-only unique title pairs the actual browser Page to one owned X11 window.
   // This is never a policy observation and is not used to generate speech.

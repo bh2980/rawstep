@@ -1,5 +1,5 @@
-import { isScreenshotRef, type RunTrace, type TraceEvent } from "@rawstep/core/trace";
-import { pngFor, record } from "../internal/guards.js";
+import type { RunTrace, TraceEvent } from "@rawstep/core/trace";
+import { record } from "../internal/guards.js";
 import { summarizeTraceEvidence, type EvidenceModality } from "../analyze/index.js";
 
 export interface ReportCounts {
@@ -9,8 +9,6 @@ export interface ReportCounts {
   redactedSpeechEvents: number;
   readableSimulationOutputEvents: number;
   redactedSimulationOutputEvents: number;
-  keyboardScreenshots: number;
-  withheldKeyboardScreenshots: number;
   diagnosticScreenshots: number;
   withheldDiagnosticScreenshots: number;
   readableVerifierEvidence: number;
@@ -61,14 +59,6 @@ function stepOf(data: Record<string, unknown>): number | undefined {
 function strings(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
 }
-/** Image source for an event's screenshot: a data URI for inline pixels, else a path relative to the trace directory for a blob reference. */
-export function screenshotSrc(data: unknown): string | undefined {
-  const screenshot = record(data).screenshot;
-  if (!isScreenshotRef(screenshot)) return undefined;
-  const png = pngFor(data);
-  return png ? `data:image/png;base64,${png}` : screenshot.blob;
-}
-
 function firstFailure(trace: RunTrace): ReportFailure | null {
   // Checking after each action is expected to return false until the goal is met.
   // Only the final unmet check of an unsuccessful run belongs in this summary.
@@ -100,7 +90,6 @@ export function summarizeTrace(trace: RunTrace): ReportSummary {
   const counts: ReportCounts = { events: trace.events.length, redactedEvents: evidence.redactedEvents.length,
     readableSpeechEvents: evidence.readableSpeechEvents.length, redactedSpeechEvents: evidence.redactedSpeechEvents.length,
     readableSimulationOutputEvents: evidence.readableSimulationOutputEvents.length, redactedSimulationOutputEvents: evidence.redactedSimulationOutputEvents.length,
-    keyboardScreenshots: evidence.readableScreenshotEvents.length, withheldKeyboardScreenshots: evidence.redactedScreenshotEvents.length,
     diagnosticScreenshots: evidence.diagnosticScreenshotEvents.length, withheldDiagnosticScreenshots: evidence.redactedDiagnosticScreenshotEvents.length,
     readableVerifierEvidence: evidence.readableVerifierEvidenceEvents.length, redactedVerifierEvidence: evidence.redactedVerifierEvidenceEvents.length };
   const eventIds = new Set(trace.events.map(event => event.id));

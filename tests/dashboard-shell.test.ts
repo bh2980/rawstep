@@ -41,19 +41,15 @@ describe('routes', () => {
 describe('screen reader ways of finding things', () => {
   it('starts each way from item-by-item reading plus one way of jumping, and recognises it whatever the order', () => {
     const profile = defaultProfile();
-    expect(personaOf('screenreader', profile)).toBe('linear');
-    const headings = withPreset(profile, 'screenreader', 'headings');
-    expect(headings.actions.screenreader.intents).toEqual(['next', 'previous', 'activate', 'heading.next', 'heading.previous', 'headings.list']);
-    expect(headings.actions.screenreader.typeText).toBe(true);
-    expect(headings.actions.keyboard).toEqual(profile.actions.keyboard);
-    expect(withPreset(profile, 'screenreader', 'formControls').actions.screenreader.intents).toContain('formControls.rotor');
-    expect(withPreset(profile, 'screenreader', 'links').actions.screenreader.intents).toContain('links.list');
-    const reordered = { ...headings, actions: { ...headings.actions, screenreader: { ...headings.actions.screenreader, intents: [...headings.actions.screenreader.intents].reverse() } } };
-    expect(personaOf('screenreader', reordered)).toBe('headings');
+    expect(personaOf(profile)).toBe('linear');
+    const headings = withPreset(profile, 'headings');
+    expect(headings.actions.intents).toEqual(['next', 'previous', 'activate', 'heading.next', 'heading.previous', 'headings.list']);
+    expect(headings.actions.typeText).toBe(true);
+    expect(withPreset(profile, 'formControls').actions.intents).toContain('formControls.rotor');
+    expect(withPreset(profile, 'links').actions.intents).toContain('links.list');
+    expect(personaOf({ actions: { ...headings.actions, intents: [...headings.actions.intents].reverse() } })).toBe('headings');
     // Two ways at once is not one of the starting points.
-    const both = { ...headings, actions: { ...headings.actions, screenreader: { ...headings.actions.screenreader, intents: [...headings.actions.screenreader.intents, 'link.next'] } } };
-    expect(personaOf('screenreader', both)).toBe('custom');
-    expect(personaOf('keyboard', withPreset(profile, 'keyboard', 'widgets'))).toBe('widgets');
+    expect(personaOf({ actions: { ...headings.actions, intents: [...headings.actions.intents, 'link.next'] } })).toBe('custom');
   });
 });
 

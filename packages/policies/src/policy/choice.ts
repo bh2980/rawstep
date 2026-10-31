@@ -4,8 +4,6 @@ export type ChoiceRequest = {
   /** Model-facing state only (goal, observation text, history); never DOM, verifier results or input values. */
   state: Record<string, unknown>;
   choices: readonly ChoiceCandidate[];
-  /** Base64 PNG pixels, current first. */
-  images?: readonly string[];
 };
 export type ChoiceResult = {
   choiceId: string;
@@ -21,8 +19,6 @@ export type ChoiceResult = {
  * and candidates; the model only chooses, so it cannot invent an action the runner would execute.
  */
 export interface ChoiceModel {
-  /** What the model can take; a policy checks this when it is built. */
-  readonly inputs: readonly ('text' | 'image')[];
   choose(request: ChoiceRequest, options: { signal: AbortSignal }): Promise<ChoiceResult>;
 }
 

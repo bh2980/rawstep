@@ -17,19 +17,16 @@
 ## run
 
 ```sh
-rawstep run <task> [--profile <id|name>] [--mode keyboard|screenreader]
-                   [--rule <name>=<value>]... [--diagnose-stop]
+rawstep run <task> [--profile <id|name>] [--rule <name>=<value>]...
                    [--repeat <n>] [--out <dir>] [--json] [--project <dir>]
 ```
 
-`<task>`는 `rawstep.config.json`에 등록한 작업 id이거나 작업 JSON 파일 경로입니다. 상대 경로는 프로젝트 폴더 기준이며, 등록하지 않은 파일은 프로젝트의 첫 번째 프로필로 실행합니다. 매 단계는 프로필의 그 모드 실행 모델이 결정하며(스크린리더 실행은 프로필의 계획 모델로 계획도 함께 합니다), 실행 모델이 없는 모드나 계획 모델이 없는 스크린리더 프로필은 실행할 수 없습니다. [실행 프로필](./config.ko.md#실행-프로필)이 실행을 바꾸는 모든 것을 담으므로, 모델이나 프롬프트, 사용자가 할 수 있는 행동, 페이지 조건, 시뮬레이션과 네이티브 스크린리더를 비교하려면 그 부분만 다른 프로필을 만들어 같은 작업을 각각 실행합니다. 작업 파일 형식은 [작업 안내](./task.ko.md)에 있습니다.
+`<task>`는 `rawstep.config.json`에 등록한 작업 id이거나 작업 JSON 파일 경로입니다. 상대 경로는 프로젝트 폴더 기준이며, 등록하지 않은 파일은 프로젝트의 첫 번째 프로필로 실행합니다. 프로필의 계획 모델이 계획하고 실행 모델이 매 단계를 결정하며, 실행 모델이나 계획 모델이 없는 프로필은 실행할 수 없습니다. [실행 프로필](./config.ko.md#실행-프로필)이 실행을 바꾸는 모든 것을 담으므로, 모델이나 프롬프트, 사용자가 할 수 있는 행동, 페이지 조건, 시뮬레이션과 네이티브 스크린리더를 비교하려면 그 부분만 다른 프로필을 만들어 같은 작업을 각각 실행합니다. 작업 파일 형식은 [작업 안내](./task.ko.md)에 있습니다.
 
 기본값은 다음과 같습니다.
 
-- `--profile`: 실행 프로필의 id나 이름. 없으면 프로젝트의 첫 번째 프로필. 키보드 모드는 이미지 입력(`maxImages` 2 이상)을, 스크린리더 모드는 텍스트 입력을 받는 실행 모델이 필요합니다
-- `--mode`: 프로필의 `mode`. 이 실행에서만 덮어씁니다
+- `--profile`: 실행 프로필의 id나 이름. 없으면 프로젝트의 첫 번째 프로필
 - `--rule`: 없음. `--rule <이름>=<값>`으로 [실행 규칙](./config.ko.md#runrules-실행-규칙) 하나를 그 실행에서만 덮어씁니다. 예: `--rule maxPlannerCalls=20 --rule survey=headings`. 여러 규칙은 옵션을 반복해 지정하고, 같은 규칙을 두 번 쓰면 마지막 값이 적용됩니다. 숫자, `true`·`false`, 규칙이 허용하는 선택지는 설정 파일과 같은 기준으로 검사합니다
-- `--diagnose-stop`: 꺼짐. 키보드 모드 전용이며, 일찍 멈춘 실행 뒤에 실행 모델에게 이유를 따로 한 번 묻습니다. 점수는 불확실한 가설이며 결과를 바꾸지 않습니다
 - `--repeat`: 1(최대 100). 반복 실행의 힌트는 목표에 도달한 가장 빠른 실행과 비교합니다
 - `--out`: `<프로젝트>/.rawstep/runs/<시각>-<짧은 id>/`. 반복마다 `run-<n>/` 폴더가 생깁니다
 
@@ -69,11 +66,11 @@ Page
 
 | 파일 | 내용 |
 |---|---|
-| `trace.json`, `trace.jsonl`, `blobs/` | 실행 기록. 스크린샷은 `blobs/<sha256>.png`로 한 번만 저장합니다 |
+| `trace.json`, `trace.jsonl` | 실행 기록 |
 | `hints.json` | 마찰 힌트 |
 | `analysis.json` | 분석. 규칙 기반 분석은 실행 후 항상 만들고, 프로젝트에 분석 모델이 있으면 LLM 분석이 더해집니다(키가 없으면 규칙 기반 분석만 하고 알림을 남깁니다) |
-| `diagnostics/step-<n>.png` | 스크린리더 실행의 단계별 참고 스크린샷. 사람이 볼 용도이며 모델은 받지 않습니다 |
-| `plan.json`, `plan.md` | 계획 + 실행 구조의 실행에서만. 최종 계획 문서(`plan.md`는 사람이 읽는 체크박스 형식, [계획과 실행](./config.ko.md#계획과-실행-orchestration)) |
+| `diagnostics/step-<n>.png` | 단계별 참고 스크린샷. 사람이 볼 용도이며 모델은 받지 않습니다 |
+| `plan.json`, `plan.md` | 최종 계획 문서(`plan.md`는 사람이 읽는 체크박스 형식, [계획과 실행](./config.ko.md#계획과-실행-orchestration)) |
 | `report.html`, `report.json` | 보고서([보고서 안내](./report.ko.md)) |
 
 ## hints, report, analyze
@@ -101,7 +98,7 @@ API 키는 `rawstep.config.json`에 저장하지 않습니다. 연결 제공자�
 
 ## 개인정보
 
-스크린샷에는 페이지의 개인 정보가 담길 수 있습니다. 모델은 픽셀, 목표, 이름 있는 입력 키와 행동 기록만 받고 DOM이나 독립 검증 결과는 받지 않습니다. 저장된 trace에서는 입력값을 가립니다. 이전 결과를 덮어쓰지 않도록 실행마다 새 출력 폴더를 만들며, 실행 결과는 `.rawstep/`에 쌓이므로 git에서 제외하세요.
+모델은 스크린리더가 읽는 발화, 목표, 이름 있는 입력 키와 행동 기록만 받고 DOM이나 독립 검증 결과는 받지 않습니다. 저장된 trace에서는 입력값을 가립니다. 이전 결과를 덮어쓰지 않도록 실행마다 새 출력 폴더를 만들며, 실행 결과는 `.rawstep/`에 쌓이므로 git에서 제외하세요.
 
 ## runTask
 
@@ -110,7 +107,7 @@ API 키는 `rawstep.config.json`에 저장하지 않습니다. 연결 제공자�
 ```ts
 import { runTask } from 'rawstep';
 
-const { runs, findings } = await runTask('checkout', { repeat: 3, mode: 'keyboard' });
+const { runs, findings } = await runTask('checkout', { repeat: 3 });
 ```
 
-옵션은 `projectDir`, `profile`(id나 이름), `runRules`(그 실행에만 쓰는 덮어쓰기), `diagnoseStop`, `mode`, `repeat`, `outDir`, `signal`, `onEvent`입니다. 실행이 끝나면 목표 달성 여부와 무관하게 `{ conditions, warnings, runs, findings }`로 이행하고(`runs[n].hints.goalReached`와 `hints.steps`로 확인), 설정 문제와 취소는 `.code`를 가진 `ProjectError`로 거부됩니다. 저수준 실행기는 `rawstep/runner`의 `runTask`입니다.
+옵션은 `projectDir`, `profile`(id나 이름), `runRules`(그 실행에만 쓰는 덮어쓰기), `repeat`, `outDir`, `signal`, `onEvent`입니다. 실행이 끝나면 목표 달성 여부와 무관하게 `{ conditions, warnings, runs, findings }`로 이행하고(`runs[n].hints.goalReached`와 `hints.steps`로 확인), 설정 문제와 취소는 `.code`를 가진 `ProjectError`로 거부됩니다. 저수준 실행기는 `rawstep/runner`의 `runTask`입니다.

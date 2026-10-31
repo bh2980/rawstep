@@ -26,7 +26,7 @@ export type RunOptions = {
    * grace the policy may stop, and the run ends when it runs out; `goal.reached` records the step and whether it was heard.
    */
   confirmationGrace?: number;
-  /** Explicit opt-in: raw input keystrokes, echoed speech and screenshots may expose secrets. */
+  /** Explicit opt-in: raw input keystrokes and echoed speech may expose secrets. */
   includeSensitiveInputValues?: boolean;
   headless?: boolean;
   browserExecutablePath?: string;
@@ -58,24 +58,20 @@ class RunAborted extends Error { constructor(readonly signal: 'SIGINT' | 'SIGTER
 
 /** The runner owns budgets, action restrictions and independent completion verification. */
 export async function runTask(source: Task, options: RunOptions): Promise<RunTrace> {
-  const resolved = resolveTask({ ...source, ...(options.profile ? { profile: resolveEnvironmentProfile(options.profile) } : {}) });
-  const observationKind = options.backend.observationKind ?? 'screenreader';
+  const task = resolveTask({ ...source, ...(options.profile ? { profile: resolveEnvironmentProfile(options.profile) } : {}) });
   const simulation = options.backend.evidenceProvenance === 'simulation';
   const speechSource = simulation ? 'simulation' : 'screen-reader';
-  const observationProvenance = observationKind === 'keyboard' ? 'keyboard' : options.backend.evidenceProvenance ?? 'unspecified';
-  if (resolved.mode && resolved.mode !== observationKind) throw new Error(`Task mode ${resolved.mode} does not match backend observation kind ${observationKind}.`);
-  const task: Task = { ...resolved, mode: resolved.mode ?? observationKind };
+  const observationProvenance = options.backend.evidenceProvenance ?? 'unspecified';
   if (!options.policy || typeof options.policy.decide !== 'function') throw new Error('A DecisionPolicy is required.');
   const allowedActions = resolveAllowedActions(task, options);
   const inputDescriptors = describeInputs(task);
-  // What the policy observes: sensitive values are masked by backends (pixels) and here (speech).
+  // What the policy observes: sensitive values are masked here.
   // Values under 4 characters cannot be hidden by substring matching without destroying unrelated speech; the withheld typing step covers their echo.
   const sensitiveValues = Object.entries(task.input ?? {}).filter(([name, value]) => inputDescriptors[name]!.sensitive && value.length >= 4).map(([, value]) => value);
   const maskForPolicy = createRedactor(sensitiveValues);
   const withheldObservations = new WeakSet<Observation>();
   // The title gets the same masking as speech: a site can reflect typed text in it as well.
   const policyView = (value: Observation): Observation => {
-    if (value.kind !== 'screenreader') return value;
     const { title, ...rest } = value;
     if (withheldObservations.has(value)) return { ...rest, speech: ['[typed input withheld]'] };
     return { ...rest, speech: value.speech.map(line => maskForPolicy(line).value), ...(title ? { title: maskForPolicy(title).value } : {}) };
@@ -146,7 +142,7 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
         payload: '[REDACTED]', reason: 'Possible input keystroke or asynchronous input echo'
       } : event;
       const entry = append(`backend.${String(data.type ?? 'event')}`, storedEvent, {
-        source: observationKind === 'keyboard' ? 'runner' : speechSource,
+        source: speechSource,
         ...(typeof data.commandId === 'string' || typeof data.commandId === 'number' ? { commandId: String(data.commandId) } : {}),
         ...(typeof data.timestamp === 'number' ? { timestamp: new Date(data.timestamp).toISOString() } : {}),
         redacted: inputTainted
@@ -273,17 +269,6 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
         append('browser.accessibility-diagnostic', inputTainted ? { step: activeStep, details: '[REDACTED]' } : { step: activeStep, diagnostic }, { source: 'browser-diagnostic', redacted: inputTainted });
       }
       const collected = await withinBudget(() => options.backend.observe({ signal: controller.signal }));
-      if ((collected.kind ?? 'screenreader') !== observationKind) throw new Error('Backend returned an observation that does not match its declared modality.');
-      if (collected.kind === 'keyboard') {
-        if (options.backend.observationKind !== 'keyboard') throw new Error('A screen-reader backend cannot expose screenshots to its policy.');
-        const observation: Observation = { kind: 'keyboard', screenshot: collected.screenshot,
-          ...(collected.previousScreenshot ? { previousScreenshot: collected.previousScreenshot } : {}),
-          window: { id: collected.windowId, startedAt: collected.startedAt, endedAt: collected.endedAt, reason: collected.reason } };
-        append('keyboard.observation', inputTainted ? { kind: 'keyboard', window: observation.window, screenshot: '[REDACTED]' } : observation, {
-          source: 'runner', redacted: inputTainted, collectionWindow: { startedAt: collected.startedAt, endedAt: collected.endedAt }
-        });
-        return observation;
-      }
       const ids = collected.outputs.map(output => {
         let id = outputEventIds.get(output.sequence);
         if (!id) {
@@ -353,7 +338,7 @@ export async function runTask(source: Task, options: RunOptions): Promise<RunTra
     }
     await diagnosticScreenshot(0);
     await startPageScreenshot();
-    const grace = observation.kind === 'screenreader' ? Math.max(0, Math.floor(options.confirmationGrace ?? 0)) : 0;
+    const grace = Math.max(0, Math.floor(options.confirmationGrace ?? 0));
     let reached: { step: number; heard: boolean | undefined } | undefined;
     for (let step = 1; step <= task.maxSteps!; step++) {
       activeStep = step;
@@ -588,10 +573,9 @@ function goalTexts(rules: readonly unknown[]): string[] {
 }
 /**
  * Whether the speech after the action that reached the goal said so: one of the goal's texts was spoken. Undefined when the goal has
- * no text to listen for (a URL or a script), and for keyboard runs, which hear nothing.
+ * no text to listen for (a URL or a script).
  */
 export function confirmationHeard(task: Pick<Task, 'verify'>, observation: Observation): boolean | undefined {
-  if (observation.kind !== 'screenreader') return undefined;
   const texts = goalTexts(task.verify.all ?? []).map(t => t.toLowerCase().trim()).filter(Boolean);
   if (!texts.length) return undefined;
   const said = observation.speech.join('\n').toLowerCase();

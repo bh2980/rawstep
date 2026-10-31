@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { startDashboard } from '../packages/dashboard/src/server/index.js';
 import { ProjectStore } from '@rawstep/project/store';
 import { defaultConfig, type ProjectConfig } from '@rawstep/project/config';
-import { connection, profileWith } from './helpers/project-config.js';
+import { connection, plannedWith, profileWith } from './helpers/project-config.js';
 import { TraceRecorder } from '@rawstep/core/trace';
 import type { Experiment, PlanRequest } from '../packages/dashboard/src/shared/config.js';
 
@@ -18,7 +18,7 @@ const task = { url: 'https://example.com', goal: 'Complete fixture', verify: { a
 const waitFor = async (work: () => boolean) => { for (let i = 0; i < 100; i++) { if (work()) return; await new Promise(r => setTimeout(r, 20)); } throw new Error('Timed out'); };
 function setup(): ProjectConfig {
   const config = defaultConfig();
-  config.connections.push(connection('a')); config.profiles[0] = profileWith('default', 'a', 'm-a', 'Default');
+  config.connections.push(connection('a'), connection('llm', { kind: 'llm' })); config.profiles[0] = plannedWith(profileWith('default', 'a', 'm-a', 'Default'), 'llm');
   config.profiles.push({ ...config.profiles[0]!, id: 'narrow', name: 'Narrow', page: 'narrow' });
   config.tasks.push({ id: 'task', name: 'Fixture', file: 'task.json' }); return config;
 }

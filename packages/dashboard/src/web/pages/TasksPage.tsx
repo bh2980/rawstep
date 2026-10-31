@@ -50,10 +50,10 @@ export function TasksPage({ pageProps, runs, summaries, summaryError, navigate, 
   const allShown = ordered.length > 0 && ordered.every(item => picked.includes(item.task.id));
   const profileName = (id: string) => config.profiles.find(profile => profile.id === id)?.name ?? id;
   const live = runs.filter(ref => isLive(ref.run)), finished = runs.filter(ref => isFinished(ref.run));
-  // Ready once some run profile can run in its mode: an executor, and a planner for a screen reader run.
+  // Ready once some run profile can run: an executor and a planner.
   const ready = config.profiles.find(profile => profileReady(profile, config.connections));
   const steps: SetupStep[] = [
-    { id: 'model', done: !!ready, detail: ready ? t('taskList.setup.modelDone', { profile: ready.name, models: comboSummary(ready, config.connections, ready.mode) }) : config.connections.length ? t('taskList.setup.modelPick') : t('taskList.setup.modelTodo'),
+    { id: 'model', done: !!ready, detail: ready ? t('taskList.setup.modelDone', { profile: ready.name, models: comboSummary(ready, config.connections) }) : config.connections.length ? t('taskList.setup.modelPick') : t('taskList.setup.modelTodo'),
       to: { view: 'settings', section: config.connections.length ? 'profiles' : 'connections' } },
     { id: 'task', done: config.tasks.length > 0, detail: config.tasks.length ? t('taskList.setup.taskDone', { count: config.tasks.length }) : t('taskList.setup.taskTodo'), to: { task: NEW_TASK } },
     { id: 'run', done: finished.length > 0, detail: finished.length ? t('taskList.setup.runDone', { count: finished.length }) : t('taskList.setup.runTodo') },
@@ -69,7 +69,7 @@ export function TasksPage({ pageProps, runs, summaries, summaryError, navigate, 
       <ul className="divide-y divide-edge border-b border-edge">{live.map(({ run }) => <li key={run.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 py-2 text-[13px]">
         <RunStateLabel state={run.state} className="w-24 font-medium" />
         <Link to={{ task: run.taskId, run: run.id }} navigate={navigate} className="min-w-0 flex-1 rounded-sm font-medium hover:underline">{taskNameOf(run, config.tasks)}<span className="sr-only"> {t('sidebar.repeat', { n: run.repeat })}</span></Link>
-        <span className="text-muted-foreground">{t(`sidebar.modes.${run.mode}`)} · {runModelsName(run)}</span>
+        <span className="text-muted-foreground">{runModelsName(run)}</span>
       </li>)}</ul>
     </section>}
 
@@ -115,9 +115,9 @@ export function TasksPage({ pageProps, runs, summaries, summaryError, navigate, 
               </TableCell>
               <TableCell className={cell + ' py-1.5'}>{groups.length
                 ? <ul className="grid gap-0.5 text-[13px] tabular-nums">{groups.slice(0, 3).map(group => {
-                  const same = baseGroups.find(other => other.profileId === group.profileId && other.mode === group.mode);
+                  const same = baseGroups.find(other => other.profileId === group.profileId);
                   const extra = group.medianSteps != null && same?.medianSteps != null ? group.medianSteps - same.medianSteps : undefined;
-                  return <li key={group.profileId + group.mode} className="flex items-baseline gap-2 whitespace-nowrap">
+                  return <li key={group.profileId} className="flex items-baseline gap-2 whitespace-nowrap">
                     <span className="max-w-48 truncate text-muted-foreground">{profileName(group.profileId)}</span>
                     <span className="font-medium">{formatSteps(group.medianSteps)}</span>
                     {extra !== undefined && <span className={cn('text-xs', extra > 0 ? 'text-inspect' : 'text-muted-foreground')}>{extra > 0 ? `+${formatSteps(extra)}` : formatSteps(extra)}</span>}

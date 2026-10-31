@@ -5,7 +5,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { resolveTask, type Task } from '@rawstep/core/contracts';
 import { resolveEnvironmentProfile } from '@rawstep/browser/profiles';
 import { modelBaseURL } from '@rawstep/policies/systemone';
-import { CONFIG_FILE, KEYED_PROVIDERS, configSchema, credentialId, defaultConfig, modelKeyEnv, parseConfig, type Connection, type ProjectConfig, type ProviderId } from './config.js';
+import { CONFIG_FILE, KEYED_PROVIDERS, configSchema, credentialId, defaultConfig, executorModel, modelKeyEnv, parseConfig, type Connection, type ProjectConfig, type ProviderId } from './config.js';
 import { ProjectError } from './errors.js';
 
 export async function readOptional(path: string): Promise<string | undefined> {
@@ -49,7 +49,7 @@ export class ProjectStore {
     let json: unknown;
     try { json = JSON.parse(raw); } catch (e) { throw new ProjectError('invalid-config', `${CONFIG_FILE} is not valid JSON: ${e instanceof Error ? e.message : String(e)}`); }
     const version = json && typeof json === 'object' ? (json as { version?: unknown }).version : undefined;
-    if (version === 1 || version === 2 || version === 3 || version === 4) throw new ProjectError('old-config', `${CONFIG_FILE} is version ${version}, which this Rawstep does not read. Start a new project with \`rawstep init\` and copy the tasks over.`);
+    if (typeof version === 'number' && Number.isInteger(version) && version >= 1 && version <= 5) throw new ProjectError('old-config', `${CONFIG_FILE} is version ${version}, which this Rawstep does not read. Start a new project with \`rawstep init\` and copy the tasks over.`);
     try { config = parseConfig(json); }
     catch (e) { throw new ProjectError('invalid-config', `${CONFIG_FILE} is not valid: ${e instanceof Error ? e.message : String(e)}`); }
     this.validateReferences(config);
@@ -63,7 +63,8 @@ export class ProjectStore {
     }
     const kindOf = (connectionId: string) => config.connections.find(c => c.id === connectionId)?.kind;
     for (const profile of config.profiles) {
-      for (const executor of Object.values(profile.executors)) if (executor && !('followPlan' in executor) && !kindOf(executor.connectionId)) throw new ProjectError('profile-connection-missing', 'A profile uses a connection that does not exist.');
+      const executor = executorModel(profile);
+      if (executor && !kindOf(executor.connectionId)) throw new ProjectError('profile-connection-missing', 'A profile uses a connection that does not exist.');
       if (profile.planner && !('planFile' in profile.planner) && kindOf(profile.planner.connectionId) !== 'llm') throw new ProjectError('planner-needs-llm', 'The planner needs an LLM connection.');
       resolveEnvironmentProfile(profile.page);
     }

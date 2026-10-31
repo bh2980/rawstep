@@ -28,7 +28,6 @@ export const core = {
   },
   sidebar: {
     repeat: '반복 #{{n}}',
-    modes: { keyboard: '키보드', screenreader: '스크린리더' },
   },
   runStates: {
     queued: '대기',
@@ -64,7 +63,6 @@ export const core = {
     duration: '{{seconds}}초',
     openReport: '보고서 열기',
     downloadTrace: 'trace 다운로드',
-    downloadStopReason: '중단 진단 다운로드',
     stopQueue: '남은 실행도 모두 중지',
     simulationNotice: '모의 VoiceOver 실행 (실제 네이티브 발화 아님)',
     outcomeReasons: {
@@ -106,7 +104,6 @@ export const core = {
       excessKeystrokes: '{{target}}을(를) 누르기 전까지 {{n}}번의 행동 동안 이동만 했습니다.',
       excessKeystrokesWithKeys: '{{target}}을(를) 누르기 전까지 {{n}}번의 행동 동안 이동만 했습니다 ({{keys}}). 행동마다 모델에 한 번씩 물었습니다.',
       backtracking: '탐색 방향이 {{n}}번 뒤바뀌었습니다.',
-      repeatedState: '같은 화면을 {{n}}번 마주쳤습니다.',
       /** The focused element disappeared. */
       focusLostRemoved: '{{action}} 이후 {{from}}이(가) 사라져 포커스가 페이지로 되돌아갔습니다.',
       /** Focus moved away from the element while it stayed. */
@@ -118,7 +115,6 @@ export const core = {
       modalFocusOutside: '모달 대화상자가 열려 있는데 포커스가 뒤쪽의 {{target}}(으)로 이동했습니다.',
       dialogFocusNotMoved: '{{dialog}}이(가) 열렸지만 포커스가 그 안으로 이동하지 않았습니다.',
       missingAnnouncement: '{{action}}(으)로 페이지가 바뀌었지만 안내, 포커스 이동, 페이지 로드가 기록되지 않았습니다.',
-      invisibleFocusChange: '포커스가 {{target}}(으)로 이동했지만 화면은 바뀌지 않았습니다.',
       /** Scores are passed already formatted with two decimals; they are model scores, not percentages. */
       modelHesitation: '모델이 {{choiceId}}을(를) 점수 {{score}}로 골랐지만, 차순위 후보도 {{runnerUp}}로 비슷했습니다.',
       earlyStopGuard: '반복 감시 장치가 실행을 중단했습니다.',
@@ -149,12 +145,10 @@ export const core = {
       'slow-run': '가장 빨랐던 실행보다 오래 걸림',
       'excess-keystrokes': '키 입력 과다',
       'backtracking': '되돌아감',
-      'repeated-state': '같은 화면 반복',
       'focus-lost': '포커스 사라짐',
       'focus-not-visible': '포커스가 보이지 않음',
       'modal-focus-outside': '대화상자 밖 포커스',
       'missing-announcement': '안내 없음',
-      'invisible-focus-change': '화면 변화 없는 포커스 이동',
       'model-hesitation': '모델 망설임',
       'early-stop': '일찍 중단',
       'goal-met-at-start': '시작부터 목표 충족',

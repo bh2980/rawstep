@@ -6,12 +6,10 @@ export const connection = (id: string, extra: Partial<Connection> = {}): Connect
   return base.provider === 'custom' ? { baseURL: 'http://127.0.0.1:1234', ...base } : base;
 };
 /** Instructions tests give executors unless they care about the wording. */
-export const instructions = { keyboard: 'Keyboard fixture instructions.', screenreader: 'Screen reader fixture instructions.' } as const;
-/** A solo run profile whose executor in both modes is `modelId` on `connectionId`, taking text and images; it runs in keyboard mode unless `mode` says otherwise. */
-export const profileWith = (id: string, connectionId: string, modelId = 'm-' + connectionId, name = id, mode: Profile['mode'] = 'keyboard'): Profile => {
-  const model = { connectionId, modelId, inputs: ['text', 'image'] as ('text' | 'image')[], maxChoices: 255, maxImages: 2, historyLimit: 12, focusGate: false, latitude: 'none' as const };
-  return { ...defaultProfile(id, name), mode, executors: { keyboard: { ...model, instructions: instructions.keyboard }, screenreader: { ...model, instructions: instructions.screenreader } } };
-};
+export const instructions = 'Executor fixture instructions.';
+/** A run profile whose executor is `modelId` on `connectionId`, with no planner yet (see `plannedWith`). */
+export const profileWith = (id: string, connectionId: string, modelId = 'm-' + connectionId, name = id): Profile =>
+  ({ ...defaultProfile(id, name), executor: { connectionId, modelId, maxChoices: 255, historyLimit: 12, latitude: 'none', instructions } });
 /** The same profile planning with `plannerModelId` on the LLM connection `plannerConnectionId`. */
 export const plannedWith = (profile: Profile, plannerConnectionId: string, plannerModelId = 'planner', plannerInstructions = ''): Profile =>
   ({ ...profile, planner: { connectionId: plannerConnectionId, modelId: plannerModelId, instructions: plannerInstructions } });

@@ -5,7 +5,7 @@ import type { PageElement } from '../shared/api.js';
 
 type StructureMachine = Pick<MachineSettings, 'headless' | 'browserExecutablePath' | 'browserEndpoint'>;
 
-/** What a start page looks like to a person using the keyboard or a screen reader. All text comes from the website and is untrusted. */
+/** What a start page looks like to a person using a screen reader. All text comes from the website and is untrusted. */
 export type PageStructure = {
   title: string;
   url: string;

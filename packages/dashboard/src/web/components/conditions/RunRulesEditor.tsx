@@ -14,22 +14,19 @@ type Props = {
   value: Partial<RunRules>; onChange: (v: Partial<RunRules>) => void; inherited: RunRules; compact?: boolean;
 };
 type Key = keyof RunRules;
-type Group = { id: 'guard' | 'model' | 'planning'; keys: Key[] };
+type Group = { id: 'guard' | 'planning'; keys: Key[] };
 const GROUPS: Group[] = [
-  { id: 'guard', keys: ['repetitionGuard', 'maxStateVisits', 'maxUnchangedTransitions', 'confirmationGrace'] },
-  { id: 'model', keys: ['modelGiveUp'] },
+  { id: 'guard', keys: ['repetitionGuard', 'maxUnchangedTransitions', 'confirmationGrace'] },
   { id: 'planning', keys: ['survey', 'taskControl', 'reviewEvery', 'stepActionLimit', 'failureLimit', 'noChangeLimit', 'plannerHistoryLimit', 'confidenceFloor', 'maxPlannerCalls'] },
 ];
-const GUARD = ['auto', 'on', 'off'] as const;
 const TASK_CONTROL = ['rawstep', 'executor'] as const;
 const SURVEY = ['none', 'headings'] as const;
 
 /** A run rule's value as words: the choice's label, 켬/끔, or the number. */
 export function ruleValueLabel(key: Key, v: RunRules[Key]): string {
-  return key === 'repetitionGuard' ? t(`conditions.runRules.guard.${v as RunRules['repetitionGuard']}`)
-    : key === 'taskControl' ? t(`conditions.runRules.taskControl.${v as RunRules['taskControl']}`)
+  return key === 'taskControl' ? t(`conditions.runRules.taskControl.${v as RunRules['taskControl']}`)
     : key === 'survey' ? t(`conditions.runRules.survey.${v as RunRules['survey']}`)
-    : key === 'modelGiveUp' ? t(v ? 'conditions.runRules.on' : 'conditions.runRules.off') : String(v);
+    : key === 'repetitionGuard' ? t(v ? 'conditions.runRules.on' : 'conditions.runRules.off') : String(v);
 }
 
 /** Whether one field's value is allowed, by the schema's own bounds. */
@@ -63,12 +60,7 @@ function Row({ field, value, inherited, set, compact, inheritedValue }: RowProps
   const { t } = useTranslation();
   const id = useId(), overridden = value[field] !== undefined, current = value[field] ?? inherited[field];
   const invalid = overridden && !fieldValid(field, value[field]);
-  const control = field === 'repetitionGuard'
-    ? <Select value={current as string} onValueChange={next => set('repetitionGuard', next as RunRules['repetitionGuard'])}>
-      <SelectTrigger id={id} className="w-full"><SelectValue /></SelectTrigger>
-      <SelectContent>{GUARD.map(g => <SelectItem key={g} value={g}>{t(`conditions.runRules.guard.${g}`)}</SelectItem>)}</SelectContent>
-    </Select>
-    : field === 'taskControl'
+  const control = field === 'taskControl'
     ? <Select value={current as string} onValueChange={next => set('taskControl', next as RunRules['taskControl'])}>
       <SelectTrigger id={id} className="w-full"><SelectValue /></SelectTrigger>
       <SelectContent>{TASK_CONTROL.map(c => <SelectItem key={c} value={c}>{t(`conditions.runRules.taskControl.${c}`)}</SelectItem>)}</SelectContent>
@@ -78,8 +70,8 @@ function Row({ field, value, inherited, set, compact, inheritedValue }: RowProps
       <SelectTrigger id={id} className="w-full"><SelectValue /></SelectTrigger>
       <SelectContent>{SURVEY.map(c => <SelectItem key={c} value={c}>{t(`conditions.runRules.survey.${c}`)}</SelectItem>)}</SelectContent>
     </Select>
-    : field === 'modelGiveUp'
-      ? <Switch id={id} checked={current as boolean} onCheckedChange={on => set('modelGiveUp', on)} />
+    : field === 'repetitionGuard'
+      ? <Switch id={id} checked={current as boolean} onCheckedChange={on => set('repetitionGuard', on)} />
       : <Input id={id} type="number" inputMode={field === 'confidenceFloor' ? 'decimal' : 'numeric'} step={field === 'confidenceFloor' ? 0.05 : 1} className="w-24" value={String(current)} aria-invalid={invalid || undefined} aria-describedby={invalid ? `${id}-range` : undefined}
         onChange={e => set(field, e.target.value.trim() === '' ? undefined : Number(e.target.value) as never)} />;
   const label = t(`conditions.runRules.fields.${field}.label`);

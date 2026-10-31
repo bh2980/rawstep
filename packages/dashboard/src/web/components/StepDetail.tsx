@@ -21,8 +21,6 @@ import { Collapsible, CollapsibleContent } from './ui/collapsible';
 
 type Props = {
   step: StepView; experimentId: string; run: RunRecord; modelKind: ModelKind;
-  /** The nearest earlier step with a screenshot, for the Before view of the evidence. */
-  previous: StepView | undefined;
   /** The step just before this one: a stop has no evidence of its own, so it shows what the model was looking at when it chose. */
   before?: StepView | undefined;
   /** The hints that point at this step, with their details. */
@@ -38,22 +36,21 @@ const MAX_CANDIDATES = 5;
 const label = 'text-xs leading-4 font-medium';
 
 /**
- * One step, in the order a person investigates it: the evidence (screen or speech, by mode), the action, what the page did in
+ * One step, in the order a person investigates it: the evidence (what was heard, then the screen), the action, what the page did in
  * response, the places worth a look, and only then the model's candidates and the raw record, both closed.
  * Wide: evidence 3fr beside analysis 2fr. Narrow: the action first, then evidence, response, inspect.
  */
-export function StepDetail({ step, experimentId, run, modelKind, previous, before, hints, baselineMet, live, plan }: Props) {
+export function StepDetail({ step, experimentId, run, modelKind, before, hints, baselineMet, live, plan }: Props) {
   const { t } = useTranslation();
-  const speechFirst = run.snapshot.spec.mode === 'screenreader';
   return <section aria-label={t('runPage.stepLabel')} className="motion-reveal grid items-start gap-x-6 gap-y-5 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
     <Action step={step} baselineMet={baselineMet} />
     <div className="min-w-0 lg:col-start-1 lg:row-span-6 lg:row-start-1">
       {step.stop && !step.speech && !step.screenshot && before
         ? <div className="grid gap-2">
           <p className="text-xs leading-5 text-muted-foreground">{before.step === 0 ? t('stepDetail.stopEvidenceStart') : t('stepDetail.stopEvidence', { n: before.step })}</p>
-          <StepEvidence step={before} previous={undefined} experimentId={experimentId} runId={run.id} speechFirst={speechFirst} live={false} />
+          <StepEvidence step={before} experimentId={experimentId} runId={run.id} live={false} />
         </div>
-        : <StepEvidence step={step} previous={previous} experimentId={experimentId} runId={run.id} speechFirst={speechFirst} live={live} />}
+        : <StepEvidence step={step} experimentId={experimentId} runId={run.id} live={live} />}
     </div>
     <PageResponse step={step} />
     {hints.length > 0 && <Inspect hints={hints} />}

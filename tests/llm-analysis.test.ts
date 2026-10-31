@@ -13,7 +13,7 @@ afterEach(async()=>{for(const fn of cleanup.splice(0).reverse())await fn();});
 async function fixture() {
   const dir=await mkdtemp(join(tmpdir(),'rawstep-llm-'));cleanup.push(()=>rm(dir,{recursive:true,force:true}));
   const recorder=new TraceRecorder({id:'llm',input:{name:'PRIVATE_INPUT'}},dir);await recorder.initialize();
-  recorder.append('keyboard.observation',{screenshot:{pngBase64:'DO_NOT_SEND_PNG',viewport:{w:1,h:1}}});
+  recorder.append('screen-reader.output',{text:'Start, button'});
   recorder.append('action.result',{ok:false,text:'PRIVATE_INPUT'});
   return {dir,trace:await recorder.finalize({status:'failure',reason:'verification-failed'})};
 }
@@ -22,9 +22,9 @@ describe('explicit finalized-trace LLM analysis',()=>{
   it('adds analysis focus while preserving evidence validation and external cancellation', async () => {
     const {trace}=await fixture(); const controller=new AbortController(); let sent: any;
     const fetcher: typeof fetch = async (_url, init) => { sent=JSON.parse(String(init!.body)); return Response.json({ choices: [{ finish_reason:'stop', message:{content:JSON.stringify(result('invented-event'))} }] }); };
-    const analyzer=new LlmTraceAnalyzer({baseURL:'http://127.0.0.1:1/v1',model:'fixture',instructions:'Compare keyboard navigation',fetch:fetcher,signal:controller.signal});
+    const analyzer=new LlmTraceAnalyzer({baseURL:'http://127.0.0.1:1/v1',model:'fixture',instructions:'Compare heading navigation',fetch:fetcher,signal:controller.signal});
     await expect(analyzer.analyze(trace)).rejects.toThrow('LLM analysis failed');
-    expect(sent.messages[0].content).toContain('existing trace event IDs'); expect(sent.messages[0].content).toContain('Compare keyboard navigation');
+    expect(sent.messages[0].content).toContain('existing trace event IDs'); expect(sent.messages[0].content).toContain('Compare heading navigation');
     const abortFetch: typeof fetch = async (_url, init) => { if(init!.signal!.aborted) throw new Error('aborted'); return new Promise((_resolve,reject)=>init!.signal!.addEventListener('abort',()=>reject(new Error('aborted')),{once:true})); };
     const pending=new LlmTraceAnalyzer({baseURL:'http://127.0.0.1:1/v1',model:'fixture',fetch:abortFetch,signal:controller.signal}).analyze(trace);
     controller.abort(); await expect(pending).rejects.toMatchObject({ name: 'RawstepError', code: 'analysis-cancelled' });
@@ -47,7 +47,7 @@ describe('explicit finalized-trace LLM analysis',()=>{
     expect(await runCli(['analyze',dir],options)).toBe(0);expect(sent).toHaveLength(0);
     expect(await runCli(['analyze',dir,'--llm'],options)).toBe(0);expect(sent).toHaveLength(1);
     expect(sent[0].model).toBe('fixture');
-    expect(JSON.stringify(sent)).not.toMatch(/DO_NOT_SEND_PNG|PRIVATE_INPUT/);
+    expect(JSON.stringify(sent)).not.toMatch(/PRIVATE_INPUT/);
     expect(JSON.parse(sent[0].messages[1].content).trace.events.map((e:any)=>e.id)).toEqual(trace.events.map(e=>e.id));
     expect(await readFile(join(dir,'trace.json'),'utf8')).toBe(original);
     const analysis=JSON.parse(await readFile(join(dir,'analysis.json'),'utf8'));expect(analysis.runOutcome).toEqual(trace.outcome);expect(analysis.analyzer.id).toContain('llm');

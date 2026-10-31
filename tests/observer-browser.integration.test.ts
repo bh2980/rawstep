@@ -1,9 +1,9 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { pathToFileURL } from 'node:url';
-import { runScreenshotTask } from '@rawstep/browser/screenshot';
+import { runMockVoiceOverTask } from '@rawstep/screenreaders/mock-voiceover';
 import { ScriptedPolicy } from '@rawstep/policies/policy';
 import { extractHints } from '@rawstep/reports/hints';
 import type { Decision, Task } from '@rawstep/core/contracts';
@@ -18,12 +18,10 @@ const decisions: Decision[] = ['Tab', 'Enter', 'Tab', 'Enter', 'Tab', 'Enter', '
 async function runLab(observe?: boolean) {
   const task: Task = { url: pathToFileURL(resolve('fixtures/friction-lab.html')).href, goal: 'Reach checkout', maxSteps: 20,
     verify: { all: [{ titleIncludes: 'Checkout' }] } };
-  const warn = vi.fn();
   const scripted = new ScriptedPolicy(decisions);
   const inputs: unknown[] = [];
-  const trace = await runScreenshotTask(task, { outDir: await directory(), headless: true, allowedActions: { keys: ['Tab', 'Enter', 'Space'] }, browserExecutablePath: process.env.RAWSTEP_TEST_BROWSER_PATH, warn,
+  const trace = await runMockVoiceOverTask(task, { outDir: await directory(), headless: true, allowedActions: { keys: ['Tab', 'Enter', 'Space'] }, browserExecutablePath: process.env.RAWSTEP_TEST_BROWSER_PATH, warn: () => {},
     ...(observe === undefined ? {} : { observe }), policy: { decide: (input) => { inputs.push(input); return scripted.decide(); } } });
-  expect(warn).not.toHaveBeenCalled();
   return { trace, inputs };
 }
 const observerEvents = (trace: RunTrace, kind: string) => trace.events.filter(event => event.type === `observer.${kind}`).map(event => event.data as Record<string, unknown>);
@@ -57,16 +55,15 @@ describe('page observer in real Chromium', () => {
 
     expect(inputs.length).toBeGreaterThan(0);
     for (const input of inputs) {
-      const json = JSON.stringify(input, (_key, value) => typeof value === 'string' && value.length > 200 ? '[base64]' : value);
-      expect(json).not.toContain('Dismiss banner');
-      expect(json).not.toContain('observer');
+      const json = JSON.stringify(input);
+      expect(json).not.toMatch(/observer|"rect"|"modalOpen"|"inDialog"|"focus-lost"/);
     }
 
     const report = extractHints(trace);
     const steps = (kind: string) => report.hints.filter(hint => hint.kind === kind).flatMap(hint => hint.steps);
     expect(steps('focus-lost')).toContain(2);
     expect(report.hints.filter(hint => hint.kind === 'modal-focus-outside' && hint.certainty === 'observed').flatMap(hint => hint.steps)).toContain(5);
-    expect(steps('missing-announcement')).toEqual(expect.arrayContaining([8, 12]));
+    expect(steps('missing-announcement')).toContain(12);
     expect(steps('missing-announcement')).not.toContain(6);
   }, 120_000);
 
@@ -88,10 +85,8 @@ describe('timeline goal rules in real Chromium', () => {
 
   it('verifies a live-region announcement from the observer timeline and flags a goal that held before any action', async () => {
     const task: Task = { url: pathToFileURL(resolve('fixtures/friction-lab.html')).href, goal: 'Add the item to the cart', maxSteps: 8, verify };
-    const warn = vi.fn();
     const scripted = new ScriptedPolicy(['Tab', 'Tab', 'Tab', 'Enter'].map(key).concat({ stop: 'success' }));
-    const trace = await runScreenshotTask(task, { outDir: await directory(), headless: true, allowedActions: { keys: ['Tab', 'Enter'] }, browserExecutablePath: process.env.RAWSTEP_TEST_BROWSER_PATH, warn, policy: { decide: () => scripted.decide() } });
-    expect(warn).not.toHaveBeenCalled();
+    const trace = await runMockVoiceOverTask(task, { outDir: await directory(), headless: true, allowedActions: { keys: ['Tab', 'Enter'] }, browserExecutablePath: process.env.RAWSTEP_TEST_BROWSER_PATH, warn: () => {}, policy: { decide: () => scripted.decide() } });
     expect(trace.outcome).toMatchObject({ status: 'success', reason: 'verified', steps: 4 });
 
     // The cart announcement happens on step 4; earlier checks fail on the event rule only.

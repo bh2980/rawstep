@@ -297,7 +297,6 @@ describe("retained verifier fixtures in real Chromium", () => {
           id: "verify-failure",
           url: pathToFileURL(resolve("fixtures/simple-cta.html")).toString(),
           goal: "Need a visible success marker.",
-          mode: "keyboard",
           maxSteps: 2,
           timeoutMs: 1000,
           verify: {
@@ -316,7 +315,6 @@ describe("retained verifier fixtures in real Chromium", () => {
           id: "verify-activation-failure",
           url: pathToFileURL(resolve("fixtures/simple-cta.html")).toString(),
           goal: "Need the latest activation context.",
-          mode: "screenreader",
           maxSteps: 2,
           timeoutMs: 1000,
           verify: {

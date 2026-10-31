@@ -35,7 +35,6 @@ describe('finding descriptions', () => {
 
   it('uses the largest or average number across occurrences for model findings', () => {
     expect(describeFinding(finding('backtracking', [{ reversals: 2 }, { reversals: 5 }]))).toBe('같은 두 요소 사이를 한 실행에서 최대 5번 이동했습니다.');
-    expect(describeFinding(finding('repeated-state', [{ visits: 3 }, { visits: 4 }]))).toContain('최대 4번');
     const hesitation = describeFinding(finding('model-hesitation', [{ probability: 0.4, runnerUp: 0.35 }, { probability: 0.5, runnerUp: 0.45 }]))!;
     expect(hesitation).toContain('0.45 대 0.40');
     expect(hesitation).not.toContain('%');
@@ -104,8 +103,8 @@ describe('step dots', () => {
 describe('raw events by step', () => {
   it('puts unnumbered events with the latest decision and early ones with step 0', () => {
     const events = [
-      { type: 'keyboard.observation', data: {} }, { type: 'policy.decision', data: { step: 1 } }, { type: 'action.result', data: { step: 1 } },
-      { type: 'keyboard.observation', data: {} }, { type: 'policy.decision', data: { step: 2 } }, { type: 'observer.focus', data: { step: 2 } },
+      { type: 'browser.screenshot', data: {} }, { type: 'policy.decision', data: { step: 1 } }, { type: 'action.result', data: { step: 1 } },
+      { type: 'browser.screenshot', data: {} }, { type: 'policy.decision', data: { step: 2 } }, { type: 'observer.focus', data: { step: 2 } },
     ];
     const groups = eventsByStep(events);
     expect([...groups.keys()]).toEqual([0, 1, 2]);

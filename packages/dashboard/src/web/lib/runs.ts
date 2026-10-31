@@ -1,4 +1,4 @@
-import type { Mode, ProjectConfig } from '@rawstep/project/config';
+import type { ProjectConfig } from '@rawstep/project/config';
 import type { Experiment, RunRecord } from '../../shared/config.js';
 import { t } from '../i18n/index.js';
 
@@ -50,31 +50,25 @@ export function screenshotUrl(experimentId: string, runId: string, eventId: stri
   return `/api${runPath(experimentId, runId)}/png/${encodeURIComponent(eventId)}`;
 }
 
-const recorded = (value: unknown): { id?: unknown; name?: unknown; structure?: unknown } => value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
+const recorded = (value: unknown): { id?: unknown; name?: unknown } => value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
 
 /** What a run ran with, read from what it recorded at the start (names as they were then), falling back to the project by id. */
 export type RunConditionsView = {
-  mode: Mode; structure: 'solo' | 'planned'; backend: string;
+  backend: string;
   /** The run profile's name; older runs recorded a preset or model combo instead. */
   profile: string;
   /** Model names by role; `analysis` never changes an outcome. */
   executor: string; planner?: string; analysis?: string;
 };
-export function runConditions(run: Pick<RunRecord, 'snapshot' | 'structure' | 'analysisModel'> & Partial<Pick<RunRecord, 'profileId'>>, config?: Partial<Pick<ProjectConfig, 'profiles'>>): RunConditionsView {
+export function runConditions(run: Pick<RunRecord, 'snapshot' | 'analysisModel'> & Partial<Pick<RunRecord, 'profileId'>>, config?: Partial<Pick<ProjectConfig, 'profiles'>>): RunConditionsView {
   const { spec } = run.snapshot, c = recorded(spec.conditions) as Record<string, unknown>;
-  const combo = recorded(c.combo);
-  const structure = combo.structure === 'planned' || combo.structure === 'solo' ? combo.structure : run.structure ?? 'solo';
   const named = [c.profile, c.preset, c.combo].map(item => recorded(item).name).find((name): name is string => typeof name === 'string');
   const profile = named ?? config?.profiles?.find(p => p.id === run.profileId)?.name ?? run.profileId ?? '—';
   return {
-    mode: spec.mode, structure, backend: spec.backend, profile,
+    backend: spec.backend, profile,
     executor: spec.model.name, ...(spec.plannerModel ? { planner: spec.plannerModel.name } : {}),
     ...(run.analysisModel ? { analysis: run.analysisModel.name } : {}),
   };
-}
-/** "스크린리더 · 기본 프로필": the mode and the run profile in one line. */
-export function runConditionsLine(view: RunConditionsView): string {
-  return [t(`sidebar.modes.${view.mode}`), view.profile].join(' · ');
 }
 
 /** "Run #n" numbers of one task's runs: 1 is the oldest. Runs of other tasks are ignored. */

@@ -1,9 +1,8 @@
-import { summarizeVisualExploration } from "../screenshot/analysis.js";
 import { mkdir, readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { isDeepStrictEqual } from "node:util";
-import { readTrace, screenshotSha256, traceFilePath, validateTrace, writeJsonAtomic, type RunOutcome, type RunTrace, type TraceEvent } from "@rawstep/core/trace";
+import { readTrace, traceFilePath, validateTrace, writeJsonAtomic, type RunOutcome, type RunTrace, type TraceEvent } from "@rawstep/core/trace";
 import { findRawstepError } from "@rawstep/core/errors";
 
 export const ANALYSIS_SCHEMA_VERSION = "1.0" as const;
@@ -86,7 +85,8 @@ export async function readAnalysis(path: string, trace: RunTrace): Promise<Analy
 
 function dataOf(event: TraceEvent): Record<string, unknown> { return isRecord(event.data) ? event.data : {}; }
 
-export type EvidenceModality = 'screenreader' | 'simulation' | 'keyboard';
+/** Native screen reader output, or Rawstep's simulated VoiceOver. */
+export type EvidenceModality = 'screenreader' | 'simulation';
 export interface TraceEvidenceSummary {
   modality: EvidenceModality | 'mixed' | 'unknown';
   modalities: EvidenceModality[];
@@ -95,9 +95,6 @@ export interface TraceEvidenceSummary {
   redactedSpeechEvents: TraceEvent[];
   readableSimulationOutputEvents: TraceEvent[];
   redactedSimulationOutputEvents: TraceEvent[];
-  /** Current screenshots only: previousScreenshot repeats an earlier observation. */
-  readableScreenshotEvents: TraceEvent[];
-  redactedScreenshotEvents: TraceEvent[];
   readableVerifierEvidenceEvents: TraceEvent[];
   redactedVerifierEvidenceEvents: TraceEvent[];
   /** Trace references only; file availability is not established by analysis. */
@@ -112,31 +109,23 @@ export function summarizeTraceEvidence(trace: Readonly<RunTrace>): TraceEvidence
     ['screen-reader.output', 'backend.output'].includes(event.type));
   const simulationOutputs = trace.events.filter((event) => event.source === 'simulation' &&
     ['simulation.output', 'backend.output'].includes(event.type));
-  const keyboardEvents = trace.events.filter((event) => event.source === 'runner' && event.type === 'keyboard.observation');
   const metadata = trace.events.filter((event) => event.type === 'backend.metadata').map(dataOf);
   const isSimulated = (data: Record<string, unknown>): boolean => data.evidenceProvenance === 'simulation' ||
     data.observationProvenance === 'simulation' || data.backend === 'mock-voiceover';
   const simulation = trace.environment.observationProvenance === 'simulation' || simulationOutputs.length > 0 ||
     trace.events.some((event) => event.source === 'simulation' && event.type === 'simulation.observation') ||
     metadata.some(isSimulated);
-  const keyboard = trace.task.mode === 'keyboard' || keyboardEvents.length > 0 || metadata.some((data) =>
-    data.observationKind === 'keyboard');
-  const screenreader = (!simulation && trace.task.mode === 'screenreader') || outputEvents.length > 0 ||
+  const screenreader = outputEvents.length > 0 ||
     trace.events.some((event) => event.source === 'screen-reader' && event.type === 'screen-reader.observation') ||
-    metadata.some((data) => !isSimulated(data) && (data.backend === 'at-driver' || data.evidenceProvenance === 'native' ||
-      (!simulation && data.observationKind === 'screenreader')));
+    metadata.some((data) => !isSimulated(data) && (!simulation || data.backend === 'at-driver' || data.evidenceProvenance === 'native'));
   const modalities: EvidenceModality[] = [
     ...(screenreader ? ['screenreader' as const] : []),
-    ...(simulation ? ['simulation' as const] : []),
-    ...(keyboard ? ['keyboard' as const] : [])
+    ...(simulation ? ['simulation' as const] : [])
   ];
   const hasReadableOutput = (event: TraceEvent): boolean => {
     const data = dataOf(event);
     const text = isRecord(data.output) ? data.output.text : data.text;
     return !event.redacted && typeof text === 'string' && text.trim().length > 0;
-  };
-  const hasScreenshot = (event: TraceEvent): boolean => {
-    return screenshotSha256(dataOf(event).screenshot) !== undefined;
   };
   const evidence = trace.events.filter((event) => event.source === 'verifier' && event.type === 'verifier.evidence' &&
     isRecord(dataOf(event).witness));
@@ -147,8 +136,6 @@ export function summarizeTraceEvidence(trace: Readonly<RunTrace>): TraceEvidence
     redactedSpeechEvents: outputEvents.filter((event) => event.redacted),
     readableSimulationOutputEvents: simulationOutputs.filter(hasReadableOutput),
     redactedSimulationOutputEvents: simulationOutputs.filter((event) => event.redacted),
-    readableScreenshotEvents: keyboardEvents.filter(hasScreenshot),
-    redactedScreenshotEvents: keyboardEvents.filter((event) => event.redacted && !hasScreenshot(event)),
     readableVerifierEvidenceEvents: evidence.filter((event) => !event.redacted),
     redactedVerifierEvidenceEvents: evidence.filter((event) => event.redacted),
     diagnosticScreenshotEvents: trace.events.filter((event) => event.source === 'browser-diagnostic' &&
@@ -185,7 +172,6 @@ export const deterministicAnalyzer: TraceAnalyzer = {
     });
     const evidence = summarizeTraceEvidence(trace);
     const { readableSpeechEvents: speech, redactedSpeechEvents: redactedSpeech,
-      readableScreenshotEvents: screenshots, redactedScreenshotEvents: redactedScreenshots,
       readableVerifierEvidenceEvents: verifierEvidence, redactedVerifierEvidenceEvents: redactedVerifierEvidence } = evidence;
     if (trace.events.length && (evidence.modalities.includes('screenreader') || evidence.modality === 'unknown') && !speech.length && !redactedSpeech.length) findings.push({
       id: "missing-speech-evidence", title: "No nonempty screen-reader output was recorded", severity: "info",
@@ -207,16 +193,6 @@ export const deterministicAnalyzer: TraceAnalyzer = {
       description: 'Input privacy redaction limits inspection of these simulated output events. Their original generated text is unavailable in the saved trace.',
       evidenceEventIds: evidence.redactedSimulationOutputEvents.map((event) => event.id)
     });
-    if (trace.events.length && evidence.modalities.includes('keyboard') && !screenshots.length && !redactedScreenshots.length) findings.push({
-      id: 'missing-screenshot-evidence', title: 'No keyboard screenshot evidence was recorded', severity: 'info',
-      description: 'This keyboard trace has no retained screenshot observation. Startup or observation collection may have failed; the trace does not establish what the page looked like.',
-      evidenceEventIds: [trace.events[0]!.id]
-    });
-    if (redactedScreenshots.length) findings.push({
-      id: 'redacted-screenshot-evidence', title: 'Some keyboard screenshots were removed for privacy', severity: 'info',
-      description: 'Input privacy redaction removed these screenshots. Their original pixels cannot be inspected in the saved trace. Screenshots are visual evidence, not screen-reader output.',
-      evidenceEventIds: redactedScreenshots.map((event) => event.id)
-    });
     if (evidence.redactedDiagnosticScreenshotEvents.length) findings.push({
       id: 'redacted-diagnostic-screenshots', title: 'Diagnostic screenshots were omitted for privacy', severity: 'info',
       description: 'These requested browser diagnostic screenshots were skipped after text entry. No image file was saved for the omitted captures, so the trace cannot establish their original pixels.',
@@ -226,12 +202,6 @@ export const deterministicAnalyzer: TraceAnalyzer = {
       id: 'redacted-verifier-evidence', title: 'Some verification evidence was redacted', severity: 'info',
       description: 'Verification results retain their recorded rule outcomes and evidence references, but privacy redaction limits inspection of the original observations.',
       evidenceEventIds: redactedVerifierEvidence.map((event) => event.id)
-    });
-    const visual = summarizeVisualExploration(trace);
-    if (visual.repetitionLimitEventIds.length) findings.push({
-      id: 'visual-repetition-limit', title: 'Visual repetition guard stopped exploration', severity: 'warning',
-      description: 'Repeated screenshot pixels reached a configured exploration limit. This may indicate a keyboard trap or an unobservable focus change, but does not establish either. Review actions and saved screenshots.',
-      evidenceEventIds: visual.repetitionLimitEventIds
     });
     const policyEvidence = (kind: string) => trace.events.filter(event => event.type === 'policy.evidence' && (isRecord(dataOf(event).evidence) ? (dataOf(event).evidence as Record<string, unknown>).kind : (isRecord(dataOf(event).summary) ? (dataOf(event).summary as Record<string, unknown>).kind : undefined)) === kind);
     const speechGuard = policyEvidence('repetition-guard'), planLimit = policyEvidence('orchestration-limit'), plans = policyEvidence('orchestration-plan');
@@ -244,12 +214,6 @@ export const deterministicAnalyzer: TraceAnalyzer = {
       id: 'orchestration-limit', title: 'The run reached its planner-call limit (not measured)', severity: 'warning',
       description: 'The run used up its planner calls before the user reached the goal or gave up, so whether the task can be done is not known. Review where the plan changed and which assumptions turned out wrong before attributing a cause to the page or to the models.',
       evidenceEventIds: [...planLimit, ...plans.slice(1)].map(event => event.id)
-    });
-    const unseenFocus = visual.modelFocusObservations.filter(item => item.visibility === 'not-visible');
-    if (unseenFocus.length) findings.push({
-      id: 'model-focus-not-visible', title: 'Model reported no visible focus indicator', severity: 'warning',
-      description: 'This is an uncertain visual model assessment, not a DOM focus check or a confirmed accessibility defect. Inspect the corresponding screenshots.',
-      evidenceEventIds: unseenFocus.map(item => item.eventId)
     });
     const failedVerification = trace.events.filter((event) => event.source === 'verifier' &&
       event.type === 'verifier.result' && dataOf(event).passed === false);
@@ -266,11 +230,8 @@ export const deterministicAnalyzer: TraceAnalyzer = {
       observationSummary.push(`${evidence.readableSimulationOutputEvents.length} readable simulated VoiceOver output events`, `${evidence.redactedSimulationOutputEvents.length} redacted simulated output events`, 'simulated output is not native VoiceOver evidence');
     }
     if (plans.length) observationSummary.push(`${plans.length} plan versions (${Math.max(0, plans.length - 1)} revisions)`);
-    if (evidence.modalities.includes('keyboard')) {
-      observationSummary.push(`${screenshots.length} readable keyboard screenshot observations`, `${visual.states.length} distinct pixel states`, `${visual.inferenceEventIds.length} recorded model inferences`, `${redactedScreenshots.length} keyboard screenshot observations removed for privacy`);
-    }
     return {
-      summary: `Mode: ${evidence.modality}. ${trace.events.length} ordered events; ${observationSummary.join('; ')}; ${evidence.diagnosticScreenshotEvents.length} recorded diagnostic screenshot references; ${evidence.redactedDiagnosticScreenshotEvents.length} diagnostic screenshots omitted for privacy; ${verifierEvidence.length} readable verifier evidence events; ${redactedVerifierEvidence.length} redacted verifier evidence events. ${evidence.redactedEvents.length} total redacted events. ${policyBlocks.length} policy boundary events; ${failedCommands.length} command failures; ${failedVerification.length} failed verification attempts. Recorded run outcome: ${trace.outcome?.status ?? "unfinished"}. Diagnostic observations only; no accessibility conformance verdict.`,
+      summary: `Evidence: ${evidence.modality}. ${trace.events.length} ordered events; ${observationSummary.join('; ')}; ${evidence.diagnosticScreenshotEvents.length} recorded diagnostic screenshot references; ${evidence.redactedDiagnosticScreenshotEvents.length} diagnostic screenshots omitted for privacy; ${verifierEvidence.length} readable verifier evidence events; ${redactedVerifierEvidence.length} redacted verifier evidence events. ${evidence.redactedEvents.length} total redacted events. ${policyBlocks.length} policy boundary events; ${failedCommands.length} command failures; ${failedVerification.length} failed verification attempts. Recorded run outcome: ${trace.outcome?.status ?? "unfinished"}. Diagnostic observations only; no accessibility conformance verdict.`,
       findings
     };
   }

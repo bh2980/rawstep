@@ -21,7 +21,7 @@ function planner(...drafts: PlanDraft[]) {
 }
 function executor(...answers: string[]) {
   const requests: ChoiceRequest[] = [];
-  const value: ChoiceModel = { inputs: ['text'], choose: async request => { requests.push(structuredClone(request)); return { choiceId: answers[requests.length - 1]!, model: { id: 'jev', runtime: 'test' } }; } };
+  const value: ChoiceModel = { choose: async request => { requests.push(structuredClone(request)); return { choiceId: answers[requests.length - 1]!, model: { id: 'jev', runtime: 'test' } }; } };
   return { executor: value, requests };
 }
 const evidence = (policy: OrchestratedSpeechPolicy) => policy.takeDecisionEvidence() as { kind: string; [key: string]: unknown }[];
@@ -260,7 +260,7 @@ describe('orchestrated speech policy under Rawstep\'s task control (default)', (
   /** An executor that also reports probabilities, as a decision model does. */
   function scored(...answers: [string, number][]) {
     const requests: ChoiceRequest[] = [];
-    const value: ChoiceModel = { inputs: ['text'], choose: async request => {
+    const value: ChoiceModel = { choose: async request => {
       requests.push(structuredClone(request));
       const [choiceId, top] = answers[Math.min(requests.length - 1, answers.length - 1)]!;
       return { choiceId, model: { id: 'jev', runtime: 'test' }, probabilities: request.choices.map(c => c.id === choiceId ? top : (1 - top) / Math.max(1, request.choices.length - 1)) };

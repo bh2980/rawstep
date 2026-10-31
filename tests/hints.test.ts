@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_HINT_THRESHOLDS, HINTS_SCHEMA_VERSION, extractHints, selectReference, summarizeRun } from "@rawstep/reports/hints";
 import type { HintKind } from "@rawstep/reports/hints";
@@ -6,13 +5,11 @@ import type { RunOutcome, RunTrace, TraceEvent } from "@rawstep/core/trace";
 
 type Pair = readonly [type: string, data: Record<string, unknown>];
 const timestamp = "2026-01-01T00:00:00.000Z";
-const frameA = Buffer.from("frame-a").toString("base64");
-const frameB = Buffer.from("frame-b").toString("base64");
 
 /** Builds a trace whose events are the given (type, data) pairs with sequential ids. */
 function trace(pairs: readonly Pair[], outcome?: RunOutcome, overrides: Partial<RunTrace> = {}): RunTrace {
   return {
-    schemaVersion: "2.2", runId: "hints-test", task: { id: "hints" },
+    schemaVersion: "3.0", runId: "hints-test", task: { id: "hints" },
     environment: { platform: "test", platformVersion: "1", browser: "test", browserVersion: "1", screenReader: "none", screenReaderVersion: "0" },
     startedAt: timestamp, endedAt: "2026-01-01T00:00:05.000Z",
     events: pairs.map(([type, data], index): TraceEvent => ({
@@ -25,14 +22,10 @@ function trace(pairs: readonly Pair[], outcome?: RunOutcome, overrides: Partial<
 }
 const decide = (step: number, key: string): Pair => ["policy.decision", { step, decision: { action: { kind: "key", key } } }];
 const result = (step: number, ok = true): Pair => ["action.result", { step, ok }];
-// Screenshots are blob references; the hash identifies the pixels.
-const frame = (pixels: string): Pair => {
-  const sha256 = createHash("sha256").update(Buffer.from(pixels, "base64")).digest("hex");
-  return ["keyboard.observation", { screenshot: { sha256, blob: `blobs/${sha256}.png`, bytes: 1 } }];
-};
+const heard = (text: string): Pair => ["screen-reader.observation", { speech: [text] }];
 const observer = (kind: string, step: number, extra: Record<string, unknown> = {}): Pair => [`observer.${kind}`, { kind, step, at: timestamp, ...extra }];
 /** One policy step: a key decision, its result and the observation that follows. */
-const press = (step: number, key: string, pixels = `step-${step}`): Pair[] => [decide(step, key), result(step), frame(Buffer.from(pixels).toString("base64"))];
+const press = (step: number, key: string, speech = `step ${step}`): Pair[] => [decide(step, key), result(step), heard(speech)];
 const kinds = (pairs: readonly Pair[], outcome?: RunOutcome, options?: Parameters<typeof extractHints>[1]) => extractHints(trace(pairs, outcome), options).hints.map(hint => hint.kind);
 const find = (report: ReturnType<typeof extractHints>, kind: HintKind) => report.hints.filter(hint => hint.kind === kind);
 const success = (steps: number): RunOutcome => ({ status: "success", steps });
@@ -106,14 +99,6 @@ describe("friction hints", () => {
     expect(kinds([...press(1, "Tab"), ...press(2, "Shift+Tab")])).not.toContain("backtracking");
   });
 
-  it("reports a screen seen three times", () => {
-    const pairs: Pair[] = [frame(frameA), decide(1, "Tab"), frame(frameB), decide(2, "Tab"), frame(frameA), decide(3, "Tab"), frame(frameA)];
-    const [hint] = find(extractHints(trace(pairs)), "repeated-state");
-    expect(hint).toMatchObject({ certainty: "observed", steps: [0, 2, 3], detail: { visits: 3 } });
-    expect(hint!.evidence).toEqual(["event-1", "event-5", "event-7"]);
-    expect(kinds([frame(frameA), frame(frameB), frame(frameA)])).not.toContain("repeated-state");
-  });
-
   it("reports observed focus loss after the initial step and ignores it at step 0", () => {
     const pairs: Pair[] = [observer("focus-lost", 0, { role: "button", name: "Gone", reason: "removed" }), ...press(1, "Tab"), ...press(2, "Enter"), observer("focus-lost", 2, { role: "button", name: "Dismiss", reason: "removed" })];
     const report = extractHints(trace(pairs));
@@ -169,19 +154,11 @@ describe("friction hints", () => {
     });
 
     it("is unavailable without observer events and the limitations say so", () => {
-      const report = extractHints(trace([frame(frameA), ...press(1, "Enter", "changed")]));
+      const report = extractHints(trace([heard("Menu, button"), ...press(1, "Enter", "changed")]));
       expect(find(report, "missing-announcement")).toHaveLength(0);
       expect(report.limitations.join(" ")).toMatch(/observer/);
       expect(extractHints(trace(base)).limitations.join(" ")).not.toMatch(/No page observer events/);
     });
-  });
-
-  it("reports a focus change observed while the screen stayed the same", () => {
-    const pairs: Pair[] = [frame(frameA), decide(1, "Tab"), result(1), frame(frameA), observer("focus", 1, { role: "link", name: "Invisible" })];
-    expect(find(extractHints(trace(pairs)), "invisible-focus-change")).toMatchObject([{ certainty: "observed", steps: [1], detail: { target: { role: "link", name: "Invisible" } } }]);
-    const changed: Pair[] = [frame(frameA), decide(1, "Tab"), result(1), frame(frameB), observer("focus", 1, { role: "link", name: "Visible" })];
-    expect(kinds(changed)).not.toContain("invisible-focus-change");
-    expect(kinds([frame(frameA), decide(1, "Tab"), result(1), frame(frameA)])).not.toContain("invisible-focus-change");
   });
 
   it("reports a choice whose runner-up scored close to it, not a clear one with low absolute scores", () => {
@@ -219,8 +196,8 @@ describe("friction hints", () => {
     ];
     const report = extractHints(trace(pairs, success(7)), { reference: trace([], success(2)) });
     expect(report.hints.map(hint => hint.kind)).toEqual(["slow-run", "model-hesitation", "modal-focus-outside", "focus-lost"]);
-    expect(report).toMatchObject({ schemaVersion: "2.2", taskId: "hints", runId: "hints-test", steps: 7, goalReached: true, outcome: { status: "success" } });
-    expect(HINTS_SCHEMA_VERSION).toBe("2.2");
+    expect(report).toMatchObject({ schemaVersion: "3.0", taskId: "hints", runId: "hints-test", steps: 7, goalReached: true, outcome: { status: "success" } });
+    expect(HINTS_SCHEMA_VERSION).toBe("3.0");
     expect(extractHints(trace([], { status: "failure", reason: "verification-failed", steps: 3 }))).toMatchObject({ goalReached: false, outcome: { status: "failure", reason: "verification-failed" } });
     expect(extractHints(trace([])).outcome).toBeUndefined();
   });

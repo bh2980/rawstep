@@ -21,7 +21,7 @@ async function handle(message) {
   const { id, method, params } = message;
   if (method === 'initialize' && config.hangInit) return;
   if (method === 'initialize') return send({ id, result: { protocolVersion: config.protocolVersion ?? 1, agentInfo: { name: 'fake', version: '9' },
-    agentCapabilities: { promptCapabilities: { image: config.images !== false }, sessionCapabilities: { delete: {} } } } });
+    agentCapabilities: { sessionCapabilities: { delete: {} } } } });
   if (method === 'authenticate') { signedIn = true; return send({ id, result: {} }); }
   if (method === 'session/new') {
     if (config.needsSignIn && !signedIn) return send({ id, error: { code: -32000, message: 'Authentication required' } });

@@ -61,7 +61,7 @@ export function RunDialog({ open, onOpenChange, pageProps, taskIds: initialTasks
   const tasks = config.tasks.filter(task => taskIds.includes(task.id)), profiles = config.profiles.filter(p => profileIds.includes(p.id));
   const count = Number(repeats), valid = Number.isInteger(count) && count >= 1 && count <= MAX_REPEATS;
   const total = valid ? tasks.length * profiles.length * count : 0;
-  const problems = profiles.flatMap(profile => { const problem = comboProblem(config, view.credentialStatus, profile, profile.mode); return problem ? [{ profile, problem }] : []; });
+  const problems = profiles.flatMap(profile => { const problem = comboProblem(config, view.credentialStatus, profile); return problem ? [{ profile, problem }] : []; });
   const ready = tasks.length > 0 && profiles.length > 0 && valid && !problems.length && !busy;
   const toggle = (list: string[], value: string, on: boolean) => on ? [...list, value] : list.filter(item => item !== value);
 
@@ -130,9 +130,8 @@ export function RunDialog({ open, onOpenChange, pageProps, taskIds: initialTasks
 
 /** A profile in one line: who uses the page, where it is heard, which AI thinks. */
 export function profileLine(profile: Profile): string {
-  const who = personaName(profile.mode, personaOf(profile.mode, profile));
-  const where = profile.mode === 'screenreader' ? translate(`conditions.backends.${profile.screenReader}`) : translate('runDialog.keyboard');
-  return `${who} · ${where} · ${aiSummary(profile, profile.mode)}`;
+  const who = personaName(personaOf(profile));
+  return `${who} · ${translate(`conditions.backends.${profile.screenReader}`)} · ${aiSummary(profile)}`;
 }
 
 const pickClass = 'rounded-sm font-medium underline decoration-muted-foreground decoration-dashed decoration-[1.5px] underline-offset-[5px] hover:decoration-foreground focus-visible:outline-2';

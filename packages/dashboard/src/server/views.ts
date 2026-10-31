@@ -69,11 +69,11 @@ export class RunViews {
       steps: [...new Set(finding.evidenceEventIds.flatMap(id => at.get(id) ?? []))].sort((a, b) => a - b),
     })) };
   }
-  /** Hints against the shortest goal-reaching finished run of the same task and mode, from any experiment. */
+  /** Hints against the shortest goal-reaching finished run of the same task, from any experiment. */
   async hints(experimentId: string, runId: string): Promise<RunHintsView> {
     const run = this.queue.find(experimentId, runId), trace = await this.trace(experimentId, runId);
     if (!trace) throw new HttpError(404, '이 실행의 추적 기록이 아직 없습니다.');
-    const candidates = this.queue.experiments.flatMap(e => e.runs.filter(r => r.id !== runId && r.taskId === run.taskId && r.mode === run.mode && r.structure === run.structure && r.outcome?.status === 'success' && finished(r)).map(r => ({ experimentId: e.id, run: r })))
+    const candidates = this.queue.experiments.flatMap(e => e.runs.filter(r => r.id !== runId && r.taskId === run.taskId && r.outcome?.status === 'success' && finished(r)).map(r => ({ experimentId: e.id, run: r })))
       .sort((a, b) => (a.run.outcome?.steps ?? Infinity) - (b.run.outcome?.steps ?? Infinity));
     let reference: { experimentId: string; runId: string; trace: RunTrace } | undefined;
     for (const c of candidates) {
@@ -135,10 +135,9 @@ export class RunViews {
     for (const entry of done) facts.set(entry.run.id, await this.runFacts(entry.experimentId, entry.run.id));
     const hintsOf = (runId: string, kind: Hint['kind']) => reports.get(runId)?.hints.filter(hint => hint.kind === kind) ?? [];
 
-    // The start page to place stuck objects on: the newest screen reader run that recorded one.
+    // The start page to place stuck objects on: the newest run that recorded one.
     const pageOf = [...done].reverse().find(entry => facts.get(entry.run.id)?.startPage);
     const startPage = pageOf ? { ...facts.get(pageOf.run.id)!.startPage!, experimentId: pageOf.experimentId, runId: pageOf.run.id } : undefined;
-    const screenReaderRuns = done.filter(entry => entry.run.mode === 'screenreader');
     // Stuck places are objects that did not respond as the user expected when pressed; other broken expectations are wrong guesses.
     const costly = isStuck, wrongGuess = isWrongGuess;
     const broken = cached.findings.filter(finding => finding.kind === 'expectation-broken' && finding.target)
@@ -147,11 +146,11 @@ export class RunViews {
       const runIds = new Set(finding.occurrences.map(o => o.runId)), counts = new Map<string, number>(), byProfile = new Map<string, StuckPlace['byProfile'][number]>();
       for (const o of finding.occurrences) { const text = record(o.detail.assumption) && typeof o.detail.assumption.text === 'string' ? o.detail.assumption.text : undefined; if (text) counts.set(text, (counts.get(text) ?? 0) + 1); }
       for (const entry of done.filter(entry => runIds.has(entry.run.id))) {
-        const group = `${entry.run.profileId}\u0000${entry.run.mode}`, item = byProfile.get(group) ?? { profileId: entry.run.profileId, mode: entry.run.mode, runs: 0 };
-        item.runs++; byProfile.set(group, item);
+        const item = byProfile.get(entry.run.profileId) ?? { profileId: entry.run.profileId, runs: 0 };
+        item.runs++; byProfile.set(entry.run.profileId, item);
       }
       const location = startPage && finding.occurrences.map(o => pageBox(o.detail.location, startPage.url)).find(Boolean);
-      return { target: finding.target!, runs: runIds.size, totalRuns: screenReaderRuns.length, byProfile: [...byProfile.values()],
+      return { target: finding.target!, runs: runIds.size, totalRuns: done.length, byProfile: [...byProfile.values()],
         gaveUpOn: new Set(finding.occurrences.filter(o => o.detail.gaveUpOn === true).map(o => o.runId)).size,
         assumptions: [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([text]) => text).slice(0, 3), ...(location ? { location } : {}) };
     }).sort((a, b) => b.runs - a.runs || b.gaveUpOn - a.gaveUpOn);
@@ -160,7 +159,7 @@ export class RunViews {
     // Conditions as the run recorded them, without the profile itself: a profile edited between runs shows as differing runs.
     const conditionsKey = (run: RunRecord) => { const { profile: _profile, ...rest } = (run.snapshot.spec.conditions ?? {}) as Record<string, unknown>; return JSON.stringify(rest); };
     const groups = new Map<string, typeof done>();
-    for (const entry of done) { const group = `${entry.run.profileId}\u0000${entry.run.mode}`; groups.set(group, [...groups.get(group) ?? [], entry]); }
+    for (const entry of done) groups.set(entry.run.profileId, [...groups.get(entry.run.profileId) ?? [], entry]);
     const newestKey = new Map([...groups].map(([group, list]) => [group, conditionsKey(list.at(-1)!.run)]));
     const results: RunResult[] = done.map(entry => {
       const run = entry.run, early = hintsOf(run.id, 'early-stop')[0];
@@ -169,7 +168,7 @@ export class RunViews {
       const allBreaks = hintsOf(run.id, 'expectation-broken'), breaks = allBreaks.filter(costly), stretch = hintsOf(run.id, 'goal-word-stretch')[0]?.detail.moves;
       const tried = Array.isArray(give?.tried) ? give.tried.filter((id): id is string => typeof id === 'string') : [];
       return {
-        experimentId: entry.experimentId, runId: run.id, profileId: run.profileId, mode: run.mode, ...end, steps: steps(run) ?? null,
+        experimentId: entry.experimentId, runId: run.id, profileId: run.profileId, ...end, steps: steps(run) ?? null,
         ...(end.ending === 'gave-up' && give ? { giveUp: { reason: String(give.reason ?? ''), ...(typeof run.outcome?.step === 'number' ? { step: run.outcome.step } : {}),
           tried: tried.map(id => { const at = allBreaks.find(hint => record(hint.detail.assumption) && hint.detail.assumption.id === id), text = at && record(at.detail.assumption) ? at.detail.assumption.text : undefined;
             return { id, ...(typeof text === 'string' ? { text } : {}), ...(at?.steps[0] !== undefined ? { step: at.steps[0] } : {}), ...(at?.target ? { target: at.target } : {}) }; }) } } : {}),
@@ -178,7 +177,7 @@ export class RunViews {
         unheard: end.ending === 'reached' && facts.get(run.id)!.unheard,
         // Two expectations broken at once on one object are one place passed, not two.
         stuck: [...new Map(breaks.map(hint => ({ place: placeOf(hint.target), step: hint.steps[0] ?? 0 })).filter(item => item.place >= 0).map(item => [`${item.place}:${item.step}`, item])).values()],
-        differs: conditionsKey(run) !== newestKey.get(`${run.profileId}\u0000${run.mode}`),
+        differs: conditionsKey(run) !== newestKey.get(run.profileId),
       };
     });
     const resultOf = new Map(results.map(result => [result.runId, result]));
@@ -193,7 +192,7 @@ export class RunViews {
       const longest = own.filter(result => result.stretch !== null).sort((a, b) => b.stretch! - a.stretch!)[0];
       const newest = (group.at(-1)!.run.snapshot.spec.conditions ?? {}) as { combo?: { name?: unknown }; atEnvironment?: { name?: unknown } };
       return {
-        profileId: group[0]!.run.profileId, mode: group[0]!.run.mode, runs: group.length, reached: endings.reached, endings, unmeasuredBy,
+        profileId: group[0]!.run.profileId, runs: group.length, reached: endings.reached, endings, unmeasuredBy,
         medianSteps: median(counts), minSteps: counts.length ? Math.min(...counts) : null, maxSteps: counts.length ? Math.max(...counts) : null,
         unheard: own.filter(result => result.unheard).length,
         longestStretch: longest ? { moves: longest.stretch!, runId: longest.runId } : null,

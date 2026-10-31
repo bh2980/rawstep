@@ -50,8 +50,8 @@ npm run dashboard:build
 | 기능 | 추가 준비 |
 |---|---|
 | 저장된 trace 분석·보고서 | 모델·브라우저·스크린리더 없이 실행 가능 |
-| Chromium 시뮬레이션 / 스크린샷 fixture | Chromium |
-| 실제 스크린샷 모델 | 모델 서버와 별도 가중치·런타임 |
+| Chromium 시뮬레이션 / fixture | Chromium |
+| 실제 모델 호출 | 모델 서버와 별도 가중치·런타임 |
 | VoiceOver AT Driver | macOS, 실제 VoiceOver, 대응 AT Driver 서버와 필요한 사용자 권한 |
 | NVDA AT Driver | Windows, 실제 NVDA, 대응 추가 기능·서버 |
 | Orca 네이티브 어댑터 | Linux X11, Orca48.x, D-Bus/AT-SPI, 기존 Speech Dispatcher, 정확히 연결한 브라우저 창 |
@@ -66,19 +66,15 @@ Orca의 입력은 특정 X11 창·프로세스·포커스를 확인한 후에만
 npm run rawstep -- run examples/profiles/task.json --profile PROFILE --out runs/first
 ```
 
-`examples/profiles/task.json`은 함께 제공되는 환경 fixture에 맞춰져 있습니다. 실제 사이트의 탐색 정책으로 사용하지 마세요. 모델 없이 고정 행동을 쓰는 회귀 테스트는 라이브러리(`runScreenshotTask`와 `ScriptedPolicy` 등)로 작성하며, 실제 모델 추론이라고 표현하지 않습니다.
+`examples/profiles/task.json`은 함께 제공되는 환경 fixture에 맞춰져 있습니다. 실제 사이트의 탐색 정책으로 사용하지 마세요. 모델 없이 고정 행동을 쓰는 회귀 테스트는 라이브러리(`runMockVoiceOverTask`와 `ScriptedPolicy` 등)로 작성하며, 실제 모델 추론이라고 표현하지 않습니다.
 
-키보드 모드는 화면 이미지를 모델에 보내므로 이미지 입력을 지원하는 모델이 필요합니다. `npx rawstep ui`에서 이미지를 받는 LLM, 또는 `typesafe`·`openrouter`·`custom` 제공자의 결정 모델 연결을 만들고 실행 프로필의 키보드 실행 모델로 고르세요([설정 안내](./config.ko.md)). 직접 띄운 `/systemone` 서버는 제공자 `custom`과 서버 주소로 연결합니다.
+`npx rawstep ui`에서 LLM 연결, 또는 `typesafe`·`openrouter`·`custom` 제공자의 결정 모델 연결을 만들고 실행 프로필의 실행 모델로 고르세요([설정 안내](./config.ko.md)). 직접 띄운 `/systemone` 서버는 제공자 `custom`과 서버 주소로 연결합니다.
 
-```sh
-npm run rawstep -- run examples/screenshot/task.json --profile PROFILE --mode keyboard
-```
-
-기본 npm 의존성에는 모델 SDK·가중치·Python·GPU 런타임이 없으며, 원격 모델은 스크린샷을 받는다는 점에 유의하세요. 예제 작업 파일은 `examples/screenshot/README.md`에 있습니다.
+기본 npm 의존성에는 모델 SDK·가중치·Python·GPU 런타임이 없으며, 원격 모델은 스크린리더가 읽은 페이지 텍스트를 받는다는 점에 유의하세요.
 
 ## 4. 환경 비교
 
-`rawstep.config.json`에 페이지 환경(`page`)만 다른 실행 프로필(예: `default`, `reflow-text`, `forced-colors`)을 두고 같은 작업을 프로필마다 실행합니다. 대시보드의 실험 큐는 작업×모드×실행 프로필×반복을 한 번에 실행하며, 모델은 프로필이 정하므로 모델을 비교하려면 모델만 다른 프로필을 둡니다.
+`rawstep.config.json`에 페이지 환경(`page`)만 다른 실행 프로필(예: `default`, `reflow-text`, `forced-colors`)을 두고 같은 작업을 프로필마다 실행합니다. 대시보드의 실험 큐는 작업×실행 프로필×반복을 한 번에 실행하며, 모델은 프로필이 정하므로 모델을 비교하려면 모델만 다른 프로필을 둡니다.
 
 ```sh
 npm run rawstep -- run examples/profiles/task.json --profile default
@@ -120,7 +116,6 @@ npx rawstep --help
 
 ```js
 import { runTask, aggregateHints } from 'rawstep';
-import { runScreenshotTask } from 'rawstep/screenshot';
 import { TraceRecorder } from 'rawstep/trace';
 ```
 

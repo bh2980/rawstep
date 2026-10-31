@@ -5,12 +5,12 @@ import '../packages/dashboard/src/web/i18n/index.js';
 import { ApiError } from '../packages/dashboard/src/web/api.js';
 import { describeAfterRunFailure, describeApiError, describeRunFailure, errorKindOf } from '../packages/dashboard/src/web/lib/errors.js';
 import { generateEnvName, keyStatus, providerTextKey } from '../packages/dashboard/src/web/lib/connections.js';
-import { choiceName, comboBlocker, comboModesOf, comboSummary, environmentViewport, profileReady, runRulesSummary, sameValue, unsupportedActions } from '../packages/dashboard/src/web/lib/conditions.js';
+import { choiceName, comboBlocker, comboSummary, environmentViewport, hasExecutor, profileReady, sameValue, unsupportedActions } from '../packages/dashboard/src/web/lib/conditions.js';
 import { runConditions } from '../packages/dashboard/src/web/lib/runs.js';
 import { displayState, recentRuns, resultLabel } from '../packages/dashboard/src/web/lib/runStrip.js';
 import { failureDetail, publicOutcome } from '../packages/dashboard/src/server/queue.js';
 import { ProjectError } from '@rawstep/project/errors';
-import { DEFAULT_PERMISSIONS, defaultConfig, defaultProfile, runRulesSchema, type Executor } from '@rawstep/project/config';
+import { DEFAULT_PERMISSIONS, defaultConfig, defaultProfile, type Executor } from '@rawstep/project/config';
 import { profileWith, connection, plannedWith } from './helpers/project-config.js';
 
 const hangul = /[가-힣]/;
@@ -134,7 +134,7 @@ describe('settings helpers', () => {
     expect(providerTextKey('decision', 'typesafe')).toBe('decisionTypesafe'); expect(providerTextKey('llm', 'custom')).toBe('llmCustom');
   });
 
-  it('names run profiles by their models and mode, and tells which modes a profile can run', () => {
+  it('names run profiles by their models, and tells whether a profile can run', () => {
     const presets = { narrow: { viewport: { width: 375, height: 667 } } };
     const connections = [connection('jev', { name: 'Jev server' }), connection('writer', { name: 'Writer', kind: 'llm' })];
     expect(environmentViewport('default', presets)).toEqual({ width: 1280, height: 800 });
@@ -142,34 +142,31 @@ describe('settings helpers', () => {
     expect(environmentViewport({ id: 'x', viewport: { width: 800, height: 600 } }, presets)).toEqual({ width: 800, height: 600 });
     expect(environmentViewport({ viewport: { width: -1, height: 'x' } }, presets)).toEqual({ width: 1280, height: 800 });
     const bare = defaultProfile('p', 'Plain');
-    expect(comboSummary(bare, connections, 'keyboard')).toBe('키보드 실행 모델 없음');
-    // The default screen reader executor follows the plan, so it needs no model.
-    expect(comboModesOf(bare, connections)).toEqual(['screenreader']);
+    // The default executor follows the plan, so it needs no model.
+    expect(comboSummary(bare, connections)).toBe('모델 없음 계획 → Rawstep · 계획대로');
+    expect(hasExecutor(bare, connections)).toBe(true);
     const solo = profileWith('s', 'jev', 'jev-latest');
-    expect(comboSummary(solo, connections, 'keyboard')).toBe('계획 없이 jev-latest');
-    expect(comboModesOf(solo, connections)).toEqual(['screenreader', 'keyboard']);
+    expect(hasExecutor(solo, connections)).toBe(true);
+    expect(hasExecutor(profileWith('g', 'gone', 'x'), connections)).toBe(false);
+    expect(hasExecutor(profileWith('e', 'jev', ' '), connections)).toBe(false);
     const planned = plannedWith(solo, 'writer', 'planner-fixture');
-    expect(comboSummary(planned, connections, 'screenreader')).toBe('planner-fixture 계획 → jev-latest');
-    // Keyboard runs do not plan.
-    expect(comboSummary(planned, connections, 'keyboard')).toBe('계획 없이 jev-latest');
-    // A text-only keyboard executor cannot run keyboard mode.
-    const textOnly = { ...solo, executors: { ...solo.executors, keyboard: { ...solo.executors.keyboard!, inputs: ['text' as const] } } };
-    expect(comboModesOf(textOnly, connections)).toEqual(['screenreader']);
-    // Ready to run in its own mode: a new project's profile follows the plan but has no planner yet, so it is not.
+    const { executor: _executor, ...none } = planned;
+    expect(comboSummary(none, connections)).toBe('실행 모델 없음');
+    expect(hasExecutor({}, connections)).toBe(false);
+    expect(comboSummary(planned, connections)).toBe('planner-fixture 계획 → jev-latest');
+    // Ready to run: a new project's profile follows the plan but has no planner yet, so it is not.
     expect(profileReady(bare, connections)).toBe(false);
-    expect(profileReady({ ...bare, mode: 'keyboard' }, connections)).toBe(false);
-    expect(profileReady({ ...solo, mode: 'screenreader' }, connections)).toBe(false);
-    expect(profileReady({ ...solo, mode: 'keyboard' }, connections)).toBe(true);
-    expect(profileReady({ ...planned, mode: 'screenreader' }, connections)).toBe(true);
-    expect(profileReady({ ...plannedWith(solo, 'writer', ' '), mode: 'screenreader' }, connections)).toBe(false);
-    expect(profileReady({ ...bare, mode: 'screenreader', planner: { planFile: 'plans/p.json' } }, connections)).toBe(true);
+    expect(profileReady(solo, connections)).toBe(false);
+    expect(profileReady(planned, connections)).toBe(true);
+    expect(profileReady(plannedWith(solo, 'writer', ' '), connections)).toBe(false);
+    expect(profileReady({ ...bare, planner: { planFile: 'plans/p.json' } }, connections)).toBe(true);
     // A missing planner only stops runs, not saving.
     expect(comboBlocker(bare)).toBeUndefined();
-    // A planned combo whose screen reader executor follows the plan has no model there to finish.
-    expect(comboBlocker({ ...bare, executors: { screenreader: { followPlan: true } }, planner: { planFile: 'plans/p.json' } })).toBeUndefined();
+    // A combo whose executor follows the plan has no model there to finish.
+    expect(comboBlocker({ ...bare, executor: { followPlan: true }, planner: { planFile: 'plans/p.json' } })).toBeUndefined();
     expect(comboBlocker(plannedWith(solo, 'writer', ''))).toBe('modelId');
     expect(comboBlocker(planned)).toBeUndefined();
-    const executor = solo.executors.screenreader as Executor;
+    const executor = solo.executor as Executor;
     expect(choiceName(executor, connections)).toBe('Jev server · jev-latest');
     // A model on a connection that no longer exists reads as none.
     expect(choiceName({ connectionId: 'gone', modelId: 'x' }, connections)).toBeUndefined();
@@ -177,22 +174,19 @@ describe('settings helpers', () => {
   });
 
   it('marks the actions an assistive technology lacks and names the profile of a run', () => {
-    const capabilities = {
-      keyboard: { keys: ['Tab', 'Shift+Tab', 'Enter', 'Space'], intents: [] },
-      screenreader: { simulation: { keys: [], intents: ['next', 'previous', 'activate'] }, voiceover: { keys: [], intents: ['next', 'previous', 'activate', 'form.next'] }, nvda: { keys: [], intents: ['next', 'previous', 'activate'] } },
-    };
+    const capabilities = { simulation: { keys: [], intents: ['next', 'previous', 'activate'] }, voiceover: { keys: [], intents: ['next', 'previous', 'activate', 'form.next'] }, nvda: { keys: [], intents: ['next', 'previous', 'activate'] } };
     const basic = DEFAULT_PERMISSIONS;
-    const quick = { ...basic, screenreader: { ...basic.screenreader, intents: [...basic.screenreader.intents, 'form.next'] } };
-    expect(unsupportedActions(quick, capabilities).screenreader).toEqual({ simulation: ['form.next'], voiceover: [], nvda: ['form.next'] });
+    expect(unsupportedActions({ actions: basic }, capabilities)).toEqual({ simulation: [], voiceover: [], nvda: [] });
+    const quick = { ...basic, intents: [...basic.intents, 'form.next'] };
+    expect(unsupportedActions({ actions: quick }, capabilities)).toEqual({ simulation: ['form.next'], voiceover: [], nvda: ['form.next'] });
     const config = defaultConfig();
     // A run names its profile as recorded; older runs fall back to their preset or combo, then to the project's profile by id.
-    const spec = (conditions: unknown) => ({ mode: 'keyboard' as const, backend: 'simulation', model: { name: 'm' }, conditions });
-    const ran = (conditions: unknown, profileId?: string) => runConditions({ snapshot: { spec: spec(conditions) }, structure: 'solo', ...(profileId ? { profileId } : {}) } as never, config).profile;
+    const spec = (conditions: unknown) => ({ backend: 'simulation', model: { name: 'm' }, conditions });
+    const ran = (conditions: unknown, profileId?: string) => runConditions({ snapshot: { spec: spec(conditions) }, ...(profileId ? { profileId } : {}) } as never, config).profile;
     expect(ran({ profile: { id: 'default', name: 'Recorded' } }, 'default')).toBe('Recorded');
     expect(ran({ preset: { name: 'Old preset' }, combo: { name: 'Old combo' } })).toBe('Old preset');
     expect(ran({}, 'default')).toBe('Default');
     expect(ran({}, 'gone')).toBe('gone');
-    expect(runRulesSummary(runRulesSchema.parse({}))).toMatch(/^반복 감시 자동/);
     expect(sameValue({ a: 1, b: [1, { c: 2, d: 3 }] }, { b: [1, { d: 3, c: 2 }], a: 1 })).toBe(true);
     expect(sameValue({ a: 1 }, { a: 2 })).toBe(false);
   });

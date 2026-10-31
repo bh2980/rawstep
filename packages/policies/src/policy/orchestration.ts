@@ -194,7 +194,7 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
    * a run costs only planner calls; it needs Rawstep's task control.
    */
   constructor(readonly planner: Planner, readonly executor: ChoiceModel | 'follow-plan', private readonly options: OrchestrationOptions = {}) {
-    if (executor === 'follow-plan' ? options.taskControl === 'executor' : !executor.inputs.includes('text')) throw new Error(executor === 'follow-plan' ? 'Following the plan needs Rawstep\'s task control.' : 'The executor needs a model that takes text.');
+    if (executor === 'follow-plan' && options.taskControl === 'executor') throw new Error('Following the plan needs Rawstep\'s task control.');
     this.limits = { ...DEFAULTS, ...Object.fromEntries(Object.entries(options).filter(([key, v]) => key in DEFAULTS && v !== undefined)) } as typeof DEFAULTS;
     this.control = options.taskControl ?? 'rawstep';
     this.confidenceFloor = options.confidenceFloor ?? 0.25;
@@ -209,7 +209,6 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
 
   async decide(input: Input): Promise<Decision> {
     this.evidence = []; input.signal.throwIfAborted();
-    if (input.observation.kind !== 'screenreader') throw new Error('The orchestrated speech policy requires screen reader observations.');
     const step = (input.history.at(-1)?.step ?? 0) + 1;
     // The same speech over and over ("End of content") means the plan led nowhere, not that the user would stop: a person turns back
     // and tries something else. The planner gets that chance while planner calls remain.
@@ -320,7 +319,7 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
         noDomOrAxContext: true, uncertainty: 'Model probabilities are not measured accuracy or accessibility certification.' });
       if (response.choiceId === TASK_DONE) {
         const last = input.history.at(-1)?.observation;
-        const heard = [...input.observation.speech, ...(last?.kind === 'screenreader' ? last.speech : [])];
+        const heard = [...input.observation.speech, ...(last?.speech ?? [])];
         const verified = verifyCue(task, heard);
         if (verified === 'not-heard') {
           // The executor's "done" is a claim: without the cue it would end a task that is not done and mislead the planner.
@@ -359,8 +358,7 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
   /** Asks the planner whether the item the cursor is on is what the task's cue describes (once per item and task). */
   private async recognized(input: Input, doc: PlanDocument, task: PlanTask): Promise<boolean> {
     // The latest line that shares cue words without matching it (role and state agreeing) and has not been asked about yet.
-    const heard = input.observation.kind === 'screenreader'
-      ? [...input.observation.speech].reverse().map(t => t.trim()).find(t => t && !this.asked.has(t) && matchCue(task, t) === 'candidate') : undefined;
+    const heard = [...input.observation.speech].reverse().map(t => t.trim()).find(t => t && !this.asked.has(t) && matchCue(task, t) === 'candidate');
     // Recognizing is a planner call too: with none left the item is not asked about, and the next plan decision ends the run.
     if (!this.planner.recognize || !heard || this.outOfCalls()) return false;
     this.asked.add(heard);
@@ -416,7 +414,6 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
     return entries.flatMap(entry => { const served = this.served.get(entry.step); return served ? [{ ...entry, ...served }] : []; }).slice(-this.limits.plannerHistoryLimit);
   }
   private async replan(input: Input, step: number, trigger: PlanTrigger, help?: HelpReason, refusedGiveUp?: string): Promise<void> {
-    if (input.observation.kind !== 'screenreader') return;
     const actions = speechChoices(input.allowedActions, this.options, input.inputs).filter(c => 'action' in c.decision).map(({ id, label }) => ({ id, label }));
     const started = performance.now();
     this.plannerCalls++;

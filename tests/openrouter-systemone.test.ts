@@ -3,14 +3,11 @@ import { createServer } from 'node:http';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { DecisionClient, FakeSystemOneClient, SystemOneChoiceModel, SystemOneScreenshotAdapter, SCREENSHOT_DECISION_PROMPT, systemOnePromptEvidence } from 'rawstep/systemone';
-import { ScreenshotDecisionPolicy, type ScreenshotModelRequest } from 'rawstep/screenshot';
+import { DecisionClient, FakeSystemOneClient, SystemOneChoiceModel, SPEECH_DECISION_PROMPT, systemOnePromptEvidence } from 'rawstep/systemone';
+import { SpeechDecisionPolicy } from 'rawstep/policy';
 import type { SystemOneCapabilities, SystemOneRequest } from 'rawstep/systemone';
 
-const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2nV8AAAAASUVORK5CYII=';
-const previousPng = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLttAAAAABJRU5ErkJggg==';
-const visual: SystemOneCapabilities = { inputs: ['text', 'image'], maxChoices: 255, maxImages: 2 };
-const text: SystemOneCapabilities = { inputs: ['text'], maxChoices: 255, maxImages: 0 };
+const text: SystemOneCapabilities = { maxChoices: 255 };
 const signal = () => new AbortController().signal;
 const cleanup: (() => Promise<unknown>)[] = [];
 afterEach(async () => { for (const close of cleanup.splice(0).reverse()) await close(); });
@@ -46,6 +43,7 @@ describe('native OpenRouter SystemOne through the AI SDK decide API (no real inf
     expect(result.model).toEqual({ id: 'typesafe/jev-1.13-20260917', requestedId: 'typesafe/jev-1.13', runtime: 'openrouter-systemone-http' });
     expect(JSON.stringify(seen[1]?.body)).not.toContain('PRIVATE_KEY');
     await client.evaluate(request, { signal: signal() }); expect(seen).toHaveLength(3);
+    expect(Object.isFrozen(client.capabilities)).toBe(true);
   });
   it('accepts an explicit canonical Jev version and rejects a swapped or unrecognized result', async () => {
     for (const model of ['typesafe/jev-1.13-20260917', 'typesafe/jev-1.13', 'google/gemini-other']) {
@@ -54,41 +52,6 @@ describe('native OpenRouter SystemOne through the AI SDK decide API (no real inf
       if (model === 'typesafe/jev-1.13-20260917') expect((await client.evaluate(request, { signal: signal() })).choiceId).toBe('key:Enter');
       else await expect(client.evaluate(request, { signal: signal() })).rejects.toMatchObject({ name: 'RawstepError', code: 'decision-failed' });
     }
-  });
-  it('sends current/previous PNGs as ordered state content, not ignored top-level extensions', async () => {
-    const seen: WireRequest[] = [];
-    const baseURL = await http(r => { seen.push(r); return r.body ? answer(r.body) : models; });
-    const client = new DecisionClient({ provider: 'openrouter', baseURL, modelId: 'cloudflare/clef-flash', apiKey: 'PRIVATE_KEY', capabilities: visual });
-    const state = { ...request.state, imageOrder: ['current', 'previous'] };
-    const result = await client.evaluate({ ...request, state, images: [{ pngBase64: png }, { pngBase64: previousPng }] }, { signal: signal() });
-    expect(seen[1]?.body.state).toEqual([
-      { type: 'text', text: JSON.stringify(state) },
-      { type: 'image_url', image_url: { url: `data:image/png;base64,${png}` } },
-      { type: 'image_url', image_url: { url: `data:image/png;base64,${previousPng}` } },
-    ]);
-    expect(seen[1]?.body).not.toHaveProperty('images'); expect(seen[1]?.body).not.toHaveProperty('media');
-    expect(seen[1]?.body.provider).toEqual({ allow_fallbacks: false });
-    expect(seen[1]?.path).toBe('/api/v1/systemone'); expect(JSON.stringify(seen[1]?.body)).not.toContain('PRIVATE_KEY');
-    expect(result.model.id).toBe('cloudflare/clef-flash');
-    expect(Object.isFrozen(client.capabilities)).toBe(true); expect(Object.isFrozen(client.capabilities.inputs)).toBe(true);
-    expect(state).toEqual({ ...request.state, imageOrder: ['current', 'previous'] });
-  });
-  it('rejects images for text-only clients before network activity', async () => {
-    const fetcher = vi.fn<typeof fetch>(async () => Response.json(models));
-    const client = new DecisionClient({ provider: 'openrouter', baseURL: 'https://openrouter.ai/api/v1', modelId: 'cloudflare/clef-flash', apiKey: 'test', capabilities: text, fetch: fetcher });
-    await expect(client.evaluate({ ...request, images: [{ pngBase64: png }] }, { signal: signal() })).rejects.toThrow('input modalities');
-    expect(fetcher).not.toHaveBeenCalled();
-  });
-  it('rejects image byte/pixel limits and invalid headers before any network request', async () => {
-    const fetcher = vi.fn<typeof fetch>(async () => Response.json(models));
-    const client = new DecisionClient({ provider: 'openrouter', baseURL: 'https://openrouter.ai/api/v1', modelId: 'cloudflare/clef-flash', apiKey: 'test', capabilities: { ...visual, maxImages: 3 }, fetch: fetcher });
-    const large = Buffer.alloc(4 * 1024 * 1024 + 1); Buffer.from(png, 'base64').copy(large);
-    const pixels = Buffer.from(png, 'base64'); pixels.writeUInt32BE(5000, 16); pixels.writeUInt32BE(5000, 20);
-    for (const bytes of [large, pixels, Buffer.from('89504e470d0a1a0a', 'hex')])
-      await expect(client.evaluate({ ...request, images: [{ pngBase64: bytes.toString('base64') }] }, { signal: signal() })).rejects.toThrow('header');
-    const combined = Buffer.alloc(3 * 1024 * 1024); Buffer.from(png, 'base64').copy(combined);
-    await expect(client.evaluate({ ...request, images: Array.from({ length: 3 }, () => ({ pngBase64: combined.toString('base64') })) }, { signal: signal() })).rejects.toThrow('total byte limit');
-    expect(fetcher).not.toHaveBeenCalled();
   });
   it('rejects wrong capabilities, missing catalog identities, and generative models before POST', async () => {
     for (const catalog of [{ data: [{ ...models.data[1], architecture: { input_modalities: ['image'], output_modalities: ['decisions'] } }] }, { data: [] }, { data: [{ ...models.data[1], architecture: { input_modalities: ['text', 'image'], output_modalities: ['text'] } }] }]) {
@@ -143,17 +106,15 @@ describe('native OpenRouter SystemOne through the AI SDK decide API (no real inf
 
 describe('UI-ready prompt injection', () => {
   it('takes a copied instruction config, records its version/hash, and keeps candidates constrained', async () => {
-    const prompt = { id: 'custom-visual', version: '2', instructions: 'CUSTOM_INSTRUCTION' };
-    const client = new FakeSystemOneClient(['key:Enter']); const adapter = new SystemOneScreenshotAdapter(client, prompt); prompt.instructions = 'MUTATED';
-    const visualRequest: ScreenshotModelRequest = { protocol: 'rawstep-screenshot-choice-v1', goal: 'Start', screenshot: { pngBase64: png, viewport: { w: 1, h: 1 } },
-      choices: [{ id: 'key:Enter', label: 'Enter', decision: { action: { kind: 'key', key: 'Enter' } } }], history: [], visualState: { sha256: 'fixture', visits: 1, unchangedTransitions: 0 } };
-    const result = await adapter.choose(visualRequest, { signal: signal() });
-    expect(client.requests[0]?.instructions).toBe('CUSTOM_INSTRUCTION'); expect(result.prompt).toEqual({ id: 'custom-visual', version: '2', sha256: expect.stringMatching(/^[a-f0-9]{64}$/) });
-    expect(result.prompt?.sha256).not.toBe(systemOnePromptEvidence(SCREENSHOT_DECISION_PROMPT, request.choices).sha256);
+    const prompt = { id: 'custom-speech', version: '2', instructions: 'CUSTOM_INSTRUCTION' };
+    const client = new FakeSystemOneClient(['key:Enter']); const model = new SystemOneChoiceModel(client, prompt); prompt.instructions = 'MUTATED';
+    const result = await model.choose({ state: { goal: 'Start' }, choices: [{ id: 'key:Enter', label: 'Enter' }] }, { signal: signal() });
+    expect(client.requests[0]?.instructions).toBe('CUSTOM_INSTRUCTION'); expect(result.prompt).toEqual({ id: 'custom-speech', version: '2', sha256: expect.stringMatching(/^[a-f0-9]{64}$/) });
+    expect(result.prompt?.sha256).not.toBe(systemOnePromptEvidence(SPEECH_DECISION_PROMPT, [{ id: 'key:Enter', label: 'Enter' }]).sha256);
     expect(JSON.stringify(result)).not.toContain('CUSTOM_INSTRUCTION');
-    const policy = new ScreenshotDecisionPolicy({ model: new SystemOneScreenshotAdapter(new FakeSystemOneClient(['key:Enter'])) });
-    await policy.decide({ goal: 'Start', observation: { kind: 'keyboard', screenshot: visualRequest.screenshot, window: { id: 'w', startedAt: 's', endedAt: 'e', reason: 'test' } }, history: [], allowedActions: { intents: [], keys: ['Enter'], inputKeys: [], replaceText: false }, inputs: {}, signal: signal() });
-    expect(policy.takeDecisionEvidence()).toEqual([expect.objectContaining({ prompt: expect.objectContaining({ id: 'rawstep-screenshot-decision', version: '1' }) })]);
+    const policy = new SpeechDecisionPolicy(new SystemOneChoiceModel(new FakeSystemOneClient(['key:Enter'])));
+    await policy.decide({ goal: 'Start', observation: { kind: 'screenreader', speech: ['Start, button'], outputEventIds: [], window: { id: 'w', startedAt: 's', endedAt: 'e', reason: 'test' } }, history: [], allowedActions: { intents: [], keys: ['Enter'], inputKeys: [], replaceText: false }, inputs: {}, signal: signal() });
+    expect(policy.takeDecisionEvidence()).toEqual([expect.objectContaining({ prompt: expect.objectContaining({ id: 'rawstep-speech-decision', version: '1' }) })]);
     expect(() => new SystemOneChoiceModel(new FakeSystemOneClient([]), { id: 'bad', version: '1', instructions: '' })).toThrow('prompt');
   });
 });

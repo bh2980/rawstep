@@ -33,7 +33,7 @@ async function project() {
   return dir;
 }
 
-const model = (baseURL: string): Model => ({ id: 'm', kind: 'llm', provider: 'custom', baseURL, modelId: 'test-llm', name: 'Test', inputs: ['text'], maxChoices: 255, maxImages: 0, timeoutMs: 10000 });
+const model = (baseURL: string): Model => ({ id: 'm', kind: 'llm', provider: 'custom', baseURL, modelId: 'test-llm', name: 'Test', maxChoices: 255, timeoutMs: 10000 });
 const machine = { headless: true, browserExecutablePath: process.env.RAWSTEP_TEST_BROWSER_PATH ?? '', browserEndpoint: '' };
 
 describe('completion check suggestions', () => {

@@ -20,14 +20,14 @@ function fake(config: Record<string, unknown> = {}) {
 }
 
 describe('ACP agent client', () => {
-  it('hands over no file system or terminal and reads the agent, its image support and its models', async () => {
+  it('hands over no file system or terminal and reads the agent and its models', async () => {
     const { agent, received } = fake();
-    expect(await agent.start()).toEqual({ name: 'fake', version: '9', images: true, models: [{ value: 'small', name: 'Small' }, { value: 'large', name: 'Large' }], currentModel: 'small', efforts: [] });
+    expect(await agent.start()).toEqual({ name: 'fake', version: '9', models: [{ value: 'small', name: 'Small' }, { value: 'large', name: 'Large' }], currentModel: 'small', efforts: [] });
     expect(received()[0].params.clientCapabilities).toEqual({ fs: { readTextFile: false, writeTextFile: false }, terminal: false });
   });
   it('sends each prompt in a fresh session in an empty folder, picks the model, joins only the reply text and deletes the session', async () => {
     const { agent, received } = fake();
-    expect(await agent.prompt({ text: 'choose', images: ['iVBORw0KGgo='], modelId: 'large' })).toBe('{"choiceId":"a"}');
+    expect(await agent.prompt({ text: 'choose', modelId: 'large' })).toBe('{"choiceId":"a"}');
     expect(await agent.prompt({ text: 'again', modelId: 'small' })).toBe('{"choiceId":"a"}');
     const log = received(), methods = log.map(m => m.method);
     const cwd = log.find(m => m.method === 'session/new').params.cwd;
@@ -36,7 +36,7 @@ describe('ACP agent client', () => {
     expect(log.find(m => m.method === 'session/set_config_option').params).toEqual({ sessionId: 's2', configId: 'model', value: 'large' });
     // The current model is not set again.
     expect(methods.filter(m => m === 'session/set_config_option')).toHaveLength(1);
-    expect(log.find(m => m.method === 'session/prompt').params.prompt).toEqual([{ type: 'text', text: 'choose' }, { type: 'image', mimeType: 'image/png', data: 'iVBORw0KGgo=' }]);
+    expect(log.find(m => m.method === 'session/prompt').params.prompt).toEqual([{ type: 'text', text: 'choose' }]);
     expect(log.filter(m => m.method === 'session/delete').map(m => m.params.sessionId)).toEqual(['s1', 's2', 's3']);
     await agent.close();
     expect(existsSync(cwd)).toBe(false);
@@ -47,8 +47,7 @@ describe('ACP agent client', () => {
     expect(received().find(m => m.permissionAnswer).permissionAnswer).toEqual({ outcome: { outcome: 'selected', optionId: 'no' } });
     expect(received().find(m => m.readAnswer).readAnswer).toBe('error');
   });
-  it('refuses images for an agent that takes none, an unknown model, an agent error and an unfinished turn', async () => {
-    await expect(fake({ images: false }).agent.prompt({ text: 'x', images: ['AAAA'] })).rejects.toMatchObject({ reason: 'no-images' });
+  it('refuses an unknown model, an agent error and an unfinished turn', async () => {
     await expect(fake().agent.prompt({ text: 'x', modelId: 'huge' })).rejects.toMatchObject({ reason: 'unknown-model' });
     await expect(fake({ error: true }).agent.prompt({ text: 'x' })).rejects.toMatchObject({ reason: 'agent-error' });
     await expect(fake({ stopReason: 'max_tokens' }).agent.prompt({ text: 'x' })).rejects.toMatchObject({ reason: 'stopped' });

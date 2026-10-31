@@ -45,7 +45,6 @@ export function RunPage({ runRef, runs, route, pageProps, navigate }: Props) {
   const selected = picked ?? (view ? defaultStep({ steps: view.steps, live }) : undefined);
   const step = view?.steps.find(item => item.step === selected);
   const index = view && step ? view.steps.indexOf(step) : -1;
-  const previous = view && index > 0 ? view.steps.slice(0, index).reverse().find(item => item.screenshot) : undefined;
   const select = (next: number) => navigate({ task: run.taskId, run: run.id, ...(live && next === latest?.step ? {} : { step: next }) }, { replace: true });
   const spoken = useThrottledMessage(live && latest ? announcement(latest) : '');
   const maxSteps = run.snapshot.spec.task.maxSteps ?? RAWSTEP_DEFAULTS.task.maxSteps;
@@ -71,7 +70,7 @@ export function RunPage({ runRef, runs, route, pageProps, navigate }: Props) {
         </>)}
       <p role="status" aria-live="polite" className="sr-only">{spoken}</p>
     </section>
-    {view && step && <StepDetail key={step.step} step={step} experimentId={experiment.id} run={run} modelKind={view.modelKind} plan={view.plan} previous={previous} before={index > 0 ? view.steps[index - 1] : undefined}
+    {view && step && <StepDetail key={step.step} step={step} experimentId={experiment.id} run={run} modelKind={view.modelKind} plan={view.plan} before={index > 0 ? view.steps[index - 1] : undefined}
       hints={view.hints.filter(hint => hint.steps.includes(step.step))} baselineMet={step.step === 0 ? baselineMet : undefined} live={live && step.step === latest?.step} />}
     {view?.explanation && <RunExplanation explanation={view.explanation} model={run.analysisModel?.name} onSelect={select} />}
     {view && step && view.steps.length > 1 && <StepPager position={step.step} total={latest?.step ?? step.step} hasPrevious={index > 0} hasNext={index < view.steps.length - 1}

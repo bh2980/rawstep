@@ -1,13 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { readFile, stat } from "node:fs/promises";
-import { FileTraceSink, extractScreenshots, isScreenshotRef, writeJsonAtomic, type ScreenshotRef, type TraceSink } from "./sink.js";
+import { FileTraceSink, type TraceSink } from "./sink.js";
 export * from "./sink.js";
 import { dirname, join } from "node:path";
 import { platform, release } from "node:os";
 import { isDeepStrictEqual } from "node:util";
 
-/** Screenshots are stored as content-addressed blobs; events keep a small reference. */
-export const TRACE_SCHEMA_VERSION = "2.2" as const;
+/** The saved trace format; readers refuse any other version. */
+export const TRACE_SCHEMA_VERSION = "3.0" as const;
 export const REDACTED = "[REDACTED]";
 
 export type TraceSource = "simulation" | "screen-reader" | "runner" | "browser-diagnostic" | "verifier" | "policy";
@@ -38,7 +38,6 @@ export interface TraceEnvironment {
 }
 export interface TraceTaskMetadata {
   id: string;
-  mode?: "screenreader" | "keyboard";
   url?: string;
   goal?: string;
   input?: unknown;
@@ -168,7 +167,7 @@ function preserveEventStructure(type: string, original: unknown, redacted: unkno
       redacted.raw.id = original.raw.id;
     }
   }
-  if (type === "environment.updated" && record(original.environment) && record(redacted.environment) && ['native','simulation','keyboard','unspecified'].includes(String(original.environment.observationProvenance))) redacted.environment.observationProvenance = original.environment.observationProvenance;
+  if (type === "environment.updated" && record(original.environment) && record(redacted.environment) && ['native','simulation','unspecified'].includes(String(original.environment.observationProvenance))) redacted.environment.observationProvenance = original.environment.observationProvenance;
   if (type === "backend.metadata") {
     copy(original, redacted, ["backend", "profile", "evidenceProvenance", "observationProvenance"]);
     if (record(original.capabilities) && record(redacted.capabilities)) copy(original.capabilities, redacted.capabilities, ["intents", "keys", "textEntry", "replaceText"]);
@@ -176,19 +175,7 @@ function preserveEventStructure(type: string, original: unknown, redacted: unkno
   }
   if (type === "run.started" && record(original.allowedActions) && record(redacted.allowedActions)) copy(original.allowedActions, redacted.allowedActions, ["intents", "keys", "inputKeys", "replaceText"]);
   if (type === "screen-reader.output" || type === "simulation.output") output(original, redacted);
-  if (type === "screen-reader.observation" || type === "simulation.observation" || type === "keyboard.observation") observation(original, redacted);
-  if (type === "keyboard.observation") {
-    // PNG bytes cannot be meaningfully redacted with string substitution. The runner
-    // suppresses entire visual observations after input; pre-input pixels are explicit
-    // visual evidence and are not claimed to be anonymized.
-    for (const field of ["screenshot", "previousScreenshot"]) {
-      if (record(original[field]) && record(redacted[field])) {
-        const source = original[field] as Record<string, unknown>;
-        const target = redacted[field] as Record<string, unknown>;
-        if (isScreenshotRef(source)) copy(source, target, ["sha256", "blob", "bytes", "viewport"]);
-      }
-    }
-  }
+  if (type === "screen-reader.observation" || type === "simulation.observation") observation(original, redacted);
   if (["run.error", "run.aborted"].includes(type)) preserveRunPoint(original, redacted);
   if (["policy.decision", "policy.rejected", "action.result", "verifier.result", "verifier.evidence"].includes(type)) copy(original, redacted, ["step"]);
   if (type === "policy.rejected" && original.reasonCode === "action-not-allowed") redacted.reasonCode = original.reasonCode;
@@ -238,14 +225,13 @@ export class TraceRecorder {
       ...inputStrings(sensitiveInputs(task.input, task.inputOptions)), ...inputStrings(task.inputs), ...(options.sensitiveValues ?? [])
     ]);
     const safeTask = this.redact(task);
-    if (task.mode === "screenreader" || task.mode === "keyboard") safeTask.value.mode = task.mode;
     const safeEnvironment = this.redact<TraceEnvironment>({
       // AT Driver can target another host. Do not claim the recorder OS is the AT host.
       platform: "unknown", platformVersion: "unknown", browser: "unknown", browserVersion: "unknown",
       screenReader: "unknown", screenReaderVersion: "unknown",
       recorderPlatform: platform(), recorderPlatformVersion: release(), ...options.environment
     });
-    if (['native','simulation','keyboard','unspecified'].includes(String(options.environment?.observationProvenance))) safeEnvironment.value.observationProvenance = options.environment!.observationProvenance;
+    if (['native','simulation','unspecified'].includes(String(options.environment?.observationProvenance))) safeEnvironment.value.observationProvenance = options.environment!.observationProvenance;
     this.state = {
       schemaVersion: TRACE_SCHEMA_VERSION,
       runId: options.runId ?? randomUUID(),
@@ -271,15 +257,9 @@ export class TraceRecorder {
     if (this.finalized || this.finalizing) throw new Error("Cannot append to a finalized trace.");
     if (typeof type !== "string" || !type.trim()) throw new Error("Event type is required.");
     const source = options.source ?? sourceFor(type);
-    // Screenshots leave the event as blobs first, so redaction never rewrites pixels or their hash references.
-    const stored = extractScreenshots(jsonCopy(data), (name, bytes) => this.sink.putBlob(name, bytes));
-    const safe = this.redact(stored.value);
-    preserveEventStructure(type, stored.value, safe.value);
-    // Only the hash reference is restored (redaction could match inside a hex digest); sibling metadata stays redacted.
-    for (const path of stored.paths) {
-      const { sha256, blob, bytes } = getAt(stored.value, path) as ScreenshotRef;
-      setAt(safe.value, path, { ...(getAt(safe.value, path) as Record<string, unknown>), sha256, blob, bytes });
-    }
+    const stored = jsonCopy(data);
+    const safe = this.redact(stored);
+    preserveEventStructure(type, stored, safe.value);
     const seq = this.state.events.length + 1;
     const event: TraceEvent = {
       id: `event-${String(seq).padStart(6, "0")}`,
@@ -291,7 +271,7 @@ export class TraceRecorder {
       ...(options.commandId !== undefined ? { commandId: options.commandId } : {}),
       ...(options.collectionWindow ? { collectionWindow: jsonCopy(options.collectionWindow) } : {}),
       ...((source === "screen-reader" || source === "simulation") && options.commandId ? { association: "temporal-only" as const } : {}),
-      redacted: !isDeepStrictEqual(stored.value, safe.value) || options.redacted === true
+      redacted: !isDeepStrictEqual(stored, safe.value) || options.redacted === true
     };
     validateEvent(event, seq);
     // Append before exposing the event; no merge, trim, deduplication, or causal inference.
@@ -421,13 +401,4 @@ export async function readTrace(pathOrOutDir: string): Promise<RunTrace> {
     validateTrace(value);
   }
   return value;
-}
-
-function getAt(value: unknown, path: (string | number)[]): unknown {
-  return path.reduce<unknown>((node, key) => (node as Record<string | number, unknown> | undefined)?.[key], value);
-}
-function setAt(value: unknown, path: (string | number)[], replacement: unknown): void {
-  if (!path.length) return;
-  const parent = getAt(value, path.slice(0, -1));
-  if (parent && typeof parent === "object") (parent as Record<string | number, unknown>)[path.at(-1)!] = jsonCopy(replacement);
 }

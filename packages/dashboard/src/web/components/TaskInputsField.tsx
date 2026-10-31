@@ -54,7 +54,7 @@ export function TaskInputsField({ input, options, goal, onChange }: Props) {
         </div>
         <div className="flex items-start gap-2">
           <Checkbox id={`input-secret-${i}`} checked={secret} onCheckedChange={on => setOption(name, { sensitive: on === true })} className="mt-0.5" />
-          <div className="grid gap-0.5"><div className="flex items-center gap-1"><Label htmlFor={`input-secret-${i}`} className="font-normal">{t('taskInputs.secret')}</Label><InfoTip term={t('taskInputs.secret')}>{t('taskInputs.secretNote')}</InfoTip></div><p className="text-xs leading-5 text-muted-foreground">{secret ? t('taskInputs.secretOn') : t('taskInputs.secretOff')}</p></div>
+          <div className="grid gap-0.5"><Label htmlFor={`input-secret-${i}`} className="font-normal">{t('taskInputs.secret')}</Label><p className="text-xs leading-5 text-muted-foreground">{secret ? t('taskInputs.secretOn') : t('taskInputs.secretOff')}</p></div>
         </div>
         <Field label={t('taskInputs.description', { n: i + 1 })} value={options?.[name]?.description ?? ''} onChange={description => setOption(name, { description })} hint={t('taskInputs.descriptionHint')} />
         {problem && <p role="alert" className="text-xs leading-5 text-destructive">{t(problem === 'name' ? 'taskInputs.problemName' : 'taskInputs.problemGoal', { n: i + 1 })}</p>}

@@ -2,7 +2,6 @@
   "id": "search",
   "url": "../../fixtures/search.html",
   "goal": "Enter the query input value into the Query field, press the Search button to open the results list, then press the button inside the Passport2 item and leave the page in a selected-complete state.",
-  "mode": "screenreader",
   "maxSteps": 20,
   "timeoutMs": 180000,
   "input": {

@@ -8,15 +8,11 @@ import type { PlanRequest } from '../packages/dashboard/src/shared/config.js';
 import { dashboardFixture } from './helpers/dashboard-fixture.js';
 const cleanup: (() => Promise<unknown>)[] = [];
 afterEach(async () => { for (const work of cleanup.splice(0).reverse()) await work(); });
-it('executes the real Runner over HTTP with two run profiles/two page environments, LLM choices and text-only simulated speech', async () => {
+it('executes the real Runner over HTTP with two run profiles/two page environments, decision and LLM choices and text-only simulated speech', async () => {
   const fixture = await dashboardFixture(); cleanup.push(fixture.close);
-  const speechProfile = fixture.config.profiles[0]!, speechModel = { ...speechProfile.executors.screenreader!, modelId: 'fixture-speech', inputs: ['text' as const], maxImages: 0 };
-  // Screen reader runs always plan: a plan file with one pressing task, carried out by the decision model.
-  fixture.config.profiles.push({ ...speechProfile, id: 'fixture-speech', name: 'fixture-speech', mode: 'screenreader', planner: { planFile: 'plan.json' }, executors: { ...speechProfile.executors, screenreader: speechModel } });
   const dir = await mkdtemp(join(tmpdir(), 'rawstep-dashboard-browser-')); cleanup.push(() => rm(dir, { recursive: true, force: true }));
   const store = new ProjectStore(dir); const initial = await store.initialize(); await store.save(fixture.config, initial.revision, { file: 'task.json', task: fixture.task });
-  await writeFile(join(dir, 'plan.json'), JSON.stringify({ strategy: 'Press the button.', criteria: [{ id: 'C1', text: 'The user hears Done.' }], assumptions: [],
-    phases: [{ title: 'Press', tasks: [{ goal: 'Press the Complete fixture button', done: 'The user hears "Done"', cue: { name: 'Done', role: 'text' }, activates: true, moves: ['next'], serves: ['C1'] }] }] }));
+  await writeFile(join(dir, 'plan.json'), JSON.stringify(fixture.plan));
   const app = await startDashboard({ projectDir: dir, port: 0 }); cleanup.push(() => app.close());
   const request: PlanRequest = { taskIds: ['fixture-task'], profileIds: ['fixture-a', 'fixture-b', 'fixture-a-narrow', 'fixture-b-narrow'], repeats: 1 };
   const experiment = await app.queue.create(request);
@@ -24,19 +20,17 @@ it('executes the real Runner over HTTP with two run profiles/two page environmen
   expect(experiment.runs.map(r => r.state)).toEqual(['success', 'success', 'success', 'success']);
   expect(experiment.runs.every(r => r.reportStatus === 'complete')).toBe(true);
   expect(new Set(fixture.requests.map(r => r.instructions)).size).toBe(2);
+  expect(fixture.requests.filter(r => r.path.endsWith('/systemone')).some(r => JSON.stringify(r.state).includes('speech'))).toBe(true);
   for (const run of experiment.runs) {
     const trace = await app.queue.trace(experiment.id, run.id);
-    expect(trace.events.some(e => e.type === 'keyboard.observation')).toBe(true);
+    expect(trace.environment.observationProvenance).toBe('simulation');
+    expect(trace.events.some(e => e.type === 'simulation.observation')).toBe(true);
+    // Diagnostic screenshots are kept for people reading the run; the trace holds their paths only.
+    expect(trace.events.some(e => e.type === 'browser.screenshot')).toBe(true); expect(JSON.stringify(trace)).not.toContain('pngBase64');
     expect(trace.events.some(e => e.type === 'verifier.result' && (e.data as { passed?: boolean }).passed)).toBe(true);
     expect(await readFile(join(dir, '.rawstep/experiments', experiment.id, run.id, 'report.html'), 'utf8')).toContain('success');
   }
   const llm = await app.queue.create({ ...request, profileIds: ['fixture-llm'] });
   await expect.poll(() => !!llm.runs[0]!.endedAt, { timeout: 10000 }).toBe(true);
   expect(llm.runs[0]!.state).toBe('success');
-  const speech = await app.queue.create({ ...request, profileIds: ['fixture-speech'] });
-  await expect.poll(() => !!speech.runs[0]!.endedAt, { timeout: 10000 }).toBe(true);
-  expect(speech.runs[0]!.state).toBe('success');
-  const speechTrace = await app.queue.trace(speech.id, speech.runs[0]!.id);
-  expect(speechTrace.environment.observationProvenance).toBe('simulation');
-  expect(fixture.requests.filter(r => r.path.endsWith('/systemone')).some(r => JSON.stringify(r.state).includes('speech'))).toBe(true);
 }, 45000);

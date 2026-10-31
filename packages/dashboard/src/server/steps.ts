@@ -1,4 +1,4 @@
-import { screenshotSha256, type TraceEvent } from '@rawstep/core/trace';
+import type { TraceEvent } from '@rawstep/core/trace';
 import type { HelpReason, PlanTrigger } from '@rawstep/policies/policy';
 import type { Hint, ModelCall, ObservedChange, PlanDocument, PlanTask, PlanVersionView, RunNotice, RunPlanView, RunStepsView, StepView } from '../shared/api.js';
 
@@ -11,10 +11,6 @@ const finite = (value: unknown): value is number => typeof value === 'number' &&
 const box = (value: unknown): ObservedChange['rect'] =>
   record(value) && finite(value.x) && finite(value.y) && finite(value.width) && finite(value.height) && value.width > 0 && value.height > 0
     ? { x: Math.round(value.x), y: Math.round(value.y), width: Math.round(value.width), height: Math.round(value.height) } : undefined;
-/** The viewport a screenshot was taken at, in CSS pixels. */
-const viewportOf = (screenshot: unknown): { w: number; h: number } | undefined =>
-  record(screenshot) && record(screenshot.viewport) && finite(screenshot.viewport.w) && finite(screenshot.viewport.h) && screenshot.viewport.w > 0 && screenshot.viewport.h > 0
-    ? { w: screenshot.viewport.w, h: screenshot.viewport.h } : undefined;
 const rules = (value: unknown) => Array.isArray(value) ? value.filter(record).map(r => ({ ruleIndex: Number(r.ruleIndex), ruleType: String(r.ruleType), passed: r.passed === true })) : [];
 
 /** The screen reader cursor's box in a step's screenshot, when the observation recorded one. */
@@ -23,7 +19,7 @@ function cursorOf(value: unknown): StepView['cursor'] {
   const { x, y, width, height } = value.rect, { width: w, height: h } = value.viewport;
   return [x, y, width, height, w, h].every(n => typeof n === 'number' && Number.isFinite(n)) ? { rect: { x: x as number, y: y as number, width: width as number, height: height as number }, viewport: { w: w as number, h: h as number } } : undefined;
 }
-/** Where the runner writes a screen reader run's diagnostic screenshots, relative to the run directory. */
+/** Where the runner writes a run's diagnostic screenshots, relative to the run directory. */
 export const DIAGNOSTIC_PATH = /^diagnostics\/(step-\d{1,5}|start-page)\.png$/;
 /** Hosts and markers of bot checks a run cannot get past; Rawstep never tries to. */
 const BOT_CHECK = /(^|\.)(challenges\.cloudflare\.com|hcaptcha\.com|recaptcha\.net)$|^www\.google\.com$/;
@@ -215,11 +211,8 @@ export function buildSteps({ experimentId, runId, events, hints = [], live }: St
       } else if (text(decision.stop)) target.stop = { stop: text(decision.stop)!, ...(text(decision.stopSource) ? { source: text(decision.stopSource)! } : {}) };
     } else if (event.type === 'action.result') {
       target.ok = data.ok === true;
-    } else if (event.type === 'keyboard.observation') {
-      const sha256 = screenshotSha256(data.screenshot);
-      if (sha256 && !target.screenshot) target.screenshot = { eventId: event.id, sha256, ...(viewportOf(data.screenshot) ? { viewport: viewportOf(data.screenshot)! } : {}) };
-    } else if (event.type === 'browser.screenshot' && text(data.path) && DIAGNOSTIC_PATH.test(text(data.path)!)) {
-      if (!target.screenshot) target.screenshot = { eventId: event.id, reference: true };
+    } else if (event.type === 'browser.screenshot' && !event.redacted && text(data.path) && DIAGNOSTIC_PATH.test(text(data.path)!)) {
+      if (!target.screenshot) target.screenshot = { eventId: event.id };
     } else if (event.type === 'screen-reader.observation' || event.type === 'simulation.observation') {
       const lines = Array.isArray(data.speech) ? data.speech.map(text).filter((l): l is string => !!l) : [];
       if (lines.length) {

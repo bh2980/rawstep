@@ -5,8 +5,8 @@ import { tmpdir } from 'node:os';
 import { pathToFileURL } from 'node:url';
 import { createTestBrowserSession } from './helpers/browser.js';
 import { collectBrowserDiagnostics, resolveEnvironmentProfile, verifyLiveProfile } from '@rawstep/browser/profiles';
-import { runScreenshotTask, ScreenshotDecisionPolicy } from 'rawstep/screenshot';
-import { ScriptedPolicy } from '@rawstep/policies/policy';
+import { runMockVoiceOverTask } from '@rawstep/screenreaders/mock-voiceover';
+import { ScriptedPolicy, SpeechDecisionPolicy } from '@rawstep/policies/policy';
 import { runTask } from '@rawstep/browser/runner';
 import type { CreateBrowserSessionOptions } from '@rawstep/browser/browser';
 import type { Backend, Decision } from '@rawstep/core/contracts';
@@ -14,6 +14,7 @@ const cleanups:(()=>Promise<unknown>)[]=[];afterEach(async()=>{for(const fn of c
 const fixture=pathToFileURL(resolve('fixtures/environment-lab.html')).href;
 async function dir(){const p=await mkdtemp(join(tmpdir(),'rawstep-profiles-'));cleanups.push(()=>rm(p,{recursive:true,force:true}));return p}
 const key=(key:string):Decision=>({action:{kind:'key',key}});
+const quiet=()=>{};
 
 describe('actual browser environment profiles and isolated diagnostics',()=>{
   it.each(['default','narrow','text-200','spacing','forced-colors','contrast','dark','reduced-motion','reflow-text'])('applies and independently verifies %s',async name=>{
@@ -24,11 +25,11 @@ describe('actual browser environment profiles and isolated diagnostics',()=>{
     if(name==='reduced-motion')expect(await session.page.locator('.ticker').evaluate(e=>getComputedStyle(e).animationName)).toBe('none');
   });
   it('rejects unsupported true browser zoom before any policy/model call and saves precise setting evidence',async()=>{
-    let calls=0;const trace=await runScreenshotTask({id:'zoom',url:fixture,goal:'Inspect',verify:{all:[{titleIncludes:'Never'}]}},{profile:'zoom-200',outDir:await dir(),browserSessionFactory:createTestBrowserSession,policy:{decide:()=>{calls++;return {stop:'stuck'}}}});
+    let calls=0;const trace=await runMockVoiceOverTask({id:'zoom',url:fixture,goal:'Inspect',verify:{all:[{titleIncludes:'Never'}]}},{profile:'zoom-200',outDir:await dir(),browserSessionFactory:createTestBrowserSession,warn:quiet,policy:{decide:()=>{calls++;return {stop:'stuck'}}}});
     expect(calls).toBe(0);expect(trace.outcome).toMatchObject({status:'inconclusive',reason:'unsupported-profile'});expect(trace.events.find(e=>e.type==='browser.profile')?.data).toMatchObject({supported:false,settings:expect.arrayContaining([expect.objectContaining({name:'browserZoom',status:'unsupported',mechanism:'browser-native'})])});
   });
   it('never treats CDP pinch as genuine browser zoom',async()=>{
-    const trace=await runScreenshotTask({url:fixture,goal:'Inspect',verify:{all:[{titleIncludes:'Never'}]}},{profile:'zoom-200',outDir:await dir(),browserSessionFactory:createTestBrowserSession,nativeZoom:async page=>{const cdp=await page.context().newCDPSession(page);await cdp.send('Emulation.setPageScaleFactor',{pageScaleFactor:2});await cdp.detach();return {observedFactor:2,method:'invalid-pinch-test-double'}},policy:new ScriptedPolicy([])});
+    const trace=await runMockVoiceOverTask({url:fixture,goal:'Inspect',verify:{all:[{titleIncludes:'Never'}]}},{profile:'zoom-200',outDir:await dir(),browserSessionFactory:createTestBrowserSession,warn:quiet,nativeZoom:async page=>{const cdp=await page.context().newCDPSession(page);await cdp.send('Emulation.setPageScaleFactor',{pageScaleFactor:2});await cdp.detach();return {observedFactor:2,method:'invalid-pinch-test-double'}},policy:new ScriptedPolicy([])});
     expect(trace.outcome?.reason).toBe('unsupported-profile');
   });
   it('records skip-link focus sequence, modal escape/restoration and error recovery independently',async()=>{
@@ -40,14 +41,16 @@ describe('actual browser environment profiles and isolated diagnostics',()=>{
     const d=await dir(),file=join(d,'case.html');await writeFile(file,'<!doctype html><button id="b" autofocus style="position:absolute;top:30px;outline:none">Hidden indicator</button><div style="position:fixed;inset:0;background:white;z-index:5"></div><p style="height:2px;overflow:hidden">Clipped text</p>');
     const s=await createTestBrowserSession(pathToFileURL(file).href);cleanups.push(()=>s.close());const report=await collectBrowserDiagnostics(s.page);expect(report.findings).toEqual(expect.arrayContaining([expect.objectContaining({code:'focus-center-occluded',certainty:'suspected'}),expect.objectContaining({code:'text-clipping'})]));
   });
-  it('keeps all independent diagnostics out of screenshot model input and redacts after text entry',async()=>{
-    const choices=['key:Tab','key:Tab','key:Tab','key:Tab','type:email','stop:uncertain'];let n=0;const requests:unknown[]=[];const out=await dir();
-    const trace=await runScreenshotTask({id:'privacy',url:fixture,goal:'Inspect',maxSteps:8,input:{email:'PRIVATE_PROFILE_INPUT'},verify:{all:[{titleIncludes:'Never'}]}},{profile:'default',outDir:out,browserSessionFactory:createTestBrowserSession,policy:new ScreenshotDecisionPolicy({maxStateVisits:20,maxUnchangedTransitions:20,modelGiveUp:true,model:{choose:async req=>{requests.push(req);return {choiceId:choices[n++]!,model:{id:'fixture-only',runtime:'test'}}}}})});
+  it('keeps all independent diagnostics out of model input and redacts after text entry',async()=>{
+    // Tab to the email field, type into it once the reader says it is a text field, then give up.
+    let typed=false;const requests:unknown[]=[];const out=await dir();
+    const choose=(state:{speech:string[]})=>typed?'stop:uncertain':state.speech.join(' ').includes('edit text')?(typed=true,'type:email'):'key:Tab';
+    const trace=await runMockVoiceOverTask({id:'privacy',url:fixture,goal:'Inspect',maxSteps:8,input:{email:'PRIVATE_PROFILE_INPUT'},verify:{all:[{titleIncludes:'Never'}]}},{profile:'default',outDir:out,browserSessionFactory:createTestBrowserSession,warn:quiet,policy:new SpeechDecisionPolicy({choose:async req=>{requests.push(req);return {choiceId:choose(req.state as {speech:string[]}),model:{id:'fixture-only',runtime:'test'}}}},{modelGiveUp:true})});
     expect(trace.events.filter(e=>e.type==='browser.accessibility-diagnostic').at(-1)?.redacted).toBe(true);expect(await readFile(join(out,'trace.json'),'utf8')).not.toContain('PRIVATE_PROFILE_INPUT');expect(JSON.stringify(requests)).not.toMatch(/independent-browser-diagnostic|focus-center-occluded|"profile"|"editable"/);expect(trace.outcome).toMatchObject({status:'inconclusive',reason:'policy-uncertain',policyStopSource:'model'});
   });
   it('verifies live text-style drift and stops rather than silently running the wrong profile',async()=>{
     const d=await dir(),file=join(d,'drift.html');await writeFile(file,'<!doctype html><button autofocus onclick="document.body.style.setProperty(\'font-size\',\'7px\',\'important\')">Change style</button>');
-    const trace=await runScreenshotTask({url:pathToFileURL(file).href,goal:'Inspect',maxSteps:3,verify:{all:[{titleIncludes:'Never'}]}},{profile:'text-200',outDir:join(d,'run'),browserSessionFactory:createTestBrowserSession,policy:new ScriptedPolicy([key('Enter')])});expect(trace.outcome?.reason).toBe('unsupported-profile');
+    const trace=await runMockVoiceOverTask({url:pathToFileURL(file).href,goal:'Inspect',maxSteps:3,verify:{all:[{titleIncludes:'Never'}]}},{profile:'text-200',outDir:join(d,'run'),browserSessionFactory:createTestBrowserSession,warn:quiet,policy:new ScriptedPolicy([key('Enter')])});expect(trace.outcome?.reason).toBe('unsupported-profile');
   });
   it('lets a backend refuse the host before the browser opens and the opened session before observation or dispatch',async()=>{
     const make=(hooks:Partial<Backend>):Backend=>({capabilities:{intents:[],keys:[],textEntry:false,replaceText:false},start:async()=>({}),subscribe:()=>()=>{},close:async()=>{},execute:async()=>{throw Error('must not dispatch')},observe:async()=>{throw Error('must not observe')},...hooks});
@@ -85,7 +88,7 @@ describe('profile mismatch privacy after named text entry',()=>{
     const d=await dir(),file=join(d,'tainted-profile.html'),secret='PRIVATE_PROFILE_INPUT';
     await writeFile(file,`<!doctype html><input autofocus oninput="window.__rawstepMeasureProfile=()=>({unprofiledNodes:0,samples:[{baseline:10,actual:btoa(this.value)}],spacing:null})">`);
     const outDir=join(d,'run');
-    const trace=await runScreenshotTask({id:'tainted-profile',url:pathToFileURL(file).href,goal:'Inspect',input:{secret},verify:{all:[{titleIncludes:'Never'}]}},{profile:'text-200',outDir,browserSessionFactory:createTestBrowserSession,policy:new ScriptedPolicy([{action:{kind:'typeText',input:'secret'}}])});
+    const trace=await runMockVoiceOverTask({id:'tainted-profile',url:pathToFileURL(file).href,goal:'Inspect',input:{secret},verify:{all:[{titleIncludes:'Never'}]}},{profile:'text-200',outDir,browserSessionFactory:createTestBrowserSession,warn:quiet,policy:new ScriptedPolicy([{action:{kind:'typeText',input:'secret'}}])});
     expect(trace.outcome).toMatchObject({status:'inconclusive',reason:'unsupported-profile'});
     expect(trace.environment.profile).toMatchObject({supported:false,details:'[REDACTED]'});
     expect(trace.events.filter(e=>e.type==='browser.profile').at(-1)).toMatchObject({redacted:true,data:{supported:false,details:'[REDACTED]'}});

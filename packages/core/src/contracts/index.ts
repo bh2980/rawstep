@@ -53,7 +53,6 @@ export type VerificationRuleRecord = {
 export type VerificationRecord = { passed: boolean; failures: string[]; rules?: VerificationRuleRecord[] };
 export type Task = {
   id?: string;
-  mode?: 'screenreader' | 'keyboard';
   url: string;
   goal: string;
   /**
@@ -92,14 +91,8 @@ export type ScreenReaderObservation = {
   /** The page title (document.title), which screen readers announce when a page loads. Absent when it could not be read. */
   title?: string;
 };
-export type ScreenshotObservation = { pngBase64: string; viewport: { w: number; h: number } };
-export type KeyboardObservation = {
-  kind: 'keyboard';
-  screenshot: ScreenshotObservation;
-  previousScreenshot?: ScreenshotObservation;
-  window: { id: string; startedAt: string; endedAt: string; reason: string };
-};
-export type Observation = ScreenReaderObservation | KeyboardObservation;
+/** What a policy observes: Rawstep simulates screen reader users only. */
+export type Observation = ScreenReaderObservation;
 /**
  * Why the runner could not carry out an action, in words Rawstep chose: `not-editable` when text entry found no editable
  * focused field, `backend` for anything the screen reader or browser refused. Models see this code, never the raw error.
@@ -136,8 +129,7 @@ export type BackendOutput = { sequence: number; receivedAt: string; text: string
  */
 export type CursorLocation = { rect: { x: number; y: number; width: number; height: number }; scroll: { x: number; y: number }; viewport: { width: number; height: number }; url: string };
 export type BackendSpeechObservation = { kind?: 'screenreader'; windowId: string; startedAt: string; endedAt: string; reason: string; outputs: readonly BackendOutput[]; speech: readonly string[]; cursor?: CursorLocation };
-export type BackendKeyboardObservation = { kind: 'keyboard'; windowId: string; startedAt: string; endedAt: string; reason: string; screenshot: ScreenshotObservation; previousScreenshot?: ScreenshotObservation };
-export type BackendObservation = BackendSpeechObservation | BackendKeyboardObservation;
+export type BackendObservation = BackendSpeechObservation;
 /** Generic backend boundary: transport and platform semantics belong in adapters. */
 export type BackendOperationOptions = { signal?: AbortSignal };
 /** What the runner knows about this run's host and browser, for a backend's own preconditions. */
@@ -151,7 +143,6 @@ export interface Backend {
   attachSession?(session: BackendSession): void | Promise<void>;
   /** Budget for close(); native bridges may need longer to release OS state. */
   readonly cleanupTimeoutMs?: number;
-  readonly observationKind?: 'screenreader' | 'keyboard';
   /** Missing means unspecified; only explicit simulation may synthesize output. */
   readonly evidenceProvenance?: 'native' | 'simulation';
   readonly capabilities: BackendCapabilities;
@@ -173,8 +164,7 @@ function onlyKeys(value: Record<string, unknown>, allowed: readonly string[], la
 }
 export function resolveTask(raw: unknown, baseDir = process.cwd()): Task {
   if (!object(raw)) throw new Error('Task must be an object.');
-  onlyKeys(raw, ['id','url','goal','context','mode','maxSteps','timeoutMs','verify','input','inputOptions','navigation','profile'], 'Task');
-  if (raw.mode !== undefined && raw.mode !== 'screenreader' && raw.mode !== 'keyboard') throw new Error('Task mode must be screenreader or keyboard.');
+  onlyKeys(raw, ['id','url','goal','context','maxSteps','timeoutMs','verify','input','inputOptions','navigation','profile'], 'Task');
   const url = text(raw.url, 'Task URL');
   const goal = text(raw.goal, 'Task goal');
   const context = raw.context === undefined ? undefined : text(raw.context, 'Task context');
@@ -213,7 +203,7 @@ export function resolveTask(raw: unknown, baseDir = process.cwd()): Task {
     if (!['http:', 'https:', 'file:'].includes(parsed.protocol)) throw new Error('Task URL must use http, https, or file.');
     resolvedUrl = parsed.href;
   } else resolvedUrl = pathToFileURL(isAbsolute(url) ? url : resolve(baseDir, url)).href;
-  return { ...(raw.mode !== undefined ? { mode: raw.mode as 'screenreader' | 'keyboard' } : {}), ...(raw.id !== undefined ? { id: text(raw.id, 'Task id') } : {}), url: resolvedUrl, goal, ...(context ? { context } : {}), ...(raw.profile !== undefined ? { profile: resolveEnvironmentProfile(raw.profile) } : {}), maxSteps: maxSteps as number, timeoutMs: timeoutMs as number, verify: { all: rules }, ...(input ? { input: { ...input } as Record<string, string> } : {}), ...(object(inputOptions) ? { inputOptions: structuredClone(inputOptions) as Record<string, TaskInputOptions> } : {}), navigation };
+  return { ...(raw.id !== undefined ? { id: text(raw.id, 'Task id') } : {}), url: resolvedUrl, goal, ...(context ? { context } : {}), ...(raw.profile !== undefined ? { profile: resolveEnvironmentProfile(raw.profile) } : {}), maxSteps: maxSteps as number, timeoutMs: timeoutMs as number, verify: { all: rules }, ...(input ? { input: { ...input } as Record<string, string> } : {}), ...(object(inputOptions) ? { inputOptions: structuredClone(inputOptions) as Record<string, TaskInputOptions> } : {}), navigation };
 }
 export function validateNavigation(value: unknown): NavigationPolicy {
   if (value === undefined) return { strategy: 'same-origin' };

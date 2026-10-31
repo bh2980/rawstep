@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { evaluateProfileArguments } from './page-script.js';
 import type { Page } from 'playwright';
 import type { BrowserDiagnostic } from '@rawstep/core/profiles/types';
-/** DOM checks run on a separate evidence channel; never used for choosing keyboard actions. */
+/** DOM checks run on a separate evidence channel; never used for choosing actions. */
 export async function collectBrowserDiagnostics(page: Page): Promise<BrowserDiagnostic> {
   return evaluateProfileArguments(page, (documentId: string) => {
     const findings: BrowserDiagnostic['findings'] = [];

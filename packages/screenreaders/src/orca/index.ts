@@ -44,7 +44,6 @@ type Window = { id: string; startedAt: number; acknowledgedAt: number; commandId
 
 /** Real Orca speech-pipeline adapter over a local process, not AT Driver compatibility or AX-to-text simulation. */
 export class OrcaBackend implements Backend {
-  readonly observationKind = 'screenreader' as const;
   readonly evidenceProvenance = 'native' as const;
   readonly capabilities = orcaCapabilities;
   readonly cleanupTimeoutMs = RAWSTEP_DEFAULTS.cleanupTimeoutMs.nativeBackend;

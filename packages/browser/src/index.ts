@@ -6,7 +6,5 @@ export { evaluateVerifyRule, verifyTask } from './verify/index.js';
 export type { VerificationContext } from './verify/index.js';
 export { applyProfile, BUILTIN_PROFILES, collectBrowserDiagnostics, createChromiumTabZoomController, DEFAULT_PROFILE, ProfileApplicationError, resolveEnvironmentProfile, verifyLiveProfile } from './profiles/index.js';
 export type { AppliedProfile, BrowserDiagnostic, DiagnosticFinding, EnvironmentProfile, NativeZoomController, ProfileSetting } from './profiles/index.js';
-export { runScreenshotReplay, runScreenshotTask, SCREENSHOT_KEYS, ScreenshotKeyboardBackend } from './screenshot/index.js';
-export type { ScreenshotRunOptions } from './screenshot/index.js';
 export { installPageObserver, OBSERVER_WORLD } from './observer/index.js';
 export type { ObserverEvent, ObserverEventKind, ObserverOptions, ObserverRect, PageObserver } from './observer/index.js';

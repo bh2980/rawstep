@@ -2,7 +2,6 @@
   "id": "bad-focus",
   "url": "../../fixtures/bad-focus.html",
   "goal": "Find the Buy now button, activate it, and leave the page in a state where the purchase completion message is visible.",
-  "mode": "keyboard",
   "maxSteps": 20,
   "timeoutMs": 180000,
   "verify": {

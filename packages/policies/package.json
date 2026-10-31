@@ -24,27 +24,7 @@
       "import": "./dist/policy/index.js",
       "default": "./dist/policy/index.js"
     },
-    "./screenshot/model": {
-      "types": "./dist/screenshot/model.d.ts",
-      "import": "./dist/screenshot/model.js",
-      "default": "./dist/screenshot/model.js"
-    },
-    "./screenshot/policy": {
-      "types": "./dist/screenshot/policy.d.ts",
-      "import": "./dist/screenshot/policy.js",
-      "default": "./dist/screenshot/policy.js"
-    },
-    "./screenshot/stop-reason": {
-      "types": "./dist/screenshot/stop-reason.d.ts",
-      "import": "./dist/screenshot/stop-reason.js",
-      "default": "./dist/screenshot/stop-reason.js"
-    },
     "./package.json": "./package.json",
-    "./screenshot/replay": {
-      "types": "./dist/screenshot/replay.d.ts",
-      "import": "./dist/screenshot/replay.js",
-      "default": "./dist/screenshot/replay.js"
-    },
     "./llm": {
       "types": "./dist/llm/index.d.ts",
       "import": "./dist/llm/index.js",

@@ -10,11 +10,9 @@ import { extractHints, type HintReport } from "@rawstep/reports/hints";
 const directories: string[] = [];
 afterEach(async () => { await Promise.all(directories.splice(0).map(directory => rm(directory, { recursive: true, force: true }))); });
 const timestamp = "2026-01-01T00:00:00.000Z";
-const sha256 = "a".repeat(64);
-const png = { sha256, blob: `blobs/${sha256}.png`, bytes: 68 };
-function fixture(events: Array<Pick<TraceEvent, "type" | "data"> & Partial<TraceEvent>>, mode: "screenreader" | "keyboard" = "screenreader"): RunTrace {
+function fixture(events: Array<Pick<TraceEvent, "type" | "data"> & Partial<TraceEvent>>): RunTrace {
   return {
-    schemaVersion: "2.2", runId: "report-test", task: { id: "report", mode },
+    schemaVersion: "3.0", runId: "report-test", task: { id: "report" },
     environment: { platform: "test", platformVersion: "unknown", browser: "test", browserVersion: "unknown", screenReader: "test", screenReaderVersion: "unknown" },
     startedAt: timestamp, endedAt: timestamp, outcome: { status: "failure", reason: "verification-failed", stage: "verification", step: 1 },
     privacy: { inputValues: "redacted", redactionApplied: events.some(event => event.redacted) },
@@ -33,14 +31,12 @@ describe("evidence-first report", () => {
     const summary = summarizeTrace(trace);
     expect(summary).toMatchObject({ modality: 'simulation', modalities: ['simulation'], counts: {
       readableSpeechEvents: 0, redactedSpeechEvents: 0, readableSimulationOutputEvents: 1, redactedSimulationOutputEvents: 1,
-      keyboardScreenshots: 0,
     } });
     const document = new JSDOM(renderReportHtml(trace)).window.document;
     expect(document.querySelector('[aria-labelledby=outcome]')?.textContent).toContain('Simulated VoiceOver run');
     expect(document.querySelector('[aria-labelledby=outcome] strong')?.textContent).toContain('This is not Apple VoiceOver');
     expect(document.querySelector('[aria-labelledby=privacy]')?.textContent).toContain('1 simulated output events redacted');
     expect(document.querySelector('[aria-labelledby=privacy]')?.textContent).not.toContain('native screen-reader output');
-    expect(document.querySelector('[aria-labelledby=privacy]')?.textContent).not.toContain('keyboard screenshots');
     const directory = await mkdtemp(join(tmpdir(), 'rawstep-simulation-report-'));
     directories.push(directory);
     const { jsonPath } = await writeReport(trace, undefined, directory);
@@ -54,13 +50,11 @@ describe("evidence-first report", () => {
     const mixed = fixture([
       { type: 'simulation.output', source: 'simulation', data: { text: 'Save, button' } },
       { type: 'screen-reader.output', source: 'screen-reader', data: { text: 'Save button' } },
-      { type: 'keyboard.observation', data: { screenshot: png } },
     ]);
     const document = new JSDOM(renderReportHtml(mixed)).window.document;
-    expect(summarizeTrace(mixed).modalities).toEqual(['screenreader', 'simulation', 'keyboard']);
+    expect(summarizeTrace(mixed).modalities).toEqual(['screenreader', 'simulation']);
     expect(document.querySelector('[aria-labelledby=outcome]')?.textContent).toContain('1 readable native screen-reader output events');
     expect(document.querySelector('[aria-labelledby=outcome]')?.textContent).toContain('1 readable simulated output events');
-    expect(document.querySelector('[aria-labelledby=outcome]')?.textContent).toContain('1 readable screenshot observations');
   });
 
   it("shows action results, the first failed event and each verifier rule's actual grounds", () => {
@@ -108,36 +102,19 @@ describe("evidence-first report", () => {
     expect(html).toContain("Stage: action · step 3");
   });
 
-  it("counts real output, retained screenshots and omitted diagnostics without counting screenshot copies", () => {
-    const screenshot = { ...png, viewport: { w: 1, h: 1 } };
+  it("counts real output and diagnostic screenshots, including the ones omitted for privacy", () => {
     const trace = fixture([
-      { type: "keyboard.observation", redacted: true, data: { screenshot, previousScreenshot: screenshot } },
-      { type: "keyboard.observation", redacted: true, data: { screenshot: "[REDACTED]" } },
       { type: "browser.screenshot", source: "browser-diagnostic", data: { path: "diagnostics/step-1.png" } },
       { type: "browser.screenshot-redacted", source: "browser-diagnostic", redacted: true, data: { step: 2, reason: "Input privacy" } },
       { type: "backend.response", source: "screen-reader", data: { speech: ["Not actual output"] } },
-    ], "keyboard");
-    expect(summarizeTrace(trace)).toMatchObject({ modality: "keyboard", counts: {
-      events: 5, redactedEvents: 3, keyboardScreenshots: 1, withheldKeyboardScreenshots: 1, diagnosticScreenshots: 1,
-      withheldDiagnosticScreenshots: 1, readableSpeechEvents: 0, redactedSpeechEvents: 0,
+    ]);
+    expect(summarizeTrace(trace)).toMatchObject({ counts: {
+      events: 3, redactedEvents: 1, diagnosticScreenshots: 1, withheldDiagnosticScreenshots: 1, readableSpeechEvents: 0, redactedSpeechEvents: 0,
     } });
     const document = new JSDOM(renderReportHtml(trace)).window.document;
-    expect(document.body.textContent).toContain("Screenshot keyboard exploration");
-    expect(document.body.textContent).toContain("this run did not use a screen reader");
+    expect(document.body.textContent).toContain("1 diagnostic screenshot references");
     expect(document.body.textContent).toContain("1 diagnostic screenshots omitted for privacy");
-    expect(document.querySelector("[aria-labelledby=privacy]")?.textContent).not.toContain("screen-reader output events redacted");
-    expect(document.querySelectorAll("img")).toHaveLength(1);
-    expect(document.body.textContent).not.toContain("pngBase64");
-  });
-
-  it("hides keyboard screenshot counts for a screen-reader run and shows both modalities for mixed evidence", () => {
-    const trace = fixture([{ type: "screen-reader.output", source: "screen-reader", data: { text: "Get started, button" } }]);
-    const document = new JSDOM(renderReportHtml(trace)).window.document;
-    expect(document.querySelector("[aria-labelledby=privacy]")?.textContent).not.toContain("readable keyboard screenshots");
-    const mixed = fixture([...trace.events, { type: "keyboard.observation", data: { screenshot: png } }]);
-    const mixedDocument = new JSDOM(renderReportHtml(mixed)).window.document;
-    expect(mixedDocument.querySelector("[aria-labelledby=privacy]")?.textContent).toContain("screen-reader output events redacted");
-    expect(mixedDocument.querySelector("[aria-labelledby=privacy]")?.textContent).toContain("readable keyboard screenshots");
+    expect(document.querySelectorAll("img")).toHaveLength(0);
   });
 
   it("escapes new summary, rule and action fields and never links missing evidence", () => {

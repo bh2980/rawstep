@@ -12,25 +12,25 @@ The config never contains keys. A preset provider keeps its key under a fixed en
 
 | Field | Content |
 |---|---|
-| `version` | Always `5`. |
+| `version` | Always `6`. |
 | `connections` | Where models are reached: a provider preset or a custom server. The model and its effort are picked where they are used. |
 | `profiles` | Run profiles: everything that changes how a run ends, under one name. At least one is required. |
 | `tasks` | Registered task files, each with the profile it uses by default. |
 | `project` | Settings shared by the project that never change an outcome: the analysis model and instructions, and the check-suggestion model. |
 | `machine` | Settings of the computer running Rawstep. |
 
-Unknown fields are rejected. An `id` is letters, digits, `.`, `_` or `-`, up to 100 characters. `rawstep init` writes one profile `Default` (screen reader mode, a `followPlan` executor and no planner yet, the `Basic` actions, the `default` page environment, the simulated screen reader), with no connections or tasks.
+Unknown fields are rejected. An `id` is letters, digits, `.`, `_` or `-`, up to 100 characters. `rawstep init` writes one profile `Default` (a `followPlan` executor and no planner yet, the `Basic` actions, the `default` page environment, the simulated screen reader), with no connections or tasks.
 
-An older config (`version` 1 to 4) does not load: Rawstep stops with the code `old-config`. Start a new project with `rawstep init` and copy the tasks over.
+An older config (`version` 1 to 5) does not load: Rawstep stops with the code `old-config`. Start a new project with `rawstep init` and copy the tasks over.
 
 ## Run profiles
 
-An experiment is **task × run profile**. A task says only what to do; a run profile says who does it and how, and holds everything that changes how a run ends: the mode, who decides, what the simulated user may do, the page, the screen reader and the run rules. The profile is picked when a run starts. To compare two conditions, make two profiles that differ only in that part and run the same task with both.
+An experiment is **task × run profile**. A task says only what to do; a run profile says who does it and how, and holds everything that changes how a run ends: who decides, what the simulated user may do, the page, the screen reader and the run rules. The profile is picked when a run starts. To compare two conditions, make two profiles that differ only in that part and run the same task with both.
 
 | Part of a profile | What it holds |
 |---|---|
-| models (`planner`, `executors`) | The planner and its instructions (screen reader mode), the executor of each mode and its instructions. |
-| `actions` | The keys, screen reader intents and named-input typing allowed in each mode. |
+| models (`planner`, `executor`) | The planner and its instructions, the executor and its instructions. |
+| `actions` | The keys, screen reader intents and named-input typing allowed. |
 | `page` | The page environment: viewport, text size and spacing, colors, contrast, motion. |
 | `screenReader` | The screen reader backend: `simulation`, `voiceover` or `nvda`. |
 | `runRules` | When a run counts as stuck, and when a run that plans plans again. |
@@ -63,7 +63,7 @@ Providers are defined once in `@rawstep/project/config` (`PROVIDERS`):
 | `llm` | `claudeCode` | runs `npx -y @agentclientprotocol/claude-agent-acp@0.89.1` | none (CLI login) |
 | `llm` | `codex` | runs `npx -y @agentclientprotocol/codex-acp@2.2.2` | none (CLI login) |
 | `llm` | `opencode` | runs `opencode acp` | none (CLI login) |
-| `llm` | `grok` | runs `grok agent stdio`, no images | none (CLI login) |
+| `llm` | `grok` | runs `grok agent stdio` | none (CLI login) |
 | `llm` | `antigravity` | runs `agy_acp_server.par` (Google's separate ACP server from the ACP registry; put its folder on `PATH`) | none (its own Google sign-in) |
 | `llm` | `custom` | any OpenAI-compatible server (LM Studio, Ollama, ...), `baseURL` | optional, `apiKeyEnv` |
 | `decision` | `typesafe` | `https://api.typesafe.ai/v1` (`POST /v1/systemone`) | `RAWSTEP_TYPESAFE_API_KEY` |
@@ -71,11 +71,11 @@ Providers are defined once in `@rawstep/project/config` (`PROVIDERS`):
 | `decision` | `openrouter` | `https://openrouter.ai/api/v1` (`POST /api/v1/systemone`) | `RAWSTEP_OPENROUTER_API_KEY` (shared with `llm`) |
 | `decision` | `custom` | any `/systemone`-compatible server, `baseURL` | optional, `apiKeyEnv` |
 
-**Coding-agent CLIs** (`claudeCode`, `codex`, `opencode`, `grok`, `antigravity`) are connections to a CLI spoken to over ACP (Agent Client Protocol, JSON-RPC over stdio) instead of an address. The CLI must be installed and logged in; its own subscription pays and there is no API key or `baseURL`. The commands are fixed in `PROVIDERS` and never read from the shared config. The two `npx` adapters are pinned and downloaded on first use, so the first call is slow. `modelId: "default"` keeps the agent's own model choice; the model list (dashboard 확인 and the model picker) starts the agent and shows `default` first. Grok takes no images, so it only fits screen-reader mode and analysis. Every decision runs in a fresh agent session in an empty temporary folder; file and terminal access is refused, permission requests are rejected, and the session is deleted after the call. Agents carry their own large system prompt, so each call uses more tokens and is slower than a direct API (about 4 to 13 s per decision measured).
+**Coding-agent CLIs** (`claudeCode`, `codex`, `opencode`, `grok`, `antigravity`) are connections to a CLI spoken to over ACP (Agent Client Protocol, JSON-RPC over stdio) instead of an address. The CLI must be installed and logged in; its own subscription pays and there is no API key or `baseURL`. The commands are fixed in `PROVIDERS` and never read from the shared config. The two `npx` adapters are pinned and downloaded on first use, so the first call is slow. `modelId: "default"` keeps the agent's own model choice; the model list (dashboard 확인 and the model picker) starts the agent and shows `default` first. Every decision runs in a fresh agent session in an empty temporary folder; file and terminal access is refused, permission requests are rejected, and the session is deleted after the call. Agents carry their own large system prompt, so each call uses more tokens and is slower than a direct API (about 4 to 13 s per decision measured).
 
 When an `llm` reply cannot be used (no JSON object, or the wrong shape for what was asked), Rawstep asks once more, saying what was wrong; the retry is recorded as `model-retry` policy evidence (or `retried` on an executor choice). If the second reply fails too, or the first was cut off, came from another model or echoed the key, the run ends with an error whose `run.error` event carries `modelFailure`: the kind, the schema's complaints (field paths and messages) and the model's reply, shortened. The reply is left out when it echoed the key or after text was typed into the page. Provider error text is never kept, since it can carry credentials.
 
-Connections to one preset provider share its key. `llm` models call the provider's chat API through the AI SDK. `decision` models call the AI SDK's experimental `decide` API: an in-house adapter for the `/systemone` protocol serves `typesafe`, `openrouter` and `custom`, and the AI SDK's gateway provider serves `gateway` (see [SystemOne decisions](./systemone.md)). Keyboard mode sends images, so it needs an `llm` with image input or a `decision` model on `typesafe`, `openrouter` or `custom`.
+Connections to one preset provider share its key. `llm` models call the provider's chat API through the AI SDK. `decision` models call the AI SDK's experimental `decide` API: an in-house adapter for the `/systemone` protocol serves `typesafe`, `openrouter` and `custom`, and the AI SDK's gateway provider serves `gateway` (see [SystemOne decisions](./systemone.md)).
 
 ```json
 { "id": "jev", "name": "Jev", "kind": "decision", "provider": "typesafe", "timeoutMs": 60000 }
@@ -104,44 +104,35 @@ These are spoken to over ACP, as described above. `antigravity` runs Google's AC
 | Field | Meaning |
 |---|---|
 | `id`, `name` | Identifier and display name. `--profile` accepts either. |
-| `mode` | `screenreader` (default): the user listens to a screen reader; the run always plans. `keyboard`: the user looks at the screen and uses keys; the run does not plan, its keyboard executor decides every action. `rawstep run --mode` overrides it for one run. |
-| `planner` | Screen reader mode only for now; a keyboard run does not plan. Writes the plan document: either an LLM, `{ connectionId, modelId, reasoningEffort?, instructions }` (the connection must be an `llm`), or a plan file, `{ planFile }` (see [File planner](#file-planner)). A screen reader profile without a planner cannot run until one is picked (`planner-model-invalid`). A new profile has none yet. |
-| `executors` | `{ screenreader?, keyboard? }`. The model that picks each action in that mode, with its instructions (see below). A mode without an executor cannot run with this profile (`profile-without-executor`). The screen reader executor may be `{ "followPlan": true }` instead: no executor model, Rawstep carries out the plan as written (a pressing task presses, a moving task uses its first move), so every judgement is the planner's and the cue's, a run costs only planner calls, and repeats vary less. It only moves and presses, so a profile whose actions type into inputs is rejected before the run. A new profile starts with this. |
-| `actions` | `{ keyboard, screenreader }`: what the simulated user may do in each mode (see below). |
+| `planner` | Writes the plan document: either an LLM, `{ connectionId, modelId, reasoningEffort?, instructions }` (the connection must be an `llm`), or a plan file, `{ planFile }` (see [File planner](#file-planner)). A profile without a planner cannot run until one is picked (`planner-model-invalid`). A new profile has none yet. |
+| `executor` | The model that picks each action, with its instructions (see below). A profile without an executor cannot run (`profile-without-executor`). It may be `{ "followPlan": true }` instead: no executor model, Rawstep carries out the plan as written (a pressing task presses, a moving task uses its first move), so every judgement is the planner's and the cue's, a run costs only planner calls, and repeats vary less. It only moves and presses, so a profile whose actions type into inputs is rejected before the run. A new profile starts with this. |
+| `actions` | What the simulated user may do (see below). |
 | `page` | A built-in page environment name (`default`, `narrow`, `zoom-200`, `forced-colors`, `dark`, `reflow-text`, ...) or an object. Default `"default"`. See [environment profiles](./environment-profiles.md). |
-| `screenReader` | The assistive technology screen reader runs go through; keyboard runs never use it. `simulation` (default): a Chromium-backed simulated screen reader, always labelled simulation in traces. `voiceover` (macOS) or `nvda` (Windows): a native screen reader reached through an AT Driver server (addresses under [machine](#machine)). Two profiles that differ only here compare the same task on a simulated and a native VoiceOver. |
+| `screenReader` | The assistive technology the run goes through. `simulation` (default): a Chromium-backed simulated screen reader, always labelled simulation in traces. `voiceover` (macOS) or `nvda` (Windows): a native screen reader reached through an AT Driver server (addresses under [machine](#machine)). Two profiles that differ only here compare the same task on a simulated and a native VoiceOver. |
 | `runRules` | The run rules, in full (see [runRules](#runrules)). |
 
-An executor is `{ connectionId, modelId, reasoningEffort?, inputs, maxChoices, maxImages, instructions, historyLimit, focusGate, latitude }`:
+An executor is `{ connectionId, modelId, reasoningEffort?, maxChoices, instructions, historyLimit, latitude }`:
 
 | Field | Meaning |
 |---|---|
 | `connectionId`, `modelId` | The connection, and the identifier sent to the provider. |
 | `reasoningEffort` | Optional. A level the agent offers (only meaningful on coding-agent CLI connections); unset = the agent's default (Codex: `xhigh`, which is slow). Also allowed on a profile's `planner`, and on `project.analysis.model` and `project.suggestions.model`. |
-| `inputs` | `["text"]` or `["text", "image"]`. |
-| `maxChoices`, `maxImages` | The candidate and image limits (defaults 255 and 2). |
+| `maxChoices` | The candidate limit (default 255). |
 | `instructions` | The executor prompt (required), see [prompts](./prompts.md). |
 | `historyLimit` | How many past steps the model sees (default 12). |
-| `focusGate` | Keyboard mode with a `decision` model only (default `false`): a separate focus judgement narrows the candidates before each action. An `llm` executor with `focusGate` is rejected before the run. |
-| `latitude` | Screen reader runs (default `none`): how much the executor decides inside a task. `none`: the plan fixes the method, direction and when to press. `direction`: a task moves to its target and presses it, and the executor may also go back the same way. `method`: the executor may use any movement. The planner shapes its tasks to match. |
+| `latitude` | Default `none`: how much the executor decides inside a task. `none`: the plan fixes the method, direction and when to press. `direction`: a task moves to its target and presses it, and the executor may also go back the same way. `method`: the executor may use any movement. The planner shapes its tasks to match. |
 
-A keyboard executor needs image input and a `maxImages` of at least 2; a screen reader executor needs text input. A profile's `planner` must be on an `llm` connection, and every executor must name an existing connection.
+A profile's `planner` must be on an `llm` connection, and the executor must name an existing connection.
 
-`actions.keyboard` and `actions.screenreader` are permissions objects: `{ keys, intents, typeText, replaceText, inputKeys? }`. They list the keys and screen reader intents the model may choose, and whether it may type or replace text in named inputs (`inputKeys` limits which; default all of the task's). Permissions apply to the candidates the model is offered and are checked again before an action runs. An action the backend does not support (a screen reader intent the simulation or the native screen reader lacks, say) fails the run check before the browser starts. Stop choices, independent verification and the named-input checks stay with the engine.
+`actions` is a permissions object: `{ keys, intents, typeText, replaceText, inputKeys? }`. They list the keys and screen reader intents the model may choose, and whether it may type or replace text in named inputs (`inputKeys` limits which; default all of the task's). Permissions apply to the candidates the model is offered and are checked again before an action runs. An action the backend does not support (a screen reader intent the simulation or the native screen reader lacks, say) fails the run check before the browser starts. Stop choices, independent verification and the named-input checks stay with the engine.
 
 ```json
 {
   "id": "plan-and-jev",
   "name": "Plan with GPT, act with Jev",
   "planner": { "connectionId": "openai", "modelId": "gpt-5", "instructions": "Plan like an experienced screen reader user." },
-  "executors": {
-    "screenreader": { "connectionId": "jev", "modelId": "jev-latest", "inputs": ["text"], "maxChoices": 255, "maxImages": 0, "instructions": "Reach the goal with the actions you are allowed.", "historyLimit": 12, "focusGate": false },
-    "keyboard": { "connectionId": "jev", "modelId": "jev-latest", "inputs": ["text", "image"], "maxChoices": 255, "maxImages": 2, "instructions": "Reach the goal with the keys you are allowed.", "historyLimit": 12, "focusGate": false }
-  },
-  "actions": {
-    "keyboard": { "keys": ["Tab", "Shift+Tab", "Enter", "Space"], "intents": [], "typeText": false, "replaceText": false },
-    "screenreader": { "keys": [], "intents": ["next", "previous", "activate"], "typeText": false, "replaceText": false }
-  },
+  "executor": { "connectionId": "jev", "modelId": "jev-latest", "maxChoices": 255, "instructions": "Reach the goal with the actions you are allowed.", "historyLimit": 12 },
+  "actions": { "keys": [], "intents": ["next", "previous", "activate"], "typeText": false, "replaceText": false },
   "page": "narrow",
   "screenReader": "voiceover",
   "runRules": { "maxPlannerCalls": 60 }
@@ -154,10 +145,8 @@ When a run stops early and, with a planner, when it plans again. Each profile ho
 
 | Field | Default | Meaning |
 |---|---|---|
-| `repetitionGuard` | `auto` | `auto`: on in screen reader mode and for `llm` executors in keyboard mode, off for `decision` executors in keyboard mode. `on` or `off` forces it. |
-| `maxStateVisits` | 5 | Keyboard mode: visits to the same screen before the run stops as stuck. |
-| `maxUnchangedTransitions` | 4 | The same action producing the same speech or screen this many times in a row stops the run as stuck. |
-| `modelGiveUp` | `false` | Keyboard mode: whether the executor may end a run by choosing `stop:stuck` or `stop:uncertain`. Off, the model is offered only `stop:success`, and a run ends at the goal, a limit or a guard. Screen reader runs never offer these to the executor: the user gives up only through the planner (see [How a run ends](#how-a-run-ends)). |
+| `repetitionGuard` | `true` | Whether a run stops as stuck when it keeps repeating itself. |
+| `maxUnchangedTransitions` | 4 | The same action producing the same speech this many times in a row stops the run as stuck. |
 | `maxPlannerCalls` | 40 | With a planner: planner calls a run may make: plans (the first included), questions about a heard item, and asking again after an unusable reply. A cost limit: a run that reaches it ends unmeasured (`orchestration-limit`), not as the user failing. |
 | `reviewEvery` | 60 | With a planner: moves since the planner last looked before it takes stock of the effort spent (`effort-review`): keep going, change the approach, or give up. |
 | `stepActionLimit` | 12 | With a planner: actions on one task without hearing anything new before a new plan is requested. Walking a page item by item, each new item resets the count. |
@@ -172,45 +161,26 @@ When a run stops early and, with a planner, when it plans again. Each profile ho
 A field a profile leaves out takes the default above. An override for one run changes only the fields it names.
 
 ```json
-{ "repetitionGuard": "auto", "maxStateVisits": 5, "maxUnchangedTransitions": 4, "modelGiveUp": false, "maxPlannerCalls": 40, "reviewEvery": 60, "stepActionLimit": 12, "failureLimit": 2, "noChangeLimit": 3, "plannerHistoryLimit": 60, "taskControl": "rawstep", "confidenceFloor": 0.25, "survey": "headings", "confirmationGrace": 5 }
+{ "repetitionGuard": true, "maxUnchangedTransitions": 4, "maxPlannerCalls": 40, "reviewEvery": 60, "stepActionLimit": 12, "failureLimit": 2, "noChangeLimit": 3, "plannerHistoryLimit": 60, "taskControl": "rawstep", "confidenceFloor": 0.25, "survey": "headings", "confirmationGrace": 5 }
 ```
 
 ## Example
 
-A complete `rawstep.config.json` with two connections, a keyboard and a screen reader profile, and the project analysis model:
+A complete `rawstep.config.json` with two connections, a profile and the project analysis model:
 
 ```json
 {
-  "version": 5,
+  "version": 6,
   "connections": [
     { "id": "openai", "name": "OpenAI", "kind": "llm", "provider": "openai", "timeoutMs": 60000 },
     { "id": "jev", "name": "Jev", "kind": "decision", "provider": "typesafe", "timeoutMs": 60000 }
   ],
   "profiles": [
     {
-      "id": "jev-keyboard", "name": "Jev, keyboard", "mode": "keyboard",
-      "executors": {
-        "keyboard": { "connectionId": "jev", "modelId": "jev-latest", "inputs": ["text", "image"], "maxChoices": 255, "maxImages": 2, "instructions": "Reach the goal with the keys you are allowed.", "historyLimit": 12, "focusGate": false }
-      },
-      "actions": {
-        "keyboard": { "keys": ["Tab", "Shift+Tab", "Enter", "Space"], "intents": [], "typeText": false, "replaceText": false },
-        "screenreader": { "keys": [], "intents": [], "typeText": false, "replaceText": false }
-      },
-      "page": "default",
-      "screenReader": "simulation",
-      "runRules": { "repetitionGuard": "auto", "maxStateVisits": 5, "maxUnchangedTransitions": 4, "modelGiveUp": false }
-    },
-    {
       "id": "narrow-screenreader", "name": "Narrow page, screen reader",
       "planner": { "connectionId": "openai", "modelId": "gpt-5", "instructions": "Plan like an experienced screen reader user." },
-      "executors": {
-        "screenreader": { "connectionId": "jev", "modelId": "jev-latest", "inputs": ["text"], "maxChoices": 255, "maxImages": 0, "instructions": "Reach the goal with the actions you are allowed.", "historyLimit": 12, "focusGate": false },
-        "keyboard": { "connectionId": "jev", "modelId": "jev-latest", "inputs": ["text", "image"], "maxChoices": 255, "maxImages": 2, "instructions": "Reach the goal with the keys you are allowed.", "historyLimit": 12, "focusGate": false }
-      },
-      "actions": {
-        "keyboard": { "keys": ["Tab", "Shift+Tab", "Enter", "Space"], "intents": [], "typeText": false, "replaceText": false },
-        "screenreader": { "keys": [], "intents": ["next", "previous", "activate"], "typeText": false, "replaceText": false }
-      },
+      "executor": { "connectionId": "jev", "modelId": "jev-latest", "maxChoices": 255, "instructions": "Reach the goal with the actions you are allowed.", "historyLimit": 12 },
+      "actions": { "keys": [], "intents": ["next", "previous", "activate"], "typeText": false, "replaceText": false },
       "page": "narrow",
       "screenReader": "voiceover",
       "runRules": { "maxPlannerCalls": 60 }
@@ -229,7 +199,7 @@ A complete `rawstep.config.json` with two connections, a keyboard and a screen r
 
 ## Planner and executor (orchestration)
 
-A screen reader run always plans, so it is split in two. The planner (an LLM, or a [plan file](#file-planner)) writes a **plan document** and the executor carries it out one task at a time, or Rawstep follows the plan itself (`followPlan`). Keyboard runs do not plan yet: the keyboard executor decides every action. The conditions line of a run record says `planned` (screen reader) or `solo` (keyboard); it follows from the mode.
+A run always plans, so it is split in two. The planner (an LLM, or a [plan file](#file-planner)) writes a **plan document** and the executor carries it out one task at a time, or Rawstep follows the plan itself (`followPlan`). The conditions line of a run record says `planned`.
 
 The plan document has:
 
@@ -276,7 +246,7 @@ The file has the planner's draft format: `strategy`, `criteria` (`C1`...), `assu
 
 The plan never changes during a run. Where Rawstep would ask for a new plan, the stuck task is recorded as abandoned and the next task starts. Use it to run plans written by a person, to run a plan saved from a planner model again, and in experiments that hold the plan fixed while the executor, actions or environment vary.
 
-The model's action history includes each action's execution result (`ok`, and for a failure the code `not-editable` or `backend`, never the raw error text) and whether the speech or screenshot changed afterwards (`changed`).
+The model's action history includes each action's execution result (`ok`, and for a failure the code `not-editable` or `backend`, never the raw error text) and whether the speech changed afterwards (`changed`).
 
 ## project
 

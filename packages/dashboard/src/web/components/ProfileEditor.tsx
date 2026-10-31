@@ -1,9 +1,9 @@
 import { useId, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { executorModel, followsPlan, isFilePlanner, runRulesSchema, type Combo, type Mode, type Profile, type RunRules } from '@rawstep/project/config';
+import { executorModel, followsPlan, isFilePlanner, runRulesSchema, type Combo, type Profile, type RunRules } from '@rawstep/project/config';
 import type { ConfigView } from '../../shared/config';
 import { t as translate } from '../i18n';
-import { environmentViewport, MODES } from '../lib/conditions';
+import { environmentViewport } from '../lib/conditions';
 import { personaName, personaOf, PRESETS, withPreset } from '../lib/persona';
 import { cn } from '../lib/utils';
 import { ActionSetEditor } from './conditions/ActionSetEditor';
@@ -22,24 +22,21 @@ export function changedRules(rules: RunRules): Partial<RunRules> {
 export type Question = 'who' | 'ai' | 'where' | 'stop';
 const QUESTIONS: Question[] = ['who', 'ai', 'where', 'stop'];
 
-/** Who thinks in a run of this mode, in one sentence: the planner and how the plan is carried out, or the model that picks alone. */
-export function aiSummary(profile: Pick<Combo, 'planner' | 'executors'>, mode: Mode): string {
-  const executor = executorModel(profile, mode)?.modelId.trim();
-  if (mode === 'screenreader') {
-    const planner = isFilePlanner(profile.planner) ? translate('conditions.summary.planFile', { path: profile.planner.planFile }) : profile.planner?.modelId.trim();
-    if (!planner) return translate('profile.questions.aiNone');
-    return translate('profile.questions.aiPlanned', { planner, executor: followsPlan(profile, mode) ? translate('profile.questions.aiFollow') : translate('profile.questions.aiExecutor', { executor: executor || translate('conditions.summary.noModel') }) });
-  }
-  return executor ? translate('profile.questions.aiSolo', { executor }) : translate('profile.questions.aiNone');
+/** Who thinks in a run, in one sentence: the planner and how the plan is carried out. */
+export function aiSummary(profile: Pick<Combo, 'planner' | 'executor'>): string {
+  const executor = executorModel(profile)?.modelId.trim();
+  const planner = isFilePlanner(profile.planner) ? translate('conditions.summary.planFile', { path: profile.planner.planFile }) : profile.planner?.modelId.trim();
+  if (!planner) return translate('profile.questions.aiNone');
+  return translate('profile.questions.aiPlanned', { planner, executor: followsPlan(profile) ? translate('profile.questions.aiFollow') : translate('profile.questions.aiExecutor', { executor: executor || translate('conditions.summary.noModel') }) });
 }
 
 /** The stop rules worth a glance: whether headings are surveyed first, the grace after an unheard success, and every rule changed from Rawstep's defaults. */
-export function stopSummary(profile: Pick<Profile, 'runRules' | 'actions'>, mode: Mode): { text: string; changed: boolean }[] {
+export function stopSummary(profile: Pick<Profile, 'runRules' | 'actions'>): { text: string; changed: boolean }[] {
   const rules = profile.runRules, defaults = runRulesSchema.parse({});
-  const surveys = mode === 'screenreader' && rules.survey === 'headings' && profile.actions.screenreader.intents.includes('headings.list');
+  const surveys = rules.survey === 'headings' && profile.actions.intents.includes('headings.list');
   const parts: { text: string; changed: boolean }[] = [];
   if (surveys) parts.push({ text: translate('profile.questions.stopSurvey'), changed: false });
-  if (mode === 'screenreader' && rules.confirmationGrace > 0) parts.push({ text: translate('profile.questions.stopGrace', { n: rules.confirmationGrace }), changed: rules.confirmationGrace !== defaults.confirmationGrace });
+  if (rules.confirmationGrace > 0) parts.push({ text: translate('profile.questions.stopGrace', { n: rules.confirmationGrace }), changed: rules.confirmationGrace !== defaults.confirmationGrace });
   for (const [key, value] of Object.entries(changedRules(rules)) as [keyof RunRules, RunRules[keyof RunRules]][]) {
     if (key === 'confirmationGrace' || key === 'survey') continue;
     parts.push({ text: translate('profile.questions.stopChanged', { label: translate(`conditions.runRules.fields.${key}.label`), value: ruleValueLabel(key, value), base: ruleValueLabel(key, defaults[key]) }), changed: true });
@@ -66,32 +63,31 @@ export function ProfileEditor({ profile, onChange, view, inputNames, open: initi
   const [open, setOpen] = useState<Question>(initiallyOpen);
   // "직접 고름" stays picked after a person chooses it, even while the actions still equal a starting point; a new profile starts over.
   const [customFor, setCustomFor] = useState<string>();
-  const runMode = profile.mode, persona = customFor === `${profile.id}:${runMode}` ? 'custom' : personaOf(runMode, profile);
-  const combo: Combo = { id: profile.id, name: profile.name, structure: runMode === 'screenreader' ? 'planned' : 'solo', ...(profile.planner ? { planner: profile.planner } : {}), executors: profile.executors };
-  const setCombo = ({ planner, executors }: Combo) => { const { planner: _old, ...rest } = profile; onChange({ ...rest, executors, ...(planner ? { planner } : {}) }); };
+  const persona = customFor === profile.id ? 'custom' : personaOf(profile);
+  const combo: Combo = { id: profile.id, name: profile.name, ...(profile.planner ? { planner: profile.planner } : {}), ...(profile.executor ? { executor: profile.executor } : {}) };
+  const setCombo = ({ planner, executor }: Combo) => { const { planner: _planner, executor: _executor, ...rest } = profile; onChange({ ...rest, ...(executor ? { executor } : {}), ...(planner ? { planner } : {}) }); };
   const { width, height } = environmentViewport(profile.page, view.environmentPresets);
-  const stops = stopSummary(profile, runMode);
+  const stops = stopSummary(profile);
   const summaries: Record<Question, ReactNode> = {
-    who: personaName(runMode, persona),
-    ai: aiSummary(profile, runMode),
-    where: runMode === 'keyboard' ? t('profile.questions.whereKeyboard', { width, height }) : t('profile.questions.whereScreenReader', { backend: t(`conditions.backends.${profile.screenReader}`), width, height }),
+    who: personaName(persona),
+    ai: aiSummary(profile),
+    where: t('profile.questions.whereScreenReader', { backend: t(`conditions.backends.${profile.screenReader}`), width, height }),
     stop: stops.map((part, index) => <span key={part.text}>{index > 0 && ' · '}<span className={part.changed ? 'text-trace' : undefined}>{part.text}</span></span>),
   };
   const bodies: Record<Question, ReactNode> = {
     who: <div className="grid gap-4">
-      <Segments label={t('persona.modeLabel')} value={runMode} onChange={mode => onChange({ ...profile, mode })} items={MODES.map(mode => ({ id: mode, name: t(`persona.modes.${mode}`) }))} tabs />
       <div className="grid gap-1.5">
-        <Segments label={t(`persona.presetLabel.${runMode}`)} value={persona}
-          onChange={preset => { if (preset === 'custom') { setCustomFor(`${profile.id}:${runMode}`); return; } setCustomFor(undefined); onChange(withPreset(profile, runMode, preset)); }}
-          items={[...PRESETS[runMode].map(preset => ({ id: preset, name: t(`persona.${preset}.preset`) })), { id: 'custom' as const, name: t('persona.custom.preset') }]} />
+        <Segments label={t('persona.presetLabel')} value={persona}
+          onChange={preset => { if (preset === 'custom') { setCustomFor(profile.id); return; } setCustomFor(undefined); onChange(withPreset(profile, preset)); }}
+          items={[...PRESETS.map(preset => ({ id: preset, name: t(`persona.${preset}.preset`) })), { id: 'custom' as const, name: t('persona.custom.preset') }]} />
         <p className="text-[13px] leading-5 text-muted-foreground">{t(`persona.${persona}.hint`)}</p>
       </div>
-      <ActionSetEditor actionSet={{ id: profile.id, name: profile.name, ...profile.actions }} onChange={actions => onChange({ ...profile, actions: { keyboard: actions.keyboard, screenreader: actions.screenreader } })}
-        capabilities={view.capabilities} {...(inputNames ? { inputNames } : {})} only={runMode} backend={profile.screenReader} compact />
+      <ActionSetEditor value={profile.actions} onChange={actions => onChange({ ...profile, actions })}
+        capabilities={view.capabilities} {...(inputNames ? { inputNames } : {})} backend={profile.screenReader} compact />
     </div>,
-    ai: <ComboEditor combo={combo} onChange={setCombo} connections={view.config.connections} compact mode={runMode} tasks={view.config.tasks} />,
+    ai: <ComboEditor combo={combo} onChange={setCombo} connections={view.config.connections} compact tasks={view.config.tasks} />,
     where: <div className="grid gap-6">
-      {runMode === 'screenreader' && <AtEnvironmentEditor environment={{ id: profile.id, name: profile.name, backend: profile.screenReader }} onChange={environment => onChange({ ...profile, screenReader: environment.backend })} capabilities={view.capabilities} compact />}
+      <AtEnvironmentEditor environment={{ id: profile.id, name: profile.name, backend: profile.screenReader }} onChange={environment => onChange({ ...profile, screenReader: environment.backend })} capabilities={view.capabilities} compact />
       <PageEnvironmentEditor environment={{ id: profile.id, name: profile.name, profile: profile.page }} onChange={environment => onChange({ ...profile, page: environment.profile })} presets={view.environmentPresets} compact />
     </div>,
     stop: <RunRulesEditor compact value={changedRules(profile.runRules)} inherited={runRulesSchema.parse({})}
@@ -118,17 +114,8 @@ export function ProfileEditor({ profile, onChange, view, inputNames, open: initi
   </div>;
 }
 
-/**
- * A row of choices, the picked one marked; a radio group for screen readers. `tabs` draws the top-level choice as underlined tabs;
- * otherwise the choices are small chips after a visible label.
- */
-function Segments<T extends string>({ label, value, onChange, items, tabs }: { label: string; value: T; onChange: (value: T) => void; items: { id: T; name: string }[]; tabs?: boolean }) {
-  if (tabs) return <div role="radiogroup" aria-label={label} className="flex gap-1 border-b border-edge">
-    {items.map(item => <button key={item.id} type="button" role="radio" aria-checked={value === item.id} onClick={() => onChange(item.id)}
-      className={cn('-mb-px border-b-2 px-3 pb-2 text-sm', value === item.id ? 'border-trace font-semibold text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground')}>
-      {item.name}
-    </button>)}
-  </div>;
+/** A row of choices, the picked one marked, as small chips after a visible label; a radio group for screen readers. */
+function Segments<T extends string>({ label, value, onChange, items }: { label: string; value: T; onChange: (value: T) => void; items: { id: T; name: string }[] }) {
   return <div className="flex flex-wrap items-center gap-2">
     <span aria-hidden="true" className="text-[13px] text-muted-foreground">{label}</span>
     <div role="radiogroup" aria-label={label} className="flex flex-wrap gap-1.5">

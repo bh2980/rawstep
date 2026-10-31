@@ -2,7 +2,6 @@
   "id": "login",
   "url": "../../fixtures/credential-login.html",
   "goal": "Enter the email and password input values into their respective fields, press the Sign in button, and leave the page in a state where the login success message is visible.",
-  "mode": "screenreader",
   "maxSteps": 24,
   "timeoutMs": 180000,
   "input": {

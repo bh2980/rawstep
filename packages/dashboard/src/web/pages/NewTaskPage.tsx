@@ -20,7 +20,7 @@ type Props = PageProps & { navigate: (change: RouteChange) => void };
 /**
  * New task: one form column — start address, goal, completion check (with AI suggestions under it) and, folded, inputs, name and
  * run profile. The footer holds one primary button and the reason when nothing can be created yet. The page only creates the task:
- * the person picks the mode and runs it on the task page.
+ * the person picks the profile and runs it on the task page.
  */
 export function NewTaskPage({ navigate, ...props }: Props) {
   const { t } = useTranslation();

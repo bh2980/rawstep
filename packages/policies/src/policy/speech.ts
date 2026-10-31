@@ -22,7 +22,6 @@ const intentLabel = (intent: string) => intent === 'activate' ? 'Activate the cu
  */
 export function currentItem(observation: Observation, history: readonly HistoryEntry[]): string | undefined {
   for (const o of [observation, ...history.map(entry => entry.observation).reverse()]) {
-    if (o.kind !== 'screenreader') continue;
     const line = [...o.speech].reverse().find(text => text.trim());
     if (line) return line.trim();
   }
@@ -53,15 +52,15 @@ export type SpeechGuard = {
 };
 /**
  * Whether the last `limit` decisions chose the same action and each left the reader saying the same thing — for example `next` at
- * the end of the page answering "End of content" every time. Speech is exact text, so unlike screenshots there is no animation noise.
+ * the end of the page answering "End of content" every time.
  */
 export function speechRepetition(history: readonly HistoryEntry[], current: Observation, limit: number): { action: string; speech: string; times: number } | undefined {
-  if (current.kind !== 'screenreader' || history.length < limit) return undefined;
+  if (history.length < limit) return undefined;
   const recent = history.slice(-limit), key = (d: Decision) => 'action' in d ? JSON.stringify(d.action) : undefined;
   const action = key(recent[0]!.decision);
   if (!action || recent.some(entry => key(entry.decision) !== action)) return undefined;
   // History holds the speech each decision was made on; the current observation is what the last one produced.
-  const said = [...recent.slice(1).map(entry => entry.observation), current].map(o => o.kind === 'screenreader' ? o.speech.join('\n') : undefined);
+  const said = [...recent.slice(1).map(entry => entry.observation), current].map(o => o.speech.join('\n'));
   if (said.some(text => text !== said[0])) return undefined;
   return { action, speech: said[0]!, times: limit };
 }
@@ -89,14 +88,12 @@ export class SpeechDecisionPolicy implements DecisionPolicy {
   private evidence: unknown[] = [];
   private readonly historyLimit: number;
   constructor(readonly model: ChoiceModel, private readonly options: SpeechPolicyOptions = {}) {
-    if (!model.inputs.includes('text')) throw new Error('A speech policy needs a model that takes text.');
     this.historyLimit = options.historyLimit ?? RAWSTEP_DEFAULTS.policy.historyLimit;
     if (!Number.isSafeInteger(this.historyLimit) || this.historyLimit < 1 || this.historyLimit > 10_000) throw new Error('Invalid speech policy history limit.');
   }
   takeDecisionEvidence(): readonly unknown[] { return this.evidence.splice(0); }
   async decide(input: Parameters<DecisionPolicy['decide']>[0]): Promise<Decision> {
     this.evidence = []; input.signal.throwIfAborted();
-    if (input.observation.kind !== 'screenreader') throw new Error('The speech policy requires screen reader observations.');
     const guarded = speechGuardStop(this.options, input);
     if (guarded) { this.evidence.push(guarded.evidence); return guarded.decision; }
     const choices = speechChoices(input.allowedActions, this.options, input.inputs), candidates = choices.map(({ id, label }) => ({ id, label }));

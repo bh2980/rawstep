@@ -2,13 +2,13 @@ import { createGateway, experimental_decide as decide, type JSONValue } from 'ai
 import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import { RawstepError } from '@rawstep/core/errors';
 import { validateCapabilities, validateSystemOneRequest, validateSystemOneResult, type SystemOneCapabilities, type SystemOneClient, type SystemOneRequest, type SystemOneResult } from './client.js';
-import { checkOpenRouterImages, SystemOneDecisionModel, systemOneProviderOptions, type DecisionModelV4 } from './decision-model.js';
+import { SystemOneDecisionModel, type DecisionModelV4 } from './decision-model.js';
 
 /**
  * The one client for every decision model. It asks `experimental_decide` from the AI SDK (an experimental API: the
  * versions of `ai` are pinned exactly, and only this file and decision-model.ts depend on its shape) and turns the
  * answer into a SystemOneResult. `typesafe`, `openrouter` and `custom` use the in-house /systemone adapter; `gateway`
- * uses the Vercel AI Gateway provider's decision model and takes text only.
+ * uses the Vercel AI Gateway provider's decision model.
  *
  * Provider text can carry credentials or page content, so SDK and server errors are never forwarded: callers only see
  * a RawstepError with a fixed message and one of `decision-cancelled`, `decision-timeout` or `decision-failed`.
@@ -63,17 +63,16 @@ export class DecisionClient implements SystemOneClient {
   constructor(private readonly options: DecisionClientOptions) {
     if (!options.modelId?.trim()) throw new Error('An explicit decision model is required.');
     validateCapabilities(options.capabilities);
-    this.capabilities = Object.freeze({ ...options.capabilities, inputs: Object.freeze([...options.capabilities.inputs]) });
+    this.capabilities = Object.freeze({ ...options.capabilities });
     this.timeoutMs = options.timeoutMs ?? RAWSTEP_DEFAULTS.modelTimeoutMs;
     if (!Number.isSafeInteger(this.timeoutMs) || this.timeoutMs < 1 || this.timeoutMs > 2_147_483_647) throw new Error('Invalid decision timeout.');
     if (options.provider === 'gateway') {
       if (!options.apiKey?.trim()) throw new Error('The Vercel AI Gateway requires an API key.');
-      if (options.capabilities.inputs.includes('image')) throw new Error('The Vercel AI Gateway decision models take text only.');
       this.model = gatewayProvider({ apiKey: options.apiKey, baseURL: options.baseURL, fetch: options.fetch }).decisionModel(options.modelId);
     } else {
       if (!options.baseURL) throw new Error('A decision server address is required.');
       this.model = new SystemOneDecisionModel({ provider: options.provider, baseURL: options.baseURL, modelId: options.modelId, ...(options.apiKey ? { apiKey: options.apiKey } : {}),
-        dialect: options.provider === 'openrouter' ? 'openrouter' : 'onejev', inputs: options.capabilities.inputs, ...(options.fetch ? { fetch: options.fetch } : {}) });
+        dialect: options.provider === 'openrouter' ? 'openrouter' : 'onejev', ...(options.fetch ? { fetch: options.fetch } : {}) });
     }
   }
 
@@ -106,8 +105,6 @@ export class DecisionClient implements SystemOneClient {
 
   async evaluate(request: SystemOneRequest, { signal: caller }: { signal: AbortSignal }): Promise<SystemOneResult> {
     validateSystemOneRequest(request, this);
-    const images = (request.images ?? []).map(image => image.pngBase64);
-    if (this.options.provider === 'openrouter') checkOpenRouterImages(images);
     caller.throwIfAborted();
     await this.prepare({ signal: caller });
     const { signal, timeout } = this.signal(caller);
@@ -117,7 +114,7 @@ export class DecisionClient implements SystemOneClient {
       const state = JSON.parse(JSON.stringify(request.state)) as Record<string, JSONValue>;
       const result = await decide({
         model: this.model, state, questions: { next: { type: 'choice', instructions: request.instructions, criteria } },
-        maxRetries: 0, abortSignal: signal, providerOptions: systemOneProviderOptions(images),
+        maxRetries: 0, abortSignal: signal,
       });
       const answer = result.answers.next, probabilities = answer.probabilities;
       if (!probabilities) throw new Error('The model returned no probabilities.');

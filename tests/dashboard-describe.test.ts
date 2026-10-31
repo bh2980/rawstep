@@ -14,7 +14,6 @@ describe('describeHint', () => {
     ['slow-run', hint('slow-run', { steps: 12, referenceSteps: 4, durationMs: 9000, referenceDurationMs: 3000 }), ['12번', '4번', '8번', '9.0초', '3.0초']],
     ['excess-keystrokes', hint('excess-keystrokes', { count: 12, keys: { Tab: 10, 'Shift+Tab': 2 }, target: { role: 'button', name: 'Save' } }), ['button “Save”', '12번', 'Tab ×10']],
     ['backtracking', hint('backtracking', { reversals: 3 }), ['3번']],
-    ['repeated-state', hint('repeated-state', { visits: 4 }), ['4번']],
     ['focus-lost removed', hint('focus-lost', { from: { role: 'button', name: 'Open' }, reason: 'removed', action: 'Enter' }), ['Enter', 'button “Open”', '사라져']],
     ['focus-lost left', hint('focus-lost', { from: { role: 'link' }, reason: 'blur' }), ['link', '벗어나']],
     ['focus-not-visible hidden', hint('focus-not-visible', { target: { role: 'link', name: 'More' }, visible: false, inViewport: true }), ['link “More”', '보이지 않았습니다']],
@@ -23,8 +22,7 @@ describe('describeHint', () => {
     ['focus-not-visible indicator', hint('focus-not-visible', { indicator: 'not-detected' }, { certainty: 'suspected' }), ['포커스 표시']],
     ['modal-focus-outside target', hint('modal-focus-outside', { target: { role: 'textbox', name: 'Email' } }), ['textbox “Email”', '모달']],
     ['modal-focus-outside dialog', hint('modal-focus-outside', { dialog: { role: 'dialog', name: 'Confirm' } }, { certainty: 'suspected' }), ['dialog “Confirm”', '이동하지 않았습니다']],
-    ['missing-announcement', hint('missing-announcement', { pixelsChanged: true, changes: ['state'] }, { certainty: 'suspected' }), ['안내']],
-    ['invisible-focus-change', hint('invisible-focus-change', { target: { role: 'tab', name: 'Two' } }), ['tab “Two”', '바뀌지 않았습니다']],
+    ['missing-announcement', hint('missing-announcement', { changes: ['state'] }, { certainty: 'suspected' }), ['안내']],
     ['model-hesitation', hint('model-hesitation', { choiceId: 'c3', probability: 0.42, runnerUp: 0.38 }, { certainty: 'suspected' }), ['c3', '0.42', '0.38']],
     ['early-stop stuck', hint('early-stop', { reason: 'policy-stuck' }), ['막혔다고']],
     ['early-stop uncertain', hint('early-stop', { reason: 'policy-uncertain' }), ['확신하지']],
@@ -53,15 +51,15 @@ describe('describeHint', () => {
 
   it('covers every hint kind', () => {
     const covered = new Set(cases.map(([, input]) => input.kind));
-    const all: HintKind[] = ['slow-run', 'excess-keystrokes', 'backtracking', 'repeated-state', 'focus-lost', 'focus-not-visible', 'modal-focus-outside',
-      'missing-announcement', 'invisible-focus-change', 'model-hesitation', 'early-stop', 'goal-met-at-start', 'focus-left-page',
+    const all: HintKind[] = ['slow-run', 'excess-keystrokes', 'backtracking', 'focus-lost', 'focus-not-visible', 'modal-focus-outside',
+      'missing-announcement', 'model-hesitation', 'early-stop', 'goal-met-at-start', 'focus-left-page',
       'replan', 'help-request', 'task-limit', 'unverified-done', 'wanted-to-give-up', 'goal-word-stretch', 'expectation-broken'];
     expect(Object.keys(core.hints.kinds).sort()).toEqual([...all].sort());
     for (const kind of all) expect(covered.has(kind)).toBe(true);
   });
 
   it('omits redacted names', () => {
-    const text = describeHint(hint('invisible-focus-change', { target: { role: 'textbox', name: '[REDACTED]' } }));
+    const text = describeHint(hint('focus-not-visible', { target: { role: 'textbox', name: '[REDACTED]' }, visible: false }));
     expect(text).toContain('textbox');
     expect(text).not.toContain('REDACTED');
   });

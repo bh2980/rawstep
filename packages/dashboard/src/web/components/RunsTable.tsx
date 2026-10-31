@@ -35,7 +35,7 @@ const cell = 'px-3 py-0 text-[13px]';
 const rowLink = 'rounded-sm after:absolute after:inset-0 focus-visible:outline-none! focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-trace';
 
 /**
- * The log index of runs, the densest table of the dashboard (spec §31): time, task, model, mode, result, actions and duration,
+ * The log index of runs, the densest table of the dashboard (spec §31): time, task, model, result, actions and duration,
  * one 40px line each. The result is a glyph and its words; the colour only reinforces them.
  */
 export function RunsTable({ runs, config, navigate, hideTask, numbers, showHints, showConditions, tasks = [], selection }: Props) {
@@ -55,7 +55,6 @@ export function RunsTable({ runs, config, navigate, hideTask, numbers, showHints
         <TableHead scope="col" className={head}>{t('runList.columns.time')}</TableHead>
         {!hideTask && <TableHead scope="col" className={head}>{t('runList.columns.task')}</TableHead>}
         <TableHead scope="col" className={head}>{t('runList.columns.model')}</TableHead>
-        <TableHead scope="col" className={head}>{t('runList.columns.mode')}</TableHead>
         <TableHead scope="col" className={head}>{t('runList.columns.result')}</TableHead>
         <TableHead scope="col" className={head + ' text-right'}>{t('runList.columns.steps')}</TableHead>
         <TableHead scope="col" className={head + ' text-right'}>{t('runList.columns.duration')}</TableHead>
@@ -78,7 +77,6 @@ export function RunsTable({ runs, config, navigate, hideTask, numbers, showHints
             {numbers ? label : <Link to={open} navigate={navigate} className={rowLink + ' hover:underline'}>{label}<span className="sr-only"> {t('sidebar.repeat', { n: run.repeat })}</span></Link>}
           </TableCell>}
           <TableCell className={cell + ' max-w-72 whitespace-nowrap'}>{showConditions ? <span className="grid"><span className="truncate">{runModelsName(run)}</span><ConditionsNote run={run} config={config} /></span> : runModelsName(run)}</TableCell>
-          <TableCell className={cell + ' whitespace-nowrap'}>{t(`sidebar.modes.${run.snapshot.spec.mode}`)}</TableCell>
           <TableCell className={cell + ' whitespace-nowrap'}><span className="inline-flex items-center gap-1.5"><RunGlyph kind={finishedEnding(run) ? endingGlyph(finishedEnding(run)!.ending) : runGlyphKind(displayState(run))} />{resultLabel(run)}</span></TableCell>
           <TableCell className={cell + ' text-right font-mono tabular-nums'}>{steps ?? '—'}</TableCell>
           <TableCell className={cell + ' text-right font-mono tabular-nums text-muted-foreground'}>{seconds === undefined ? '—' : t('run.duration', { seconds: seconds.toFixed(1) })}</TableCell>

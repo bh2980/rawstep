@@ -1,6 +1,5 @@
 import { isLoopbackHostname } from '@rawstep/core/defaults';
 import type { Task } from '@rawstep/core/contracts';
-import { ScreenshotKeyboardBackend } from '@rawstep/browser/screenshot';
 import { resolveEnvironmentProfile } from '@rawstep/browser/profiles';
 import { MockVoiceOverBackend } from '@rawstep/screenreaders/mock-voiceover';
 import { getAtDriverProfile } from '@rawstep/screenreaders/at-driver';
@@ -10,20 +9,20 @@ import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import { planFileSchema } from '@rawstep/policies/policy';
 import {
   atEndpointOf, comboExecutor, comboPlanner, executorModel, followsPlan, isFilePlanner, planFileOf, projectAnalysisModel, resolveRunSettings, type LlmPlannerChoice,
-  type ActionSet, type AtBackend, type Combo, type Conditions, type ManagedTask, type Mode, type Model, type Permissions,
+  type ActionSet, type AtBackend, type Combo, type Conditions, type ManagedTask, type Model, type Permissions,
   type ProjectConfig, type Prompt, type RunRulesOverride, type RunSettings,
 } from './config.js';
 import { ProjectError } from './errors.js';
 import type { RunSpec } from './execution.js';
 import type { ProjectStore } from './store.js';
 
-/** What a backend can do: keyboard runs use the screenshot keyboard backend, screen reader runs the simulation or a native AT Driver. */
-export function backendCapabilities(backend: AtBackend, mode: Mode) {
-  return mode === 'keyboard' ? new ScreenshotKeyboardBackend().capabilities : backend === 'simulation' ? new MockVoiceOverBackend().capabilities : getAtDriverProfile(backend).capabilities;
+/** What a backend can do: the simulation or a native screen reader over AT Driver. */
+export function backendCapabilities(backend: AtBackend) {
+  return backend === 'simulation' ? new MockVoiceOverBackend().capabilities : getAtDriverProfile(backend).capabilities;
 }
-/** One mode of an action set, filtered by what the backend and the task support. Throws when an action is not available there. */
-export function resolvePermissions(backend: AtBackend, actionSet: Pick<ActionSet, 'keyboard' | 'screenreader'>, task: Task, mode: Mode): Permissions {
-  const p = structuredClone(actionSet[mode]), capabilities = backendCapabilities(backend, mode);
+/** An action set's actions, filtered by what the backend and the task support. Throws when an action is not available there. */
+export function resolvePermissions(backend: AtBackend, actionSet: Pick<ActionSet, 'actions'>, task: Task): Permissions {
+  const p = structuredClone(actionSet.actions), capabilities = backendCapabilities(backend);
   const missing = [...p.keys.filter(k => !(capabilities.keys as readonly string[]).includes(k)), ...p.intents.filter(k => !capabilities.intents.includes(k))];
   if (missing.length) throw new ProjectError('unsupported-action', `This assistive technology does not support: ${missing.join(', ')}.`);
   const keys = Object.keys(task.input ?? {});
@@ -33,23 +32,15 @@ export function resolvePermissions(backend: AtBackend, actionSet: Pick<ActionSet
   p.typeText &&= capabilities.textEntry; p.replaceText &&= capabilities.replaceText;
   return p;
 }
-/** Whether a model can take decisions in this mode: it takes the inputs the mode feeds it (keyboard mode sends two images). */
-export function supportsMode(model: Pick<Model, 'inputs' | 'maxImages'>, mode: Mode): boolean {
-  return mode === 'keyboard' ? model.inputs.includes('image') && model.maxImages >= 2 : model.inputs.includes('text');
-}
-/** The modes a profile can run: those it has an executor for that takes what the mode sends. */
-export function comboModes(config: Pick<ProjectConfig, 'connections'>, combo: Pick<Combo, 'executors'>): Mode[] {
-  return (['screenreader', 'keyboard'] as const).filter(mode => { const model = comboExecutor(config, combo, mode); return !!model && supportsMode(model, mode); });
-}
 /**
- * The executor's instructions as a run records them: identified by combo and mode, versioned by their content, so two runs with
- * different wording never share an ID and version.
+ * The executor's instructions as a run records them: identified by the profile (`<profile>.executor`, or `<profile>.follow-plan`
+ * when Rawstep follows the plan), versioned by their content, so two runs with different wording never share an ID and version.
  */
-export function executorPrompt(combo: Pick<Combo, 'id' | 'name' | 'executors'>, mode: Mode): Prompt | undefined {
-  if (followsPlan(combo, mode)) return { id: `${combo.id}.${mode}.follow-plan`, name: combo.name, version: 'follow-plan', instructions: '' };
-  const executor = executorModel(combo, mode);
+export function executorPrompt(combo: Pick<Combo, 'id' | 'name' | 'executor'>): Prompt | undefined {
+  if (followsPlan(combo)) return { id: `${combo.id}.follow-plan`, name: combo.name, version: 'follow-plan', instructions: '' };
+  const executor = executorModel(combo);
   if (!executor) return undefined;
-  return { id: `${combo.id}.${mode}`, name: combo.name, version: createHash('sha256').update(executor.instructions).digest('hex').slice(0, 12), instructions: executor.instructions };
+  return { id: `${combo.id}.executor`, name: combo.name, version: createHash('sha256').update(executor.instructions).digest('hex').slice(0, 12), instructions: executor.instructions };
 }
 
 /** The conditions of one run: its profile and the parts read off it (see `profileConditions`). */
@@ -62,61 +53,56 @@ export type RunCheckInput = RunConditions & {
   taskEntry?: Pick<ManagedTask, 'analysisInstructions'> & Partial<Pick<ManagedTask, 'file'>>;
   /** Run rules for these runs only, over the profile's. */
   runRules?: RunRulesOverride | undefined;
-  mode: Mode;
-  diagnoseStop?: boolean;
 };
 export type RunCheck = {
   settings: RunSettings;
-  /** The action set's actions for the mode, filtered by the backend and the task. */
+  /** The action set's actions, filtered by the backend and the task. */
   permissions: Permissions;
-  /** The executor for the mode and its instructions. */
+  /** The executor and its instructions. */
   model?: Model; prompt?: Prompt;
-  /** The planner and its added instructions: screen reader runs of a planned combo only. */
+  /** The planner and its added instructions. */
   plannerModel?: Model; plannerInstructions?: string;
-  /** Instead of a planner model: the project-relative plan file this task reads (screen reader runs of a combo with a file planner). */
+  /** Instead of a planner model: the project-relative plan file this task reads (a profile with a file planner). */
   plannerPlanFile?: string;
   /** The project's LLM that explains the run. Never blocks a run. */
   analysisModel?: Model;
-  /** Things worth knowing that do not stop the run (a planned combo in keyboard mode, an analysis model that is not an LLM). */
+  /** Things worth knowing that do not stop the run (an analysis model that is not an LLM). */
   warnings: string[];
   /** Why this combination cannot run; the other fields are still the best available values for display. */
   problem?: ProjectError;
 };
 /**
- * Everything that must hold before a run starts, checked condition by condition: the combo can serve the mode, the action set fits
+ * Everything that must hold before a run starts, checked condition by condition: the profile has a planner and an executor, the action set fits
  * the assistive technology and the task, the page environment can be applied, the host can run the screen reader. The first
  * failure is reported as `problem`. Analysis never blocks a run.
  */
-export function checkRun({ config, task, taskEntry, runRules, profile, combo, actionSet, pageEnvironment, atEnvironment, mode, diagnoseStop }: RunCheckInput): RunCheck {
+export function checkRun({ config, task, taskEntry, runRules, profile, combo, actionSet, pageEnvironment, atEnvironment }: RunCheckInput): RunCheck {
   const settings = resolveRunSettings(config, taskEntry ?? {}, profile, runRules);
-  const backend: AtBackend = mode === 'screenreader' ? atEnvironment.backend : 'simulation';
-  const model = comboExecutor(config, combo, mode), prompt = executorPrompt(combo, mode), analysisModel = projectAnalysisModel(config);
-  const plannerModel = mode === 'screenreader' ? comboPlanner(config, combo) : undefined;
-  const filePlanner = mode === 'screenreader' && isFilePlanner(combo.planner) ? combo.planner : undefined;
+  const backend = atEnvironment.backend;
+  const model = comboExecutor(config, combo), prompt = executorPrompt(combo), analysisModel = projectAnalysisModel(config);
+  const plannerModel = comboPlanner(config, combo);
+  const filePlanner = isFilePlanner(combo.planner) ? combo.planner : undefined;
   // Only `{task}` needs the task's file name; a constant plan path works for any task, registered or not.
   const plannerPlanFile = !filePlanner ? undefined : !filePlanner.planFile.includes('{task}') ? filePlanner.planFile : taskEntry?.file ? planFileOf(filePlanner, { file: taskEntry.file }) : undefined;
   const warnings: string[] = [];
-  let permissions = structuredClone(actionSet[mode]);
+  let permissions = structuredClone(actionSet.actions);
   const models = { ...(model ? { model } : {}), ...(prompt ? { prompt } : {}), ...(analysisModel ? { analysisModel } : {}),
     ...(plannerModel ? { plannerModel, plannerInstructions: (combo.planner as LlmPlannerChoice).instructions } : {}), ...(plannerPlanFile ? { plannerPlanFile } : {}) };
   const fail = (code: string, message: string): RunCheck => ({ settings, permissions, ...models, warnings, problem: new ProjectError(code, message) });
-  try { permissions = resolvePermissions(backend, actionSet, task, mode); }
+  try { permissions = resolvePermissions(backend, actionSet, task); }
   catch (error) { return { settings, permissions, ...models, warnings, problem: error as ProjectError }; }
-  if (!model) return fail('profile-without-executor', mode === 'keyboard' ? 'This profile has no keyboard executor yet. Pick a model that takes images for keyboard mode.' : 'This profile has no screen reader executor yet. Pick a model for screen reader mode.');
-  if (mode === 'keyboard' && !supportsMode(model, 'keyboard')) return fail('model-needs-images', 'Keyboard runs need an executor that accepts the current and the previous image.');
-  if (mode === 'screenreader' && !supportsMode(model, 'screenreader')) return fail('model-needs-text', 'Screen reader runs need an executor that accepts text.');
+  if (!model) return fail('profile-without-executor', 'This profile has no executor yet. Pick a model, or let Rawstep follow the plan.');
   if (filePlanner && !plannerPlanFile) return fail('plan-file-task', 'A plan file needs a task file to fill in {task}.');
   // Following the plan only moves and presses: a task that has to type into a named input cannot be carried out that way.
-  if (followsPlan(combo, mode) && permissions.inputKeys?.length) return fail('follow-plan-text-entry', 'Following the plan cannot type into inputs yet. Pick an executor model for this task, or a profile without text entry.');
-  if (followsPlan(combo, mode) && settings.runRules.taskControl === 'executor') return fail('follow-plan-task-control', 'Following the plan needs Rawstep to decide when tasks are done. Set task control to Rawstep.');
-  if (mode === 'screenreader' && !plannerModel && !plannerPlanFile) return fail('planner-model-invalid', 'Screen reader runs plan, so the profile needs a planner: a model on an LLM connection or a plan file.');
-  // The executor's own task choices ("done" and three help reasons) exist only when it controls the tasks.
-  const planChoices = (plannerModel || plannerPlanFile) && settings.runRules.taskControl === 'executor' ? 4 : 0, stops = settings.runRules.modelGiveUp ? 3 : 1;
-  // The headings survey is Rawstep's first action in a planned run, never a choice the executor sees.
-  const offeredIntents = (plannerModel || plannerPlanFile) ? permissions.intents.filter(intent => intent !== 'headings.list') : permissions.intents;
-  const choiceCount = permissions.keys.length + offeredIntents.length + (permissions.inputKeys?.length ?? 0) * (Number(permissions.typeText) + Number(permissions.replaceText)) + stops + planChoices;
+  if (followsPlan(combo) && permissions.inputKeys?.length) return fail('follow-plan-text-entry', 'Following the plan cannot type into inputs yet. Pick an executor model for this task, or a profile without text entry.');
+  if (followsPlan(combo) && settings.runRules.taskControl === 'executor') return fail('follow-plan-task-control', 'Following the plan needs Rawstep to decide when tasks are done. Set task control to Rawstep.');
+  if (!plannerModel && !plannerPlanFile) return fail('planner-model-invalid', 'Runs plan, so the profile needs a planner: a model on an LLM connection or a plan file.');
+  // The executor's own task choices ("done" and three help reasons) exist only when it controls the tasks; the one stop choice always.
+  const planChoices = settings.runRules.taskControl === 'executor' ? 4 : 0;
+  // The headings survey is Rawstep's first action in a run, never a choice the executor sees.
+  const offeredIntents = permissions.intents.filter(intent => intent !== 'headings.list');
+  const choiceCount = permissions.keys.length + offeredIntents.length + (permissions.inputKeys?.length ?? 0) * (Number(permissions.typeText) + Number(permissions.replaceText)) + 1 + planChoices;
   if (choiceCount > model.maxChoices) return fail('too-many-choices', 'The profile allows more actions than the executor supports.');
-  if (mode === 'keyboard' && executorModel(combo, 'keyboard')?.focusGate && model.kind === 'llm') return fail('focus-gate-llm', 'The probability-based focus judgement works only with decision models. Turn it off in the keyboard executor.');
   if (backend === 'voiceover' && process.platform !== 'darwin') return fail('voiceover-macos', 'Run VoiceOver on macOS.');
   if (backend === 'nvda' && process.platform !== 'win32') return fail('nvda-windows', 'Run NVDA on Windows.');
   if (backend !== 'simulation') {
@@ -125,7 +111,6 @@ export function checkRun({ config, task, taskEntry, runRules, profile, combo, ac
   }
   const environment = resolveEnvironmentProfile(pageEnvironment.profile);
   if (environment.browserZoom !== 1 || environment.nativeMagnifier === 'required' || environment.nativeHighContrast === 'required') return fail('environment-unsupported', 'Rawstep cannot apply native magnification or an OS contrast environment.');
-  if (diagnoseStop && mode !== 'keyboard') return fail('diagnose-keyboard-only', 'Stop diagnosis uses the last screenshot, so it works in keyboard mode only.');
   if (config.project.analysis.model && !analysisModel) warnings.push('The analysis model is not on an LLM connection, so the run is analysed by rules only.');
   return { settings, permissions, ...models, warnings };
 }
@@ -136,12 +121,12 @@ export function assertRunnable(check: RunCheck): Omit<RunCheck, 'problem'> {
 }
 /**
  * The conditions as a run records them at `run.started`: enough to tell two runs apart by content, not by name — the profile, the
- * structure and role models, the resolved actions, both environments and the rules.
+ * role models, the resolved actions, both environments and the rules.
  */
 export function conditionsRecord(c: RunConditions, check: Omit<RunCheck, 'problem'>): Record<string, unknown> {
   return {
     profile: { id: c.profile.id, name: c.profile.name },
-    combo: { id: c.combo.id, name: c.combo.name, structure: c.combo.structure, ...(followsPlan(c.combo, 'screenreader') ? { followPlan: true } : {}), ...(check.model ? { executor: check.model.name } : {}),
+    combo: { id: c.combo.id, name: c.combo.name, ...(followsPlan(c.combo) ? { followPlan: true } : {}), ...(check.model ? { executor: check.model.name } : {}),
       ...(check.prompt ? { prompt: { id: check.prompt.id, version: check.prompt.version } } : {}), ...(check.plannerModel ? { planner: check.plannerModel.name } : check.plannerPlanFile ? { planFile: check.plannerPlanFile } : {}),
       ...(check.analysisModel ? { analysis: check.analysisModel.name } : {}) },
     actionSet: { id: c.actionSet.id, name: c.actionSet.name, permissions: structuredClone(check.permissions) },
@@ -151,13 +136,13 @@ export function conditionsRecord(c: RunConditions, check: Omit<RunCheck, 'proble
   };
 }
 /** The run spec of a check that passed. */
-export function runSpecOf(task: Task, mode: Mode, c: RunConditions, check: Omit<RunCheck, 'problem'>, diagnoseStop?: boolean): RunSpec {
-  // A combo that follows its plan has no executor settings of its own for the mode: the defaults stand in, and nothing is left to decide.
-  const executor = executorModel(c.combo, mode);
-  return { task, mode, model: check.model!, prompt: check.prompt!,
-    executor: { historyLimit: executor?.historyLimit ?? RAWSTEP_DEFAULTS.policy.historyLimit, focusGate: executor?.focusGate ?? false, latitude: executor?.latitude ?? 'none' },
+export function runSpecOf(task: Task, c: RunConditions, check: Omit<RunCheck, 'problem'>): RunSpec {
+  // A profile that follows its plan has no executor settings of its own: the defaults stand in, and nothing is left to decide.
+  const executor = executorModel(c.combo);
+  return { task, model: check.model!, prompt: check.prompt!,
+    executor: { historyLimit: executor?.historyLimit ?? RAWSTEP_DEFAULTS.policy.historyLimit, latitude: executor?.latitude ?? 'none' },
     settings: check.settings, environment: resolveEnvironmentProfile(c.pageEnvironment.profile), backend: c.atEnvironment.backend, permissions: check.permissions,
-    conditions: conditionsRecord(c, check), ...(diagnoseStop ? { diagnoseStop } : {}),
+    conditions: conditionsRecord(c, check),
     ...(check.plannerModel ? { plannerModel: check.plannerModel, plannerInstructions: check.plannerInstructions ?? '' } : {}) };
 }
 /**

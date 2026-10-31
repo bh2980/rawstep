@@ -145,12 +145,6 @@ describe('model-neutral runner',()=>{
       expect(trace.outcome?.status).toBe('success');expect(trace.events.find(e=>e.type==='browser.initial-focus')?.data).toMatchObject({documentHasFocus:false,focusRequested:true});
     });
   });
-  it('rejects explicit task/backend modality mismatches before starting resources',async()=>{
-    const f=fixture();Object.defineProperty(f.backend,'observationKind',{value:'keyboard'});
-    await expect(runTask({...task,mode:'screenreader'},{...f,outDir:await out(),policy:new ScriptedPolicy([])})).rejects.toThrow('does not match');
-    expect(f.backend.start).not.toHaveBeenCalled();expect(f.browserSessionFactory).not.toHaveBeenCalled();
-    const other=fixture();await expect(runTask({...task,mode:'keyboard'},{...other,outDir:await out(),policy:new ScriptedPolicy([])})).rejects.toThrow('does not match');
-  });
   it('fails closed if an output subscriber cannot persist evidence and still closes every resource',async()=>{
     const f=fixture();const subscribe=f.backend.subscribe;
     f.backend.subscribe=listener=>subscribe(event=>{try{listener(event);}catch{ /* Model the transport's observer-error isolation. */ }});

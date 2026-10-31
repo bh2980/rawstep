@@ -4,8 +4,8 @@
 
 ## 실행 모델과 계획 모델의 지침
 
-프롬프트는 [`rawstep.config.json`](./config.ko.md#profiles-실행-프로필)의 실행 프로필에 속합니다. `profiles[].executors.<모드>.instructions`가 그 모드에서 행동을 고르는 모델에 주는 지침이며, 작업에는 프롬프트가 없습니다. 실행마다 실행 모델의 지침은 프롬프트 id `<프로필 id>.<모드>`와 내용 해시 버전으로 기록되므로 지침이 바뀐 실행을 구분할 수 있습니다. 프롬프트를 비교하려면 `instructions`만 다른 프로필끼리 비교합니다.
+프롬프트는 [`rawstep.config.json`](./config.ko.md#profiles-실행-프로필)의 실행 프로필에 속합니다. `profiles[].executor.instructions`가 행동을 고르는 모델에 주는 지침이며, 작업에는 프롬프트가 없습니다. 실행마다 실행 모델의 지침은 `<프로필 id>.executor`(계획을 그대로 따르는 프로필은 `<프로필 id>.follow-plan`) id의 프롬프트와 내용 해시 버전으로 기록되므로 지침이 바뀐 실행을 구분할 수 있습니다. 프롬프트를 비교하려면 `instructions`만 다른 프로필끼리 비교합니다.
 
-계획 + 실행 구조의 프로필에는 따로 `profiles[].planner.instructions`가 있습니다(스크린리더 모드 전용). 이 지침은 Rawstep의 계획 규칙(계획 문서 형식, 들은 것과 허용 행동만으로 계획)에 더해질 뿐 규칙을 대체하지 않으며, 계획 근거에 sha256 지문으로 기록됩니다. 버튼이 어디 있는지처럼 실제 사용자가 알 수 없는 페이지 지식은 넣지 마세요. Rawstep이 재려는 어려움이 가려집니다. 전략이나 사용자 유형에 관한 지침은 괜찮습니다. [계획과 실행](./config.ko.md#계획과-실행-orchestration)을 참고하세요.
+프로필에는 따로 `profiles[].planner.instructions`가 있습니다. 이 지침은 Rawstep의 계획 규칙(계획 문서 형식, 들은 것과 허용 행동만으로 계획)에 더해질 뿐 규칙을 대체하지 않으며, 계획 근거에 sha256 지문으로 기록됩니다. 버튼이 어디 있는지처럼 실제 사용자가 알 수 없는 페이지 지식은 넣지 마세요. Rawstep이 재려는 어려움이 가려집니다. 전략이나 사용자 유형에 관한 지침은 괜찮습니다. [계획과 실행](./config.ko.md#계획과-실행-orchestration)을 참고하세요.
 
 해설 지침(`project.analysis.instructions`, 또는 작업의 `analysisInstructions`)은 실행이 끝난 뒤 해설 모델이 무엇을 중점으로 볼지 알려 줍니다. 실행 결과는 바꾸지 않습니다.

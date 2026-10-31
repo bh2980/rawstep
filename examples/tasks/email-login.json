@@ -2,7 +2,6 @@
   "id": "email-login",
   "url": "../../fixtures/email-login.html",
   "goal": "Enter the email input value into the email field, press the Send magic link button, and leave the page in a state where the success message is visible.",
-  "mode": "screenreader",
   "maxSteps": 24,
   "timeoutMs": 180000,
   "input": {

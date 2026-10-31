@@ -6,11 +6,10 @@ export const RAWSTEP_DEFAULTS = Object.freeze({
   settleMs: 120,
   /** Bounded resource cleanup; native screen-reader bridges get longer to release OS state. */
   cleanupTimeoutMs: Object.freeze({ default: 2_000, nativeBackend: 5_000 }),
-  /** Per-request budget for decision, stop-reason and analysis model calls. */
+  /** Per-request budget for decision and analysis model calls. */
   modelTimeoutMs: 60_000,
-  /** Decision-policy limits; screenshot policies use all three, speech policies use historyLimit. */
-  policy: Object.freeze({ maxStateVisits: 5, maxUnchangedTransitions: 4, historyLimit: 12 }),
-  focusGate: Object.freeze({ minimumProbability: 0.75, minimumMargin: 0.25 }),
+  /** Decision-policy limits: actions without new speech before the repetition guard stops, and past steps a model sees. */
+  policy: Object.freeze({ maxUnchangedTransitions: 4, historyLimit: 12 }),
   /**
    * Planner runs: planner calls a run may make (a cost limit), moves between the planner's looks at the effort spent, actions on one
    * task without hearing anything new before a new plan, and past actions the planner remembers.

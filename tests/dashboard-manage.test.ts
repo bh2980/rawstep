@@ -134,7 +134,7 @@ describe('checking a connection', () => {
     expect(server.requests[0]!.headers.authorization).toBe('Bearer stored-key-456');
     expect(await (await check(app.url, { connectionId: 'c1', modelId: 'missing-model' })).json()).toMatchObject({ ok: false, kind: 'model-not-listed' });
     const models = await (await call(app.url, 'POST', '/api/connections/models', { connectionId: 'c1' })).json() as DiscoveredModel[];
-    expect(models).toEqual([{ modelId: 'alpha', name: 'alpha', inputs: ['text', 'image'], inputsKnown: false }]);
+    expect(models).toEqual([{ modelId: 'alpha', name: 'alpha' }]);
     expect(server.requests.at(-1)!.headers.authorization).toBe('Bearer stored-key-456');
     expect((await check(app.url, { connectionId: 'ghost' })).status).toBe(404);
     expect((await call(app.url, 'POST', '/api/connections/models', { connectionId: 'ghost' })).status).toBe(404);
@@ -171,9 +171,8 @@ describe('checking the assistive technology backend', () => {
   it('lists what each backend can do and rejects a backend it does not know', async () => {
     const { dir } = await project(), app = await startDashboard({ projectDir: dir, port: 0 }); apps.push(app);
     const { capabilities } = await (await fetch(app.url + '/api/state')).json() as ConfigView;
-    expect(capabilities.keyboard.keys).toContain('Tab');
-    expect(Object.keys(capabilities.screenreader).sort()).toEqual(['nvda', 'simulation', 'voiceover']);
-    expect(capabilities.screenreader.simulation.intents).toContain('next');
+    expect(Object.keys(capabilities).sort()).toEqual(['nvda', 'simulation', 'voiceover']);
+    expect(capabilities.simulation.intents).toContain('next'); expect(capabilities.simulation.keys).toContain('Tab');
     expect((await call(app.url, 'POST', '/api/backend/check', { backend: 'bogus', machine: {} })).status).toBe(400);
     expect((await call(app.url, 'POST', '/api/backend/check', { backend: 'simulation', machine: { backend: 'bogus' } })).status).toBe(400);
     // A native screen reader of another operating system is refused before anything is started.
