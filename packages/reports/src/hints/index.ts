@@ -11,14 +11,14 @@ export const HINTS_SCHEMA_VERSION = '3.0' as const;
 export type HintKind =
   | 'slow-run' | 'excess-keystrokes' | 'backtracking'
   | 'focus-lost' | 'focus-not-visible' | 'modal-focus-outside' | 'missing-announcement'
-  | 'model-hesitation' | 'early-stop' | 'goal-met-at-start' | 'focus-left-page'
-  | 'replan' | 'help-request' | 'task-limit' | 'unverified-done' | 'wanted-to-give-up' | 'goal-word-stretch' | 'expectation-broken';
+  | 'early-stop' | 'goal-met-at-start' | 'focus-left-page'
+  | 'replan' | 'task-limit' | 'wanted-to-give-up' | 'goal-word-stretch' | 'expectation-broken';
 /**
  * Where a hint comes from. page: the page itself behaved this way (focus, announcements, dialogs, tab order).
- * model: the model hesitated or wandered, which may say more about the model than the page.
+ * model: the simulated user wandered or stopped early, which may say more about the planner than the page.
  * run: about the run as a whole (length against the fastest run, goal already met at start), and orchestration events — a new
- * plan, a help request, a task running out of actions, a completion claim turned down because its cue was not heard. These mark where the executor
- * needed the planner; the page may have made that point hard, or the plan may have been wrong.
+ * plan, a task running out of actions. These mark where the plan needed revising; the page may have made that point hard, or the
+ * plan may have been wrong.
  * expectation-broken is a model hint too: the simulated user expected something of the page that did not hold. Whether the page
  * or the expectation was wrong is for a person to judge.
  */
@@ -26,11 +26,11 @@ export type HintSource = 'page' | 'model' | 'run';
 /** The page element a hint is about, as the accessibility tree named it; name is absent when unnamed or redacted. */
 export type HintTarget = { role: string; name?: string };
 export const HINT_SOURCES: Readonly<Record<HintKind, HintSource>> = Object.freeze({
-  'slow-run': 'run', 'goal-met-at-start': 'run', 'replan': 'run', 'help-request': 'run', 'task-limit': 'run', 'unverified-done': 'run',
+  'slow-run': 'run', 'goal-met-at-start': 'run', 'replan': 'run', 'task-limit': 'run',
   'wanted-to-give-up': 'run', 'goal-word-stretch': 'run',
   'excess-keystrokes': 'page', 'focus-lost': 'page', 'focus-left-page': 'page', 'focus-not-visible': 'page',
   'modal-focus-outside': 'page', 'missing-announcement': 'page',
-  'backtracking': 'model', 'model-hesitation': 'model', 'early-stop': 'model', 'expectation-broken': 'model',
+  'backtracking': 'model', 'early-stop': 'model', 'expectation-broken': 'model',
 });
 export type Hint = {
   kind: HintKind;
@@ -60,15 +60,9 @@ export type HintThresholds = {
   keystrokesToTarget: number;
   /** Direction reversals such as Tab followed by Shift+Tab. */
   backtrackReversals: number;
-  /**
-   * The model hesitated when the runner-up scored at least this share of the chosen candidate's score. Relative, because a
-   * decision model spreads its scores over every candidate: 0.42 against 0.10 is a clear choice, 0.42 against 0.38 is not.
-   */
-  hesitationRunnerUpRatio: number;
 };
 export const DEFAULT_HINT_THRESHOLDS: Readonly<HintThresholds> = Object.freeze({
   slowRunStepRatio: 1.5, slowRunMinExtraSteps: 3, keystrokesToTarget: 10, backtrackReversals: 2,
-  hesitationRunnerUpRatio: 0.8,
 });
 export type HintOptions = { reference?: Readonly<RunTrace>; thresholds?: Partial<HintThresholds> };
 
@@ -212,34 +206,14 @@ export function extractHints(trace: Readonly<RunTrace>, options: HintOptions = {
       evidence: [action.eventId, ...events.map(o => o.id)] }, focusBefore(action.step - 1));
   }
 
-  // Plan choices (task done, help) are the executor talking to the planner, not a choice between page actions.
-  const planChoice = (id: unknown) => typeof id === 'string' && (id.startsWith('task:') || id.startsWith('help:'));
-  for (const item of evidence.filter(e => e.data.kind === 'model-inference' && Array.isArray(e.data.probabilities) && Array.isArray(e.data.choices) && !planChoice(e.data.choiceId))) {
-    const probabilities = item.data.probabilities as number[], choices = item.data.choices as { id?: string }[];
-    const index = choices.findIndex(c => c.id === item.data.choiceId); if (index < 0) continue;
-    const chosen = probabilities[index]!, runnerUp = Math.max(0, ...probabilities.filter((_, i) => i !== index && !planChoice(choices[i]?.id)));
-    if (chosen > 0 && runnerUp >= chosen * t.hesitationRunnerUpRatio) add({ kind: 'model-hesitation', certainty: 'suspected', steps: [item.step],
-      summary: `The model chose ${String(item.data.choiceId)} with ${(chosen * 100).toFixed(0)}% (runner-up ${(runnerUp * 100).toFixed(0)}%).`,
-      detail: { choiceId: item.data.choiceId, probability: chosen, runnerUp }, evidence: [item.id] }, focusBefore(item.step - 1));
-  }
-
   for (const item of evidence.filter(e => e.data.kind === 'orchestration-plan')) {
     const trigger = item.data.trigger, version = item.data.version;
-    if (trigger === 'help') add({ kind: 'help-request', certainty: 'observed', steps: [item.step],
-      summary: `The executor asked for a new plan (${String(item.data.help ?? 'no reason')}); the planner wrote plan v${String(version)}.`,
-      detail: { help: item.data.help, version }, evidence: [item.id] }, focusBefore(item.step - 1));
-    else if (trigger === 'failures' || trigger === 'no-change' || trigger === 'low-confidence' || trigger === 'oscillation') add({ kind: 'replan', certainty: 'observed', steps: [item.step],
-      summary: trigger === 'failures' ? `Actions kept failing, so the planner wrote plan v${String(version)}.` : trigger === 'low-confidence' ? `The executor kept choosing with low confidence, so the planner wrote plan v${String(version)}.` : trigger === 'oscillation' ? `The cursor kept going back and forth between the same two items, so the planner wrote plan v${String(version)}.` : `Actions kept changing nothing, so the planner wrote plan v${String(version)}.`,
+    if (trigger === 'failures' || trigger === 'no-change' || trigger === 'oscillation') add({ kind: 'replan', certainty: 'observed', steps: [item.step],
+      summary: trigger === 'failures' ? `Actions kept failing, so the planner wrote plan v${String(version)}.` : trigger === 'oscillation' ? `The cursor kept going back and forth between the same two items, so the planner wrote plan v${String(version)}.` : `Actions kept changing nothing, so the planner wrote plan v${String(version)}.`,
       detail: { trigger, version }, evidence: [item.id] }, focusBefore(item.step - 1));
     else if (trigger === 'task-limit') add({ kind: 'task-limit', certainty: 'observed', steps: [item.step],
       summary: `A task used up its actions, so the planner wrote plan v${String(version)}.`, detail: { trigger, version }, evidence: [item.id] }, focusBefore(item.step - 1));
   }
-  // The executor said a task was done, but its cue was not heard, so Rawstep kept the task open. The cue may be wrong, or the
-  // page may not say what a user would expect at that point.
-  for (const item of evidence.filter(e => e.data.kind === 'orchestration-claim' && e.data.accepted === false)) add({
-    kind: 'unverified-done', certainty: 'observed', steps: [item.step],
-    summary: `The executor said task ${String(item.data.taskId)} was done, but its cue was not heard, so the task stayed open.`, detail: { taskId: item.data.taskId }, evidence: [item.id] }, focusBefore(item.step - 1));
-
   // The user wanted to give up but named no approach that had failed: Rawstep asked for another plan. The wish itself is part of the cost.
   for (const item of evidence.filter(e => e.data.kind === 'orchestration-give-up' && e.data.accepted === false)) add({
     kind: 'wanted-to-give-up', certainty: 'observed', steps: [item.step],

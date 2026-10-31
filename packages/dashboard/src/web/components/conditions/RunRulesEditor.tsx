@@ -17,15 +17,13 @@ type Key = keyof RunRules;
 type Group = { id: 'guard' | 'planning'; keys: Key[] };
 const GROUPS: Group[] = [
   { id: 'guard', keys: ['repetitionGuard', 'maxUnchangedTransitions', 'confirmationGrace'] },
-  { id: 'planning', keys: ['survey', 'taskControl', 'reviewEvery', 'stepActionLimit', 'failureLimit', 'noChangeLimit', 'plannerHistoryLimit', 'confidenceFloor', 'maxPlannerCalls'] },
+  { id: 'planning', keys: ['survey', 'reviewEvery', 'stepActionLimit', 'failureLimit', 'noChangeLimit', 'plannerHistoryLimit', 'maxPlannerCalls'] },
 ];
-const TASK_CONTROL = ['rawstep', 'executor'] as const;
 const SURVEY = ['none', 'headings'] as const;
 
 /** A run rule's value as words: the choice's label, 켬/끔, or the number. */
 export function ruleValueLabel(key: Key, v: RunRules[Key]): string {
-  return key === 'taskControl' ? t(`conditions.runRules.taskControl.${v as RunRules['taskControl']}`)
-    : key === 'survey' ? t(`conditions.runRules.survey.${v as RunRules['survey']}`)
+  return key === 'survey' ? t(`conditions.runRules.survey.${v as RunRules['survey']}`)
     : key === 'repetitionGuard' ? t(v ? 'conditions.runRules.on' : 'conditions.runRules.off') : String(v);
 }
 
@@ -60,19 +58,14 @@ function Row({ field, value, inherited, set, compact, inheritedValue }: RowProps
   const { t } = useTranslation();
   const id = useId(), overridden = value[field] !== undefined, current = value[field] ?? inherited[field];
   const invalid = overridden && !fieldValid(field, value[field]);
-  const control = field === 'taskControl'
-    ? <Select value={current as string} onValueChange={next => set('taskControl', next as RunRules['taskControl'])}>
-      <SelectTrigger id={id} className="w-full"><SelectValue /></SelectTrigger>
-      <SelectContent>{TASK_CONTROL.map(c => <SelectItem key={c} value={c}>{t(`conditions.runRules.taskControl.${c}`)}</SelectItem>)}</SelectContent>
-    </Select>
-    : field === 'survey'
+  const control = field === 'survey'
     ? <Select value={current as string} onValueChange={next => set('survey', next as RunRules['survey'])}>
       <SelectTrigger id={id} className="w-full"><SelectValue /></SelectTrigger>
       <SelectContent>{SURVEY.map(c => <SelectItem key={c} value={c}>{t(`conditions.runRules.survey.${c}`)}</SelectItem>)}</SelectContent>
     </Select>
     : field === 'repetitionGuard'
       ? <Switch id={id} checked={current as boolean} onCheckedChange={on => set('repetitionGuard', on)} />
-      : <Input id={id} type="number" inputMode={field === 'confidenceFloor' ? 'decimal' : 'numeric'} step={field === 'confidenceFloor' ? 0.05 : 1} className="w-24" value={String(current)} aria-invalid={invalid || undefined} aria-describedby={invalid ? `${id}-range` : undefined}
+      : <Input id={id} type="number" inputMode="numeric" step={1} className="w-24" value={String(current)} aria-invalid={invalid || undefined} aria-describedby={invalid ? `${id}-range` : undefined}
         onChange={e => set(field, e.target.value.trim() === '' ? undefined : Number(e.target.value) as never)} />;
   const label = t(`conditions.runRules.fields.${field}.label`);
   return <div className={cn('grid items-center gap-x-4 gap-y-1 rounded-md px-2 sm:grid-cols-[minmax(0,1fr)_16rem]', compact ? 'py-1.5' : 'py-2', overridden && 'bg-trace-soft')}>

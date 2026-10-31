@@ -6,7 +6,7 @@ import { pathToFileURL } from 'node:url';
 import { createTestBrowserSession } from './helpers/browser.js';
 import { collectBrowserDiagnostics, resolveEnvironmentProfile, verifyLiveProfile } from '@rawstep/browser/profiles';
 import { runMockVoiceOverTask } from '@rawstep/screenreaders/mock-voiceover';
-import { ScriptedPolicy, SpeechDecisionPolicy } from '@rawstep/policies/policy';
+import { FixedPlanner, OrchestratedSpeechPolicy, ScriptedPolicy, planFileSchema, type PlanDraft, type PlanRequest, type Planner } from '@rawstep/policies/policy';
 import { runTask } from '@rawstep/browser/runner';
 import type { CreateBrowserSessionOptions } from '@rawstep/browser/browser';
 import type { Backend, Decision } from '@rawstep/core/contracts';
@@ -41,12 +41,14 @@ describe('actual browser environment profiles and isolated diagnostics',()=>{
     const d=await dir(),file=join(d,'case.html');await writeFile(file,'<!doctype html><button id="b" autofocus style="position:absolute;top:30px;outline:none">Hidden indicator</button><div style="position:fixed;inset:0;background:white;z-index:5"></div><p style="height:2px;overflow:hidden">Clipped text</p>');
     const s=await createTestBrowserSession(pathToFileURL(file).href);cleanups.push(()=>s.close());const report=await collectBrowserDiagnostics(s.page);expect(report.findings).toEqual(expect.arrayContaining([expect.objectContaining({code:'focus-center-occluded',certainty:'suspected'}),expect.objectContaining({code:'text-clipping'})]));
   });
-  it('keeps all independent diagnostics out of model input and redacts after text entry',async()=>{
-    // Tab to the email field, type into it once the reader says it is a text field, then give up.
-    let typed=false;const requests:unknown[]=[];const out=await dir();
-    const choose=(state:{speech:string[]})=>typed?'stop:uncertain':state.speech.join(' ').includes('edit text')?(typed=true,'type:email'):'key:Tab';
-    const trace=await runMockVoiceOverTask({id:'privacy',url:fixture,goal:'Inspect',maxSteps:8,input:{email:'PRIVATE_PROFILE_INPUT'},verify:{all:[{titleIncludes:'Never'}]}},{profile:'default',outDir:out,browserSessionFactory:createTestBrowserSession,warn:quiet,policy:new SpeechDecisionPolicy({choose:async req=>{requests.push(req);return {choiceId:choose(req.state as {speech:string[]}),model:{id:'fixture-only',runtime:'test'}}}},{modelGiveUp:true})});
-    expect(trace.events.filter(e=>e.type==='browser.accessibility-diagnostic').at(-1)?.redacted).toBe(true);expect(await readFile(join(out,'trace.json'),'utf8')).not.toContain('PRIVATE_PROFILE_INPUT');expect(JSON.stringify(requests)).not.toMatch(/independent-browser-diagnostic|focus-center-occluded|"profile"|"editable"/);expect(trace.outcome).toMatchObject({status:'inconclusive',reason:'policy-uncertain',policyStopSource:'model'});
+  it('keeps all independent diagnostics out of planner input and redacts after text entry',async()=>{
+    // Jump by form controls to the email field, type into it once the reader says it is a text field, then the plan is finished.
+    const requests:PlanRequest[]=[];const out=await dir();
+    const plan=planFileSchema.parse({strategy:'Fill in the email',criteria:[{id:'C1',text:'The email is typed'}],assumptions:[],phases:[{title:'Email',tasks:[{goal:'Move to the email field',done:'Hear edit text',cue:'edit text',activates:false,moves:['form.next']},{goal:'Type the email',done:'The email is typed',cue:'',types:'email'}]}]}) as PlanDraft;
+    const fixed=new FixedPlanner(plan,{file:'plan.json',sha256:'f'.repeat(64)});
+    const planner:Planner={plan:async request=>{requests.push(structuredClone(request));return fixed.plan(request)}};
+    const trace=await runMockVoiceOverTask({id:'privacy',url:fixture,goal:'Inspect',maxSteps:8,input:{email:'PRIVATE_PROFILE_INPUT'},verify:{all:[{titleIncludes:'Never'}]}},{profile:'default',outDir:out,browserSessionFactory:createTestBrowserSession,warn:quiet,policy:new OrchestratedSpeechPolicy(planner)});
+    expect(trace.events.filter(e=>e.type==='browser.accessibility-diagnostic').at(-1)?.redacted).toBe(true);expect(await readFile(join(out,'trace.json'),'utf8')).not.toContain('PRIVATE_PROFILE_INPUT');expect(JSON.stringify(requests)).not.toMatch(/independent-browser-diagnostic|focus-center-occluded|"profile"|"editable"|PRIVATE_PROFILE_INPUT/);expect(trace.outcome).toMatchObject({status:'failure',reason:'verification-failed',policyStopSource:'planner'});
   });
   it('verifies live text-style drift and stops rather than silently running the wrong profile',async()=>{
     const d=await dir(),file=join(d,'drift.html');await writeFile(file,'<!doctype html><button autofocus onclick="document.body.style.setProperty(\'font-size\',\'7px\',\'important\')">Change style</button>');

@@ -23,7 +23,7 @@ rawstep run <task> [--profile <id|name>] [--rule <name>=<value>]...
                    [--repeat <n>] [--out <dir>] [--json] [--project <dir>]
 ```
 
-`<task>` is a task id from `rawstep.config.json` or a path to a task JSON file (see [task files](./task.md)). Relative paths resolve from the project directory. A file that is not registered in the config runs with the project's first profile. The profile's planner writes a plan and its executor decides each step; a profile without an executor or without a planner cannot run. A [run profile](./config.md#run-profiles) holds everything that changes a run: to compare models or prompts, what the user may do, page conditions or a simulated and a native screen reader, make profiles that differ in that part only and run the task with each.
+`<task>` is a task id from `rawstep.config.json` or a path to a task JSON file (see [task files](./task.md)). Relative paths resolve from the project directory. A file that is not registered in the config runs with the project's first profile. The profile's planner writes a plan and Rawstep carries it out; a profile without a planner cannot run. A [run profile](./config.md#run-profiles) holds everything that changes a run: to compare models or prompts, what the user may do, page conditions or a simulated and a native screen reader, make profiles that differ in that part only and run the task with each.
 
 | Option | Default |
 |---|---|
@@ -36,20 +36,20 @@ rawstep run <task> [--profile <id|name>] [--rule <name>=<value>]...
 
 ### Output
 
-The conditions come first (`Conditions: <profile> (planned · planner … → executor …)` and the page environment and screen reader), followed by notes. Then each run prints how it ended, such as `Run 1 of 2: gave up · 34 moves`. The endings are `reached the goal`, `gave up`, `said it was done, but the goal was not reached`, `not measured (<limit>)` (a limit such as max steps, the time limit or the planner-call limit ended the run first, so it says nothing about the user), `ended on an error` and `no outcome recorded`. A run that gave up shows why (`Why`) and the broken expectations it rests on (`Rests on`); then the longest stretch without a goal word, the wrong guesses about where something is, run-level hints and the run directory. After all runs: how many runs reached the goal, what reaching it cost (moves), the stuck places (objects that did not respond as the user expected when pressed), and the other findings grouped under `Page` and `Model`. Each line reads `<role "name"> · <kind> · <n> of <N> runs`.
+The conditions come first (`Conditions: <profile> (planner <connection · model>)`, or `(planner plan file <path>)` for a plan file, then the page environment and screen reader), followed by notes. Then each run prints how it ended, such as `Run 1 of 2: gave up · 34 moves`. The endings are `reached the goal`, `gave up`, `said it was done, but the goal was not reached`, `not measured (<limit>)` (a limit such as max steps, the time limit or the planner-call limit ended the run first, so it says nothing about the user), `ended on an error` and `no outcome recorded`. A run that gave up shows why (`Why`) and the broken expectations it rests on (`Rests on`); then the longest stretch without a goal word, the wrong guesses about where something is, run-level hints and the run directory. After all runs: how many runs reached the goal, what reaching it cost (moves), the stuck places (objects that did not respond as the user expected when pressed), and the other findings grouped under `Page` and `Model`. Each line reads `<role "name"> · <kind> · <n> of <N> runs`.
 
 `--json` prints `{ conditions, warnings, runs: [{ runId, outDir, outcome, hints }], findings }` instead. Hints are friction signals: they point at steps worth a human look and are not a verdict. See [reports](./report.md).
 
 ### Run directory
 
-Each `run-<n>/` directory contains `trace.json` (with `trace.jsonl`), `hints.json`, `analysis.json`, `report.html` and `report.json`. `analysis.json` holds the rule-based analysis, which always runs after a run; when the project has an analysis model, an LLM analysis is added (without its key the runs get the rule-based analysis only and a note says so). A run also writes `plan.json` and `plan.md`, the final plan document (see [planner and executor](./config.md#planner-and-executor-orchestration)). Runs also save a reference screenshot per step as `diagnostics/step-<n>.png` for people to look at; the model never sees them.
+Each `run-<n>/` directory contains `trace.json` (with `trace.jsonl`), `hints.json`, `analysis.json`, `report.html` and `report.json`. `analysis.json` holds the rule-based analysis, which always runs after a run; when the project has an analysis model, an LLM analysis is added (without its key the runs get the rule-based analysis only and a note says so). A run also writes `plan.json` and `plan.md`, the final plan document (see [planner and plan](./config.md#planner-and-plan)). Runs also save a reference screenshot per step as `diagnostics/step-<n>.png` for people to look at; the model never sees them.
 
 ### Exit codes
 
 | Code | Meaning |
 |---|---|
 | 0 | The runs completed, whether or not the goal was reached. |
-| 1 | An error: no config, a profile without an executor or without a planner, an unsupported action or condition, a missing key, an old config version or a failed run. |
+| 1 | An error: no config, a profile without a planner, an unsupported action or condition, a missing key, an old config version or a failed run. |
 | 2 | Invalid usage. |
 | 130, 143 | Cancelled by SIGINT or SIGTERM. Traces written so far are kept. |
 
@@ -57,11 +57,11 @@ A forced kill cannot clean up or finalize a trace. Use a fresh `--out` directory
 
 ## Credentials
 
-Each connection's provider keeps its key in an environment variable (`RAWSTEP_OPENAI_API_KEY`, `RAWSTEP_TYPESAFE_API_KEY`, ...; see [config](./config.md)); a `custom` connection names its own with `apiKeyEnv`. The value is read from the process environment or from `.env.local` in the project directory; the dashboard writes `.env.local` with mode 0600. Keys never appear in the config, traces or reports. Do not commit `.env.local`. See `.env.example`.
+Each connection's provider keeps its key in an environment variable (`RAWSTEP_OPENAI_API_KEY`, `RAWSTEP_ANTHROPIC_API_KEY`, ...; see [config](./config.md)); a `custom` connection names its own with `apiKeyEnv`. The value is read from the process environment or from `.env.local` in the project directory; the dashboard writes `.env.local` with mode 0600. Keys never appear in the config, traces or reports. Do not commit `.env.local`. See `.env.example`.
 
 ## Privacy
 
-The model receives the speech the screen reader produces, the goal, named input keys and the action history. It never receives the DOM or verifier results. Saved traces redact input values. A remote model receives the page text it hears, so choose the provider with that in mind.
+The planner receives the speech the screen reader produces, the goal, named input keys and the action history. It never receives the DOM or verifier results. Saved traces redact input values. A remote model receives the page text it hears, so choose the provider with that in mind.
 
 ## Library
 

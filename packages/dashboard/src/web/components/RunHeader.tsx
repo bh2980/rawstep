@@ -129,7 +129,7 @@ export function RunHeader({ runRef, numbers, view, pageProps, navigate }: Props)
       ended?.ending === 'reached' || ended?.ending === 'gave-up' ? undefined : reason,
       typeof stretch === 'number' && t('runHeader.factStretch', { n: stretch }),
       conditions.profile,
-      <span key="m" title={[conditions.planner, conditions.executor].filter(Boolean).join(' → ')}>{runModelsName(run)}</span>,
+      <span key="m" title={conditions.planner}>{runModelsName(run)}</span>,
       conditions.analysis && <span key="a" title={t('runConditions.noEffect')}>{t('runHeader.analysis', { model: conditions.analysis })}</span>,
       simulated && t('run.simulationNotice'),
     ]} />

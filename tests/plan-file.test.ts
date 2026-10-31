@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { FixedPlanner, OrchestratedSpeechPolicy, planFileSchema, type ChoiceModel, type ChoiceRequest, type PlanDraft } from '@rawstep/policies/policy';
+import { FixedPlanner, OrchestratedSpeechPolicy, planFileSchema, renderPlanMarkdown, type PlanDraft } from '@rawstep/policies/policy';
 import type { DecisionPolicy, HistoryEntry } from '@rawstep/core/contracts';
 import { loadPlanFile } from '@rawstep/project/plan';
 import { planFileOf, plannerSchema } from '@rawstep/project/config';
@@ -19,12 +19,6 @@ const acted = (step: number, speech: string): HistoryEntry => ({ step, decision:
 /** A plan file as a person writes it: no `complete`, no `rationale`. */
 const written = { strategy: 'Move down to the button and press it', criteria: [{ id: 'C1', text: 'The cart confirms the phone' }], assumptions: [],
   phases: [{ title: 'Buy', tasks: [{ goal: "Move to the 'Add to cart' button", done: "Hear 'Add to cart'", cue: 'Add to cart' }, { goal: 'Press it', done: 'Hear the confirmation', cue: 'Product added' }] }] };
-function executor(answer: string) {
-  const requests: ChoiceRequest[] = [];
-  const value: ChoiceModel = { choose: async request => { requests.push(structuredClone(request)); return { choiceId: answer, model: { id: 'jev', runtime: 'test' }, probabilities: request.choices.map(c => c.id === answer ? 0.9 : 0.1 / (request.choices.length - 1)) }; } };
-  return { executor: value, requests };
-}
-
 describe('plan files', () => {
   it('reads a person\'s plan without complete or rationale, and fills {task} from the task file name', () => {
     expect(planFileSchema.parse(written)).toMatchObject({ complete: false, rationale: '' });
@@ -47,16 +41,18 @@ describe('plan files', () => {
 describe('a fixed plan in the orchestrated policy', () => {
   const fixed = () => new FixedPlanner(planFileSchema.parse(written) as PlanDraft, { file: 'plans/a.json', sha256: 'f'.repeat(64) });
   it('runs the written tasks in order, records the plan file as the planner, and moves on when a cue is heard', async () => {
-    const e = executor('intent:next'), policy = new OrchestratedSpeechPolicy(fixed(), e.executor);
-    await policy.decide(input());
-    expect(e.requests[0]!.state).toMatchObject({ currentTask: { goal: "Move to the 'Add to cart' button" } });
+    const policy = new OrchestratedSpeechPolicy(fixed());
+    expect(await policy.decide(input())).toEqual({ action: { kind: 'intent', intent: 'next' } });
+    expect(policy.planDocument()!.phases[0]!.tasks[0]).toMatchObject({ goal: "Move to the 'Add to cart' button", status: 'active', actions: 1 });
     const plan = (policy.takeDecisionEvidence() as { kind: string; [k: string]: unknown }[]).find(k => k.kind === 'orchestration-plan');
     expect(plan).toMatchObject({ model: { id: 'plans/a.json', runtime: 'fixed-plan' }, prompt: { id: 'rawstep-fixed-plan' } });
-    await policy.decide(input({ observation: said('Add to cart, button'), history: [acted(1, 'Add to cart, button')] }));
-    expect(e.requests.at(-1)!.state).toMatchObject({ currentTask: { goal: 'Press it' } });
+    // The written task does not say how to move or press, so Rawstep moves on to the next item until the cue is heard, then presses.
+    expect(await policy.decide(input({ observation: said('Add to cart, button'), history: [acted(1, 'Add to cart, button')] }))).toEqual({ action: { kind: 'intent', intent: 'next' } });
+    expect(policy.planDocument()!.phases[0]!.tasks.map(t => t.status)).toEqual(['done', 'active']);
+    expect(renderPlanMarkdown(policy.planDocument()!)).toContain('Press it');
   });
   it('abandons a stuck task instead of rewriting the plan, and ends when no task is left', async () => {
-    const e = executor('intent:next'), policy = new OrchestratedSpeechPolicy(fixed(), e.executor, { noChangeLimit: 2, maxPlannerCalls: 5 });
+    const policy = new OrchestratedSpeechPolicy(fixed(), { noChangeLimit: 2, maxPlannerCalls: 5 });
     let history: HistoryEntry[] = [];
     // Speech never changes and no cue is heard, so each task runs into the no-change signal.
     for (let step = 1; step <= 8; step++) {

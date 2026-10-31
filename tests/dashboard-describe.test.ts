@@ -23,7 +23,6 @@ describe('describeHint', () => {
     ['modal-focus-outside target', hint('modal-focus-outside', { target: { role: 'textbox', name: 'Email' } }), ['textbox “Email”', '모달']],
     ['modal-focus-outside dialog', hint('modal-focus-outside', { dialog: { role: 'dialog', name: 'Confirm' } }, { certainty: 'suspected' }), ['dialog “Confirm”', '이동하지 않았습니다']],
     ['missing-announcement', hint('missing-announcement', { changes: ['state'] }, { certainty: 'suspected' }), ['안내']],
-    ['model-hesitation', hint('model-hesitation', { choiceId: 'c3', probability: 0.42, runnerUp: 0.38 }, { certainty: 'suspected' }), ['c3', '0.42', '0.38']],
     ['early-stop stuck', hint('early-stop', { reason: 'policy-stuck' }), ['막혔다고']],
     ['early-stop uncertain', hint('early-stop', { reason: 'policy-uncertain' }), ['확신하지']],
     ['early-stop guard', hint('early-stop', { reason: 'policy-stuck', stopSource: 'exploration-guard' }), ['반복 감시']],
@@ -32,10 +31,8 @@ describe('describeHint', () => {
     ['wanted to give up', hint('wanted-to-give-up', { reason: 'Too long' }), ['포기하려 했지만', 'Too long']],
     ['goal word stretch', hint('goal-word-stretch', { moves: 40, from: 3, to: 42 }), ['3~42', '40번']],
     ['expectation broken', hint('expectation-broken', { assumption: { id: 'A3', text: 'The add control is a button' }, version: 4 }), ['A3', 'The add control is a button', 'v4']],
-    ['help-request', hint('help-request', { help: 'no-cue', version: 2 }), ['완료 단서를 찾을 수 없음', 'v2']],
     ['replan', hint('replan', { trigger: 'no-change', version: 3 }), ['바뀌지 않아', 'v3']],
     ['task-limit', hint('task-limit', { version: 2 }), ['행동 한도']],
-    ['unverified-done', hint('unverified-done', { taskId: 't4' }), ['t4', '들리지 않아']],
     ['goal-met-at-start all', hint('goal-met-at-start', { rules: [{ ruleIndex: 0, ruleType: 'url' }] }), ['완료 확인', '모두']],
     ['goal-met-at-start some', hint('goal-met-at-start', { rules: [{ ruleIndex: 0 }, { ruleIndex: 1 }] }, { certainty: 'suspected' }), ['2개']],
     ['focus-left-page', hint('focus-left-page', { action: 'Tab' }), ['Tab', '페이지를 벗어났습니다']],
@@ -52,8 +49,8 @@ describe('describeHint', () => {
   it('covers every hint kind', () => {
     const covered = new Set(cases.map(([, input]) => input.kind));
     const all: HintKind[] = ['slow-run', 'excess-keystrokes', 'backtracking', 'focus-lost', 'focus-not-visible', 'modal-focus-outside',
-      'missing-announcement', 'model-hesitation', 'early-stop', 'goal-met-at-start', 'focus-left-page',
-      'replan', 'help-request', 'task-limit', 'unverified-done', 'wanted-to-give-up', 'goal-word-stretch', 'expectation-broken'];
+      'missing-announcement', 'early-stop', 'goal-met-at-start', 'focus-left-page',
+      'replan', 'task-limit', 'wanted-to-give-up', 'goal-word-stretch', 'expectation-broken'];
     expect(Object.keys(core.hints.kinds).sort()).toEqual([...all].sort());
     for (const kind of all) expect(covered.has(kind)).toBe(true);
   });
@@ -67,7 +64,7 @@ describe('describeHint', () => {
   it('falls back to the English summary for unknown kinds and missing fields', () => {
     expect(describeHint({ kind: 'brand-new' as HintKind, summary: 'Something new.', detail: { x: 1 } })).toBe('Something new.');
     expect(describeHint({ kind: 'slow-run', summary: 'Slow.', detail: {} })).toBe('Slow.');
-    expect(describeHint({ kind: 'model-hesitation', summary: 'Hesitated.', detail: { choiceId: 'a' } })).toBe('Hesitated.');
+    expect(describeHint({ kind: 'missing-announcement', summary: 'Silent.', detail: {} })).toBe('Silent.');
     expect(describeHint({ kind: 'focus-not-visible', summary: 'Hidden.', detail: { target: { role: 'x' } } })).toBe('Hidden.');
     expect(describeHint({ kind: 'early-stop', summary: 'Stopped.', detail: { reason: 'maxSteps' } })).toBe('Stopped.');
     expect(describeHint({ kind: 'backtracking', summary: 'Reversed.', detail: null as unknown as Record<string, unknown> })).toBe('Reversed.');

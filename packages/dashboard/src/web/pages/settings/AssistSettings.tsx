@@ -16,7 +16,6 @@ export function AssistSettings({ onDirty, ...props }: PageProps & { onDirty: (di
   const { t } = useTranslation();
   const config = props.view.config;
   const [project, setProject] = useState<ProjectSettings>(() => structuredClone(config.project));
-  const llms = config.connections.filter(c => c.kind === 'llm');
   const dirty = !sameValue(project, config.project);
   useEffect(() => { onDirty(dirty); }, [dirty]);
   const blocked = (project.analysis.model && !project.analysis.model.modelId.trim()) || (project.suggestions.model && !project.suggestions.model.modelId.trim()) ? t('settingsPage.missingModelId') : undefined;
@@ -25,14 +24,14 @@ export function AssistSettings({ onDirty, ...props }: PageProps & { onDirty: (di
     <SectionHead id="settings-assist" title={t('settingsNav.assistTitle')} info={t('settingsNav.info.assist')} />
     <section aria-labelledby="settings-analysis" className="grid gap-4">
       <SectionHead id="settings-analysis" title={t('settingsPage.analysis.title')} info={t('settingsPage.analysis.intro')} />
-      <ModelPicker label={t('settingsPage.analysis.model')} connections={llms} connectionId={project.analysis.model?.connectionId} modelId={project.analysis.model?.modelId ?? ''} reasoningEffort={project.analysis.model?.reasoningEffort}
+      <ModelPicker label={t('settingsPage.analysis.model')} connections={config.connections} connectionId={project.analysis.model?.connectionId} modelId={project.analysis.model?.modelId ?? ''} reasoningEffort={project.analysis.model?.reasoningEffort}
         none={t('settingsPage.analysis.rulesOnly')} onNone={() => { const { model: _removed, ...rest } = project.analysis; setProject({ ...project, analysis: rest }); }}
         onChange={next => setProject({ ...project, analysis: { ...project.analysis, model: { connectionId: next.connectionId, modelId: next.modelId, ...effortOf(next) } } })} />
       <Field label={t('settingsPage.analysis.instructions')} multiline plain value={project.analysis.instructions} onChange={instructions => setProject({ ...project, analysis: { ...project.analysis, instructions } })} info={t('settingsPage.analysis.instructionsHint')} />
     </section>
     <section aria-labelledby="settings-suggestions" className="grid gap-4">
       <SectionHead id="settings-suggestions" title={t('settingsPage.suggestions.title')} info={t('settingsPage.suggestions.intro')} />
-      <ModelPicker label={t('settingsPage.suggestions.model')} connections={llms} connectionId={project.suggestions.model?.connectionId} modelId={project.suggestions.model?.modelId ?? ''} reasoningEffort={project.suggestions.model?.reasoningEffort}
+      <ModelPicker label={t('settingsPage.suggestions.model')} connections={config.connections} connectionId={project.suggestions.model?.connectionId} modelId={project.suggestions.model?.modelId ?? ''} reasoningEffort={project.suggestions.model?.reasoningEffort}
         none={t('settingsPage.suggestions.sameAsAnalysis')} onNone={() => setProject({ ...project, suggestions: {} })}
         onChange={next => setProject({ ...project, suggestions: { model: { connectionId: next.connectionId, modelId: next.modelId, ...effortOf(next) } } })} />
     </section>

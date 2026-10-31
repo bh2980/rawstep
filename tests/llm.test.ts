@@ -1,8 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { chooseCandidate, createLlmModel, generateStructured, LlmPlanner } from '@rawstep/policies/llm';
-import { llmChoiceModel } from '@rawstep/project/llm';
-import { DEFAULT_EXECUTOR_INSTRUCTIONS, type Model } from '@rawstep/project/config';
+import { createLlmModel, generateStructured, LlmPlanner } from '@rawstep/policies/llm';
 
 const BASE = 'http://127.0.0.1:1/v1';
 const reply = (content: unknown, extra: Record<string, unknown> = {}, finish = 'stop') => Response.json({ id: 'r', created: 1, model: 'fixture', choices: [{ index: 0, finish_reason: finish, message: { role: 'assistant', content: typeof content === 'string' ? content : JSON.stringify(content) } }], ...extra });
@@ -15,19 +13,21 @@ function recorder(respond: (body: any, init: RequestInit) => Response | Promise<
   };
   return { calls, fetcher };
 }
-const candidates = [{ id: 'key:Tab', label: 'Tab' }, { id: 'stop:success', label: 'Stop' }];
+const pick = z.object({ choiceId: z.enum(['key:Tab', 'stop:success']) });
+/** One structured call whose reply must be a `pick`: the cases below only differ in what the server answers. */
+const ask = (model: ReturnType<typeof createLlmModel>, extra: Partial<Parameters<typeof generateStructured>[0]> = {}) => generateStructured({ model, system: 's', user: '{}', schema: pick, ...extra });
 const llm = (fetcher: typeof fetch, extra: Partial<Parameters<typeof createLlmModel>[0]> = {}) => createLlmModel({ baseURL: BASE, modelId: 'fixture', apiKey: 'sk-secret-key', fetch: fetcher, ...extra });
 
 describe('shared AI SDK LLM module', () => {
   it('sends an OpenAI-compatible JSON request with the key and the state as text', async () => {
     const { calls, fetcher } = recorder(() => reply({ choiceId: 'key:Tab' }));
-    const result = await chooseCandidate({ model: llm(fetcher), system: 'Pick wisely.', state: { goal: 'g' }, candidates });
-    expect(result).toEqual({ choiceId: 'key:Tab', modelId: 'fixture' });
+    const result = await generateStructured({ model: llm(fetcher), system: 'Pick wisely.', user: JSON.stringify({ state: { goal: 'g' } }), schema: pick });
+    expect(result).toEqual({ object: { choiceId: 'key:Tab' }, modelId: 'fixture' });
     const { url, headers, body } = calls[0]!;
     expect(url).toBe(BASE + '/chat/completions'); expect(headers.authorization).toBe('Bearer sk-secret-key');
     expect(body).toMatchObject({ model: 'fixture', response_format: { type: 'json_object' } });
-    expect(body.messages[0]).toMatchObject({ role: 'system' }); expect(body.messages[0].content).toContain('Pick wisely.'); expect(body.messages[0].content).toContain('Select only an ID');
-    expect(JSON.parse(body.messages[1].content)).toEqual({ state: { goal: 'g' }, candidates });
+    expect(body.messages[0]).toMatchObject({ role: 'system' }); expect(body.messages[0].content).toContain('Pick wisely.');
+    expect(JSON.parse(typeof body.messages[1].content === 'string' ? body.messages[1].content : body.messages[1].content[0].text)).toEqual({ state: { goal: 'g' } });
   });
   it('asks once more when a reply has the wrong shape, saying what was wrong, and records why when the second reply fails too', async () => {
     const schema = z.object({ n: z.number() });
@@ -55,7 +55,7 @@ describe('shared AI SDK LLM module', () => {
     await expect(generateStructured({ model: llm(wrong.fetcher), system: 's', user: 'u', schema })).rejects.toMatchObject({ code: 'llm-failed' });
   });
   it.each([
-    ['unknown candidate', () => reply({ choiceId: 'key:Escape' })],
+    ['unknown value', () => reply({ choiceId: 'key:Escape' })],
     ['invalid JSON', () => reply('PRIVATE_BODY not json')],
     ['truncated answer', () => reply({ choiceId: 'key:Tab' }, {}, 'length')],
     ['switched model', () => reply({ choiceId: 'key:Tab' }, { model: 'other-model' })],
@@ -64,48 +64,29 @@ describe('shared AI SDK LLM module', () => {
     ['redirect', () => new Response(null, { status: 302, headers: { location: 'http://evil.example/' } })],
   ])('rejects %s with a fixed error that never carries provider text', async (_name, respond) => {
     const { fetcher } = recorder(respond);
-    const error = await chooseCandidate({ model: llm(fetcher), system: 's', state: {}, candidates }).catch((e: unknown) => e) as Error & { code?: string };
+    const error = await ask(llm(fetcher), { strictModel: true }).catch((e: unknown) => e) as Error & { code?: string };
     expect(error).toMatchObject({ name: 'RawstepError', code: 'llm-failed' });
     expect(`${error.message} ${JSON.stringify(error.cause ?? '')}`).not.toMatch(/PRIVATE_BODY|sk-secret-key|evil\.example/);
   });
   it('never retries and refuses redirects', async () => {
     let seen = 0, redirect: RequestRedirect | undefined;
     const fetcher: typeof fetch = async (_url, init) => { seen++; redirect = init!.redirect; return new Response('busy', { status: 503 }); };
-    await expect(chooseCandidate({ model: llm(fetcher), system: 's', state: {}, candidates })).rejects.toMatchObject({ code: 'llm-failed' });
+    await expect(ask(llm(fetcher))).rejects.toMatchObject({ code: 'llm-failed' });
     expect(seen).toBe(1); expect(redirect).toBe('error');
   });
   it('combines the caller signal with the timeout and tells them apart', async () => {
     const hang: typeof fetch = (_url, init) => new Promise((_resolve, reject) => { if (init!.signal!.aborted) reject(new Error('PRIVATE_TRANSPORT')); init!.signal!.addEventListener('abort', () => reject(new Error('PRIVATE_TRANSPORT')), { once: true }); });
-    await expect(chooseCandidate({ model: llm(hang, { timeoutMs: 20 }), system: 's', state: {}, candidates })).rejects.toMatchObject({ code: 'llm-timeout' });
-    const controller = new AbortController(), pending = chooseCandidate({ model: llm(hang), system: 's', state: {}, candidates, signal: controller.signal });
+    await expect(ask(llm(hang, { timeoutMs: 20 }))).rejects.toMatchObject({ code: 'llm-timeout' });
+    const controller = new AbortController(), pending = ask(llm(hang), { signal: controller.signal });
     controller.abort(); await expect(pending).rejects.toMatchObject({ code: 'llm-cancelled' });
     const done = new AbortController(); done.abort();
-    await expect(chooseCandidate({ model: llm(hang), system: 's', state: {}, candidates, signal: done.signal })).rejects.toMatchObject({ code: 'llm-cancelled' });
+    await expect(ask(llm(hang), { signal: done.signal })).rejects.toMatchObject({ code: 'llm-cancelled' });
   });
   it('requires a safe base URL and an explicit model', () => {
     expect(() => createLlmModel({ baseURL: 'http://example.com/v1', modelId: 'm' })).toThrow('HTTPS');
     expect(() => createLlmModel({ baseURL: 'https://user:pw@example.com/v1', modelId: 'm' })).toThrow();
     expect(() => createLlmModel({ baseURL: BASE, modelId: ' ' })).toThrow('model ID');
     expect(() => createLlmModel({ baseURL: 'https://openrouter.ai/api/v1', modelId: 'm' })).not.toThrow();
-  });
-});
-
-describe('llmChoiceModel', () => {
-  const model: Model = { id: 'm', kind: 'llm', provider: 'custom', baseURL: BASE, modelId: 'fixture', name: 'm', maxChoices: 255, timeoutMs: 5000 };
-  const prompt = { id: 'baseline', name: 'b', version: '1', instructions: DEFAULT_EXECUTOR_INSTRUCTIONS };
-  it('returns the choice with model and prompt evidence', async () => {
-    const { fetcher } = recorder(() => reply({ choiceId: 'stop:success' }));
-    const answer = await llmChoiceModel(model, prompt, 'sk-secret-key', fetcher).choose({ state: { goal: 'g' }, choices: candidates }, { signal: new AbortController().signal });
-    expect(answer).toMatchObject({ choiceId: 'stop:success', model: { id: 'fixture', requestedId: 'fixture', runtime: 'openai-compatible-generative-choice' }, prompt: { id: 'baseline', version: '1' } });
-    expect(answer.prompt?.sha256).toMatch(/^[0-9a-f]{64}$/);
-  });
-  it('shows only a fixed message for provider failures and passes cancellation through', async () => {
-    const { fetcher } = recorder(() => reply({ choiceId: 'key:Tab', leaked: 'sk-secret-key' }));
-    const client = llmChoiceModel(model, prompt, 'sk-secret-key', fetcher);
-    const error = await client.choose({ state: {}, choices: candidates }, { signal: new AbortController().signal }).catch((e: Error) => e);
-    expect((error as Error).message).toMatch(/^LLM choice failed/); expect((error as Error).message).not.toContain('sk-secret-key');
-    const cancelled = new AbortController(); cancelled.abort(new Error('stopped'));
-    await expect(client.choose({ state: {}, choices: candidates }, { signal: cancelled.signal })).rejects.toThrow('stopped');
   });
 });
 
@@ -125,13 +106,11 @@ describe('LlmPlanner', () => {
     expect(custom.prompt!.sha256).not.toBe(result.prompt!.sha256);
     expect(JSON.stringify(calls[0]!.body)).toContain('Thor Hammer');
   });
-  it('shapes tasks for the executor latitude: separate moving and pressing by default, one task per target when the executor decides', () => {
-    const none = new LlmPlanner(llm(recorder(() => reply({})).fetcher)), direction = new LlmPlanner(llm(recorder(() => reply({})).fetcher), '', 'direction');
-    const method = new LlmPlanner(llm(recorder(() => reply({})).fetcher), '', 'method');
-    expect(none.instructions).toContain('Keep moving and pressing in separate tasks.');
-    expect(direction.instructions).not.toContain('Keep moving and pressing in separate tasks.');
-    expect(direction.instructions).toContain('may also go the opposite way');
-    expect(method.instructions).toContain('may use any movement');
+  it('tells the planner to keep moving and pressing apart and to give typing its own task, since Rawstep carries the plan out as written', () => {
+    const { instructions } = new LlmPlanner(llm(recorder(() => reply({})).fetcher));
+    expect(instructions).toContain('Keep moving and pressing in separate tasks.');
+    expect(instructions).toContain('"types"');
+    expect(instructions).toContain('Rawstep carries out your plan one task at a time, exactly as written');
   });
   it('rejects a draft of the wrong shape', async () => {
     const { fetcher } = recorder(() => reply({ complete: false, steps: [{ goal: 'no done cue' }] }));

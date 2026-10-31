@@ -161,16 +161,6 @@ describe("friction hints", () => {
     });
   });
 
-  it("reports a choice whose runner-up scored close to it, not a clear one with low absolute scores", () => {
-    const evidence = (probabilities: number[]): Pair => ["policy.evidence", { step: 3, evidence: { kind: "model-inference", choices: [{ id: "key:Tab" }, { id: "key:Enter" }], choiceId: "key:Tab", probabilities } }];
-    const [hint] = find(extractHints(trace([evidence([0.45, 0.4])])), "model-hesitation");
-    expect(hint).toMatchObject({ certainty: "suspected", steps: [3], detail: { choiceId: "key:Tab", probability: 0.45, runnerUp: 0.4 } });
-    expect(kinds([evidence([0.52, 0.45])])).toContain("model-hesitation");
-    expect(kinds([evidence([0.9, 0.1])])).not.toContain("model-hesitation");
-    expect(kinds([evidence([0.42, 0.1])])).not.toContain("model-hesitation"); // low in absolute terms, but four times the runner-up
-    expect(kinds([["policy.evidence", { step: 3, evidence: { kind: "model-inference", choices: [{ id: "key:Tab" }], choiceId: "key:Missing", probabilities: [0.1] } }]])).toEqual([]);
-  });
-
   it("reports an early stop from a stuck model or from the exploration guard", () => {
     expect(find(extractHints(trace([], { status: "failure", reason: "policy-stuck", step: 4, steps: 4 })), "early-stop")).toMatchObject([{ certainty: "observed", steps: [4], detail: { reason: "policy-stuck" } }]);
     const guard = find(extractHints(trace([], { status: "failure", reason: "policy-uncertain", policyStopSource: "exploration-guard", step: 6 })), "early-stop");
@@ -190,12 +180,11 @@ describe("friction hints", () => {
 
   it("sorts hints by their first step and reports the schema version, task id and goal status", () => {
     const pairs: Pair[] = [
-      ["policy.evidence", { step: 2, evidence: { kind: "model-inference", choices: [{ id: "a" }, { id: "b" }], choiceId: "a", probabilities: [0.4, 0.4] } }],
       ...press(4, "Enter"), observer("focus-lost", 4, { role: "button", name: "Gone", reason: "removed" }),
       observer("focus", 3, { role: "button", name: "Behind", modalOpen: true, inDialog: false }),
     ];
     const report = extractHints(trace(pairs, success(7)), { reference: trace([], success(2)) });
-    expect(report.hints.map(hint => hint.kind)).toEqual(["slow-run", "model-hesitation", "modal-focus-outside", "focus-lost"]);
+    expect(report.hints.map(hint => hint.kind)).toEqual(["slow-run", "modal-focus-outside", "focus-lost"]);
     expect(report).toMatchObject({ schemaVersion: "3.0", taskId: "hints", runId: "hints-test", steps: 7, goalReached: true, outcome: { status: "success" } });
     expect(HINTS_SCHEMA_VERSION).toBe("3.0");
     expect(extractHints(trace([], { status: "failure", reason: "verification-failed", steps: 3 }))).toMatchObject({ goalReached: false, outcome: { status: "failure", reason: "verification-failed" } });

@@ -7,7 +7,7 @@ import { Button } from './ui/button';
 type Props = { run: RunRecord; steps: StepView[]; notices: RunNotice[]; plan?: RunPlanView | undefined; onSelect: (step: number) => void };
 
 /**
- * Why a finished run ended where it did, before the timeline: who stopped it (the executor's own stop choice, the planner judging
+ * Why a finished run ended where it did, before the timeline: who stopped it (the planner judging
  * every success criterion met, Rawstep's repetition guard, the replanning limit, or a step or time limit) and the setting behind it, plus what the page did that explains the run — a bot check page or navigations
  * the task's range blocked. Each line points at the step it is about.
  */
@@ -24,9 +24,6 @@ export function RunDiagnosis({ run, steps, notices, plan, onSelect }: Props) {
     lines.push({ key: 'stop', icon: OctagonAlert, step: stopped.step, text: t('diagnosis.limitStop', { n: stopped.step, max: rules.maxPlannerCalls, count: plan ? plan.versions.length : rules.maxPlannerCalls }), note: t('diagnosis.limitStopNote') });
   } else if (source === 'user-gave-up' && stopped) {
     lines.push({ key: 'stop', icon: OctagonAlert, step: stopped.step, text: t('diagnosis.gaveUpStop', { n: stopped.step }), note: t('diagnosis.gaveUpStopNote') });
-  } else if (source === 'model' && stopped && stopped.stop!.stop !== 'success') {
-    lines.push({ key: 'stop', icon: OctagonAlert, step: stopped.step,
-      text: t('diagnosis.modelStop', { n: stopped.step, reason: t(`steps.stopReasons.${stopped.stop!.stop}`, { defaultValue: stopped.stop!.stop }) }) });
   } else if (stopped?.stop?.stop === 'success' && reason === 'verification-failed') {
     lines.push({ key: 'stop', icon: OctagonAlert, step: stopped.step, text: t('diagnosis.successStopFailed', { n: stopped.step }), note: t('diagnosis.successStopFailedNote') });
   } else if (source === 'exploration-guard' && stopped) {

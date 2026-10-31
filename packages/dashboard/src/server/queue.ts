@@ -13,9 +13,9 @@ import { RUN_ERROR, planSchema, type Combination, type Experiment, type RunRecor
 import { HttpError, koreanMessage } from './http.js';
 
 /** Runs one run record; the default executes it for real, tests substitute their own. */
-export type Executor = (run: RunRecord, task: Task, outDir: string, apiKey: string | undefined, signal: AbortSignal, onEvent?: (event: TraceEvent) => void, local?: { atDriverCommand?: string | undefined; browserProfileDir?: string | undefined; plannerApiKey?: string | undefined }) => Promise<RunTrace>;
-const executeRecord: Executor = (run, task, outDir, apiKey, signal, onEvent, local = {}) =>
-  executeRun({ ...run.snapshot.spec, task }, { outDir, apiKey, signal, ...local, ...(onEvent ? { onEvent } : {}) });
+export type Executor = (run: RunRecord, task: Task, outDir: string, signal: AbortSignal, onEvent?: (event: TraceEvent) => void, local?: { atDriverCommand?: string | undefined; browserProfileDir?: string | undefined; plannerApiKey?: string | undefined }) => Promise<RunTrace>;
+const executeRecord: Executor = (run, task, outDir, signal, onEvent, local = {}) =>
+  executeRun({ ...run.snapshot.spec, task }, { outDir, signal, ...local, ...(onEvent ? { onEvent } : {}) });
 /**
  * What the dashboard keeps and serves of a recorded outcome: the result and how far the run got. A failed run's outcome also holds
  * the raw error text, which can quote a provider's reply, so nothing else is passed on.
@@ -83,19 +83,18 @@ export class ExperimentQueue {
       for (const conditions of conditionSets(config, request)) for (let repeat = 1; repeat <= request.repeats; repeat++) {
         if (rows.length >= 1000) throw new HttpError(400, '실험 하나의 실행 조합은 최대 1000개입니다.');
         const profileId = conditions.profile.id, key = [taskId, profileId, repeat].join(':');
-        let reason: string | undefined, warnings: string[] = [], modelName: string | undefined, plannerName: string | undefined, permissions = structuredClone(conditions.actionSet.actions);
+        let reason: string | undefined, warnings: string[] = [], plannerName: string | undefined, permissions = structuredClone(conditions.actionSet.actions);
         if (!task || !source) reason = '작업을 찾을 수 없습니다.';
         else {
           try {
             const check = checkRun({ config, task: source, taskEntry: task, runRules: request.runRules, ...conditions });
-            permissions = check.permissions; modelName = check.model?.name; plannerName = check.plannerModel?.name; warnings = check.warnings.map(koreanWarning);
+            permissions = check.permissions; plannerName = check.plannerModel?.name ?? check.plannerPlanFile; warnings = check.warnings.map(koreanWarning);
             if (check.problem) reason = koreanMessage(check.problem);
-            else if (!await hasKey(check.model!)) reason = koreanMessage(new ProjectError('missing-credential', ''));
             else if (check.plannerModel && !await hasKey(check.plannerModel)) reason = koreanMessage(new ProjectError('missing-planner-credential', ''));
             else if (check.analysisModel && !await hasKey(check.analysisModel)) warnings.push('해설 모델의 인증키가 없어 규칙 기반 분석만 합니다.');
           } catch (e) { reason = (e as Error).message; }
         }
-        rows.push({ key, taskId, repeat, profileId, ...(modelName ? { modelName } : {}), ...(plannerName ? { plannerName } : {}),
+        rows.push({ key, taskId, repeat, profileId, ...(plannerName ? { plannerName } : {}),
           supported: !reason, ...(reason ? { reason } : {}), warnings, permissions, conditions });
       }
     }
@@ -175,16 +174,15 @@ export class ExperimentQueue {
       run.state = 'running'; run.startedAt = new Date().toISOString(); await this.persist(experiment); this.changed();
       const outDir = await this.store.file('.rawstep/experiments/' + experiment.id + '/' + run.id);
       const task = this.liveTasks.get(run.id)!;
-      let apiKey: string | undefined, plannerApiKey: string | undefined;
+      let plannerApiKey: string | undefined;
       try {
         const spec = run.snapshot.spec;
-        apiKey = await this.store.credential(spec.model);
         const atDriverCommand = spec.backend !== 'simulation' ? await this.store.localValue(AT_DRIVER_COMMAND_ENV) : undefined;
         const browserProfileDir = await this.store.file('.rawstep/browser-profile');
         plannerApiKey = spec.plannerModel ? await this.store.credential(spec.plannerModel) : undefined;
-        const trace = await this.executor(run, task, outDir, apiKey, controller.signal, event => this.runEvent?.(experiment.id, run.id, event), { atDriverCommand, browserProfileDir, plannerApiKey });
+        const trace = await this.executor(run, task, outDir, controller.signal, event => this.runEvent?.(experiment.id, run.id, event), { atDriverCommand, browserProfileDir, plannerApiKey });
         run.outcome = publicOutcome(trace.outcome);
-        if (trace.outcome?.reason === 'error' && typeof trace.outcome.error === 'string') run.errorDetail = failureDetail(new Error(trace.outcome.error), [apiKey ?? '', plannerApiKey ?? '', ...Object.values(task?.input ?? {})]);
+        if (trace.outcome?.reason === 'error' && typeof trace.outcome.error === 'string') run.errorDetail = failureDetail(new Error(trace.outcome.error), [plannerApiKey ?? '', ...Object.values(task?.input ?? {})]);
         run.state = controller.signal.aborted ? 'cancelled' : trace.outcome?.status === 'success' ? 'success' : trace.outcome?.status === 'failure' ? 'failure' : 'inconclusive';
         const analysisModel = run.analysisModel;
         const done = await finalizeRun(trace, outDir, analysisModel ? { createAnalyzer: async () => llmAnalyzer(analysisModel, await this.store.credential(analysisModel), run.analysisInstructions, controller.signal) } : {});
@@ -194,7 +192,7 @@ export class ExperimentQueue {
         if (done.report.status === 'failed') run.reportError = '보고서 생성 실패';
       } catch (error) {
         run.state = controller.signal.aborted ? 'cancelled' : 'failure'; run.error = RUN_ERROR.start;
-        if (!controller.signal.aborted) run.errorDetail = failureDetail(error, [apiKey ?? '', plannerApiKey ?? '', ...Object.values(task?.input ?? {})]);
+        if (!controller.signal.aborted) run.errorDetail = failureDetail(error, [plannerApiKey ?? '', ...Object.values(task?.input ?? {})]);
         run.analysisStatus = 'skipped'; run.reportStatus = 'skipped';
       } finally {
         run.endedAt = new Date().toISOString(); this.liveTasks.delete(run.id); this.active = undefined; await this.persist(experiment); this.changed();

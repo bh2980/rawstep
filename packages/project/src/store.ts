@@ -4,8 +4,8 @@ import { resolve, dirname, relative, isAbsolute } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { resolveTask, type Task } from '@rawstep/core/contracts';
 import { resolveEnvironmentProfile } from '@rawstep/browser/profiles';
-import { modelBaseURL } from '@rawstep/policies/systemone';
-import { CONFIG_FILE, KEYED_PROVIDERS, configSchema, credentialId, defaultConfig, executorModel, modelKeyEnv, parseConfig, type Connection, type ProjectConfig, type ProviderId } from './config.js';
+import { modelBaseURL } from '@rawstep/policies/llm';
+import { CONFIG_FILE, KEYED_PROVIDERS, configSchema, credentialId, defaultConfig, modelKeyEnv, parseConfig, type Connection, type ProjectConfig, type ProviderId } from './config.js';
 import { ProjectError } from './errors.js';
 
 export async function readOptional(path: string): Promise<string | undefined> {
@@ -49,7 +49,7 @@ export class ProjectStore {
     let json: unknown;
     try { json = JSON.parse(raw); } catch (e) { throw new ProjectError('invalid-config', `${CONFIG_FILE} is not valid JSON: ${e instanceof Error ? e.message : String(e)}`); }
     const version = json && typeof json === 'object' ? (json as { version?: unknown }).version : undefined;
-    if (typeof version === 'number' && Number.isInteger(version) && version >= 1 && version <= 5) throw new ProjectError('old-config', `${CONFIG_FILE} is version ${version}, which this Rawstep does not read. Start a new project with \`rawstep init\` and copy the tasks over.`);
+    if (typeof version === 'number' && Number.isInteger(version) && version >= 1 && version <= 6) throw new ProjectError('old-config', `${CONFIG_FILE} is version ${version}, which this Rawstep does not read. Start a new project with \`rawstep init\` and copy the tasks over.`);
     try { config = parseConfig(json); }
     catch (e) { throw new ProjectError('invalid-config', `${CONFIG_FILE} is not valid: ${e instanceof Error ? e.message : String(e)}`); }
     this.validateReferences(config);
@@ -61,14 +61,12 @@ export class ProjectStore {
     for (const group of [config.connections, config.tasks, config.profiles]) {
       if (new Set(group.map(x => x.id)).size !== group.length) throw new ProjectError('duplicate-id', 'IDs must be unique.');
     }
-    const kindOf = (connectionId: string) => config.connections.find(c => c.id === connectionId)?.kind;
+    const known = (connectionId: string) => config.connections.some(c => c.id === connectionId);
     for (const profile of config.profiles) {
-      const executor = executorModel(profile);
-      if (executor && !kindOf(executor.connectionId)) throw new ProjectError('profile-connection-missing', 'A profile uses a connection that does not exist.');
-      if (profile.planner && !('planFile' in profile.planner) && kindOf(profile.planner.connectionId) !== 'llm') throw new ProjectError('planner-needs-llm', 'The planner needs an LLM connection.');
+      if (profile.planner && !('planFile' in profile.planner) && !known(profile.planner.connectionId)) throw new ProjectError('profile-connection-missing', 'A profile plans with a connection that does not exist.');
       resolveEnvironmentProfile(profile.page);
     }
-    if (config.project.analysis.model && kindOf(config.project.analysis.model.connectionId) !== 'llm') throw new ProjectError('analysis-needs-llm', 'Post-run analysis needs an LLM connection.');
+    if (config.project.analysis.model && !known(config.project.analysis.model.connectionId)) throw new ProjectError('analysis-connection-missing', 'Post-run analysis uses a connection that does not exist.');
     if (new Set(config.tasks.map(t => t.file)).size !== config.tasks.length) throw new ProjectError('duplicate-task-file', 'Task file paths must be unique.');
     const byId = new Map(config.tasks.map(t => [t.id, t]));
     for (const task of config.tasks) if (task.variantOf !== undefined) {
@@ -191,15 +189,15 @@ export class ProjectStore {
     return work;
   }
   /** The environment variable a credential target uses: a preset provider's fixed one, or the one a custom connection names. */
-  private envName(target: ProviderId | Pick<Connection, 'kind' | 'provider' | 'apiKeyEnv'>): string | undefined {
+  private envName(target: ProviderId | Pick<Connection, 'provider' | 'apiKeyEnv'>): string | undefined {
     if (typeof target !== 'string') return modelKeyEnv(target);
     return KEYED_PROVIDERS.find(p => p.provider === target)?.keyEnv;
   }
   /**
-   * The key of a provider (`'openai'`, `'typesafe'`, ...) or of one connection (a custom connection has its own variable): the value
+   * The key of a provider (`'openai'`, `'anthropic'`, ...) or of one connection (a custom connection has its own variable): the value
    * stored in .env.local, otherwise the process environment. Never part of any config response.
    */
-  async credential(target: ProviderId | Pick<Connection, 'kind' | 'provider' | 'apiKeyEnv'>): Promise<string | undefined> {
+  async credential(target: ProviderId | Pick<Connection, 'provider' | 'apiKeyEnv'>): Promise<string | undefined> {
     const name = this.envName(target);
     return name ? this.localValue(name) : undefined;
   }
@@ -216,7 +214,7 @@ export class ProjectStore {
     for (const connection of config.connections) if (connection.provider === 'custom' && connection.apiKeyEnv) entries.push([credentialId(connection), this.credential(connection)]);
     return Object.fromEntries(await Promise.all(entries.map(async ([id, value]) => [id, !!await value])));
   }
-  async setCredential(target: ProviderId | Pick<Connection, 'kind' | 'provider' | 'apiKeyEnv'>, value: string) {
+  async setCredential(target: ProviderId | Pick<Connection, 'provider' | 'apiKeyEnv'>, value: string) {
     const name = this.envName(target);
     if (!name) throw new ProjectError('credential-target', 'This provider or model has no key variable to store a key in. Give the custom connection an environment variable name first.');
     if (!value.trim()) throw new ProjectError('invalid-credential', 'The credential name or value is not valid.');

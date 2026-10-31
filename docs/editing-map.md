@@ -10,7 +10,7 @@ Rawstep has engine packages, the shared `@rawstep/project` package and one priva
 | Scripted/custom policy loading | `packages/policies/src/policy/` | CLI/runner tests |
 | Browser lifecycle/navigation/read-only boundaries | `packages/browser/src/browser/` | native Chromium navigation/read-only suites |
 | Budgets, actions, named inputs, cancellation/verifier | `packages/browser/src/runner/`, `verify/` | runner, input and browser suites |
-| SystemOne clients/policies | `packages/policies/src/systemone/` | fake and HTTP tests |
+| Plan document, planner interface, Rawstep carrying out the plan, plan files | `packages/policies/src/policy/` (`plan-document.ts`, `orchestration.ts`, `fixed-plan.ts`) | `tests/orchestration.test.ts`, `tests/plan-file.test.ts` |
 | Every LLM call (Vercel AI SDK, OpenAI-compatible; `@rawstep/policies/llm`) | `packages/policies/src/llm/` | `tests/llm.test.ts` |
 | Explicit LLM analyzer | `packages/reports/src/analyze/llm.ts` | finalized trace/evidence tests |
 | Applied profiles/focus/layout/native zoom | `packages/browser/src/profiles/` | profiles browser tests |

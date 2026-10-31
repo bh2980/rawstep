@@ -29,7 +29,7 @@ export interface CliDependencies {
   checkNativeBackend?: (options: { profile: 'voiceover' | 'nvda'; url: string }) => Promise<unknown>;
   /** Test seam: whether a coding-agent CLI is installed and signed in. */
   /** Starts a coding-agent CLI over ACP and reads its models; rejects when it is missing or needs a sign-in. */
-  checkAgent?: (connection: { kind: 'llm'; provider: string }) => Promise<unknown>;
+  checkAgent?: (connection: { provider: string }) => Promise<unknown>;
   cwd?: string;
   stdout?: (text: string) => void;
   stderr?: (text: string) => void;
@@ -152,9 +152,9 @@ const median = (values: number[]) => { const s = [...values].sort((a, b) => a - 
 /** Hints shown in their own lines of a run's block rather than as summaries. */
 const STRUCTURED: readonly string[] = ['early-stop', 'goal-word-stretch'];
 /** Hints that say the planner wrote a new plan, counted per run by why. */
-const PLAN_KINDS: readonly string[] = ['replan', 'help-request', 'task-limit'];
-const PLAN_REASONS: Record<string, string> = { failures: 'actions kept failing', 'no-change': 'actions changed nothing', 'low-confidence': 'the executor was unsure', oscillation: 'going back and forth' };
-const planReason = (hint: { kind: string; detail: Record<string, unknown> }) => hint.kind === 'help-request' ? 'the executor asked' : hint.kind === 'task-limit' ? 'a task ran out of actions'
+const PLAN_KINDS: readonly string[] = ['replan', 'task-limit'];
+const PLAN_REASONS: Record<string, string> = { failures: 'actions kept failing', 'no-change': 'actions changed nothing', oscillation: 'going back and forth' };
+const planReason = (hint: { kind: string; detail: Record<string, unknown> }) => hint.kind === 'task-limit' ? 'a task ran out of actions'
   : PLAN_REASONS[String(hint.detail.trigger)] ?? String(hint.detail.trigger);
 const countBy = (values: string[]) => values.reduce((counts, value) => counts.set(value, (counts.get(value) ?? 0) + 1), new Map<string, number>());
 
@@ -164,9 +164,9 @@ const countBy = (values: string[]) => values.reduce((counts, value) => counts.se
  */
 export function formatRunResult(result: RunTaskResult): string {
   const lines: string[] = [];
-  const c = result.conditions as { profile?: { name?: string }; combo?: { name?: string; executor?: string; planner?: string; planFile?: string }; pageEnvironment?: { profile?: unknown }; atEnvironment?: { backend?: string } };
+  const c = result.conditions as { profile?: { name?: string }; combo?: { name?: string; planner?: string; planFile?: string }; pageEnvironment?: { profile?: unknown }; atEnvironment?: { backend?: string } };
   if (c.combo) {
-    lines.push(`Conditions: ${c.profile?.name ?? c.combo.name} (planned · planner ${c.combo.planner ?? (c.combo.planFile ? `plan file ${c.combo.planFile}` : '?')} → executor ${c.combo.executor ?? '?'})`,
+    lines.push(`Conditions: ${c.profile?.name ?? c.combo.name} (planner ${c.combo.planner ?? (c.combo.planFile ? `plan file ${c.combo.planFile}` : '?')})`,
       `  page ${typeof c.pageEnvironment?.profile === 'string' ? c.pageEnvironment.profile : 'custom'} · screen reader ${c.atEnvironment?.backend ?? '?'}`);
     for (const warning of result.warnings) lines.push(`  note: ${warning}`);
     lines.push('');
@@ -254,7 +254,7 @@ async function doctor(projectDir: string, dependencies: CliDependencies, stdout:
       const label = `Key ${key.label}`;
       if (agentOf(key.connection)) {
         try {
-          await (dependencies.checkAgent ?? (connection => discover({ kind: 'llm', provider: connection.provider as never })))({ kind: 'llm', provider: key.connection.provider });
+          await (dependencies.checkAgent ?? (connection => discover({ provider: connection.provider as never })))({ provider: key.connection.provider });
           report(true, key.label, 'starts and lists its models (its own sign-in pays for calls)');
         } catch (error) {
           const code = error instanceof ProjectError ? error.code : '';

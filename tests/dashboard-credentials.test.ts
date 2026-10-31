@@ -14,7 +14,7 @@ afterEach(async () => {
 async function dashboard() {
   const dir = await mkdtemp(join(tmpdir(), 'rawstep-credentials-')); dirs.push(dir);
   const store = new ProjectStore(dir), initial = await store.initialize();
-  const custom = { id: 'local', name: 'Local', kind: 'decision' as const, provider: 'custom' as const, baseURL: 'http://127.0.0.1:8000/v1', apiKeyEnv: 'RAWSTEP_LOCAL_KEY', timeoutMs: 10000 };
+  const custom = { id: 'local', name: 'Local', provider: 'custom' as const, baseURL: 'http://127.0.0.1:8000/v1', apiKeyEnv: 'RAWSTEP_LOCAL_KEY', timeoutMs: 10000 };
   await store.save({ ...initial.config, connections: [custom] }, initial.revision);
   const app = await startDashboard({ projectDir: dir, port: 0 }); apps.push(app);
   const post = (path: string, body: unknown) => fetch(app.url + path, { method: 'POST', headers: { 'content-type': 'application/json', origin: app.url }, body: JSON.stringify(body) });

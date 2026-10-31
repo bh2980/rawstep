@@ -2,19 +2,16 @@
  * The plan an orchestrated run follows, shaped like a spec-driven plan (Kiro, Spec Kit): success criteria (what the user must be
  * able to hear) → strategy and the assumptions it rests on → phases of numbered tasks that name the criteria they serve and the
  * assumptions they rely on. The planner drafts and revises it; Rawstep owns the document — task ids, statuses, the current task,
- * action counts, versions and history. The executor only ever sees one task, so everything it cannot keep track of lives here.
+ * action counts, versions and history — and carries out one task at a time.
  */
 export type TaskStatus = 'pending' | 'active' | 'done' | 'abandoned' | 'failed';
 export type CriterionStatus = 'open' | 'met' | 'unmet';
 export type AssumptionStatus = 'open' | 'held' | 'broken';
-/** Why the executor asked for help: the completion cue never came, actions had no effect, or the task already looks done. */
-export type HelpReason = 'no-cue' | 'no-effect' | 'already-done';
 /** Why the plan was (re)written. `checkpoint`: a phase finished and the planner reviews its criteria before going on. */
-export type PlanTrigger = 'start' | 'help' | 'failures' | 'no-change' | 'task-limit' | 'low-confidence' | 'oscillation' | 'goal-heard' | 'effort-review' | 'checkpoint' | 'plan-finished';
+export type PlanTrigger = 'start' | 'failures' | 'no-change' | 'task-limit' | 'oscillation' | 'goal-heard' | 'effort-review' | 'checkpoint' | 'plan-finished';
 /**
- * How a task ended. `verified` compares the task's cue with what the screen reader said: the executor's "done" is a claim, not a
- * fact. A claim whose cue was not heard is turned down, so a task only ends `not-heard` in plans written before that rule;
- * `unchecked` means the task had no cue to compare.
+ * How a task ended. `verified` compares the task's cue with what the screen reader said: `recognized` is the planner judging a heard
+ * item to be the one the cue meant, `not-heard` a typing task done without its cue, `unchecked` a task with no cue to compare.
  */
 export type TaskEnding = { reason: 'done' | 'replaced' | 'limit'; step: number; verified?: 'heard' | 'recognized' | 'not-heard' | 'unchecked' };
 /** Something the user must be able to hear for the goal to count as reached, in the planner's words. */
@@ -36,17 +33,20 @@ export type PlanTask = {
   /** The state the item should be in when the task is done ("checked"…). */
   cueState?: CueState;
   /**
-   * Whether the task ends by activating something (pressing a button, opening a disclosure, checking a box). A task that only
-   * moves offers the executor no activation: a decision model otherwise presses items whose words resemble the goal. Unset: both.
+   * Whether the task ends by activating something (pressing a button, opening a disclosure, checking a box): Rawstep presses the
+   * item the cursor is on. A task that only moves never presses.
    */
   activates?: boolean;
   /**
-   * The movement actions the executor may use on this task (for example `heading.next`): the plan's navigation method, enforced.
-   * A decision model otherwise ignores "move by headings" and pages item by item, or swings between next and previous. Unset: all.
+   * The movement actions of this task (for example `heading.next`): the plan's navigation method. Rawstep takes the first one the
+   * profile allows until the cue is heard; unset, it moves item by item.
    */
   moves?: string[];
-  /** "Done" claims Rawstep turned down because the cue was not heard. */
-  rejected: number;
+  /**
+   * The named input the task types (an input key such as `query`): the user presses the field the cursor is on, which gives it
+   * focus, and types the value into it. The task is done once the value is typed. The planner knows the input's name, never its value.
+   */
+  types?: string;
   /** Criteria this task works toward and assumptions it relies on. */
   serves: string[]; relies: string[];
   status: TaskStatus;
@@ -68,7 +68,7 @@ export type PlanRevision = {
   version: number;
   /** The runner step the revision was made before. */
   step: number;
-  trigger: PlanTrigger; help?: HelpReason;
+  trigger: PlanTrigger;
   /** The planner's own account of what differed from its expectation and what it changed. */
   rationale: string;
   added: string[]; abandoned: string[];
@@ -89,7 +89,7 @@ export type PlanDocument = {
   phases: PlanPhase[];
   /** Tasks dropped from the current plan, kept with their phase title so the history stays readable. */
   retired: (PlanTask & { phase: string })[];
-  /** The task the executor works on now. */
+  /** The task Rawstep carries out now. */
   current?: string;
   revisions: PlanRevision[];
 };
@@ -101,7 +101,7 @@ export type PlanDraft = {
   complete: boolean; rationale: string; strategy: string;
   criteria: { id: string; text: string; status?: CriterionStatus }[];
   assumptions: { id: string; text: string; status?: AssumptionStatus }[];
-  phases: { title: string; criteria?: string[]; tasks: { keep?: string; goal: string; done: string; cue?: string | DraftCue; activates?: boolean; moves?: string[]; serves?: string[]; relies?: string[] }[] }[];
+  phases: { title: string; criteria?: string[]; tasks: { keep?: string; goal: string; done: string; cue?: string | DraftCue; activates?: boolean; moves?: string[]; types?: string; serves?: string[]; relies?: string[] }[] }[];
   /** Set only when the user gives up instead of planning further (see `GiveUp`). */
   giveUp?: GiveUp;
 };
@@ -117,7 +117,7 @@ export const phaseOf = (doc: PlanDocument, taskId: string): PlanPhase | undefine
  * settled, and stays in the document when the draft leaves it out (the planner lists what the plan still relies on). Tasks are
  * renumbered by phase, and the first open task becomes current.
  */
-export function applyDraft(doc: PlanDocument | undefined, draft: PlanDraft, at: { goal: string; step: number; trigger: PlanTrigger; help?: HelpReason }): PlanDocument {
+export function applyDraft(doc: PlanDocument | undefined, draft: PlanDraft, at: { goal: string; step: number; trigger: PlanTrigger }): PlanDocument {
   const version = (doc?.version ?? 0) + 1;
   const previous = new Map((doc ? planTasks(doc) : []).map(t => [t.id, t]));
   const titleOf = new Map((doc?.phases ?? []).flatMap(p => p.tasks.map(t => [t.id, p.title] as const)));
@@ -138,7 +138,7 @@ export function applyDraft(doc: PlanDocument | undefined, draft: PlanDraft, at: 
       const old = task.keep !== undefined ? previous.get(task.keep) : undefined;
       if (old && !kept.has(old.id)) { kept.add(old.id); return { ...structuredClone(old), number, serves, relies, status: old.status === 'active' ? 'pending' : old.status }; }
       const id = `t${++next}`; added.push(id);
-      return { id, number, goal: task.goal, done: task.done, ...draftCue(task.cue), ...(task.activates !== undefined ? { activates: task.activates } : {}), ...(task.moves?.length ? { moves: task.moves.map(move => move.replace(/^intent:/, '')) } : {}), serves, relies, status: 'pending', actions: 0, rejected: 0, addedIn: version };
+      return { id, number, goal: task.goal, done: task.done, ...draftCue(task.cue), ...(task.activates !== undefined ? { activates: task.activates } : {}), ...(task.moves?.length ? { moves: task.moves.map(move => move.replace(/^intent:/, '')) } : {}), ...(task.types ? { types: task.types.replace(/^(?:type|replace):/, '') } : {}), serves, relies, status: 'pending', actions: 0, addedIn: version };
     }) })).filter(p => p.tasks.length);
   const retired = [...(doc?.retired ?? [])], abandoned: string[] = [];
   for (const [id, task] of previous) {
@@ -151,7 +151,7 @@ export function applyDraft(doc: PlanDocument | undefined, draft: PlanDraft, at: 
   const broken = assumptions.filter(a => a.status === 'broken' && before.get(a.id) !== 'broken').map(a => a.id);
   const met = criteria.filter(c => c.status === 'met' && before.get(c.id) !== 'met').map(c => c.id);
   const result: PlanDocument = { goal: at.goal, version, complete: draft.complete, criteria, strategy: draft.strategy, assumptions, phases, retired,
-    revisions: [...(doc?.revisions ?? []), { version, step: at.step, trigger: at.trigger, ...(at.help ? { help: at.help } : {}), rationale: draft.rationale, added, abandoned, broken, met, ...(draft.giveUp ? { giveUp: structuredClone(draft.giveUp) } : {}) }] };
+    revisions: [...(doc?.revisions ?? []), { version, step: at.step, trigger: at.trigger, rationale: draft.rationale, added, abandoned, broken, met, ...(draft.giveUp ? { giveUp: structuredClone(draft.giveUp) } : {}) }] };
   return activateNext(result);
 }
 /** Makes the first open task current (and active); none left means the plan has run out. */
@@ -201,7 +201,7 @@ function draftCue(cue: string | DraftCue | undefined): Pick<PlanTask, 'cue' | 'c
   const known = role && (role in ROLE_WORDS ? role as CueRole : ROLE_ALIASES[role]);
   return { cue: cue.name.trim(), ...(known ? { cueRole: known } : {}), ...(state && CUE_STATES.includes(state) ? { cueState: state } : {}) };
 }
-/** The cue as one line, for the executor and the plan document: "Add to cart (button)". */
+/** The cue as one line, for the planner and the plan document: "Add to cart (button)". */
 export function cueText(task: Pick<PlanTask, 'cue' | 'cueRole' | 'cueState'>): string {
   const extra = [task.cueRole, task.cueState].filter(Boolean).join(', ');
   return task.cue ? `${task.cue}${extra ? ` (${extra})` : ''}` : extra ? `(${extra})` : '';
@@ -289,10 +289,6 @@ export function verifyCue(task: Pick<PlanTask, 'cue' | 'cueRole' | 'cueState' | 
   if (!cues.length) return 'unchecked';
   return cues.some(cue => heard.some(line => matchCue(cue, line) === 'heard')) ? 'heard' : 'not-heard';
 }
-/** One line per task for the executor: where the run is, without the planner's free-form reasoning. */
-export function planOutline(doc: PlanDocument): { number: string; phase: string; task: string; status: TaskStatus }[] {
-  return doc.phases.flatMap(p => p.tasks.map(t => ({ number: t.number, phase: p.title, task: t.goal, status: t.status })));
-}
 
 const box: Record<TaskStatus, string> = { pending: '[ ]', active: '[~]', done: '[x]', abandoned: '[-]', failed: '[!]' };
 const mark: Record<CriterionStatus | AssumptionStatus, string> = { open: '?', met: '✓', unmet: '✕', held: '✓', broken: '✕' };
@@ -306,11 +302,11 @@ export function renderPlanMarkdown(doc: PlanDocument): string {
     for (const t of phase.tasks) {
       const refs = [...t.serves, ...t.relies].join(', ');
       lines.push(`- ${box[t.status]} ${t.number} ${t.goal}${refs ? ` _(${refs})_` : ''}${doc.current === t.id ? ' ← current' : ''}`,
-        `  - done: ${t.done}${t.cue ? ` · cue "${cueText(t)}"` : ''} · actions: ${t.actions}${t.rejected ? ` · claims turned down: ${t.rejected}` : ''}${t.ending?.verified ? ` · cue ${t.ending.verified}` : ''}`);
+        `  - done: ${t.done}${t.cue ? ` · cue "${cueText(t)}"` : ''}${t.types ? ` · types ${t.types}` : ''} · actions: ${t.actions}${t.ending?.verified ? ` · cue ${t.ending.verified}` : ''}`);
     }
     lines.push('');
   }
   if (doc.retired.length) lines.push('## Retired', '', ...doc.retired.map(t => `- ${box[t.status]} ${t.number} ${t.goal} (${t.phase}) · actions: ${t.actions}`), '');
-  lines.push('## Revisions', '', ...doc.revisions.map(r => `- v${r.version} before step ${r.step} · ${r.trigger}${r.help ? `/${r.help}` : ''}${r.broken.length ? ` · broken ${r.broken.join(', ')}` : ''}${r.met.length ? ` · met ${r.met.join(', ')}` : ''}${r.giveUp ? ` · gave up (${r.giveUp.tried.join(', ')})` : ''}${r.rationale ? ` — ${r.rationale}` : ''}`), '');
+  lines.push('## Revisions', '', ...doc.revisions.map(r => `- v${r.version} before step ${r.step} · ${r.trigger}${r.broken.length ? ` · broken ${r.broken.join(', ')}` : ''}${r.met.length ? ` · met ${r.met.join(', ')}` : ''}${r.giveUp ? ` · gave up (${r.giveUp.tried.join(', ')})` : ''}${r.rationale ? ` — ${r.rationale}` : ''}`), '');
   return lines.join('\n');
 }

@@ -53,7 +53,7 @@ export class RunViews {
     const report = live(run) ? await this.liveTrace(experimentId, runId, events).then(t => t && extractHints(t)) : await this.savedHints(experimentId, runId) ?? await this.trace(experimentId, runId).then(t => t && extractHints(t));
     const explanation = live(run) || !run.analysisModel ? undefined : await this.explanation(experimentId, runId, events);
     const plan = buildPlan(events);
-    return { ...buildSteps({ experimentId, runId, events, ...(report ? { hints: report.hints } : {}), live: live(run) }), modelKind: run.snapshot.spec.model.kind, hints: report?.hints ?? [],
+    return { ...buildSteps({ experimentId, runId, events, ...(report ? { hints: report.hints } : {}), live: live(run) }), hints: report?.hints ?? [],
       ...(explanation ? { explanation } : {}), ...(plan ? { plan } : {}) };
   }
   /** The LLM's analysis.json of a run, with each finding's cited events turned into steps. The rule-based analysis is not shown here: hints cover it. */

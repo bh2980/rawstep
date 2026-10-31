@@ -11,12 +11,12 @@ const build = (pairs: readonly Pair[], options: Partial<Parameters<typeof buildS
 const shot = (step: number, path = `diagnostics/step-${step}.png`): Pair => ['browser.screenshot', { step, path, policyVisible: false }];
 
 describe('dashboard step view', () => {
-  it('folds a run into steps with actions, results, screenshots, model candidates, changes and verification', () => {
+  it('folds a run into steps with actions, results, screenshots, the actions Rawstep chose among, changes and verification', () => {
     const view = build([
       shot(0),
       ['observer.focus', { kind: 'focus', step: 0, role: 'button', name: 'Start', tag: 'button' }],
       ['verifier.baseline', { passed: false, rules: [{ ruleIndex: 0, ruleType: 'titleIncludes', passed: false }] }],
-      ['policy.evidence', { step: 1, evidence: { kind: 'model-inference', choiceId: 'key:Tab', choices: [{ id: 'key:Tab', label: 'Press Tab' }, { id: 'key:Enter', label: 'Press Enter' }, { id: 'stop:stuck' }], probabilities: [0.6, 0.3, 0.1], model: { id: 'm1' }, inferenceMs: 420 } }],
+      ['policy.evidence', { step: 1, evidence: { kind: 'orchestration-follow', taskId: 't1', planVersion: 1, choiceId: 'key:Tab', choices: [{ id: 'key:Tab', label: 'Press Tab' }, { id: 'key:Enter', label: 'Press Enter' }] } }],
       ['policy.decision', { step: 1, decision: { action: { kind: 'key', key: 'Tab' }, rationale: 'private reasoning' } }],
       ['action.result', { step: 1, ok: true, action: { kind: 'key', key: 'Tab' } }],
       shot(1),
@@ -35,7 +35,8 @@ describe('dashboard step view', () => {
     expect(s0.hints).toEqual(['goal-met-at-start']);
     expect(s1.action).toEqual({ kind: 'key', key: 'Tab' }); expect(s1.ok).toBe(true);
     expect(s1.screenshot).toEqual({ eventId: 'e7' });
-    expect(s1.model).toEqual({ choiceId: 'key:Tab', modelId: 'm1', inferenceMs: 420, candidates: [{ id: 'key:Tab', label: 'Press Tab', probability: 0.6 }, { id: 'key:Enter', label: 'Press Enter', probability: 0.3 }, { id: 'stop:stuck', probability: 0.1 }] });
+    expect(s1.follow).toEqual({ choiceId: 'key:Tab', candidates: [{ id: 'key:Tab', label: 'Press Tab' }, { id: 'key:Enter', label: 'Press Enter' }] });
+    expect(s1).not.toHaveProperty('model');
     expect(s1.observed).toEqual([{ kind: 'state', role: 'button', name: 'Menu', attr: 'aria-expanded', value: 'true' }, { kind: 'navigation', url: 'https://example.com/next', value: null }]);
     expect(s1.hints).toEqual(['backtracking']); expect(s1.at).toBe('2026-01-01T00:00:04.000Z');
     expect(s2.action).toEqual({ kind: 'intent', intent: 'activate' }); expect(s2.ok).toBe(false); expect(s2.hints).toEqual(['backtracking']); expect(s2.screenshot).toBeUndefined();
@@ -44,24 +45,23 @@ describe('dashboard step view', () => {
     expect(JSON.stringify(view)).not.toContain('private reasoning');
     expect(view.steps.every(s => !s.redacted)).toBe(true);
   });
-  it('shows the planner\'s current task and plan events on the step where they happened', () => {
+  it('shows the plan events on the step where they happened', () => {
     const doc = (version: number, tasks: [string, string][]) => ({ version, strategy: 'Search, then add', phases: [{ title: 'Find', tasks: tasks.map(([number, goal]) => ({ number, goal })) }] });
     const view = build([
       ['policy.evidence', { step: 1, evidence: { kind: 'orchestration-plan', role: 'planner', trigger: 'start', version: 1, document: doc(1, [['1.1', 'Find search']]) } }],
-      ['policy.evidence', { step: 1, evidence: { kind: 'model-inference', role: 'executor', stepGoal: 'Find search', taskId: 't1', choiceId: 'task:done', choices: [], model: { id: 'jev' } } }],
       ['policy.evidence', { step: 1, evidence: { kind: 'orchestration-task', taskId: 't1', fromStatus: 'active', toStatus: 'done', actions: 0 } }],
       ['policy.evidence', { step: 1, evidence: { kind: 'orchestration-plan', role: 'planner', trigger: 'plan-finished', version: 2, document: doc(2, [['1.1', 'Find search'], ['1.2', 'Type the term']]) } }],
-      ['policy.evidence', { step: 1, evidence: { kind: 'model-inference', role: 'executor', stepGoal: 'Type the term', taskId: 't2', choiceId: 'intent:next', choices: [], model: { id: 'jev' } } }],
+      ['policy.evidence', { step: 1, evidence: { kind: 'orchestration-follow', taskId: 't2', planVersion: 2, choiceId: 'intent:next', choices: [] } }],
       ['policy.decision', { step: 1, decision: { action: { kind: 'intent', intent: 'next' } } }],
-      ['policy.evidence', { step: 2, evidence: { kind: 'orchestration-limit', reason: 'help' } }],
+      ['policy.evidence', { step: 2, evidence: { kind: 'orchestration-limit', reason: 'task-limit' } }],
       ['policy.decision', { step: 2, decision: { stop: 'stuck', stopSource: 'orchestration-limit' } }],
     ]);
-    expect(view.steps[1]!.plan).toEqual({ stepGoal: 'Type the term', events: [
+    expect(view.steps[1]!.plan).toEqual({ events: [
       { kind: 'plan', reason: 'start', outline: ['Search, then add'], steps: ['1.1 Find search'] },
       { kind: 'step-done', goal: 't1' },
       { kind: 'plan', reason: 'plan-finished', outline: ['Search, then add'], steps: ['1.1 Find search', '1.2 Type the term'] },
     ] });
-    expect(view.steps[2]!.plan).toEqual({ events: [{ kind: 'limit', reason: 'help' }] });
+    expect(view.steps[2]!.plan).toEqual({ events: [{ kind: 'limit', reason: 'task-limit' }] });
     expect(view.steps[0]!.plan).toBeUndefined();
   });
   it('carries the focused element\'s box, and nothing for a redacted or malformed box', () => {
@@ -118,7 +118,7 @@ describe('dashboard step view', () => {
     ]);
     expect(view.steps.map(s => s.redacted)).toEqual([false, true, true]);
     expect(view.steps[1]).toMatchObject({ action: { kind: 'typeText', input: 'email' }, ok: true, observed: [{ kind: 'state', role: 'textbox' }] });
-    expect(view.steps[1]!.screenshot).toBeUndefined(); expect(view.steps[1]!.speech).toBeUndefined(); expect(view.steps[1]!.model).toBeUndefined();
+    expect(view.steps[1]!.screenshot).toBeUndefined(); expect(view.steps[1]!.speech).toBeUndefined(); expect(view.steps[1]!.follow).toBeUndefined();
     expect(view.steps[2]!.verification).toEqual({ passed: false, rules: [{ ruleIndex: 0, ruleType: 'visibleText', passed: false }] });
     expect(JSON.stringify(view)).not.toContain('REDACTED');
   });
@@ -167,19 +167,19 @@ describe('plan document view', () => {
     assumptions: [{ id: 'A1', text: 'Button after quantity', status: 'broken', addedIn: 1, settledIn: 2 }],
     phases: [{ id: 'p2.1', number: '1', title: 'Add', criteria: ['C1'], tasks: [task('t3', '1.1', 'Find by form controls', 'active', { addedIn: 2 }), task('t2', '1.2', 'Press it', 'pending')] }],
     retired: [{ ...task('t1', '1.1', 'Find button', 'abandoned', { actions: 2, ending: { reason: 'replaced', step: 3 } }), phase: 'Add' }] };
-  const revision2 = { version: 2, step: 3, trigger: 'help', help: 'no-cue', rationale: 'Not heard after two moves', added: ['t3'], abandoned: ['t1'], broken: ['A1'], met: [] };
-  const inference = (step: number, taskId: string, version: number, choiceId: string, extra: Record<string, unknown> = {}) =>
-    ['policy.evidence', { step, evidence: { kind: 'model-inference', role: 'executor', taskId, planVersion: version, choiceId, choices: [{ id: 'intent:next', label: 'Next' }, { id: 'help:no-cue', label: 'Ask' }], probabilities: [0.7, 0.3], model: { id: 'jev' }, elapsedMs: 200, ...extra } }] as const;
+  const revision2 = { version: 2, step: 3, trigger: 'no-change', rationale: 'Not heard after two moves', added: ['t3'], abandoned: ['t1'], broken: ['A1'], met: [] };
+  const follow = (step: number, taskId: string, version: number, choiceId: string) =>
+    ['policy.evidence', { step, evidence: { kind: 'orchestration-follow', taskId, planVersion: version, choiceId, choices: [{ id: 'intent:next', label: 'Next' }, { id: 'intent:activate', label: 'Activate' }] } }] as const;
   const run: Pair[] = [
     ['policy.evidence', { step: 1, evidence: { kind: 'orchestration-plan', role: 'planner', trigger: 'start', version: 1, revision: v1.revisions[0], document: v1, model: { id: 'gemini' }, elapsedMs: 900 } }],
     ['policy.evidence', { step: 1, evidence: { kind: 'orchestration-task', taskId: 't1', planVersion: 1, fromStatus: 'pending', toStatus: 'active', actions: 0 } }],
-    inference(1, 't1', 1, 'intent:next'),
+    follow(1, 't1', 1, 'intent:next'),
     ['policy.decision', { step: 1, decision: { action: { kind: 'intent', intent: 'next' } } }],
-    inference(2, 't1', 1, 'intent:next'),
+    follow(2, 't1', 1, 'intent:next'),
     ['policy.decision', { step: 2, decision: { action: { kind: 'intent', intent: 'next' } } }],
-    inference(3, 't1', 1, 'help:no-cue'),
-    ['policy.evidence', { step: 3, evidence: { kind: 'orchestration-plan', role: 'planner', trigger: 'help', help: 'no-cue', version: 2, revision: revision2, document: { ...v2, revisions: [...v1.revisions, revision2] }, model: { id: 'gemini' }, elapsedMs: 800 } }],
-    inference(3, 't3', 2, 'intent:next'),
+    follow(3, 't1', 1, 'intent:next'),
+    ['policy.evidence', { step: 3, evidence: { kind: 'orchestration-plan', role: 'planner', trigger: 'no-change', version: 2, revision: revision2, document: { ...v2, revisions: [...v1.revisions, revision2] }, model: { id: 'gemini' }, elapsedMs: 800 } }],
+    follow(3, 't3', 2, 'intent:activate'),
     ['policy.decision', { step: 3, decision: { action: { kind: 'intent', intent: 'next' } } }],
   ];
 
@@ -187,7 +187,7 @@ describe('plan document view', () => {
     const plan = buildPlan(events(run))!;
     expect(plan.document.version).toBe(2);
     expect(plan.document.current).toBe('t3');
-    expect(plan.versions.map(v => [v.version, v.step, v.trigger, v.help, v.rationale])).toEqual([[1, 1, 'start', undefined, 'first'], [2, 3, 'help', 'no-cue', 'Not heard after two moves']]);
+    expect(plan.versions.map(v => [v.version, v.step, v.trigger, v.rationale])).toEqual([[1, 1, 'start', 'first'], [2, 3, 'no-change', 'Not heard after two moves']]);
     expect(plan.versions[1]).toMatchObject({ broken: ['A1'], abandoned: ['t1'], added: ['t3'] });
     expect(plan.stepTasks).toEqual({ 1: { taskId: 't1', planVersion: 1 }, 2: { taskId: 't1', planVersion: 1 }, 3: { taskId: 't3', planVersion: 2 } });
     expect(plan.document.retired[0]).toMatchObject({ id: 't1', status: 'abandoned', actions: 2, phase: 'Add', ending: { reason: 'replaced', step: 3 } });
@@ -197,26 +197,25 @@ describe('plan document view', () => {
     expect(plan.redacted).toBe(false);
   });
 
-  it('keeps every model call of a step in order with its role', () => {
+  it('keeps every planner call of a step, and which action Rawstep took for the task the plan was on', () => {
     const plan = buildPlan(events(run))!;
-    expect(plan.calls[3]).toEqual([
-      { role: 'executor', taskId: 't1', planVersion: 1, choiceId: 'help:no-cue', choiceLabel: 'Ask', score: 0.3, modelId: 'jev', elapsedMs: 200 },
-      { role: 'planner', modelId: 'gemini', elapsedMs: 800, trigger: 'help', help: 'no-cue', version: 2 },
-      { role: 'executor', taskId: 't3', planVersion: 2, choiceId: 'intent:next', choiceLabel: 'Next', score: 0.7, modelId: 'jev', elapsedMs: 200 },
-    ]);
+    // The follow records are not calls: only the planner is asked.
+    expect(plan.calls[3]).toEqual([{ modelId: 'gemini', elapsedMs: 800, trigger: 'no-change', version: 2 }]);
+    expect(plan.calls[1]).toEqual([{ modelId: 'gemini', elapsedMs: 900, trigger: 'start', version: 1 }]);
+    expect(plan.calls[2]).toBeUndefined();
     const steps = build(run).steps;
-    expect(steps[3]!.calls?.map(c => c.role)).toEqual(['executor', 'planner', 'executor']);
-    expect(steps[3]!.model?.choiceId).toBe('intent:next');
+    expect(steps[3]!.calls).toEqual([{ modelId: 'gemini', elapsedMs: 800, trigger: 'no-change', version: 2 }]);
+    expect(steps[3]!.follow?.choiceId).toBe('intent:activate');
   });
 
   it('moves statuses on from the structure kept after text entry, without the plan wording', () => {
     const summary = (step: number, s: Record<string, unknown>): Pair => ['policy.evidence', { step, details: '[REDACTED]', summary: s }, true];
     const plan = buildPlan(events([
       ...run,
-      summary(4, { kind: 'model-inference', role: 'executor', taskId: 't3', planVersion: 2, choiceId: 'task:done' }),
+      summary(4, { kind: 'orchestration-follow', taskId: 't3', planVersion: 2, choiceId: 'intent:activate' }),
       summary(4, { kind: 'orchestration-task', taskId: 't3', planVersion: 2, fromStatus: 'active', toStatus: 'done', actions: 1, ending: { reason: 'done', step: 4, verified: 'heard' } }),
       summary(4, { kind: 'orchestration-task', taskId: 't2', planVersion: 2, fromStatus: 'pending', toStatus: 'active', actions: 0 }),
-      summary(4, { kind: 'model-inference', role: 'executor', taskId: 't2', planVersion: 2, choiceId: 'intent:activate' }),
+      summary(4, { kind: 'orchestration-follow', taskId: 't2', planVersion: 2, choiceId: 'intent:activate' }),
       ['policy.decision', { step: 4, decision: { action: { kind: 'intent', intent: 'activate' } } }, true],
       summary(5, { kind: 'orchestration-plan', role: 'planner', trigger: 'plan-finished', version: 3 }),
     ]))!;
@@ -226,10 +225,10 @@ describe('plan document view', () => {
     expect(plan.documents[2]!.phases[0]!.tasks.map(t => [t.id, t.status, t.ending?.verified])).toEqual([['t3', 'done', 'heard'], ['t2', 'active', undefined]]);
     expect(plan.document.current).toBe('t2');
     expect(plan.stepTasks[4]).toEqual({ taskId: 't2', planVersion: 2 });
-    expect(plan.calls[4]!.map(c => c.choiceId)).toEqual(['task:done', 'intent:activate']);
+    expect(plan.calls[4]).toBeUndefined();
   });
 
   it('is absent for a run without a planner', () => {
-    expect(buildPlan(events([['policy.evidence', { step: 1, evidence: { kind: 'model-inference', choiceId: 'key:Tab', choices: [] } }]]))).toBeUndefined();
+    expect(buildPlan(events([['policy.evidence', { step: 1, evidence: { kind: 'speech-state', state: {} } }]]))).toBeUndefined();
   });
 });

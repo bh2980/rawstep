@@ -6,7 +6,7 @@ The `english-dom-navigation-evidence-v2` profile makes a deliberately small, rep
 choices inspired by screen-reader object navigation. It does not claim exact macOS,
 Safari, VoiceOver wording, or interaction fidelity. Selected navigation wording is
 now calibrated against versioned, third-party reported VoiceOver output; see
-[the evidence and limits](../../docs/mock-voiceover-evidence.md). This composite
+[the evidence and limits](../../../../docs/mock-voiceover-evidence.md). This composite
 profile is not one specific macOS/Safari version.
 
 The backend implements the generic `Backend` interface: `start`, `execute`,

@@ -2,24 +2,21 @@ import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import { runTask } from '@rawstep/browser/runner';
 import { runMockVoiceOverTask } from '@rawstep/screenreaders/mock-voiceover';
 import { AtDriverBackend } from '@rawstep/screenreaders/at-driver';
-import { DecisionClient, SystemOneChoiceModel, type DecisionProviderName } from '@rawstep/policies/systemone';
-import { FixedPlanner, OrchestratedSpeechPolicy, orchestratedPrompt, renderPlanMarkdown, SpeechDecisionPolicy, type ChoiceModel, type PlanDraft, type Planner } from '@rawstep/policies/policy';
+import { FixedPlanner, OrchestratedSpeechPolicy, renderPlanMarkdown, type PlanDraft, type Planner } from '@rawstep/policies/policy';
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { atomicJson } from './store.js';
 import { LlmPlanner } from '@rawstep/policies/llm';
 import { resolveEnvironmentProfile } from '@rawstep/browser/profiles';
-import type { DecisionPolicy, Task } from '@rawstep/core/contracts';
+import type { Task } from '@rawstep/core/contracts';
 import type { RunTrace, TraceEvent } from '@rawstep/core/trace';
-import { closeLlmModel, llmChoiceModel, llmModelOf, prepareLlmModel } from './llm.js';
-import { type AtBackend, type Executor, type Model, type Permissions, type Prompt, type RunSettings, atEndpointOf, isPlanFollower, resolveBaseURL } from './config.js';
+import { closeLlmModel, llmModelOf, prepareLlmModel } from './llm.js';
+import { type AtBackend, type Model, type Permissions, type RunSettings, atEndpointOf } from './config.js';
 import { ensureAtDriver } from './atdriver.js';
 
 /** Everything one run needs, resolved from the project: nothing here is looked up again while the run executes. */
 export type RunSpec = {
   task: Task;
-  /** The executor, its instructions and how it reads the run. */
-  model: Model; prompt: Prompt; executor: Pick<Executor, 'historyLimit' | 'latitude'>;
   /** This computer's settings, the run rules and the analysis instructions in force for this run. */
   settings: RunSettings;
   /** The page environment: a profile name or object, resolved by @rawstep/browser/profiles. */
@@ -30,13 +27,13 @@ export type RunSpec = {
   permissions: Permissions;
   /** The conditions as recorded in the trace at `run.started`. */
   conditions?: Record<string, unknown>;
-  /** The LLM that writes the plan document for `model` to carry out, and its added instructions. */
+  /** The LLM that writes the plan document Rawstep carries out, and its added instructions. */
   plannerModel?: Model; plannerInstructions?: string;
   /** Instead of a planner model: a plan written beforehand, as read from its file (see `loadPlanFile`). */
   plannerPlan?: { file: string; draft: PlanDraft; sha256: string };
 };
 export type RunExecution = {
-  outDir: string; apiKey?: string; signal: AbortSignal; onEvent?: (event: TraceEvent) => void;
+  outDir: string; signal: AbortSignal; onEvent?: (event: TraceEvent) => void;
   /** The planner model's key, when `RunSpec.plannerModel` needs one. */
   plannerApiKey?: string | undefined;
   /** The command that starts the AT Driver server on this computer, for native screen reader runs when none is running yet. */
@@ -47,43 +44,26 @@ export type RunExecution = {
 /** Runs one RunSpec; replaceable so callers can run without a browser or a model. */
 export type RunExecutor = (spec: RunSpec, execution: RunExecution) => Promise<RunTrace>;
 
-/** Builds the decision policy for the model's kind and runs the task on the backend the profile and machine settings select. */
-export const executeRun: RunExecutor = async ({ task, model, prompt, executor, settings, environment, backend, permissions, conditions, plannerModel, plannerInstructions, plannerPlan }, { outDir, apiKey, plannerApiKey, signal, onEvent, atDriverCommand, browserProfileDir }) => {
-  // With a planner the decision model carries out one small step at a time and asks for a new plan when stuck.
+/** Builds the plan policy and runs the task on the backend the profile and machine settings select. */
+export const executeRun: RunExecutor = async ({ task, settings, environment, backend, permissions, conditions, plannerModel, plannerInstructions, plannerPlan }, { outDir, plannerApiKey, signal, onEvent, atDriverCommand, browserProfileDir }) => {
   const plannerLlm = plannerModel ? llmModelOf(plannerModel, 'rawstep-planner', plannerApiKey) : undefined;
-  const fixedPlan = plannerPlan;
-  const chooser = model.kind === 'llm' ? llmChoiceModel(model, plannerLlm || fixedPlan ? orchestratedPrompt(prompt, settings.runRules.taskControl) : prompt, apiKey) : undefined;
   // Agent CLIs start before the task's clock (an adapter download is not the task) and end with the run.
   try {
     if (plannerLlm) await prepareLlmModel(plannerLlm, plannerModel!.name, signal);
-    if (chooser) await prepareLlmModel(chooser.llm, model.name, signal);
-    return await runWith(plannerLlm ? new LlmPlanner(plannerLlm, plannerInstructions, executor.latitude) : fixedPlan ? new FixedPlanner(fixedPlan.draft, { file: fixedPlan.file, sha256: fixedPlan.sha256 }) : undefined);
+    const planner = plannerLlm ? new LlmPlanner(plannerLlm, plannerInstructions) : plannerPlan ? new FixedPlanner(plannerPlan.draft, { file: plannerPlan.file, sha256: plannerPlan.sha256 }) : undefined;
+    if (!planner) throw new Error('A run needs a plan: a planner model or a plan file.');
+    return await runWith(planner);
   } finally {
-    await Promise.all([plannerLlm && closeLlmModel(plannerLlm), chooser && closeLlmModel(chooser.llm)]);
+    if (plannerLlm) await closeLlmModel(plannerLlm);
   }
 
-  async function runWith(planner: Planner | undefined): Promise<RunTrace> {
+  async function runWith(planner: Planner): Promise<RunTrace> {
     const deadline = Date.now() + (task.timeoutMs ?? RAWSTEP_DEFAULTS.task.timeoutMs);
     const setupSignal = AbortSignal.any([signal, AbortSignal.timeout(Math.max(1, deadline - Date.now()))]);
     const { machine, runRules: rules } = settings;
-    const speechOptions = { repetitionGuard: rules.repetitionGuard, maxUnchangedTransitions: rules.maxUnchangedTransitions, historyLimit: executor.historyLimit };
-    const speechPolicy = (choice: ChoiceModel | 'follow-plan'): DecisionPolicy => planner
-      ? new OrchestratedSpeechPolicy(planner, choice, { ...speechOptions, maxPlannerCalls: rules.maxPlannerCalls, reviewEvery: rules.reviewEvery, stepActionLimit: rules.stepActionLimit, failureLimit: rules.failureLimit, noChangeLimit: rules.noChangeLimit, plannerHistoryLimit: rules.plannerHistoryLimit,
-        taskControl: rules.taskControl, confidenceFloor: rules.confidenceFloor, survey: rules.survey, executorLatitude: executor.latitude })
-      : choice === 'follow-plan' ? (() => { throw new Error('Following the plan needs a plan.'); })() : new SpeechDecisionPolicy(choice, speechOptions);
-    let policy: DecisionPolicy;
-    // A profile that follows its plan has no executor model: Rawstep carries out the plan's tasks itself.
-    if (isPlanFollower(model)) {
-      if (!planner) throw new Error('Following the plan needs a plan.');
-      policy = speechPolicy('follow-plan');
-    } else if (chooser) {
-      policy = speechPolicy(chooser);
-    } else {
-      const client = new DecisionClient({ provider: model.provider as DecisionProviderName, baseURL: resolveBaseURL(model), modelId: model.modelId, apiKey, timeoutMs: model.timeoutMs,
-        capabilities: { maxChoices: model.maxChoices } });
-      await client.prepare({ signal: setupSignal });
-      policy = speechPolicy(new SystemOneChoiceModel(client, planner ? orchestratedPrompt(prompt, rules.taskControl) : prompt));
-    }
+    const policy = new OrchestratedSpeechPolicy(planner, { repetitionGuard: rules.repetitionGuard, maxUnchangedTransitions: rules.maxUnchangedTransitions,
+      maxPlannerCalls: rules.maxPlannerCalls, reviewEvery: rules.reviewEvery, stepActionLimit: rules.stepActionLimit, failureLimit: rules.failureLimit, noChangeLimit: rules.noChangeLimit,
+      plannerHistoryLimit: rules.plannerHistoryLimit, survey: rules.survey });
     const endpoint = machine.browserEndpoint.trim();
     const common = { policy, outDir, signal, allowedActions: permissions, confirmationGrace: rules.confirmationGrace, ...(onEvent ? { onEvent } : {}), ...(conditions ? { conditions } : {}),
       headless: backend !== 'simulation' ? false : machine.headless,
@@ -99,7 +79,7 @@ export const executeRun: RunExecutor = async ({ task, model, prompt, executor, s
       const url = atEndpointOf(machine, backend), driver = await ensureAtDriver({ endpoint: url, command: atDriverCommand, signal: setupSignal });
       try { return await runTask(resolvedTask, { ...common, diagnosticScreenshots: true, backend: new AtDriverBackend({ profile: backend, url }) }); }
       finally { await driver.stop(); }
-    } finally { if (policy instanceof OrchestratedSpeechPolicy) await savePlan(policy, outDir); }
+    } finally { await savePlan(policy, outDir); }
   }
 };
 /**

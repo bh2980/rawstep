@@ -65,12 +65,12 @@ export function RunPage({ runRef, runs, route, pageProps, navigate }: Props) {
       {view && (view.steps.length === 0
         ? <EmptyState compact title={live ? t('empty.steps.liveTitle') : t('empty.steps.title')} why={live ? t('empty.steps.liveWhy') : t('empty.steps.why')} />
         : <>
-          <TraceRail steps={view.steps} modelKind={view.modelKind} selected={selected} live={live} remaining={live ? Math.max(0, maxSteps - (latest?.step ?? 0)) : 0} onSelect={select} />
-          <RailLegend modelKind={view.modelKind} live={live} planned={!!view.plan} />
+          <TraceRail steps={view.steps} selected={selected} live={live} remaining={live ? Math.max(0, maxSteps - (latest?.step ?? 0)) : 0} onSelect={select} />
+          <RailLegend live={live} planned={!!view.plan} />
         </>)}
       <p role="status" aria-live="polite" className="sr-only">{spoken}</p>
     </section>
-    {view && step && <StepDetail key={step.step} step={step} experimentId={experiment.id} run={run} modelKind={view.modelKind} plan={view.plan} before={index > 0 ? view.steps[index - 1] : undefined}
+    {view && step && <StepDetail key={step.step} step={step} experimentId={experiment.id} run={run} plan={view.plan} before={index > 0 ? view.steps[index - 1] : undefined}
       hints={view.hints.filter(hint => hint.steps.includes(step.step))} baselineMet={step.step === 0 ? baselineMet : undefined} live={live && step.step === latest?.step} />}
     {view?.explanation && <RunExplanation explanation={view.explanation} model={run.analysisModel?.name} onSelect={select} />}
     {view && step && view.steps.length > 1 && <StepPager position={step.step} total={latest?.step ?? step.step} hasPrevious={index > 0} hasNext={index < view.steps.length - 1}
