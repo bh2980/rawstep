@@ -75,21 +75,19 @@ describe('project store', () => {
     await store.initialize();
     expect(JSON.parse(await readFile(join(dir, 'rawstep.config.json'), 'utf8'))).toEqual(defaultConfig());
   });
-  it('starts a project with the demo task and its files, plans with an installed agent CLI first, and keeps demo files already there', async () => {
+  it('starts a project with the demo task and its files, connects no model, and keeps demo files already there', async () => {
     const dir = await root();
     await mkdir(join(dir, 'rawstep/demo'), { recursive: true }); await writeFile(join(dir, 'rawstep/demo/page.html'), 'mine');
     await initProject(dir);
     const config = parseConfig(JSON.parse(await readFile(join(dir, 'rawstep.config.json'), 'utf8')));
-    expect(config).toEqual(demoConfig(undefined));
-    // Without an agent CLI nothing can plan, so the profile that follows the written plan comes first and `rawstep run demo` works.
+    expect(config).toEqual(demoConfig());
+    // Nothing is connected for the person, so the profile that follows the written plan comes first and `rawstep run demo` works.
+    expect(config.connections).toEqual([]);
     expect(config.profiles.map(p => [p.id, p.planner])).toEqual([['written-plan', { planFile: 'rawstep/demo/plan.json' }], ['item-by-item', undefined]]);
     expect(config.tasks).toEqual([{ id: 'demo', name: 'Demo: add a mug to the cart', file: 'rawstep/demo/task.json' }]);
     expect(await readFile(join(dir, 'rawstep/demo/page.html'), 'utf8')).toBe('mine');
     expect((await new ProjectStore(dir).task('rawstep/demo/task.json')).url).toBe(pathToFileURL(join(dir, 'rawstep/demo/page.html')).href);
     await loadPlanFile(new ProjectStore(dir), 'rawstep/demo/plan.json');
-    const withAgent = demoConfig('claudeCode');
-    expect(withAgent.connections).toEqual([{ id: 'claudeCode', name: 'Claude Code', provider: 'claudeCode', timeoutMs: 60000 }]);
-    expect(withAgent.profiles.map(p => [p.id, p.planner])).toEqual([['item-by-item', { connectionId: 'claudeCode', modelId: 'default', instructions: '' }], ['written-plan', { planFile: 'rawstep/demo/plan.json' }]]);
   });
   it('finds the first coding-agent CLI on PATH', async () => {
     const dir = await root(), bin = join(dir, 'bin');

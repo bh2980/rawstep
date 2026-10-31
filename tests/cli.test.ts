@@ -102,11 +102,13 @@ describe("init", () => {
     const directory = await temporaryDirectory(), io = output(directory);
     expect(await runCli(["init"], io)).toBe(0);
     expect(text(io.stdout)).toContain(join(directory, "rawstep.config.json"));
-    expect(text(io.stdout)).toMatch(/No coding-agent CLI[\s\S]*npx rawstep run demo\s+the demo task on a plan written beforehand/);
-    expect(JSON.parse(await readFile(join(directory, "rawstep.config.json"), "utf8"))).toEqual(demoConfig(undefined));
-    const planned = await temporaryDirectory(), withAgent = { ...output(planned), findAgent: async () => "claudeCode" as const };
+    expect(text(io.stdout)).toMatch(/npx rawstep run demo\s+the demo task on a plan written beforehand[\s\S]*Settings > AI connections[\s\S]*A coding-agent CLI you are signed in to/);
+    expect(JSON.parse(await readFile(join(directory, "rawstep.config.json"), "utf8"))).toEqual(demoConfig());
+    // A coding-agent CLI on this computer is only named, never connected: connecting sends what the user hears to its provider.
+    const found = await temporaryDirectory(), withAgent = { ...output(found), findAgent: async () => "claudeCode" as const };
     expect(await runCli(["init"], withAgent)).toBe(0);
-    expect(text(withAgent.stdout)).toMatch(/Claude Code is installed[\s\S]*npx rawstep doctor[\s\S]*--profile written-plan/);
+    expect(text(withAgent.stdout)).toContain("Claude Code is installed on this computer");
+    expect((await new ProjectStore(found).read()).config.connections).toEqual([]);
     await writeFile(join(directory, "rawstep.config.json"), "{\"mine\":true}");
     expect(await runCli(["init"], io)).toBe(1);
     expect(text(io.stderr)).toContain("already exists");

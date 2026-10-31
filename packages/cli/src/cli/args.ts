@@ -117,8 +117,8 @@ Usage:
   rawstep doctor [--project <dir>]
 
 Commands:
-  init      Write rawstep.config.json with a demo task that runs at once, planning with a coding-agent CLI when one is
-            installed. An existing file is never overwritten.
+  init      Write rawstep.config.json with a demo task that runs at once on a written plan (no model). An existing file
+            is never overwritten.
   ui        Open the dashboard to set up connections, experiment conditions and tasks, and to run experiments.
   run       Run a task from rawstep.config.json (by id) or a task JSON file with a run profile (models, allowed
             actions, page environment, screen reader, run rules), then print the conditions, each run's outcome and the

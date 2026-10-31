@@ -24,12 +24,12 @@ const NO_CONFIG = `${CONFIG_FILE} was not found. Create it with \`rawstep init\`
 
 /**
  * Writes rawstep.config.json into `root` with the demo task and its files (see `demoConfig`); an existing config is never replaced,
- * and demo files already there are kept. `agent` is a coding-agent CLI to plan with. Returns the config's path.
+ * and demo files already there are kept. Returns the config's path.
  */
-export async function initProject(root: string, options: { agent?: ProviderId | undefined } = {}): Promise<string> {
+export async function initProject(root: string): Promise<string> {
   const path = resolve(root, CONFIG_FILE);
   await mkdir(root, { recursive: true });
-  try { await writeFile(path, JSON.stringify(demoConfig(options.agent), null, 2) + '\n', { flag: 'wx' }); }
+  try { await writeFile(path, JSON.stringify(demoConfig(), null, 2) + '\n', { flag: 'wx' }); }
   catch (e) { if ((e as NodeJS.ErrnoException).code === 'EEXIST') throw new ProjectError('config-exists', `${CONFIG_FILE} already exists in ${root}; it was not overwritten.`, 409); throw e; }
   for (const [file, content] of Object.entries(DEMO_FILES)) {
     const target = resolve(root, file);

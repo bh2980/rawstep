@@ -1,7 +1,6 @@
 import { access, constants } from 'node:fs/promises';
-import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import { delimiter, join } from 'node:path';
-import { defaultConfig, defaultProfile, PROVIDERS, type Connection, type Profile, type ProjectConfig, type ProviderId } from './config.js';
+import { defaultConfig, defaultProfile, type Profile, type ProjectConfig, type ProviderId } from './config.js';
 
 /** Where `rawstep init` puts the demo: a page, a task on it and a plan written for it, all in the project. */
 export const DEMO_DIR = 'rawstep/demo';
@@ -45,7 +44,7 @@ export const DEMO_FILES: Readonly<Record<string, string>> = {
 
 /** Coding-agent CLIs Rawstep can plan with through the person's own sign-in, by the command that shows one is installed. */
 const AGENT_COMMANDS: readonly [string, ProviderId][] = [['claude', 'claudeCode'], ['codex', 'codex'], ['opencode', 'opencode'], ['grok', 'grok']];
-/** The first coding-agent CLI on PATH, if any. Being installed is not being signed in: `rawstep doctor` checks that. */
+/** The first coding-agent CLI on PATH, if any, to point the person to. Being installed is not being signed in. */
 export async function findAgentCli(path = process.env.PATH ?? ''): Promise<ProviderId | undefined> {
   const dirs = path.split(delimiter).filter(Boolean), names = (command: string) => process.platform === 'win32' ? [`${command}.cmd`, `${command}.exe`] : [command];
   for (const [command, provider] of AGENT_COMMANDS) {
@@ -57,15 +56,13 @@ export async function findAgentCli(path = process.env.PATH ?? ''): Promise<Provi
 }
 
 /**
- * A new project that runs at once: the demo task, a profile that follows the written demo plan (no model, no key) and one that
- * plans with a coding-agent CLI when one is installed. The profile that can run comes first, so `rawstep run demo` works either way.
+ * A new project that runs at once: the demo task and a profile that follows the written demo plan (no model, no key), first so that
+ * `rawstep run demo` works, then an "Item by item" profile with no planner yet. Nothing is connected for the person: a connection
+ * sends what the user hears to a model provider on their account, so they add one themselves.
  */
-export function demoConfig(agent: ProviderId | undefined): ProjectConfig {
+export function demoConfig(): ProjectConfig {
   const config = defaultConfig();
-  const connection: Connection | undefined = agent ? { id: agent, name: PROVIDERS[agent].label, provider: agent, timeoutMs: RAWSTEP_DEFAULTS.modelTimeoutMs } : undefined;
-  const base = defaultProfile('item-by-item', 'Item by item');
-  const planned: Profile = { ...base, ...(connection ? { planner: { connectionId: connection.id, modelId: 'default', instructions: '' } } : {}) };
   const written: Profile = { ...defaultProfile('written-plan', 'Written plan (no model)'), planner: { planFile: `${DEMO_DIR}/plan.json` } };
-  return { ...config, connections: connection ? [connection] : [], profiles: connection ? [planned, written] : [written, planned],
+  return { ...config, profiles: [written, defaultProfile('item-by-item', 'Item by item')],
     tasks: [{ id: 'demo', name: 'Demo: add a mug to the cart', file: `${DEMO_DIR}/task.json` }] };
 }

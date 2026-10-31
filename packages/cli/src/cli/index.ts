@@ -65,19 +65,11 @@ export async function runCli(argv: string[] = process.argv.slice(2), dependencie
     const projectDir = resolve(cwd, String(args.options.project ?? '.'));
     switch (args.command) {
       case 'init': {
-        const agent = await (dependencies.findAgent ?? findAgentCli)();
-        const path = await initProject(projectDir, { agent });
-        const label = agent ? PROVIDERS[agent].label : undefined;
-        stdout(`Created ${path} and a demo task in rawstep/demo/.\n\n`
-          + (label ? `${label} is installed: the "Item by item" profile plans with it, on its own sign-in (no API key).\n\nNext:\n`
-            + `  npx rawstep doctor                 check that ${label} starts and is signed in\n`
-            + `  npx rawstep run demo               a first-time screen reader user tries the demo task\n`
-            + `  npx rawstep run demo --profile written-plan   the same task on a plan written beforehand (no model)\n`
-            + `  npx rawstep ui                     see the results and add your own tasks\n`
-            : `No coding-agent CLI (Claude Code, Codex, opencode, Grok) was found, so nothing can plan yet.\n\nNext:\n`
-            + `  npx rawstep run demo               the demo task on a plan written beforehand (no model, no key)\n`
-            + `  npx rawstep ui                     see the results, and add a model (Settings > AI connections) for the "Item by item" profile\n`)
-          + `\nCommit rawstep.config.json and rawstep/. Keep .env.local (API keys) and .rawstep/ (run output) out of git.\n`);
+        const path = await initProject(projectDir), next = await nextSteps(dependencies);
+        stdout(`Created ${path} and a demo task in rawstep/demo/.\n\nNext:\n`
+          + `  npx rawstep run demo               the demo task on a plan written beforehand (no model, no key)\n`
+          + `  npx rawstep ui                     see the result and add your own tasks\n\n${next}`
+          + `Commit rawstep.config.json and rawstep/. Keep .env.local (API keys) and .rawstep/ (run output) out of git.\n`);
         return 0;
       }
       case 'ui': return await ui(args, projectDir, dependencies, stdout);
@@ -116,13 +108,20 @@ export async function runCli(argv: string[] = process.argv.slice(2), dependencie
   }
 }
 
+/**
+ * How the "Item by item" profile gets a planner: Rawstep never connects a model for the person, because a connection sends what the
+ * user hears to a provider on their account. A coding-agent CLI found on this computer is named as the shortest way.
+ */
+async function nextSteps(dependencies: CliDependencies): Promise<string> {
+  const agent = await (dependencies.findAgent ?? findAgentCli)();
+  return `For a first-time screen reader user planned by a model, the "Item by item" profile needs one: in \`npx rawstep ui\`, Settings > AI connections.\n`
+    + (agent ? `${PROVIDERS[agent].label} is installed on this computer: it plans on its own sign-in, with no API key.\n\n` : `A coding-agent CLI you are signed in to (Claude Code, Codex, opencode, Grok) needs no API key.\n\n`);
+}
+
 async function ui(args: CliArguments, projectDir: string, dependencies: CliDependencies, stdout: (text: string) => void): Promise<number> {
   const startDashboard = dependencies.startDashboard ?? (await import('@rawstep/dashboard')).startDashboard;
   // A first `rawstep ui` in an empty folder starts with the same demo as `rawstep init`, so there is a task to run at once.
-  if (!existsSync(join(projectDir, CONFIG_FILE))) {
-    const agent = await (dependencies.findAgent ?? findAgentCli)();
-    stdout(`Created ${await initProject(projectDir, { agent })} with a demo task${agent ? ` planned by ${PROVIDERS[agent].label}` : ''}.\n`);
-  }
+  if (!existsSync(join(projectDir, CONFIG_FILE))) stdout(`Created ${await initProject(projectDir)} with a demo task.\n${await nextSteps(dependencies)}`);
   const app = await startDashboard({ projectDir, port: Number(args.options.port ?? 4318) });
   stdout('Rawstep dashboard: ' + app.url + '\n');
   const signals = dependencies.signals ?? process;
