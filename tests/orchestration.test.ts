@@ -359,6 +359,16 @@ describe('orchestrated speech policy under Rawstep\'s task control (default)', (
     expect(evidence(policy).filter(k => k.kind === 'orchestration-follow')).toEqual([expect.objectContaining({ choiceId: 'intent:activate' })]);
     expect(() => new OrchestratedSpeechPolicy(planner(plan).planner, 'follow-plan', { taskControl: 'executor' })).toThrow(/task control/);
   });
+  it('opens the rotor list once per task and then moves through it, even when the task names only the opening', async () => {
+    const plan = { ...draft({}), phases: [{ title: 'Buy', tasks: [{ goal: 'Open the form controls rotor and find buy now', done: 'Hear it', cue: { name: 'Buy now', role: 'button' }, activates: false, moves: ['formControls.rotor'] }] }] };
+    const policy = new OrchestratedSpeechPolicy(planner(plan).planner, 'follow-plan');
+    const allowed = { intents: ['next', 'previous', 'activate', 'formControls.rotor'], keys: [], inputKeys: [], replaceText: false };
+    expect(await policy.decide(input({ allowedActions: allowed, observation: said('Shop') }))).toEqual({ action: { kind: 'intent', intent: 'formControls.rotor' } });
+    const h1 = [acted(1, 'formControls.rotor', 'Shop')];
+    expect(await policy.decide(input({ allowedActions: allowed, observation: said('Form controls, 3 items. Search, button'), history: h1 }))).toEqual({ action: { kind: 'intent', intent: 'next' } });
+    const h2 = [...h1, acted(2, 'next', 'Form controls, 3 items. Search, button')];
+    expect(await policy.decide(input({ allowedActions: allowed, observation: said('Gift, button'), history: h2 }))).toEqual({ action: { kind: 'intent', intent: 'next' } });
+  });
   it('widens the executor\'s choices with its latitude: the same moves both ways, or every move, pressing as the task says', async () => {
     const plan = { ...draft({}), phases: [{ title: 'Buy', tasks: [{ goal: 'Find the button and press it', done: 'Hear added', cue: 'Added to cart', activates: true, moves: ['heading.next'] }] }] };
     const allowed = { intents: ['next', 'previous', 'activate', 'heading.next', 'heading.previous'], keys: [], inputKeys: [], replaceText: false };

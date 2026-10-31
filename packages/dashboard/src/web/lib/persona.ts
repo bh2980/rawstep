@@ -5,7 +5,7 @@ import { KEYBOARD_ALL, KEYBOARD_BASIC, KEYBOARD_WIDGETS, SCREENREADER_BASIC, SCR
 /**
  * Who the simulated user is: first how they use the page (the profile's mode), then a starting point within it, in the words a person
  * picks it by. A screen reader user new to their screen reader reads item by item; one who knows it jumps by heading, lists the
- * headings and types the task's inputs; a skilled one also jumps by link, lists the links and uses Tab and the arrow keys in forms and
+ * headings and types the task's inputs; a skilled one also jumps by link, lists the links, picks a button from the rotor's form controls and uses Tab and the arrow keys in forms and
  * menus. A keyboard user moves with the basic keys, also works menus and dialogs with the arrow keys, or uses every key including
  * scrolling and the browser's back.
  * `custom` is a user whose actions were picked one by one.
