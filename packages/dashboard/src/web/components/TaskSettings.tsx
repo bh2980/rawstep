@@ -9,7 +9,6 @@ import { Choice, Field } from './forms';
 import { Disclosure } from './layout/Disclosure';
 import { ErrorState } from './layout/ErrorState';
 import { SectionHead } from './layout/PageHeader';
-import { ReachCheck } from './ReachCheck';
 import { TaskInputsField } from './TaskInputsField';
 import { Button } from './ui/button';
 import { Collapsible, CollapsibleContent } from './ui/collapsible';
@@ -57,7 +56,6 @@ export function TaskSettings({ task, onTask, json, onJson, view: _view, onEdit }
         <Field label={t('taskSettings.maxSteps')} type="number" value={String(parsed.maxSteps ?? RAWSTEP_DEFAULTS.task.maxSteps)} onChange={value => update({ maxSteps: Number(value) })} />
         <Field label={t('taskSettings.timeoutMs')} type="number" value={String(parsed.timeoutMs ?? RAWSTEP_DEFAULTS.task.timeoutMs)} onChange={value => update({ timeoutMs: Number(value) })} />
       </div>
-      <ReachCheck taskId={task.id} maxSteps={Number(parsed.maxSteps ?? RAWSTEP_DEFAULTS.task.maxSteps)} onMaxSteps={maxSteps => update({ maxSteps })} />
     </section>
 
     <section aria-labelledby="task-navigation" className="grid gap-4">
