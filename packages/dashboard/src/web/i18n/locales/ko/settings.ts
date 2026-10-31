@@ -201,7 +201,6 @@ export const settings = {
       aiSolo: '{{executor}}가 매 행동을 고릅니다',
       aiNone: '아직 AI를 고르지 않았습니다',
       whereScreenReader: '{{backend}} · {{width}}×{{height}} 화면',
-      whereKeyboard: '{{width}}×{{height}} 화면',
       stopSurvey: '제목 목록을 먼저 훑음',
       stopGrace: '성공을 못 들으면 {{n}}번 더 지켜봄',
       stopChanged: '{{label}} {{value}} (기본 {{base}})',
