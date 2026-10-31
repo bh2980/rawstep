@@ -22,7 +22,7 @@ type Props = {
 };
 
 /** Screen reader actions in the order a person learns them; anything a backend adds comes after. */
-const INTENT_ORDER = ['next', 'previous', 'activate', 'heading.next', 'heading.previous', 'form.next', 'form.previous', 'link.next', 'link.previous', 'headings.list', 'links.list', 'readCurrent', 'readFocused', 'interact', 'stopInteracting'];
+const INTENT_ORDER = ['next', 'previous', 'activate', 'heading.next', 'heading.previous', 'form.next', 'form.previous', 'link.next', 'link.previous', 'headings.list', 'links.list', 'formControls.rotor', 'readCurrent', 'readFocused', 'interact', 'stopInteracting'];
 const ordered = (names: Iterable<string>, order: readonly string[] = []) => [...new Set(names)].sort((a, b) => {
   const ia = order.indexOf(a), ib = order.indexOf(b);
   return (ia < 0 ? order.length : ia) - (ib < 0 ? order.length : ib);

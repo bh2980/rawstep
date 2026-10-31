@@ -17,10 +17,11 @@ export const MOCK_VOICEOVER_LIMITATIONS = Object.freeze([
   'A newly loaded document is announced by its title alone; native VoiceOver adds its own page-load wording.',
   'headings.list reads every heading with its level in one announcement, like opening the VoiceOver rotor on headings (VO+U) and listening through it; the cursor does not move.',
   'links.list reads every link name in one announcement, like the rotor\'s links list; the cursor does not move.',
+  'formControls.rotor opens the rotor on its form controls list (VO+U, then to that list) at the first form control in page order, buttons included. While it is open, next and previous move one item through the list and speak it, activate moves the cursor to that item without pressing it (Return in the rotor), and Escape or any other action closes it. Typing to filter the list is not modelled, so finding an item can take more moves than in VoiceOver.',
   'Arrow, Home and End keys go to the page as keystrokes, as in VoiceOver with Quick Nav off: menus, tabs and radio groups that move focus with them are announced at the new focus.',
 ]);
 
-const intents = Object.freeze(['next', 'previous', 'readCurrent', 'readFocused', 'activate', 'heading.next', 'heading.previous', 'form.next', 'form.previous', 'link.next', 'link.previous', 'headings.list', 'links.list']);
+const intents = Object.freeze(['next', 'previous', 'readCurrent', 'readFocused', 'activate', 'heading.next', 'heading.previous', 'form.next', 'form.previous', 'link.next', 'link.previous', 'headings.list', 'links.list', 'formControls.rotor']);
 const formRoles = new Set(['button', 'checkbox', 'radio', 'switch', 'textbox', 'searchbox', 'combobox', 'spinbutton', 'slider', 'listbox']);
 /** Cursor moves: one object, or (quick navigation, as VoiceOver's VO-Command-H / VO-Command-J) to the next object of a kind. */
 const moves: Readonly<Record<string, { step: 1 | -1; match?: (role: string) => boolean; none: string }>> = Object.freeze({
@@ -77,6 +78,8 @@ export class MockVoiceOverBackend implements Backend {
   private nextWindow = 1;
   private sequence = 0;
   private lastAnnouncement?: string;
+  /** The rotor's form controls list while it is open: the items and the one it is on. */
+  private rotor?: { items: CursorNode[]; index: number };
   /** The document whose title was last spoken; a new one is announced by its title. */
   private documentIdentity?: string;
   private lastCurrentFingerprint?: string;
@@ -151,7 +154,7 @@ export class MockVoiceOverBackend implements Backend {
   }
 
   /** Speech that belongs to no cursor stop, such as the title of a page that just loaded. */
-  private announceText(text: string, kind: 'page-title' | 'headings-list' | 'links-list' | 'live-region'): void {
+  private announceText(text: string, kind: 'page-title' | 'headings-list' | 'links-list' | 'rotor' | 'live-region'): void {
     const output: BackendOutput = {
       sequence: ++this.sequence, receivedAt: new Date().toISOString(), text,
       raw: { evidenceProvenance: 'simulation', profile: this.wording?.profile ?? MOCK_VOICEOVER_PROFILE, semanticSource: 'chromium-accessibility-tree', announcement: kind },
@@ -268,14 +271,33 @@ export class MockVoiceOverBackend implements Backend {
     if (!['intent', 'key', 'typeText', 'replaceText'].includes(action.kind)) throw new Error('Unsupported mock VoiceOver action.');
     if (action.kind==='typeText'&&!this.capabilities.textEntry || action.kind==='replaceText'&&!this.capabilities.replaceText) throw new Error('Text entry is unsupported by this mock wording profile.');
     this.busy = true;
-    this.sourceCommand = action.kind === 'intent' ? ({next:'next_item',previous:'previous_item',readCurrent:'read_current',readFocused:'read_focused',activate:'activate_button','heading.next':'next_heading','heading.previous':'previous_heading','form.next':'next_form_control','form.previous':'previous_form_control','link.next':'next_link','link.previous':'previous_link','headings.list':'rotor_headings','links.list':'rotor_links'}[action.intent] ?? action.intent) : action.kind === 'key' ? ({Tab:'next_focusable_item','Shift+Tab':'previous_focusable_item',Space:'activate_form_control',Enter:'enter',Escape:'escape'}[action.key] ?? action.key) : 'enter_text';
+    this.sourceCommand = action.kind === 'intent' ? ({next:'next_item',previous:'previous_item',readCurrent:'read_current',readFocused:'read_focused',activate:'activate_button','heading.next':'next_heading','heading.previous':'previous_heading','form.next':'next_form_control','form.previous':'previous_form_control','link.next':'next_link','link.previous':'previous_link','headings.list':'rotor_headings','links.list':'rotor_links','formControls.rotor':'rotor_form_controls'}[action.intent] ?? action.intent) : action.kind === 'key' ? ({Tab:'next_focusable_item','Shift+Tab':'previous_focusable_item',Space:'activate_form_control',Enter:'enter',Escape:'escape'}[action.key] ?? action.key) : 'enter_text';
     this.beginWindow();
     try {
       await this.refresh(signal);
       signal?.throwIfAborted();
       const receipt: ActionReceipt = { backend: 'mock-voiceover', evidenceProvenance: 'simulation', acknowledged: true };
       const move = action.kind === 'intent' ? moves[action.intent] : undefined;
-      if (move) {
+      const rotor = this.rotor;
+      // Any action but moving through the list or picking from it closes the rotor; Escape only closes it.
+      if (!(action.kind === 'intent' && ['next', 'previous', 'activate'].includes(action.intent))) this.rotor = undefined;
+      if (rotor && action.kind === 'key' && action.key === 'Escape') this.announce(this.current(), undefined, true);
+      else if (rotor && action.kind === 'intent' && (action.intent === 'next' || action.intent === 'previous')) {
+        rotor.index = Math.min(rotor.items.length - 1, Math.max(0, rotor.index + (action.intent === 'next' ? 1 : -1)));
+        this.announceText(formatSimulatedSpeech(rotor.items[rotor.index]!.semantic), 'rotor');
+      } else if (rotor && action.kind === 'intent' && action.intent === 'activate') {
+        this.rotor = undefined;
+        const item = rotor.items[rotor.index]!;
+        this.cursor = this.nodes.some(node => node.identity === item.identity) ? item.identity : this.cursor;
+        this.announce(this.current(), undefined, true);
+      } else if (action.kind === 'intent' && action.intent === 'formControls.rotor') {
+        const items = this.nodes.filter(node => formRoles.has(node.semantic.role));
+        if (!items.length) this.announceText('Form controls, no items', 'rotor');
+        else {
+          this.rotor = { items, index: 0 };
+          this.announceText(`Form controls, ${items.length} items. ${formatSimulatedSpeech(items[0]!.semantic)}`, 'rotor');
+        }
+      } else if (move) {
         const currentIndex = this.nodes.findIndex(node => node.identity === this.cursor);
         let index = currentIndex + move.step;
         while (move.match && index >= 0 && index < this.nodes.length && !move.match(this.nodes[index]!.semantic.role)) index += move.step;

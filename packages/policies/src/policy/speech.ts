@@ -13,6 +13,7 @@ const INTENT_LABELS: Record<string, string> = {
   'heading.next': 'Jump to the next heading', 'heading.previous': 'Jump to the previous heading', 'form.next': 'Jump to the next form control',
   'form.previous': 'Jump to the previous form control', 'link.next': 'Jump to the next link', 'link.previous': 'Jump to the previous link',
   readCurrent: 'Read the current item again', readFocused: 'Read the focused element', 'headings.list': "List the page's headings", 'links.list': "List the page's links",
+  'formControls.rotor': "Open the rotor's list of form controls, buttons included (it says \"Form controls\" and the first item). While it is open, next and previous move through the list, and activate moves the cursor to that item without pressing it",
 };
 const intentLabel = (intent: string) => intent === 'activate' ? 'Activate the current item' : INTENT_LABELS[intent] ?? `Screen reader intent: ${intent}`;
 /**
