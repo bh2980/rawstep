@@ -59,6 +59,7 @@ export const editor = {
     advanced: '고급',
     placeholder: '선택하세요',
     noItems: '등록한 항목이 없습니다.',
+    newTab: '새 탭에서 열림',
     secretShow: '인증키 보기',
     secretHide: '인증키 숨기기',
   },

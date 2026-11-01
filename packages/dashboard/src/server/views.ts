@@ -86,7 +86,7 @@ export class RunViews {
   batches(taskId: string): TaskBatch[] {
     return this.queue.experiments.filter(experiment => experiment.runs.some(run => run.taskId === taskId)).map(experiment => {
       const runs = experiment.runs.filter(run => run.taskId === taskId);
-      return { experimentId: experiment.id, createdAt: experiment.createdAt, ...(experiment.request.note ? { note: experiment.request.note } : {}), runs: runs.length, finished: runs.filter(finished).length };
+      return { experimentId: experiment.id, createdAt: experiment.createdAt, ...(experiment.request.note ? { note: experiment.request.note } : {}), ...(experiment.owner ? { via: experiment.owner.via } : {}), runs: runs.length, finished: runs.filter(finished).length };
     }).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
   /** The batch a task's results show when none is asked for: the newest one with a finished run, else the newest. */

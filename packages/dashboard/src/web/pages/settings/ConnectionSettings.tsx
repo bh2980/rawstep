@@ -28,7 +28,7 @@ type Use = { role: Role; names: { label: string; to: RouteChange }[] };
 
 /** What uses a connection, by role: run profiles that plan with it, and the project's analysis and suggestion models. */
 function usesOf(config: ProjectConfig, id: string, projectLabel: string): Use[] {
-  const profile = (p: Profile) => ({ label: p.name, to: { view: 'settings', section: 'profiles' } as RouteChange });
+  const profile = (p: Profile) => ({ label: p.name, to: { view: 'profiles' } as RouteChange });
   const project = { label: projectLabel, to: { view: 'settings', section: 'connections' } as RouteChange };
   const by: Record<Role, { label: string; to: RouteChange }[]> = {
     planner: config.profiles.filter(p => !isFilePlanner(p.planner) && p.planner?.connectionId === id).map(profile),

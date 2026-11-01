@@ -11,6 +11,7 @@ import { RunsTable } from '../components/RunsTable';
 import { Button } from '../components/ui/button';
 import { MAX_COMPARE } from '../lib/compare';
 import { displayState } from '../lib/runStrip';
+import { activeTag, hasTag, projectTags } from '../lib/tags';
 import { isFinished, isLive, runConditions, taskNameOf, runModelsName, taskRunNumbers, type RunRef } from '../lib/runs';
 import type { ListProps } from './types';
 
@@ -27,7 +28,7 @@ type Outcome = (typeof outcomes)[number];
 export function RunsPage({ pageProps, runs, navigate, onRun }: ListProps & { onRun: () => void }) {
   const { t } = useTranslation();
   const [query, setQuery] = useState(''), [task, setTask] = useState(ALL), [model, setModel] = useState(ALL), [outcome, setOutcome] = useState<Outcome>('all'), [shown, setShown] = useState(PAGE);
-  const [profile, setProfile] = useState(ALL);
+  const [profile, setProfile] = useState(ALL), [chosenTag, setTag] = useState(ALL);
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set()), [deleting, setDeleting] = useState(false);
   const { config } = pageProps.view;
   // Profiles are named as each run recorded them, so a filter groups runs by what they ran with, not by today's names.
@@ -39,9 +40,11 @@ export function RunsPage({ pageProps, runs, navigate, onRun }: ListProps & { onR
   const profiles = useMemo(() => distinct(ref => of(ref).profile), [named]);
   // "Run #n" of each run in its own task, for the number column.
   const numbers = useMemo(() => new Map([...new Set(runs.map(ref => ref.run.taskId))].flatMap(id => [...taskRunNumbers(runs, id)])), [runs]);
+  // Runs are filtered by the tags their task has now, not by the tags it had when they ran.
+  const projectTagList = useMemo(() => projectTags(config.tasks), [config.tasks]), tag = activeTag(chosenTag, ALL, config.tasks);
   const needle = query.trim().toLowerCase();
   const matching = runs.filter(ref => { const { run } = ref, c = of(ref);
-    return (task === ALL || run.taskId === task) && (model === ALL || runModelsName(run) === model)
+    return (task === ALL || run.taskId === task) && hasTag(config.tasks.find(entry => entry.id === run.taskId), tag) && (model === ALL || runModelsName(run) === model)
       && (profile === ALL || c.profile === profile)
       && (!needle || [taskNameOf(run, config.tasks), runModelsName(run), c.profile].some(text => text.toLowerCase().includes(needle)))
       && (outcome === 'all' || (outcome === 'live' ? isLive(run) : isFinished(run) && displayState(run) === outcome)); });
@@ -63,6 +66,7 @@ export function RunsPage({ pageProps, runs, navigate, onRun }: ListProps & { onR
     {runs.length > 0 && <FilterBar label={t('runList.filterLabel')}>
       <FilterSearch label={t('runList.search')} value={query} onChange={value => narrow(() => setQuery(value))} placeholder={t('runList.searchPlaceholder')} />
       <FilterSelect label={t('runList.filters.task')} value={task} onChange={value => narrow(() => setTask(value))} options={options(tasks)} className="max-w-44" />
+      {projectTagList.length > 0 && <FilterSelect label={t('runList.filters.tag')} value={tag ?? ALL} onChange={value => narrow(() => setTag(value))} options={options(projectTagList.map((name): [string, string] => [name, name]))} className="max-w-40" />}
       <FilterSelect label={t('runList.filters.outcome')} value={outcome} onChange={value => narrow(() => setOutcome(value as Outcome))} options={outcomes.map(id => ({ id, name: t(`runList.outcomes.${id}`) }))} />
       <FilterSelect label={t('runConditions.profile')} value={profile} onChange={value => narrow(() => setProfile(value))} options={options(profiles)} className="max-w-44" />
       <FilterMore label={t('runList.filters.more')} active={[model, profile].filter(value => value !== ALL).length}>

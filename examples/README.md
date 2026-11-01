@@ -24,7 +24,7 @@ npm run rawstep -- init --project "$HOME/rawstep-try"
 npm run rawstep -- run "$PWD/examples/tasks/simple-cta.json" --profile item-by-item --project "$HOME/rawstep-try"
 ```
 
-`item-by-item` is the profile `init` writes without a planner. Give it one in `npx rawstep ui` (Settings › Run profiles) before it can run. Results are written under the project's `.rawstep/runs/`.
+`item-by-item` is the profile `init` writes without a planner. Give it one in `npx rawstep ui` (Run profiles) before it can run. Results are saved as a batch under the project's `.rawstep/experiments/`, and `npx rawstep ui` lists it.
 
 ## `tasks/`: five pages, five kinds of friction
 

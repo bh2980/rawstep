@@ -132,7 +132,7 @@ export type CreateBrowserSessionOptions = {
 };
 
 /** What to do about a site that blocks the browser: Rawstep never answers a check itself. */
-export const BLOCKED_NEXT = 'Rawstep does not answer checks: turn on machine.personCheck to pass it yourself in a visible window, or connect a Chrome you started yourself (machine.browserEndpoint, with machine.copySignIn for a page behind a sign-in).';
+export const BLOCKED_NEXT = 'Rawstep does not answer checks: set the task\'s browser so a person passes it in a visible window (browser.personCheck), or so it runs in a Chrome you started yourself (browser.mode "connect", with copySignIn for a page behind a sign-in).';
 /** Hosts that serve human checks (Cloudflare Turnstile/challenges, hCaptcha, reCAPTCHA). */
 const BOT_CHECK_HOSTS = /(^|\.)(challenges\.cloudflare\.com|hcaptcha\.com|recaptcha\.net)$/;
 export function isBotCheckUrl(url: string): boolean {
@@ -212,13 +212,19 @@ async function classifyConnectFailure(endpoint: string, error: unknown): Promise
  * An explicit executable is used as given. Otherwise Playwright's own Chromium is tried first and then the
  * installed Google Chrome, so a fresh machine works without `playwright install` when Chrome is present.
  */
+const profileInUse = (error: unknown) => /ProcessSingleton|SingletonLock|profile (is|appears to be) in use|user data directory is already in use/i.test(error instanceof Error ? error.message : String(error));
 /** A persistent profile: the installed Google Chrome first (what a person uses), then Playwright's Chromium. */
 async function launchPersistent(userDataDir: string, launch: Parameters<typeof chromium.launchPersistentContext>[1], executablePath?: string): Promise<BrowserContext> {
   if (executablePath) return chromium.launchPersistentContext(userDataDir, { ...launch, executablePath });
   try { return await chromium.launchPersistentContext(userDataDir, { ...launch, channel: "chrome" }); }
   catch (installed) {
+    // A profile that another Chrome has open is not a missing browser: say so instead of trying the next one.
+    if (profileInUse(installed)) throw new RawstepError("browser-setup", `The kept browser profile (${userDataDir}) is open in another Chrome window. Close that window and run again.`, { cause: installed });
     try { return await chromium.launchPersistentContext(userDataDir, launch); }
-    catch { throw new RawstepError("browser-setup", "No browser to launch: install Google Chrome, run `npx playwright install chromium`, or set the Chrome executable path.", { cause: installed }); }
+    catch (bundled) {
+      if (profileInUse(bundled)) throw new RawstepError("browser-setup", `The kept browser profile (${userDataDir}) is open in another Chrome window. Close that window and run again.`, { cause: bundled });
+      throw new RawstepError("browser-setup", "No browser to launch: install Google Chrome, run `npx playwright install chromium`, or set the Chrome executable path.", { cause: installed });
+    }
   }
 }
 

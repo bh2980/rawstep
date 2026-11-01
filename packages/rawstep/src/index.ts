@@ -7,8 +7,8 @@ export { LlmPlanner, SPEECH_PLANNER_INSTRUCTIONS } from '@rawstep/policies/llm';
 export { loadPolicy, OrchestratedSpeechPolicy, renderPlanMarkdown, ScriptedPolicy, speechChoices } from './policy/index.js';
 export type { ModelHistoryEntry, OrchestrationOptions, PlanDocument, PlanDraft, Planner, PlanRequest, PlanResult, SpeechPolicyOptions } from './policy/index.js';
 // The high-level entry point: run a task from rawstep.config.json. The low-level native runner is `rawstep/runner`.
-export { ProjectError, runTask } from './project/index.js';
-export type { RunTaskOptions, RunTaskResult } from './project/index.js';
+export { ProjectError, runSuite, runTask } from './project/index.js';
+export type { BatchRef, BatchRun, RunSuiteOptions, RunSuiteResult, RunTaskOptions, RunTaskResult, SuiteGroup } from './project/index.js';
 export { aggregateHints, extractHints, HINTS_SCHEMA_VERSION, runEnding, writeHints } from './hints/index.js';
 export type { EndingOf, Hint, HintFinding, HintKind, HintReport, HintSource, HintTarget, RunEnding, UnmeasuredBy } from './hints/index.js';
 export type { RunOptions } from './runner/index.js';

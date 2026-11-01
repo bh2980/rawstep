@@ -9,9 +9,10 @@ import { useDashboardData } from './hooks/useDashboardData';
 import { useMediaQuery } from './hooks/useMediaQuery';
 import { connectionLostView, describeApiError, type ErrorKind, type ErrorView } from './lib/errors';
 import { NEW_TASK, useRoute } from './hooks/useRoute';
-import type { PageProps } from './pages/types';
+import type { MarkUnsaved, PageProps, Unsaved } from './pages/types';
 import { ComparePage } from './pages/ComparePage';
 import { NewTaskPage } from './pages/NewTaskPage';
+import { ProfilesPage } from './pages/ProfilesPage';
 import { RunPage } from './pages/RunPage';
 import { RunsPage } from './pages/RunsPage';
 import { SettingsPage } from './pages/SettingsPage';
@@ -39,6 +40,9 @@ function Dashboard() {
   const [everConnected, setEverConnected] = useState(false);
   useEffect(() => { if (data.connected) setEverConnected(true); }, [data.connected]);
   const [navOpen, setNavOpen] = useState(false);
+  /** Which pages hold edits that are not saved, for the dots in the left navigation. */
+  const [unsaved, setUnsaved] = useState<Unsaved>({});
+  const markUnsaved = useCallback<MarkUnsaved>((part, value) => setUnsaved(current => current[part] === value ? current : { ...current, [part]: value }), []);
   /** The run dialog, with the tasks it opens with (the task page's own, or the tasks picked in the list). */
   const [running, setRunning] = useState<{ open: boolean; taskIds: string[] }>({ open: false, taskIds: [] });
   const { view, setView, refresh } = data;
@@ -72,13 +76,13 @@ function Dashboard() {
     <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:z-50 focus:bg-primary focus:p-3 focus:text-primary-foreground">{t('app.skip')}</a>
     <TopBar connected={data.connected} running={active} queued={queued} showNavigation={!wide && !!pageProps} onNavigation={() => setNavOpen(true)} />
     <div className="flex min-h-0 flex-1">
-      {wide && pageProps && <aside className="w-48 shrink-0 border-r bg-sidebar text-sidebar-foreground"><AppNav route={route} navigate={go} /></aside>}
+      {wide && pageProps && <aside className="w-48 shrink-0 border-r bg-sidebar text-sidebar-foreground"><AppNav route={route} navigate={go} unsaved={unsaved} /></aside>}
       <main id="main" tabIndex={-1} className="min-w-0 flex-1 overflow-y-auto px-4 py-5 outline-none lg:px-6">
         <div className="grid gap-4">
           {!running.open && banner}
           {!pageProps
             ? <div className="grid gap-4 py-20 text-center"><h1 className="text-xl font-medium">{t('app.loadingTitle')}</h1><p className="text-sm text-muted-foreground">{t('app.loadingBody')}</p></div>
-            : <Page pageProps={pageProps} data={data} runs={runs} route={route} navigate={go} editorKey={editorKey} onRun={openRunDialog} />}
+            : <Page pageProps={pageProps} data={data} runs={runs} route={route} navigate={go} editorKey={editorKey} onRun={openRunDialog} onUnsaved={markUnsaved} />}
         </div>
       </main>
     </div>
@@ -86,7 +90,7 @@ function Dashboard() {
       {!wide && <Sheet open={navOpen} onOpenChange={setNavOpen}>
         <SheetContent side="left" className="w-56 gap-0 p-0 data-[side=left]:sm:max-w-56">
           <SheetHeader className="sr-only"><SheetTitle>{t('nav.label')}</SheetTitle><SheetDescription>{t('nav.description')}</SheetDescription></SheetHeader>
-          <div className="pt-10"><AppNav route={route} navigate={go} /></div>
+          <div className="pt-10"><AppNav route={route} navigate={go} unsaved={unsaved} /></div>
         </SheetContent>
       </Sheet>}
       <RunDialog open={running.open} onOpenChange={open => setRunning(current => ({ ...current, open }))} taskIds={running.taskIds} pageProps={pageProps} navigate={go} onStarted={openRun} />
@@ -99,10 +103,12 @@ type PageSwitchProps = {
   route: ReturnType<typeof useRoute>['route']; navigate: ReturnType<typeof useRoute>['navigate']; editorKey: number;
   /** Opens the run dialog with these tasks picked. */
   onRun: (taskIds: string[]) => void;
+  /** Tells the left navigation whether a page has edits that are not saved. */
+  onUnsaved: MarkUnsaved;
 };
 
-/** Chooses the page for the URL: a run, a task or the new-task page, otherwise runs side by side, the run list, 설정, or the task list. */
-function Page({ pageProps, data, runs, route, navigate, editorKey, onRun }: PageSwitchProps) {
+/** Chooses the page for the URL: a run, a task or the new-task page, otherwise runs side by side, the run list, 실행 프로필, 설정, or the task list. */
+function Page({ pageProps, data, runs, route, navigate, editorKey, onRun, onUnsaved }: PageSwitchProps) {
   const { t } = useTranslation();
   if (route.run) {
     const runRef = findRun(runs, route.run);
@@ -118,6 +124,7 @@ function Page({ pageProps, data, runs, route, navigate, editorKey, onRun }: Page
   const lists = { pageProps, runs, summaries: data.summaries, summaryError: data.summaryError, navigate };
   if (route.view === 'runs' && route.compare) return <ComparePage pageProps={pageProps} runs={runs} ids={route.compare} navigate={navigate} />;
   if (route.view === 'runs') return <RunsPage {...lists} onRun={() => onRun([])} />;
-  if (route.view === 'settings') return <SettingsPage key={editorKey} {...pageProps} section={route.section} navigate={navigate} />;
+  if (route.view === 'profiles') return <ProfilesPage key={editorKey} {...pageProps} navigate={navigate} onUnsaved={onUnsaved} />;
+  if (route.view === 'settings') return <SettingsPage key={editorKey} {...pageProps} section={route.section} navigate={navigate} onUnsaved={onUnsaved} />;
   return <TasksPage {...lists} onRun={onRun} />;
 }

@@ -3,12 +3,14 @@ import { runWithPolicy } from '@rawstep/browser/runner';
 import { runMockVoiceOverTask } from '@rawstep/screenreaders/mock-voiceover';
 import { AtDriverBackend } from '@rawstep/screenreaders/at-driver';
 import { FixedPlanner, OrchestratedSpeechPolicy, renderPlanMarkdown, type PlanDraft, type Planner } from '@rawstep/policies/policy';
-import { writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { hostname } from 'node:os';
+import { dirname, join } from 'node:path';
+import { ProjectError } from './errors.js';
 import { atomicJson } from './store.js';
 import { LlmPlanner } from '@rawstep/policies/llm';
 import { resolveEnvironmentProfile } from '@rawstep/browser/profiles';
-import type { Task } from '@rawstep/core/contracts';
+import { usesKeptProfile, type Task } from '@rawstep/core/contracts';
 import type { RunTrace, TraceEvent } from '@rawstep/core/trace';
 import { closeLlmModel, llmModelOf, prepareLlmModel } from './llm.js';
 import { type AtBackend, type Model, type Permissions, type RunSettings, atEndpointOf } from './config.js';
@@ -38,7 +40,7 @@ export type RunExecution = {
   plannerApiKey?: string | undefined;
   /** The command that starts the AT Driver server on this computer, for native screen reader runs when none is running yet. */
   atDriverCommand?: string | undefined;
-  /** Where the kept browser profile lives when the machine setting `personCheck` is on (`<project>/.rawstep/browser-profile`). */
+  /** Where the kept browser profile lives for a task whose person passes bot checks in a launched browser (`<project>/.rawstep/browser-profile`). */
   browserProfileDir?: string | undefined;
 };
 /** Runs one RunSpec; replaceable so callers can run without a browser or a model. */
@@ -64,24 +66,47 @@ export const executeRun: RunExecutor = async ({ task, settings, environment, bac
     const policy = new OrchestratedSpeechPolicy(planner, { repetitionGuard: rules.repetitionGuard, maxUnchangedTransitions: rules.maxUnchangedTransitions,
       maxPlannerCalls: rules.maxPlannerCalls, reviewEvery: rules.reviewEvery, stepActionLimit: rules.stepActionLimit, failureLimit: rules.failureLimit, noChangeLimit: rules.noChangeLimit,
       plannerHistoryLimit: rules.plannerHistoryLimit, survey: rules.survey });
-    const endpoint = machine.browserEndpoint.trim();
+    // The task says what the site needs of the browser; where a Chrome of your own listens is this computer's to say.
+    const browser = task.browser ?? { mode: 'launch' as const };
+    const endpoint = browser.mode === 'connect' ? machine.browserEndpoint.trim() : '';
+    if (browser.mode === 'connect' && !endpoint) throw new ProjectError('browser-endpoint-missing', 'This task runs in a Chrome you started yourself, but this computer has no address for it (machine.browserEndpoint).');
     const common = { policy, outDir, signal, allowedActions: permissions, confirmationGrace: rules.confirmationGrace, ...(onEvent ? { onEvent } : {}), ...(conditions ? { conditions } : {}),
       headless: backend !== 'simulation' ? false : machine.headless,
       browserExecutablePath: machine.browserExecutablePath || undefined,
-      ...(endpoint ? { browserEndpoint: endpoint, ...(machine.copySignIn ? { copySignIn: true } : {}) } : machine.proxyServer.trim() ? { proxyServer: machine.proxyServer.trim() } : {}),
-      ...(machine.personCheck && endpoint ? { personCheck: {} } : machine.personCheck && browserProfileDir ? { personCheck: { userDataDir: browserProfileDir } } : {}) };
+      ...(endpoint ? { browserEndpoint: endpoint, ...(browser.copySignIn ? { copySignIn: true } : {}) } : machine.proxyServer.trim() ? { proxyServer: machine.proxyServer.trim() } : {}),
+      ...(browser.personCheck && endpoint ? { personCheck: {} } : browser.personCheck && browserProfileDir ? { personCheck: { userDataDir: browserProfileDir } } : {}) };
     setupSignal.throwIfAborted();
     if (Date.now() >= deadline) throw new Error('The task time limit passed while preparing the run.');
     const resolvedTask = { ...task, timeoutMs: Math.max(1, deadline - Date.now()), profile: resolveEnvironmentProfile(environment) };
+    // One Chrome profile cannot be open twice: runs that keep it take turns, across Rawstep processes too.
+    const release = usesKeptProfile(browser) && browserProfileDir ? await lockBrowserProfile(browserProfileDir) : undefined;
     // Runs keep a screenshot per step for people reading the run; the model never sees it.
     try {
       if (backend === 'simulation') return await runMockVoiceOverTask(resolvedTask, { ...common, diagnosticScreenshots: true, warn: () => {} });
       const url = atEndpointOf(machine, backend), driver = await ensureAtDriver({ endpoint: url, command: atDriverCommand, signal: setupSignal });
       try { return await runWithPolicy(resolvedTask, { ...common, diagnosticScreenshots: true, backend: new AtDriverBackend({ profile: backend, url }) }); }
       finally { await driver.stop(); }
-    } finally { await savePlan(policy, outDir); }
+    } finally { await savePlan(policy, outDir); await release?.(); }
   }
 };
+/**
+ * Takes the kept browser profile for one run: a lock file next to it names the process holding it. A lock whose process is gone is
+ * taken over; one held by a live process stops this run with the reason, instead of Chrome's own failure to open the profile.
+ */
+export async function lockBrowserProfile(profileDir: string): Promise<() => Promise<void>> {
+  const lock = profileDir + '.lock', self = JSON.stringify({ pid: process.pid, host: hostname() });
+  await mkdir(dirname(lock), { recursive: true });
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try { await writeFile(lock, self, { flag: 'wx' }); return () => rm(lock, { force: true }); }
+    catch (error) { if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error; }
+    const holder: { pid?: number; host?: string } = await readFile(lock, "utf8").then(text => JSON.parse(text) as { pid?: number; host?: string }, () => ({}));
+    let held = holder.host !== undefined && holder.host !== hostname();
+    if (!held && typeof holder.pid === 'number') try { process.kill(holder.pid, 0); held = true; } catch (e) { held = (e as NodeJS.ErrnoException).code === 'EPERM'; }
+    if (held) throw new ProjectError('browser-profile-busy', `The kept browser profile (.rawstep/browser-profile) is in use by another run (process ${holder.pid ?? '?'}). Runs whose person passes bot checks in a launched browser use it one at a time; wait for that run or stop it.`, 409);
+    await rm(lock, { force: true });
+  }
+  throw new ProjectError('browser-profile-busy', 'The kept browser profile (.rawstep/browser-profile) could not be locked for this run.', 409);
+}
 /**
  * The final plan document next to the trace: plan.json for tools, plan.md as a readable checklist. The trace keeps every version
  * as policy evidence; these files are the end state. A failure to write them never changes the run.

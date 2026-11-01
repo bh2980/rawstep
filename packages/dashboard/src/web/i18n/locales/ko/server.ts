@@ -84,6 +84,8 @@ export const server = {
     'experiment-not-found': '실행 묶음을 찾을 수 없습니다.',
     'run-not-found': '실행을 찾을 수 없습니다.',
     'delete-run-active': '진행 중이거나 대기 중인 실행은 삭제할 수 없습니다. 끝나거나 중지한 뒤 삭제하세요.',
+    'batch-running-elsewhere': '이 묶음은 다른 Rawstep 프로세스(CLI나 다른 대시보드)에서 실행 중입니다. 그쪽에서 멈추세요.',
+    'browser-profile-busy': '다른 실행이 보관된 브라우저 프로필을 쓰고 있습니다. 봇 확인을 사람이 통과하는 실행은 한 번에 하나씩 돌아갑니다.',
 
     'analysis-key-missing': '해설 모델의 인증키가 없어 규칙 기반 분석만 합니다.',
     'analysis-not-llm': '해설 모델이 LLM 연결이 아니어서 규칙 기반 분석만 합니다.',

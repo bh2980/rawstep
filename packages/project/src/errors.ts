@@ -7,5 +7,7 @@ export class ProjectError extends Error {
   override name = 'ProjectError';
   /** The HTTP status a model server answered with, when the failure was its answer (`model-http`). */
   httpStatus?: number;
-  constructor(readonly code: string, message: string, readonly status = 400) { super(message); }
+  /** Values a translated message fills in (`too-many-combinations` names its `max`). */
+  readonly params?: Record<string, string | number>;
+  constructor(readonly code: string, message: string, readonly status = 400, params?: Record<string, string | number>) { super(message); if (params) this.params = params; }
 }

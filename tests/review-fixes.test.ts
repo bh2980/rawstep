@@ -73,7 +73,7 @@ describe('ExperimentQueue.initialize crash recovery', () => {
     const dir = await temp('rawstep-queue-'), store = new ProjectStore(dir); await store.initialize();
     const orphan = randomUUID();
     await mkdir(join(dir, '.rawstep', 'experiments', orphan), { recursive: true });
-    const queue = new ExperimentQueue(store, () => {});
+    const queue = new ExperimentQueue(store);
     await expect(queue.initialize()).resolves.toBeUndefined();
     expect(queue.experiments).toEqual([]);
     await queue.close();

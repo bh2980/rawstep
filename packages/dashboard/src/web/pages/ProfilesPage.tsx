@@ -2,19 +2,20 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Copy, MoreHorizontal, Plus, Trash2 } from 'lucide-react';
 import { defaultProfile, profileSchema, type Profile, type ProjectConfig } from '@rawstep/project/config';
-import type { RouteChange } from '../../hooks/useRoute';
-import { SaveBar } from '../../components/conditions/SaveBar';
-import { PageHeader } from '../../components/layout/PageHeader';
-import { Link } from '../../components/Link';
-import { ProfileEditor } from '../../components/ProfileEditor';
-import { Button } from '../../components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
-import { Input } from '../../components/ui/input';
-import { Label } from '../../components/ui/label';
-import { comboBlocker, comboSummary, newCombo, sameValue } from '../../lib/conditions';
-import { cn } from '../../lib/utils';
-import { t as translate } from '../../i18n/index.js';
-import type { PageProps } from '../types';
+import type { RouteChange } from '../hooks/useRoute';
+import { SaveBar } from '../components/conditions/SaveBar';
+import { PageHeader } from '../components/layout/PageHeader';
+import { Link } from '../components/Link';
+import { ProfileEditor } from '../components/ProfileEditor';
+import { Button } from '../components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../components/ui/dropdown-menu';
+import { Input } from '../components/ui/input';
+import { Label } from '../components/ui/label';
+import { comboBlocker, comboSummary, newCombo, sameValue } from '../lib/conditions';
+import { withoutProfiles } from '../lib/usualProfiles';
+import { cn } from '../lib/utils';
+import { t as translate } from '../i18n/index.js';
+import type { MarkUnsaved, PageProps } from './types';
 
 const newId = () => crypto.randomUUID();
 const same = sameValue;
@@ -34,30 +35,32 @@ export function profileBlocker(profile: Profile): string | undefined {
 }
 
 /**
- * 설정 · 실행 프로필: the project's run profiles, a list on the left and the chosen one on the right — its name, which tasks use it,
- * 복제 and 삭제 in a ⋯ menu, then its four parts. Edits of every profile save together from the bar at the bottom; a removed profile's
- * tasks fall back to the first one.
+ * 실행 프로필: the project's run profiles, a list on the left and the chosen one on the right — its name, 복제 and 삭제 in a ⋯ menu,
+ * then its four parts. Edits of every profile save together from the bar at the bottom; a removed profile's tasks fall back to the
+ * first one. Leaving the page drops unsaved edits, so it also tells the navigation there are none left.
  */
-export function ProfileSettings({ navigate, onDirty, ...props }: PageProps & { navigate: (change: RouteChange) => void; onDirty: (dirty: boolean) => void }) {
+export function ProfilesPage({ navigate, onUnsaved, ...props }: PageProps & { navigate: (change: RouteChange) => void; onUnsaved: MarkUnsaved }) {
   const { t } = useTranslation();
   const config = props.view.config;
   const [items, setItems] = useState<Profile[]>(() => structuredClone(config.profiles));
   const [selectedId, setSelectedId] = useState<string | undefined>(() => config.profiles[0]?.id);
   const saved = config.profiles;
   const changes = items.filter(item => !same(item, saved.find(s => s.id === item.id))).length + saved.filter(s => !items.some(item => item.id === s.id)).length;
-  useEffect(() => { onDirty(changes > 0); }, [changes > 0]);
+  useEffect(() => { onUnsaved('profiles', changes > 0); }, [changes > 0]);
+  useEffect(() => () => onUnsaved('profiles', false), []);
   const selected = items.find(item => item.id === selectedId) ?? items[0];
   const blocked = items.map(item => profileBlocker(item)).find(Boolean);
   const update = (next: Profile) => setItems(items.map(item => item.id === next.id ? next : item));
   const add = (item: Profile) => { setItems([...items, item]); setSelectedId(item.id); };
   const remove = (item: Profile) => { const next = items.filter(other => other.id !== item.id); setItems(next); setSelectedId(next[0]?.id); };
   const removed = saved.filter(s => !items.some(item => item.id === s.id));
-  /** Writes the profiles on top of the latest config. */
+  /** Writes the profiles on top of the latest config; a deleted profile is also taken off the tasks that usually run with it. */
   const save = () => void props.act(async () => {
-    await props.save({ ...props.view.config, profiles: items }, undefined, props.view.revision);
+    const latest = props.view.config;
+    await props.save({ ...latest, profiles: items, tasks: withoutProfiles(latest.tasks, removed.map(profile => profile.id)) }, undefined, props.view.revision);
   });
   return <div className="grid gap-5">
-    <PageHeader title={t('settingsNav.sections.profiles')} info={t('settingsNav.info.profiles')} actions={
+    <PageHeader title={t('nav.profiles')} info={t('profile.info')} actions={
     <Button variant="outline" onClick={() => add(newProfile(newId(), t('profile.newName', { n: items.length + 1 }), config))}><Plus aria-hidden="true" />{t('profile.add')}</Button>
     } />
     <div className="grid items-start gap-6 lg:grid-cols-[15rem_minmax(0,1fr)] lg:items-stretch">

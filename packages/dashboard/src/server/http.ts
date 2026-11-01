@@ -14,7 +14,7 @@ export const record = (v: unknown): Record<string, unknown> => v && typeof v ===
 /** The message for a failure: a project error by its own code, a refusal by its code, bad input as such, anything else as the generic failure. */
 export function messageOf(error: unknown): ServerMessage {
   if (error instanceof HttpError) return { code: error.code, ...(error.params ? { params: error.params } : {}) };
-  if (error instanceof ProjectError) return { code: error.code };
+  if (error instanceof ProjectError) return { code: error.code, ...(error.params ? { params: error.params } : {}) };
   if (error instanceof z.ZodError) return { code: 'invalid-input' };
   return { code: 'request-failed' };
 }

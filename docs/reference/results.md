@@ -4,12 +4,20 @@ This page is for anyone who opens a run folder: to read the files, build on them
 
 ## Where runs are written
 
-| Started from | Folder |
-| --- | --- |
-| `npx rawstep run` or `runTask` | `<project>/.rawstep/runs/<timestamp>-<id>/run-<n>/`, one `run-<n>` per repeat. `--out <dir>` / `outDir` replaces `<project>/.rawstep/runs/<timestamp>-<id>`. |
-| The dashboard | `<project>/.rawstep/experiments/<experiment id>/<run id>/`. The experiment folder also holds `experiment.json`, the dashboard's own record of the experiment. |
+Every run is saved inside a batch: one `rawstep run`, `rawstep suite` or `runTask` / `runSuite` call, or one batch started in the dashboard.
 
-`<timestamp>` is the start time with `:` and `.` replaced by `-` (for example `2026-11-01T09-00-00-000Z`); `<id>` is eight random characters. A run folder is never silently replaced: Rawstep refuses to write into a folder that already holds a trace. Keep `.rawstep/` out of git.
+```text
+<project>/.rawstep/experiments/<batch id>/
+  experiment.json          the record of the batch
+  <run id>/                one folder per run
+    trace.json, hints.json, report.html, ...
+```
+
+`<batch id>` and `<run id>` are UUIDs. The CLI and the dashboard write the same format, so `npx rawstep ui` lists the batches the CLI ran, also while it is open.
+
+`experiment.json` holds what the batch is for (`request`, including the `note` from `--note`), each run with its task, profile, state and outcome, and the batch's `owner`: the process id, the computer, and whether it came from the CLI, the dashboard or the API. While the owner process is alive, no other process stops the batch or marks it interrupted. When the process is gone, the next listing marks its unfinished runs as interrupted. A task file that is not registered (run by path from the CLI) is kept in the batch under its file name.
+
+A run folder is never silently replaced: Rawstep refuses to write into a folder that already holds a trace. Keep `.rawstep/` out of git.
 
 ## Files in a run folder
 
@@ -19,19 +27,19 @@ This page is for anyone who opens a run folder: to read the files, build on them
 | `trace.jsonl` | Appended one event per line while the run goes | The same events as a journal. If a run is cut off before it ends, readers rebuild the events from it. |
 | `plan.json` | At the end of the run, when a plan was made | The final plan document: success criteria, strategy, assumptions with their status, phases of tasks with status and action counts, retired tasks, and every revision. |
 | `plan.md` | With `plan.json` | The same plan as a readable checklist. |
-| `hints.json` | After all repeats have ended | The friction hints of the run. |
-| `analysis.json` | After all repeats have ended | The analysis: rule-based, or by the analysis model. |
-| `report.html`, `report.json` | After all repeats have ended | The report for people, and its data. |
+| `hints.json` | When the run ends; again after the last repeat | The friction hints of the run. |
+| `analysis.json` | When the run ends | The analysis: rule-based, or by the analysis model. |
+| `report.html`, `report.json` | When the run ends; again after the last repeat | The report for people, and its data. |
 | `diagnostics/step-<n>.png` | During the run | A screenshot after step `n` (step 0 is the page before the first action). For people only; never given to the planner or the user model. |
 | `diagnostics/start-page.png` | During the run | The whole start page (cut at 16,000 pixels), to show where on the page a run got stuck. |
 
 Notes:
 
 - Trace files are written with mode `0600` (owner only).
-- Screenshots are taken only for runs started by `rawstep run` and the dashboard. After a secret was typed, form fields are blacked out, and a screenshot is left out while the page shows a typed secret (see [redaction](#redaction)). The report lists them by reference; the dashboard shows them.
+- Screenshots are taken only for runs started by `rawstep run`, `rawstep suite` and the dashboard. After a secret was typed, form fields are blacked out, and a screenshot is left out while the page shows a typed secret (see [redaction](#redaction)). The report lists them by reference; the dashboard shows them.
 - `plan.json` and `plan.md` are written even when the run ended on an error. They are the end state; every plan version is also in the trace as `policy.evidence`.
-- With `--repeat`, `hints.json` is written after the last run ends so each run can be compared with the fastest one that reached the goal. A run started from the dashboard gets its files as soon as it ends, with no reference run. When the last repeat of a task under a profile in the same batch has finished, the dashboard writes every repeat's `hints.json` and report again against the fastest one that reached the goal, keeping each run's analysis. So dashboard repeats get `slow-run` hints too.
-- A cancelled `rawstep run` or `runTask` keeps the traces written so far and still writes their hints, the rule-based analysis and the report, without the model analysis. Run `rawstep analyze --llm` on a folder afterwards if you want one.
+- A run gets its files as soon as it ends, with no reference run. When the last repeat of a task under a profile in the same batch has ended, every repeat's `hints.json` and report are written again against the fastest one that reached the goal, keeping each run's analysis. So repeats get `slow-run` hints, from the CLI and the dashboard alike.
+- A cancelled `rawstep run`, `rawstep suite`, `runTask` or `runSuite` keeps the traces written so far and still writes their hints, the rule-based analysis and the report, without the model analysis. Run `rawstep analyze --llm` on a folder afterwards if you want one.
 - The `hints`, `report` and `analyze` commands write into the folder they read (or `--out`). `rawstep analyze` rewrites `hints.json` without a reference run.
 
 ## The trace
@@ -209,7 +217,7 @@ The report does not show screenshots; the files are in `diagnostics/`. It descri
 
 ## Analysis
 
-`analysis.json` is an `AnalysisReport`, schema version `1.0`. A run started by `rawstep run` or the dashboard gets one when it finishes.
+`analysis.json` is an `AnalysisReport`, schema version `1.0`. A run started by `rawstep run`, `rawstep suite` or the dashboard gets one when it finishes.
 
 | Field | Meaning |
 | --- | --- |
@@ -224,7 +232,7 @@ The report does not show screenshots; the files are in `diagnostics/`. It descri
 
 **Model-based analysis** sends the whole saved trace to the project's analysis model and asks for a summary and findings that each cite events. Set the model in the config at `project.analysis.model` (a connection, a model id and optionally a reasoning effort), or in the dashboard's settings. Optional `project.analysis.instructions`, and a task's `analysisInstructions`, add focus to the prompt but never replace its evidence rules. See the [config reference](./config.md).
 
-- `rawstep run` and `runTask` analyse each run with the model when one is set and its key is available. Without the key, the runs get the rule-based analysis and a warning says so.
+- `rawstep run`, `rawstep suite`, `runTask` and `runSuite` analyse each run with the model when one is set and its key is available. Without the key, the runs get the rule-based analysis and a warning says so.
 - `rawstep analyze <run-dir> --llm` does it for a saved run.
 - The trace must be finished and input-redacted, and must fit in about 1,000,000 bytes: Rawstep refuses to cut events silently. The model is told that trace content is untrusted evidence, that plans and assumptions are expectations and not facts about the page, and that it must not claim conformance.
 - If the model's analysis fails, `analysis.json` says `failed`; the rule-based analysis is not substituted. The run folder, its outcome and its hints are unchanged.

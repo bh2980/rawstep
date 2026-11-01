@@ -1,16 +1,16 @@
 # API reference
 
-This page is for people who call Rawstep from code: a test that runs a task and checks the findings, a script that reads saved runs, or a custom decision policy. It lists `runTask`, the import paths the `rawstep` package exposes, and how to write your own policy.
+This page is for people who call Rawstep from code: a test that runs a task and checks the findings, a script that reads saved runs, or a custom decision policy. It lists `runTask` and `runSuite`, the import paths the `rawstep` package exposes, and how to write your own policy.
 
 Rawstep is an ES module package for Node 22.12 or newer. The CLI and the dashboard are built on the same calls. Use the [CLI reference](./cli.md) if you only want commands.
 
 ```ts
-import { runTask } from 'rawstep';
+import { runTask, runSuite } from 'rawstep';
 ```
 
 ## `runTask`
 
-`runTask` runs a task from a project (`rawstep.config.json`), exactly as `npx rawstep run` does, and returns the runs and the findings.
+`runTask` runs a task from a project (`rawstep.config.json`), exactly as `npx rawstep run` does, and returns the runs and the findings. The runs are saved as one batch in `<projectDir>/.rawstep/experiments/<id>/`, the place the dashboard lists (see the [results reference](./results.md#where-runs-are-written)).
 
 ```ts
 function runTask(task: string, options?: RunTaskOptions): Promise<RunTaskResult>;
@@ -18,17 +18,18 @@ function runTask(task: string, options?: RunTaskOptions): Promise<RunTaskResult>
 
 `task` is a task id from the config, or the path of a task JSON file (a relative path is resolved from `projectDir`). The task file format is in the [task reference](./task.md).
 
-It resolves when the runs finish, whatever way they ended: reaching the goal is one signal in the hints, not a verdict, so a run that did not reach its goal still resolves. It rejects when the runs could not start, or when they were cancelled (see [Errors](#errors)). A third argument exists for Rawstep's own tests; do not use it.
+It resolves when the runs finish, whatever way they ended: reaching the goal is one signal in the hints, not a verdict, so a run that did not reach its goal still resolves. So does a run that broke: it resolves as a run that ended on an error (`outcome.reason` is `error`). It rejects when the runs could not start, or when they were cancelled (see [Errors](#errors)). A third argument exists for Rawstep's own tests; do not use it.
 
 ### Options
 
 | Option | Type | Default | Meaning |
 | --- | --- | --- | --- |
 | `projectDir` | `string` | the current directory | The folder that holds `rawstep.config.json`. |
-| `profile` | `string` | the first profile in the config | The run profile, by id or name. A task file has no profile of its own. |
+| `profile` | `string` | the task's first usual profile (`profiles` on the task in the config), else the first profile in the config | The run profile, by id or name. A task file has no profile of its own. |
 | `runRules` | `Partial<RunRules>` | none | Run rules for these runs only, over the profile's. Same names as `--rule` in the [CLI](./cli.md#rawstep-run); values and ranges are in the [config reference](./config.md). |
 | `repeat` | `number` | `1` | How many times to run the task. An integer from 1 to 100. The runs are compared with the fastest one that reached the goal. |
-| `outDir` | `string` | `<projectDir>/.rawstep/runs/<timestamp>-<id>/` | Where to write. One `run-<n>` folder per repeat. A relative path is resolved from the current directory. |
+| `parallel` | `number` | the project's `machine.parallelRuns` (1) | How many runs go at once, an integer from 1 to 8. Same as `--parallel`: see [Runs at the same time](./cli.md#runs-at-the-same-time). |
+| `note` | `string` | none | What this batch is for, up to 200 characters (`made Add to cart a button`). The dashboard shows it. |
 | `signal` | `AbortSignal` | none | Cancels the runs. The traces kept so far still get their hints, rule-based analysis and report (no model analysis), then `runTask` rejects with `cancelled`. |
 | `onEvent` | `(event: TraceEvent) => void` | none | Called with every stored (already redacted) trace event as it is recorded. An error in the listener does not affect the run. |
 
@@ -38,6 +39,7 @@ It resolves when the runs finish, whatever way they ended: reaching the goal is 
 
 | Field | Type | Meaning |
 | --- | --- | --- |
+| `batch` | `{ id: string; dir: string }` | The batch the runs were saved as: its id and its folder. |
 | `conditions` | `Record<string, unknown>` | What the runs were made with: profile, planner, action set, page environment, screen reader, run rules. The same record is in each trace. |
 | `warnings` | `string[]` | Things worth knowing that did not stop the runs, for example that the analysis key is not set so the runs get the rule-based analysis only. |
 | `runs` | array | One entry per repeat, in order. |
@@ -48,7 +50,9 @@ Each entry of `runs`:
 | Field | Type | Meaning |
 | --- | --- | --- |
 | `runId` | `string` | The run's id, as in its trace. |
-| `outDir` | `string` | The run folder (see the [results reference](./results.md)). |
+| `taskId`, `taskName` | `string` | The task the run was of. A task file that is not registered has an id made from its file name. |
+| `profileId`, `profileName` | `string` | The run profile the run used. |
+| `outDir` | `string` | The run folder, inside the batch folder (see the [results reference](./results.md)). |
 | `outcome` | `RunOutcome \| undefined` | What the trace recorded: `status` (`success`, `failure`, `inconclusive`, `aborted`), `reason`, and, for a run the planner or a guard stopped, `policyStopSource`. |
 | `hints` | `HintReport` | The run's friction hints, with `steps`, `durationMs` and `goalReached`. |
 
@@ -94,13 +98,49 @@ The thresholds are yours. Rawstep reports friction hints; it does not decide wha
 | `no-config`, `invalid-config`, `old-config` | There is no `rawstep.config.json`, it does not parse, or it is an older version. |
 | `task-not-found`, `profile-not-found` | The id or name is not in the config (and, for a task, there is no file at that path). |
 | `invalid-task` | A task file that is not registered is not valid JSON. A task that fails validation rejects with an `Error` whose message names the field. |
-| `invalid-repeat` | `repeat` is not an integer from 1 to 100. |
+| `invalid-repeat`, `invalid-parallel` | `repeat` is not an integer from 1 to 100, or `parallel` is not an integer from 1 to 8. |
 | `missing-credential` | The planner's model needs a key that is not in `.env.local` or the environment. |
 | `plan-file-invalid` | The profile's plan file is missing, not JSON, or not a plan with tasks. |
 | `planner-model-invalid`, `plan-file-task`, `voiceover-macos`, `nvda-windows`, `endpoint-not-loopback`, `unsupported-action`, `unknown-input` | The profile cannot run here: no planner, a plan file that needs a task file, a native screen reader on the wrong OS or without a loopback AT Driver address, or actions or inputs the screen reader or task do not have. |
+| `browser-endpoint-missing` | The task's `browser.mode` is `connect`, but `machine.browserEndpoint` is empty ([task reference](./task.md#browser)). |
 | `cancelled` | `signal` was aborted. Traces written so far are kept, with their hints and report. |
 
-A run that breaks while it runs (the page does not load, the model fails) does not reject: its `outcome.reason` is `error` and the message is in `outcome.error`. A missing analysis key is not an error either; it adds a `warnings` entry.
+A run that breaks while it runs (the page does not load, the model fails, the run could not start) does not reject: its `outcome.reason` is `error` and the message is in `outcome.error`. A run that could not start has no trace, so its `outcome` is made from the error (`stage` `setup`). A missing analysis key is not an error either; it adds a `warnings` entry.
+
+## `runSuite`
+
+`runSuite` runs several tasks under one or more profiles as one batch, exactly as `npx rawstep suite` does.
+
+```ts
+function runSuite(options?: RunSuiteOptions): Promise<RunSuiteResult>;
+```
+
+It takes the options of `runTask` (`projectDir`, `runRules`, `repeat`, `parallel`, `note`, `signal`, `onEvent`), except that `profile` is replaced by `profiles`, plus these:
+
+| Option | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `tasks` | `string[]` | none | Tasks by id, or by the path of a task file. |
+| `tags` | `string[]` | none | Adds the registered tasks that have any of these tags. |
+| `profiles` | `string[]` | each task's usual profiles, else the first profile in the config | Run profiles by id or name. When given, every task runs under each one; without them, each task runs with its own usual profiles. |
+
+With neither `tasks` nor `tags`, it runs every registered task. A tag that no task has rejects with `no-tasks`. It resolves like `runTask`: runs that did not reach the goal, or that ended on an error, still resolve; setup problems and cancellation reject, with the same codes.
+
+`RunSuiteResult`:
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `batch` | `{ id: string; dir: string }` | The batch the runs were saved as. |
+| `warnings` | `string[]` | As for `runTask`. |
+| `runs` | array | Every run of the batch, with the fields listed under [`runTask`](#return-value). |
+| `groups` | array | One entry per task under a profile: `taskId`, `taskName`, `profileId`, `profileName`, its `runs`, and its `findings` (hints gathered across just those runs). |
+
+```ts
+const { groups } = await runSuite({ tags: ['checkout'], repeat: 3, parallel: 2 });
+for (const group of groups) {
+  const reached = group.runs.filter(run => run.outcome?.status === 'success').length;
+  console.log(`${group.taskName} · ${group.profileName}: ${reached} of ${group.runs.length} reached the goal`);
+}
+```
 
 ## Import paths
 
@@ -108,8 +148,8 @@ A run that breaks while it runs (the page does not load, the model fails) does n
 
 | Import | What it is for | Main names |
 | --- | --- | --- |
-| `rawstep` | The high-level call, plus the most used pieces of the paths below. | `runTask`, `ProjectError`, `ScriptedPolicy`, `loadPolicy`, `OrchestratedSpeechPolicy`, `LlmPlanner`, `readTrace`, `TraceRecorder`, `extractHints`, `aggregateHints`, `writeHints`, `runEnding`, `analyzeTrace`, `writeReport`, `runMockVoiceOverTask`, `AtDriverBackend`, `resolveTask`; types `RunEnding`, `UnmeasuredBy`, `EndingOf` |
-| `rawstep/project` | The project layer behind `runTask`: config schema, reading and writing a project, checking and executing a run. | `runTask`, `ProjectStore`, `configSchema`, `parseConfig`, `defaultConfig`, `initProject`, `checkRun`, `executeRun`, `finalizeRun`, `compareRepeats`, `projectAnalyzer`, `loadPlanFile`, `ProjectError`, `CONFIG_FILE` |
+| `rawstep` | The high-level calls, plus the most used pieces of the paths below. | `runTask`, `runSuite`, `ProjectError`, `ScriptedPolicy`, `loadPolicy`, `OrchestratedSpeechPolicy`, `LlmPlanner`, `readTrace`, `TraceRecorder`, `extractHints`, `aggregateHints`, `writeHints`, `runEnding`, `analyzeTrace`, `writeReport`, `runMockVoiceOverTask`, `AtDriverBackend`, `resolveTask`; types `RunEnding`, `UnmeasuredBy`, `EndingOf`, `RunTaskOptions`, `RunTaskResult`, `RunSuiteOptions`, `RunSuiteResult`, `SuiteGroup`, `BatchRun`, `BatchRef` |
+| `rawstep/project` | The project layer behind `runTask` and `runSuite`: config schema, reading and writing a project, checking and executing a run. | `runTask`, `runSuite`, `ProjectStore`, `configSchema`, `parseConfig`, `defaultConfig`, `initProject`, `checkRun`, `executeRun`, `finalizeRun`, `compareRepeats`, `projectAnalyzer`, `loadPlanFile`, `ProjectError`, `CONFIG_FILE` |
 | `rawstep/runner` | The low-level runner: one task, a backend you give it, a policy you give it. | `runWithPolicy`, `validateDecision`, `confirmationHeard`; type `RunOptions` |
 | `rawstep/policy` | Decision policies and the plan document. | `ScriptedPolicy`, `loadPolicy`, `OrchestratedSpeechPolicy`, `FixedPlanner`, `planFileSchema`, `planDraftSchema`, `renderPlanMarkdown`, `speechChoices`, `followPlan` |
 | `rawstep/contracts` | Task and run types and checks. | `resolveTask`, `describeInputs`, `matchesText`, `validateNavigation`, `MAX_SCRIPT_SOURCE`, `STOP_SOURCES`; types `Task`, `DecisionPolicy`, `Decision`, `Backend`, `VerifyRule` and the rest of the contract types |
@@ -123,14 +163,14 @@ A run that breaks while it runs (the page does not load, the model fails) does n
 | `rawstep/mock-voiceover` | The simulated VoiceOver. | `runMockVoiceOverTask`, `MockVoiceOverBackend`, `formatSimulatedSpeech`, `MOCK_VOICEOVER_WARNING`, `MOCK_VOICEOVER_LIMITATIONS`, `MOCK_VOICEOVER_PROFILE` |
 | `rawstep/at-driver` | The client for a native screen reader through an AT Driver server. | `AtDriverBackend`, `AtDriverClient`, `AtDriverError`, `getAtDriverProfile`, `AT_DRIVER_KEYS` |
 | `rawstep/evidence` | The research corpus behind the simulator's wording. Large; loaded only when you import it. | `EVIDENCE_CATALOG`, `listCorpusRules`, `compareEvidenceCase`, `summarizeEvidenceCoverage`, `UnsupportedCorpusPatternError` |
-| `rawstep/cli` | The CLI as a function, for embedding or testing. | `runCli`, `parseCliArguments`, `formatRunResult`, `endingText`, `CLI_USAGE`, `CliUsageError` |
+| `rawstep/cli` | The CLI as a function, for embedding or testing. | `runCli`, `parseCliArguments`, `formatRunResult`, `formatSuiteResult`, `endingText`, `CLI_USAGE`, `CliUsageError` |
 | `rawstep/package.json` | The package manifest. | |
 
 The package also installs the `rawstep` command (`bin`).
 
 ### The low-level runner: `runWithPolicy`
 
-`import { runWithPolicy } from 'rawstep/runner'` runs one task with a backend and a policy you give it: `runWithPolicy(task: Task, options: RunOptions): Promise<RunTrace>`. It writes the trace and returns it. It does not read a config, write hints or write a report. `runTask` (above) is the call that runs a task from a project.
+`import { runWithPolicy } from 'rawstep/runner'` runs one task with a backend and a policy you give it: `runWithPolicy(task: Task, options: RunOptions): Promise<RunTrace>`. It writes the trace and returns it. It does not read a config, write hints or write a report. `runTask` and `runSuite` (above) are the calls that run tasks from a project.
 
 `RunOptions` for the low-level runner (the required ones are `backend`, `policy` and `outDir`):
 
@@ -143,7 +183,7 @@ The package also installs the `rawstep` command (`bin`).
 | `profile` | A page environment profile (name or object). |
 | `signal` | Cancels the run; the trace is saved with an `aborted` outcome. |
 | `confirmationGrace` | Actions to go on after the goal is reached when nothing the user heard said so (default 0). |
-| `headless`, `browserExecutablePath`, `browserEndpoint`, `proxyServer` | How the browser is launched or reached. |
+| `headless`, `browserExecutablePath`, `browserEndpoint`, `proxyServer` | How the browser is launched or reached. `browserEndpoint` is the address of a Chrome you started yourself. |
 | `diagnosticScreenshots` | Save a screenshot per step for people reading the run (never given to the policy). |
 | `onEvent` | Receives every stored trace event. |
 | `observe` | The page observer that feeds hints; on by default. |

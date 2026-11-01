@@ -36,7 +36,7 @@ export const traceUi: LocaleShape<typeof ko> = {
     maxSteps: 'The run stopped because it reached the maximum number of moves.',
     timeout: 'The run stopped because the time limit passed.',
     'bot-check': 'The page showed a bot check screen ({{hosts}}).',
-    'bot-checkNote': 'The model may have judged from this check screen instead of the real page. Rawstep does not pass bot checks on its own. If you turn on "{{setting}}" in this computer’s settings, a person passes the check in the visible browser window and the run continues.',
+    'bot-checkNote': 'The model may have judged from this check screen instead of the real page. Rawstep does not pass bot checks on its own. If you turn on "{{setting}}" in the Browser part of Edit task, a person passes the check in the visible browser window and the run continues.',
     'bot-checkPassedNote': 'A person passed the check and the run continued.',
     'person-check': 'Waited {{seconds}} s for a person to pass the bot check ({{count}} times).',
     'person-check_one': 'Waited {{seconds}} s for a person to pass the bot check ({{count}} time).',

@@ -63,6 +63,7 @@ export const editor: LocaleShape<typeof ko> = {
     advanced: 'Advanced',
     placeholder: 'Choose',
     noItems: 'Nothing registered yet.',
+    newTab: 'opens in a new tab',
     secretShow: 'Show API key',
     secretHide: 'Hide API key',
   },

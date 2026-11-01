@@ -85,6 +85,9 @@ export function checkRun({ config, task, taskEntry, runRules, profile, combo, ac
     const endpoint = new URL(atEndpointOf(config.machine, backend));
     if (!['ws:', 'wss:'].includes(endpoint.protocol) || !isLoopbackHostname(endpoint.hostname) || endpoint.username || endpoint.password) return fail('endpoint-not-loopback', 'Native screen reader runs need a loopback AT Driver WebSocket address on this host.');
   }
+  // The profile says to use a Chrome you started yourself; where it listens is this computer's to say.
+  if (task.browser?.mode === 'connect' && !config.machine.browserEndpoint.trim()) return fail('browser-endpoint-missing', 'This task runs in a Chrome you started yourself, but this computer has no address for it. Start Chrome with --remote-debugging-port and set machine.browserEndpoint (Settings › This computer).');
+  if (task.browser?.mode === 'connect' && config.machine.proxyServer) warnings.push('machine.proxyServer does not apply: this task uses a Chrome you started yourself, which has its own proxy settings.');
   if (config.project.analysis.model && !analysisModel) warnings.push('The analysis model is not on an LLM connection, so the run is analysed by rules only.');
   return { settings, permissions, ...models, warnings };
 }

@@ -94,7 +94,7 @@ describe('dashboard languages', () => {
     // The CLI points people at these two places by name.
     expect(i18n.t('nav.settings')).toBe('Settings');
     expect(i18n.t('settingsNav.sections.connections')).toBe('AI connections');
-    expect(i18n.t('settingsNav.sections.profiles')).toBe('Run profiles');
+    expect(i18n.t('nav.profiles')).toBe('Run profiles');
     expect(serverText({ code: 'too-many-combinations', params: { max: 1000 } })).toBe('At most 1000 runs can be made at once.');
     expect(serverText({ code: 'not-a-code' })).toBe(en.get('serverMessages.request-failed'));
     expect(i18n.t('taskList.count', { count: 1 })).not.toBe(i18n.t('taskList.count', { count: 2 }));

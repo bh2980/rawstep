@@ -28,14 +28,18 @@ export function uniqueTaskFile(slug: string, used: ReadonlySet<string>): string 
  */
 export async function createManagedTask(props: PageProps, input: {
   name: string; slug: string; task: unknown;
-  /** A task being copied: its base task, fewest moves and analysis instructions come along. */
+  /** Tags for the new task; a copy keeps its original's. */
+  tags?: string[];
+  /** A task being copied: its base task, tags, fewest moves and analysis instructions come along. */
   copyOf?: ManagedTask;
 }): Promise<{ id: string; view: ConfigView }> {
   const id = crypto.randomUUID(), { copyOf } = input;
-  const { config } = props.view;
+  const { config } = props.view, tags = input.tags ?? copyOf?.tags;
   const write = (file: string) => props.save(
     { ...config, tasks: [...config.tasks, {
       id, name: input.name, file,
+      ...(tags?.length ? { tags } : {}),
+      ...(copyOf?.profiles?.length ? { profiles: copyOf.profiles } : {}),
       ...(copyOf?.variantOf ? { variantOf: copyOf.variantOf } : {}), ...(copyOf?.minimalSteps !== undefined ? { minimalSteps: copyOf.minimalSteps } : {}),
       ...(copyOf?.analysisInstructions ? { analysisInstructions: copyOf.analysisInstructions } : {}),
     }] },

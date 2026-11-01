@@ -54,6 +54,21 @@
       "import": "./dist/execution.js",
       "default": "./dist/execution.js"
     },
+    "./batch": {
+      "types": "./dist/batch.d.ts",
+      "import": "./dist/batch.js",
+      "default": "./dist/batch.js"
+    },
+    "./experiment": {
+      "types": "./dist/experiment.d.ts",
+      "import": "./dist/experiment.js",
+      "default": "./dist/experiment.js"
+    },
+    "./finalize": {
+      "types": "./dist/finalize.d.ts",
+      "import": "./dist/finalize.js",
+      "default": "./dist/finalize.js"
+    },
     "./run": {
       "types": "./dist/run.d.ts",
       "import": "./dist/run.js",

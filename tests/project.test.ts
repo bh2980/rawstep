@@ -618,14 +618,17 @@ describe('runTask', () => {
   const back = ['Tab', 'Shift+Tab', 'Tab', 'Shift+Tab'];
   const tabOnly = { keys: ['Tab'], intents: [], typeText: false, replaceText: false };
 
-  it('runs a registered task with the planner of its profile, writing under .rawstep/runs and returning the conditions', async () => {
+  it('runs a registered task with the planner of its profile, saving it as a batch the dashboard lists, and returns the conditions', async () => {
     const { dir } = await project(), { calls, execute } = player(recorded(['Tab', 'Enter'], 'success'));
     const result = await runTask('task', { projectDir: dir }, { execute });
     expect(calls).toHaveLength(1);
     expect(calls[0]!.spec).toMatchObject({ backend: 'simulation', plannerModel: { id: 'setup-llm' }, task: { goal: 'Complete fixture' }, environment: expect.objectContaining({ id: 'default' }) });
     expect(calls[0]!.spec).not.toHaveProperty('mode'); expect(calls[0]!.spec).not.toHaveProperty('model'); expect(calls[0]!.spec).not.toHaveProperty('prompt');
     expect(calls[0]!.spec.permissions.intents).toContain('next');
-    expect(dirname(dirname(calls[0]!.outDir))).toBe(join(dir, '.rawstep', 'runs')); expect(basename(dirname(calls[0]!.outDir))).toMatch(/^[0-9T-]+Z-[0-9a-f]{8}$/); expect(basename(calls[0]!.outDir)).toBe('run-1');
+    expect(dirname(calls[0]!.outDir)).toBe(result.batch.dir); expect(dirname(result.batch.dir)).toBe(join(dir, '.rawstep', 'experiments'));
+    const saved = JSON.parse(await readFile(join(result.batch.dir, 'experiment.json'), 'utf8'));
+    expect(saved).toMatchObject({ id: result.batch.id, owner: { pid: process.pid, via: 'cli' }, request: { taskIds: ['task'], repeats: 1 }, runs: [{ state: 'success', taskId: 'task', snapshot: { taskName: expect.any(String) } }] });
+    expect(basename(calls[0]!.outDir)).toBe(saved.runs[0].id);
     expect(result.runs).toHaveLength(1);
     expect(result.runs[0]).toMatchObject({ outDir: calls[0]!.outDir, outcome: { status: 'success', steps: 2 }, hints: { goalReached: true, steps: 2 } });
     expect(result.runs[0]!.runId).toBe(result.runs[0]!.hints.runId);
@@ -638,32 +641,28 @@ describe('runTask', () => {
     });
     expect(result.conditions).toEqual(calls[0]!.spec.conditions);
   });
-  it('repeats into one run-<n> directory each and compares every run with the fastest goal-reaching one', async () => {
-    const { dir } = await project(), out = join(dir, 'custom-out');
+  it('repeats into a folder each and compares every run with the fastest goal-reaching one', async () => {
+    const { dir } = await project();
     const { calls, execute } = player(recorded(['Tab', 'Tab', 'Tab', 'Tab', 'Tab', 'Enter'], 'success'), recorded(['Tab', 'Enter'], 'success'), recorded([...back, 'Enter'], 'failure', 'max-steps'));
-    const result = await runTask('task', { projectDir: dir, repeat: 3, outDir: out }, { execute });
-    expect(calls.map(c => c.outDir)).toEqual([join(out, 'run-1'), join(out, 'run-2'), join(out, 'run-3')]);
+    const result = await runTask('task', { projectDir: dir, repeat: 3 }, { execute });
+    expect(new Set(calls.map(c => c.outDir)).size).toBe(3); expect(result.runs.map(r => r.outDir)).toEqual(calls.map(c => c.outDir));
     const [slow, fast, wandering] = result.runs;
     expect(fast!.hints.reference).toMatchObject({ runId: fast!.runId, steps: 2 });
     expect(slow!.hints.reference).toMatchObject({ runId: fast!.runId, steps: 2 });
     expect(slow!.hints.hints.map(h => h.kind)).toContain('slow-run');
-    expect(JSON.parse(await readFile(join(out, 'run-1', 'hints.json'), 'utf8')).reference.runId).toBe(fast!.runId);
+    expect(JSON.parse(await readFile(join(calls[0]!.outDir, 'hints.json'), 'utf8')).reference.runId).toBe(fast!.runId);
     expect(wandering!.outcome).toMatchObject({ status: 'failure', steps: 5 });
     expect(wandering!.hints.hints.map(h => h.kind)).toContain('backtracking');
     expect(result.findings).toEqual([expect.objectContaining({ kind: 'backtracking', source: 'model', runs: 1, totalRuns: 3 })]);
   });
-  it('gives every run its own run-<n> folder when --out is reused, one after the other or at the same time', async () => {
-    const { dir } = await project(), out = join(dir, 'shared-out');
-    const play = (calls: { outDir: string }[]) => (async (spec, { outDir }) => { calls.push({ outDir }); return recorded(['Tab', 'Enter'], 'success')(spec, outDir); }) as RunExecutor;
-    const first: { outDir: string }[] = [], second: { outDir: string }[] = [], a: { outDir: string }[] = [], b: { outDir: string }[] = [];
-    await runTask('task', { projectDir: dir, outDir: out }, { execute: play(first) });
-    await runTask('task', { projectDir: dir, outDir: out, repeat: 2 }, { execute: play(second) });
-    expect(first.map(c => basename(c.outDir))).toEqual(['run-1']); expect(second.map(c => basename(c.outDir))).toEqual(['run-2', 'run-3']);
-    const results = await Promise.all([runTask('task', { projectDir: dir, outDir: out, repeat: 2 }, { execute: play(a) }), runTask('task', { projectDir: dir, outDir: out, repeat: 2 }, { execute: play(b) })]);
-    const taken = [...a, ...b].map(c => c.outDir);
-    expect(new Set(taken).size).toBe(4); expect(results.every(r => r.runs.length === 2)).toBe(true);
-    for (const outDir of taken) expect((await readTrace(outDir)).runId).toBeTruthy();
-    expect(new Set([...taken, ...first.map(c => c.outDir), ...second.map(c => c.outDir)].map(d => basename(d))).size).toBe(7);
+  it('runs up to `parallel` runs at once, each in its own folder, and tells a suite\'s tasks apart', async () => {
+    const { dir } = await project();
+    let going = 0, most = 0;
+    const execute: RunExecutor = async (spec, { outDir }) => { going++; most = Math.max(most, going); await new Promise(resolve => setTimeout(resolve, 40)); going--; return recorded(['Tab', 'Enter'], 'success')(spec, outDir); };
+    const result = await runTask('task', { projectDir: dir, repeat: 4, parallel: 2 }, { execute });
+    expect(most).toBe(2); expect(new Set(result.runs.map(r => r.outDir)).size).toBe(4);
+    for (const run of result.runs) expect((await readTrace(run.outDir)).runId).toBe(run.runId);
+    await expect(runTask('task', { projectDir: dir, parallel: 9 }, { execute })).rejects.toMatchObject({ code: 'invalid-parallel' });
   });
   it('resolves the profile by id or by name, and reports an unknown one with the choices', async () => {
     const { dir } = await project(config => {
@@ -800,13 +799,15 @@ describe('runTask', () => {
   });
   it('rejects on cancellation and keeps the traces written so far, with their hints and reports', async () => {
     const { dir } = await project(), controller = new AbortController();
-    const out = join(dir, 'cancelled');
-    const execute: RunExecutor = async (spec, { outDir }) => { const trace = await recorded(['Tab'], 'failure', 'cancelled')(spec, outDir); controller.abort('SIGINT'); return trace; };
-    await expect(runTask('task', { projectDir: dir, repeat: 3, outDir: out, signal: controller.signal }, { execute })).rejects.toMatchObject({ code: 'cancelled' });
-    expect((await readTrace(join(out, 'run-1'))).runId).toBeTruthy();
-    await expect(readFile(join(out, 'run-1', 'hints.json'), 'utf8')).resolves.toContain('"hints"');
-    await expect(readFile(join(out, 'run-1', 'report.html'), 'utf8')).resolves.toContain('<html');
-    await expect(readFile(join(out, 'run-2', 'trace.json'))).rejects.toThrow();
+    const ran: string[] = [];
+    const execute: RunExecutor = async (spec, { outDir }) => { ran.push(outDir); const trace = await recorded(['Tab'], 'failure', 'cancelled')(spec, outDir); controller.abort('SIGINT'); return trace; };
+    await expect(runTask('task', { projectDir: dir, repeat: 3, signal: controller.signal }, { execute })).rejects.toMatchObject({ code: 'cancelled' });
+    expect(ran).toHaveLength(1);
+    expect((await readTrace(ran[0]!)).runId).toBeTruthy();
+    await expect(readFile(join(ran[0]!, 'hints.json'), 'utf8')).resolves.toContain('"hints"');
+    await expect(readFile(join(ran[0]!, 'report.html'), 'utf8')).resolves.toContain('<html');
+    const batch = JSON.parse(await readFile(join(dirname(ran[0]!), 'experiment.json'), 'utf8'));
+    expect(batch.runs.map((r: { state: string }) => r.state)).toEqual(['cancelled', 'cancelled', 'cancelled']);
     await expect(runTask('task', { projectDir: dir, signal: controller.signal }, { execute: player().execute })).rejects.toMatchObject({ code: 'cancelled' });
   });
   it('forwards trace events to onEvent', async () => {
@@ -815,8 +816,9 @@ describe('runTask', () => {
     await runTask('task', { projectDir: dir, onEvent: event => seen.push(event.type) }, { execute });
     expect(seen).toContain('fixture.event');
   });
-  it('does not treat a run executor failure as a result', async () => {
+  it('records a run executor failure as a run that ended on an error, not as a result', async () => {
     const { dir } = await project();
-    await expect(runTask('task', { projectDir: dir }, { execute: async () => { throw new Error('browser crashed'); } })).rejects.toThrow('browser crashed');
+    const result = await runTask('task', { projectDir: dir }, { execute: async () => { throw new Error('browser crashed'); } });
+    expect(result.runs[0]!.outcome).toMatchObject({ status: 'failure', reason: 'error', error: 'browser crashed' });
   });
 });

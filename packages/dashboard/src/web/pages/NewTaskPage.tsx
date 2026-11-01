@@ -2,15 +2,18 @@ import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import type { TaskInputOptions, VerifyRule } from '@rawstep/core/contracts';
+import { BrowserField } from '../components/BrowserField';
 import { CheckEditor } from '../components/CheckEditor';
 import { CheckSuggestions } from '../components/CheckSuggestions';
 import { TaskInputsField } from '../components/TaskInputsField';
 import { Field, Panel } from '../components/forms';
 import { PageHeader, SectionHead } from '../components/layout/PageHeader';
 import { ProjectPathField } from '../components/ProjectPathField';
+import { TagsField } from '../components/TagsField';
 import { Button } from '../components/ui/button';
 import { Textarea } from '../components/ui/textarea';
 import type { RouteChange } from '../hooks/useRoute';
+import { browserField, DEFAULT_BROWSER, type BrowserChoice } from '../lib/taskBrowser';
 import { inputProblems } from '../lib/taskInputs';
 import { createManagedTask, hostnameOf, nameFromGoal, slugify } from '../lib/taskFiles';
 import type { PageProps } from './types';
@@ -18,14 +21,14 @@ import type { PageProps } from './types';
 type Props = PageProps & { navigate: (change: RouteChange) => void };
 
 /**
- * New task: one form column — start address, goal, name, completion check (with AI suggestions under it) and, folded, inputs. The footer holds one primary button and the reason when nothing can be created yet. The page only creates the task:
+ * New task: one form column — start address, goal, name, completion check (with AI suggestions under it) and, folded, inputs and the browser. The footer holds one primary button and the reason when nothing can be created yet. The page only creates the task:
  * the person picks the profile and runs it on the task page.
  */
 export function NewTaskPage({ navigate, ...props }: Props) {
   const { t } = useTranslation();
   const id = useId();
   const { config } = props.view;
-  const [url, setUrl] = useState(''), [goal, setGoal] = useState(''), [context, setContext] = useState(''), [name, setName] = useState('');
+  const [url, setUrl] = useState(''), [goal, setGoal] = useState(''), [context, setContext] = useState(''), [name, setName] = useState(''), [tags, setTags] = useState<string[]>([]), [browser, setBrowser] = useState<BrowserChoice>(DEFAULT_BROWSER);
   const [rules, setRules] = useState<VerifyRule[]>([]), [input, setInput] = useState<Record<string, string>>({}), [inputOptions, setInputOptions] = useState<Record<string, TaskInputOptions>>();
   // A project HTML path has no host; its file name is the next best name.
   const host = hostnameOf(url) || url.trim().split(/[\\/]/).pop()?.replace(/\.html?$/i, '') || '', fromGoal = nameFromGoal(goal), title = name.trim() || fromGoal || host || t('newTask.fallbackName');
@@ -33,9 +36,9 @@ export function NewTaskPage({ navigate, ...props }: Props) {
   async function create() {
     const task = {
       url: url.trim(), goal: goal.trim(), ...(context.trim() ? { context: context.trim() } : {}), maxSteps: RAWSTEP_DEFAULTS.task.maxSteps, timeoutMs: RAWSTEP_DEFAULTS.task.timeoutMs,
-      verify: { all: rules }, ...(Object.keys(input).length ? { input, ...(inputOptions ? { inputOptions } : {}) } : {}),
+      verify: { all: rules }, ...(browserField(browser) ? { browser: browserField(browser) } : {}), ...(Object.keys(input).length ? { input, ...(inputOptions ? { inputOptions } : {}) } : {}),
     };
-    const created = await createManagedTask(props, { name: title, slug: slugify(name) || slugify(fromGoal) || slugify(host), task });
+    const created = await createManagedTask(props, { name: title, slug: slugify(name) || slugify(fromGoal) || slugify(host), task, tags });
     navigate({ task: created.id });
   }
   const submit = () => { if (ready && !props.busy) void props.act(create, { as: 'start' }); };
@@ -51,6 +54,7 @@ export function NewTaskPage({ navigate, ...props }: Props) {
       <p id={id + '-goal-note'} className="text-xs leading-5 text-muted-foreground">{t('newTask.goalNote')}</p>
     </section>
     <Field label={t('newTask.name')} value={name} placeholder={fromGoal || host || t('newTask.fallbackName')} hint={t('newTask.nameHint')} onChange={setName} />
+    <TagsField label={t('tags.label')} tags={tags} onChange={setTags} hint={t('tags.hint')} />
     <section className="grid gap-2">
       <SectionHead id={id + '-context-title'} title={t('taskEdit.context')} />
       <Textarea aria-labelledby={id + '-context-title'} aria-describedby={id + '-context-note'} rows={2} className="min-h-14 text-sm leading-6 md:text-sm" placeholder={t('taskEdit.contextPlaceholder')} value={context} onChange={event => setContext(event.target.value)} />
@@ -63,6 +67,9 @@ export function NewTaskPage({ navigate, ...props }: Props) {
     </section>
     <Panel title={t('newTask.inputsTitle')} description={t('newTask.detailsSummary', { count: inputCount })}>
       <TaskInputsField input={input} options={inputOptions} goal={goal} onChange={fields => { setInput(fields.input ?? {}); setInputOptions(fields.inputOptions); }} />
+    </Panel>
+    <Panel title={t('taskBrowser.title')} description={t(`taskBrowser.summary.${browser.mode}`) + (browser.personCheck ? ' · ' + t('taskBrowser.personCheckName') : '')}>
+      <BrowserField value={browser} onChange={setBrowser} endpointSet={config.machine.browserEndpoint.trim() !== ''} />
     </Panel>
     <footer className="grid gap-2 border-t border-edge-strong pt-4">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">

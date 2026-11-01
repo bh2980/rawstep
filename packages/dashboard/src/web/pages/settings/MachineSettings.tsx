@@ -11,6 +11,7 @@ import { Field, Toggle } from '../../components/forms';
 import { PageHeader, SectionHead } from '../../components/layout/PageHeader';
 import { Button } from '../../components/ui/button';
 import { environmentViewport, sameValue } from '../../lib/conditions';
+import { MAX_PARALLEL_RUNS, MIN_PARALLEL_RUNS, parseParallelRuns } from '../../lib/machine';
 import { cn } from '../../lib/utils';
 import type { PageProps } from '../types';
 
@@ -56,13 +57,14 @@ export function MachineSettings({ onDirty, ...props }: PageProps & { onDirty: (d
   const [command, setCommand] = useState(''), [savedCommand, setSavedCommand] = useState('');
   useEffect(() => { void api<{ command: string }>('/machine/at-driver-command').then(result => { setCommand(result.command); setSavedCommand(result.command); }, () => {}); }, []);
   const storeCommand = async () => { if (command.trim() !== savedCommand) { const result = await api<{ command: string }>('/machine/at-driver-command', { method: 'PUT', body: { command } }); setSavedCommand(result.command); } };
+  // What is typed in 동시 실행 수: the machine keeps the last valid number, so a half-typed value never reaches the config.
+  const [parallelText, setParallelText] = useState(() => String(config.machine.parallelRuns));
   const [browser, setBrowser] = useState<Status>({ kind: 'unchecked' });
   const [drivers, setDrivers] = useState<Record<Native, Status>>({ voiceover: { kind: 'unchecked' }, nvda: { kind: 'unchecked' } });
   const dirty = !sameValue(machine, config.machine) || command.trim() !== savedCommand;
   useEffect(() => { onDirty(dirty); }, [dirty]);
   const updateMachine = (part: Partial<Machine>) => {
-    // Copying the sign-in only means something with a connected Chrome; clearing the address turns it off so the config stays valid.
-    setMachine({ ...machine, ...part, ...('browserEndpoint' in part && !part.browserEndpoint?.trim() ? { copySignIn: false } : {}) });
+    setMachine({ ...machine, ...part });
     if ('browserExecutablePath' in part || 'browserEndpoint' in part) setBrowser({ kind: 'unchecked' });
     if ('atEndpoints' in part) setDrivers({ voiceover: { kind: 'unchecked' }, nvda: { kind: 'unchecked' } });
   };
@@ -87,9 +89,10 @@ export function MachineSettings({ onDirty, ...props }: PageProps & { onDirty: (d
   }
   // Only this slice is written, on top of the latest config, so edits made on other pages are kept.
   const save = () => void props.act(async () => { await storeCommand(); await props.save({ ...props.view.config, machine }, undefined, props.view.revision); });
-  const discard = () => { setMachine(structuredClone(config.machine)); setCommand(savedCommand); };
+  const discard = () => { setMachine(structuredClone(config.machine)); setCommand(savedCommand); setParallelText(String(config.machine.parallelRuns)); };
   const viewport = environmentViewport(config.profiles[0]!.page, props.view.environmentPresets);
-  const connected = !!machine.browserEndpoint.trim(), visible = machine.personCheck || connected || !machine.headless;
+  const connected = !!machine.browserEndpoint.trim(), visible = !machine.headless;
+  const parallelOk = parseParallelRuns(parallelText) !== undefined;
   return <div className="grid max-w-3xl gap-8">
     <PageHeader title={t('settingsNav.sections.machine')} info={t('machine.intro')} />
 
@@ -101,12 +104,16 @@ export function MachineSettings({ onDirty, ...props }: PageProps & { onDirty: (d
       <div className="grid gap-1.5">
         <Field label={t('machine.browserEndpoint')} value={machine.browserEndpoint} onChange={browserEndpoint => updateMachine({ browserEndpoint })} placeholder="http://localhost:9222" info={t('machine.browserEndpointHint')} hint={t('machine.browserEndpointLaunch')} />
         <code className="block overflow-x-auto rounded-md border border-edge bg-raised px-2.5 py-1.5 font-mono text-xs leading-5">{CHROME_CDP_COMMAND}</code>
-        <p className="text-xs leading-5 text-muted-foreground">{t(machine.copySignIn ? 'machine.browserEndpointCopied' : 'machine.browserEndpointFresh')}</p>
+        <p className="text-xs leading-5 text-muted-foreground">{t('machine.browserEndpointTasks')}</p>
       </div>
-      <Toggle label={t('machine.copySignIn')} info={t('machine.copySignInHint')} checked={connected && machine.copySignIn} disabled={!connected} onChange={copySignIn => updateMachine({ copySignIn })} />
-      <Field label={t('machine.browserPath')} value={machine.browserExecutablePath} onChange={browserExecutablePath => updateMachine({ browserExecutablePath })} placeholder={t('machine.browserPathPlaceholder')} info={t('machine.browserPathHint')} disabled={connected} />
-      <Toggle label={t('machine.showBrowser')} info={t('machine.showBrowserHint')} checked={visible} disabled={machine.personCheck || connected} onChange={show => updateMachine({ headless: !show })} />
-      <Toggle label={t('machine.personCheck')} info={t('machine.personCheckHint')} checked={machine.personCheck} onChange={personCheck => updateMachine({ personCheck })} />
+      <Field label={t('machine.browserPath')} value={machine.browserExecutablePath} onChange={browserExecutablePath => updateMachine({ browserExecutablePath })} placeholder={t('machine.browserPathPlaceholder')} info={t('machine.browserPathHint')} />
+      <Toggle label={t('machine.showBrowser')} info={t('machine.showBrowserHint')} checked={visible} onChange={show => updateMachine({ headless: !show })} />
+      <div className="sm:max-w-md">
+        <Field label={t('machine.parallelRuns')} type="number" min={MIN_PARALLEL_RUNS} max={MAX_PARALLEL_RUNS} info={t('machine.parallelRunsInfo')}
+          value={parallelText} invalid={!parallelOk} hint={t('machine.parallelRunsHint')}
+          onChange={text => { setParallelText(text); const count = parseParallelRuns(text); if (count !== undefined) updateMachine({ parallelRuns: count }); }}
+          onBlur={() => setParallelText(String(machine.parallelRuns))} />
+      </div>
       <p className="text-xs leading-5 text-muted-foreground">{t('machine.env.windowValue', { width: viewport.width, height: viewport.height, mode: t(visible ? 'machine.env.windowVisible' : 'machine.env.windowHidden') })} · {t('machine.env.windowHint')}</p>
     </section>
 
@@ -120,6 +127,6 @@ export function MachineSettings({ onDirty, ...props }: PageProps & { onDirty: (d
       <Field label={t('machine.atCommand')} value={command} placeholder={t('machine.atCommandPlaceholder')} info={t('machine.atCommandHint')} hint={savedCommand ? t('machine.atCommandSet') : t('machine.atCommandUnset')}
         onChange={next => { setCommand(next); setDrivers({ voiceover: { kind: 'unchecked' }, nvda: { kind: 'unchecked' } }); }} />
     </section>
-    <SaveBar dirty={dirty} busy={props.busy} onSave={save} onDiscard={discard} />
+    <SaveBar dirty={dirty} busy={props.busy} blocked={parallelOk ? undefined : t('machine.parallelRunsInvalid')} onSave={save} onDiscard={discard} />
   </div>;
 }

@@ -215,6 +215,8 @@ export const profileSchema = z.object({
   runRules: runRulesSchema.default(() => runRulesSchema.parse({})),
 }).strict();
 export type Profile = z.infer<typeof profileSchema>;
+/** A task tag: letters, digits, `-` and `_`, starting with a letter or digit; it is typed on the command line, so no spaces. */
+export const tagSchema = z.string().regex(/^[\p{L}\p{N}][\p{L}\p{N}_-]{0,29}$/u, 'A tag is up to 30 letters, digits, - or _, with no spaces.');
 export const taskSchema = z.object({
   id, name: text, file: z.string().min(1).max(500),
   /**
@@ -226,6 +228,13 @@ export const taskSchema = z.object({
   minimalSteps: z.number().int().min(1).max(10000).optional(),
   /** Overrides the project's analysis instructions for this task. */
   analysisInstructions: z.string().max(16384).optional(),
+  /** Labels to group tasks by ("checkout", "login"): runs pick tasks by them (`rawstep suite --tag`), lists filter by them. */
+  tags: z.array(tagSchema).max(10).optional(),
+  /**
+   * The run profiles this task usually runs with (each a screen reader user to try it as): the run dialog picks them, and
+   * `rawstep run` and `suite` use them unless told otherwise. Without them, the project's first profile.
+   */
+  profiles: z.array(id).max(20).optional(),
 }).strict();
 export type ManagedTask = z.infer<typeof taskSchema>;
 /** Settings shared by the project that never change an outcome: the default analysis LLM and the model that suggests completion checks. */
@@ -252,30 +261,20 @@ export const machineSchema = z.object({
   atEndpoints: z.object({ voiceover: z.string().default(''), nvda: z.string().default('') }).strict().default({ voiceover: '', nvda: '' }),
   browserExecutablePath: z.string().default(''), headless: z.boolean().default(true),
   /**
-   * A Chrome you started yourself with `--remote-debugging-port` (e.g. `http://localhost:9222`). Runs connect to it instead of
-   * launching one, so sites see an ordinary browser; each run gets its own isolated context there. Empty launches a browser.
+   * Where the Chrome you started yourself with `--remote-debugging-port` listens on this computer (e.g. `http://localhost:9222`). Tasks
+   * whose browser is `connect` use it; it is here because the address belongs to this computer, not to the task.
    */
   browserEndpoint: z.string().default(''),
-  /**
-   * For real sites with a human check (Cloudflare and the like): runs use a visible Chrome with a profile kept in
-   * `.rawstep/browser-profile`, and pause while a person passes the check in that window. Rawstep never answers a check itself.
-   */
-  personCheck: z.boolean().default(false),
-  /**
-   * With `browserEndpoint`: each run's fresh context starts with a copy of that Chrome's cookies and site storage, so a page behind a
-   * sign-in opens signed in. The person's own windows are untouched.
-   */
-  copySignIn: z.boolean().default(false),
-  /** A credential-free HTTP(S) or SOCKS proxy URL for the browsers Rawstep launches. A Chrome you started yourself has its own proxy. */
+  /** A credential-free HTTP(S) or SOCKS proxy URL for the browsers Rawstep launches; a Chrome you started yourself uses its own. */
   proxyServer: z.string().trim().default(''),
+  /**
+   * How many runs go at once. Each is its own browser, and a planner model or agent CLI may slow down or refuse many calls at a time.
+   * Runs of tasks where a person passes bot checks in a launched browser share one kept browser profile, so those go one at a time.
+   */
+  parallelRuns: z.number().int().min(1).max(8).default(1),
 }).strict().superRefine((machine, ctx) => {
   const issue = (path: string, message: string) => ctx.addIssue({ code: 'custom', path: [path], message });
-  const connected = !!machine.browserEndpoint.trim();
-  if (machine.copySignIn && !connected) issue('copySignIn', 'copySignIn needs browserEndpoint: it copies the sign-in of a Chrome you started yourself.');
-  if (machine.proxyServer) {
-    if (connected) issue('proxyServer', 'proxyServer cannot be used with browserEndpoint: a proxy belongs to the browser you started.');
-    else if (!validProxyServer(machine.proxyServer)) issue('proxyServer', 'proxyServer must be a credential-free HTTP(S) or SOCKS URL without a path, query or fragment, such as http://localhost:8080.');
-  }
+  if (machine.proxyServer && !validProxyServer(machine.proxyServer)) issue('proxyServer', 'proxyServer must be a credential-free HTTP(S) or SOCKS URL without a path, query or fragment, such as http://localhost:8080.');
 });
 export type MachineSettings = z.infer<typeof machineSchema>;
 /** Where each native screen reader's AT Driver server listens unless told otherwise: Bocoup's macOS server and the PAC NVDA server. */
@@ -298,6 +297,10 @@ export const configSchema = z.object({
   config.profiles.forEach((profile, i) => {
     if (!isFilePlanner(profile.planner) && !known(profile.planner)) ctx.addIssue({ code: 'custom', path: ['profiles', i, 'planner', 'connectionId'], message: `Profile ${profile.name} plans with a connection that does not exist.` });
   });
+  const profileIds = new Set(config.profiles.map(profile => profile.id));
+  config.tasks.forEach((task, i) => task.profiles?.forEach((profileId, j) => {
+    if (!profileIds.has(profileId)) ctx.addIssue({ code: 'custom', path: ['tasks', i, 'profiles', j], message: `Task ${task.name} runs with a profile that does not exist (${profileId}).` });
+  }));
   if (!known(config.project.analysis.model)) ctx.addIssue({ code: 'custom', path: ['project', 'analysis', 'model', 'connectionId'], message: 'Post-run analysis uses a connection that does not exist.' });
   if (!known(config.project.suggestions.model)) ctx.addIssue({ code: 'custom', path: ['project', 'suggestions', 'model', 'connectionId'], message: 'Check suggestions use a connection that does not exist.' });
 });
