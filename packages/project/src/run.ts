@@ -3,6 +3,7 @@ import { basename, dirname, relative, resolve } from 'node:path';
 import { resolveTask, type Task } from '@rawstep/core/contracts';
 import { readTrace, type RunOutcome, type TraceEvent } from '@rawstep/core/trace';
 import { aggregateHints, extractHints, HINTS_SCHEMA_VERSION, type HintFinding, type HintReport } from '@rawstep/reports/hints';
+import { buildBatchSummary, type BatchSummary } from '@rawstep/reports/compare';
 import { findByIdOrName, modelKeyRequired, profileConditions, firstProfile, type ManagedTask, type Profile, type ProjectConfig, type RunRules } from './config.js';
 import { ProjectError } from './errors.js';
 import { requireKey } from './finalize.js';
@@ -35,6 +36,8 @@ export type BatchRun = { runId: string; taskId: string; taskName: string; profil
 export type BatchRef = { id: string; dir: string };
 export type RunTaskResult = {
   batch: BatchRef;
+  /** The batch summed up per task and profile, also saved as summary.json in the batch folder (a baseline for `rawstep compare`). */
+  summary: BatchSummary;
   /** The conditions the runs were made with, as recorded in each trace. */
   conditions: Record<string, unknown>;
   /** Things worth knowing that did not stop the runs (no analysis key, an analysis model that is not an LLM). */
@@ -52,7 +55,7 @@ export type RunSuiteOptions = Omit<RunTaskOptions, 'profile'> & {
 };
 /** The runs of one task under one profile, with the hints gathered across them. */
 export type SuiteGroup = { taskId: string; taskName: string; profileId: string; profileName: string; runs: BatchRun[]; findings: HintFinding[] };
-export type RunSuiteResult = { batch: BatchRef; warnings: string[]; runs: BatchRun[]; groups: SuiteGroup[] };
+export type RunSuiteResult = { batch: BatchRef; summary: BatchSummary; warnings: string[]; runs: BatchRun[]; groups: SuiteGroup[] };
 const MAX_REPEAT = 100;
 
 /**
@@ -104,7 +107,7 @@ export async function runTask(task: string, options: RunTaskOptions = {}, intern
   const loaded = await loadTask(store, config, task, projectDir);
   const profile = options.profile !== undefined ? pick('profile', config.profiles, options.profile) : usualProfiles(config, loaded.entry)[0]!;
   const result = await runBatch(store, config, [loaded], { all: [profile] }, options, internals);
-  return { batch: result.batch, conditions: result.conditions, warnings: result.warnings, runs: result.runs, findings: aggregateHints(result.runs.map(r => r.hints)) };
+  return { batch: result.batch, summary: result.summary, conditions: result.conditions, warnings: result.warnings, runs: result.runs, findings: aggregateHints(result.runs.map(r => r.hints)) };
 }
 
 /**
@@ -126,7 +129,7 @@ export async function runSuite(options: RunSuiteOptions = {}, internals: { execu
   const tasks = [];
   for (const reference of references) tasks.push(await loadTask(store, config, reference, projectDir));
   const chosen = options.profiles?.length ? options.profiles.map(p => pick('profile', config.profiles, p)) : undefined;
-  const { batch, warnings, runs } = await runBatch(store, config, tasks, chosen ? { all: chosen } : { byTask: Object.fromEntries(tasks.map(t => [t.entry.id, usualProfiles(config, t.entry)])) }, options, internals);
+  const { batch, summary, warnings, runs } = await runBatch(store, config, tasks, chosen ? { all: chosen } : { byTask: Object.fromEntries(tasks.map(t => [t.entry.id, usualProfiles(config, t.entry)])) }, options, internals);
   const groups: SuiteGroup[] = [];
   for (const run of runs) {
     let group = groups.find(g => g.taskId === run.taskId && g.profileId === run.profileId);
@@ -134,7 +137,7 @@ export async function runSuite(options: RunSuiteOptions = {}, internals: { execu
     group.runs.push(run);
   }
   for (const group of groups) group.findings = aggregateHints(group.runs.map(r => r.hints));
-  return { batch, warnings, runs, groups };
+  return { batch, summary, warnings, runs, groups };
 }
 
 /**
@@ -171,7 +174,10 @@ async function runBatch(store: ProjectStore, config: ProjectConfig, tasks: { ent
   if (signal.aborted) throw cancelled();
   const runs: BatchRun[] = [];
   for (const record of experiment.runs) runs.push(await readRun(queue, experiment.id, record, profiles));
-  return { batch: { id: experiment.id, dir: await store.file('.rawstep/experiments/' + experiment.id) }, conditions: experiment.runs[0]?.snapshot.spec.conditions ?? {}, warnings: [...warnings], runs };
+  const dir = await store.file('.rawstep/experiments/' + experiment.id);
+  // The queue wrote the batch's summary.json when its last run ended; the result carries the same, read from these runs.
+  const summary = buildBatchSummary({ id: experiment.id, createdAt: experiment.createdAt, ...(experiment.request.note ? { note: experiment.request.note } : {}) }, runs);
+  return { batch: { id: experiment.id, dir }, summary, conditions: experiment.runs[0]?.snapshot.spec.conditions ?? {}, warnings: [...warnings], runs };
 }
 /** A finished run as the batch saved it; one that never got going has no trace, so its outcome is the error it stopped on. */
 async function readRun(queue: BatchQueue, batchId: string, record: RunRecord, profiles: Profile[]): Promise<BatchRun> {

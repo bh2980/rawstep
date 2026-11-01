@@ -56,7 +56,7 @@ A run ends in one of four ways: reached the goal, gave up, said it was done but 
 
 The run folder holds the trace, the plan the run followed, the hints and an HTML report. Every `run` is saved as a batch in `.rawstep/experiments/`, the same place the dashboard uses, so `npx rawstep ui` shows CLI runs and dashboard runs side by side, per task and per run.
 
-To run many tasks at once, `npx rawstep suite --tag checkout --repeat 3 --parallel 2` runs the tasks with that tag as one batch and prints each task's result.
+To run many tasks at once, `npx rawstep suite --tag checkout --repeat 3 --parallel 2` runs the tasks with that tag as one batch and prints each task's result. To compare a pull request with a baseline saved from your main branch, and fail the job on a change beyond noise, see [Using Rawstep in CI](./docs/ci.md).
 
 ## What Rawstep is not
 
@@ -68,6 +68,7 @@ Rawstep is not an accessibility certification or a conformance test. A run that 
 |---|---|
 | [Getting started](./docs/getting-started.md) | Install, run the demo, connect a model, write your own task and read the results |
 | [Concepts](./docs/concepts.md) | Task and run profile, ways of finding things, what the simulated user may know, endings, cost and hints |
+| [Using Rawstep in CI](./docs/ci.md) | Save a baseline from your main branch, compare each pull request with it, what counts as noise, a GitHub Actions workflow |
 | [Planning](./docs/planning.md) | The plan document, how Rawstep carries it out, when it asks for a new plan, plan files, planner prompts |
 | [Screen readers](./docs/screen-readers.md) | Simulated VoiceOver against real VoiceOver and NVDA, AT Driver setup, supported actions, known limits |
 | [Config reference](./docs/reference/config.md) | Every field of `rawstep.config.json`, including page environments |

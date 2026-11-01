@@ -10,6 +10,7 @@ import { useMediaQuery } from './hooks/useMediaQuery';
 import { connectionLostView, describeApiError, type ErrorKind, type ErrorView } from './lib/errors';
 import { NEW_TASK, useRoute } from './hooks/useRoute';
 import type { MarkUnsaved, PageProps, Unsaved } from './pages/types';
+import { BatchSummaryPage } from './pages/BatchSummaryPage';
 import { ComparePage } from './pages/ComparePage';
 import { NewTaskPage } from './pages/NewTaskPage';
 import { ProfilesPage } from './pages/ProfilesPage';
@@ -107,7 +108,7 @@ type PageSwitchProps = {
   onUnsaved: MarkUnsaved;
 };
 
-/** Chooses the page for the URL: a run, a task or the new-task page, otherwise runs side by side, the run list, 실행 프로필, 설정, or the task list. */
+/** Chooses the page for the URL: a run, a task or the new-task page, otherwise a batch's summary, runs side by side, the run list, 실행 프로필, 설정, or the task list. */
 function Page({ pageProps, data, runs, route, navigate, editorKey, onRun, onUnsaved }: PageSwitchProps) {
   const { t } = useTranslation();
   if (route.run) {
@@ -122,6 +123,7 @@ function Page({ pageProps, data, runs, route, navigate, editorKey, onRun, onUnsa
   if (route.task === NEW_TASK) return <NewTaskPage key={editorKey} {...pageProps} navigate={navigate} />;
   if (route.task) return <TaskPage key={route.task + editorKey} taskId={route.task} tab={route.tab} pageProps={pageProps} runs={runs} navigate={navigate} onRun={() => onRun([route.task!])} />;
   const lists = { pageProps, runs, summaries: data.summaries, summaryError: data.summaryError, navigate };
+  if (route.view === 'runs' && route.batch) return <BatchSummaryPage key={route.batch} pageProps={pageProps} experiments={data.experiments} runs={runs} batchId={route.batch} against={route.against} navigate={navigate} />;
   if (route.view === 'runs' && route.compare) return <ComparePage pageProps={pageProps} runs={runs} ids={route.compare} navigate={navigate} />;
   if (route.view === 'runs') return <RunsPage {...lists} onRun={() => onRun([])} />;
   if (route.view === 'profiles') return <ProfilesPage key={editorKey} {...pageProps} navigate={navigate} onUnsaved={onUnsaved} />;

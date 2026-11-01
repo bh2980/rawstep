@@ -136,6 +136,7 @@ describe("init", () => {
 const where = { taskId: "t", taskName: "Task", profileId: "default", profileName: "Careful reader" };
 const result: RunTaskResult = {
   batch: { id: "b", dir: "/p/.rawstep/experiments/b" },
+  summary: { schemaVersion: "1.0", batch: { id: "b", createdAt: "2026-11-01T00:00:00.000Z" }, cells: [] },
   conditions: {
     profile: { id: "default", name: "Careful reader" }, combo: { id: "default", name: "Default", planner: "Claude · plan" }, actionSet: { id: "basic", name: "Basic" },
     pageEnvironment: { id: "default", name: "Careful reader", profile: "default" }, atEnvironment: { id: "default", name: "Careful reader", backend: "simulation" },
@@ -238,7 +239,7 @@ describe("run", () => {
     const directory = await temporaryDirectory(), io = output(directory);
     const [reached, unmeasured] = result.runs as [RunSuiteResult["runs"][number], RunSuiteResult["runs"][number]];
     const other = { ...reached, taskId: "u", taskName: "Checkout", runId: "r3" };
-    const suite: RunSuiteResult = { batch: result.batch, warnings: [], runs: [reached, unmeasured, other], groups: [
+    const suite: RunSuiteResult = { batch: result.batch, summary: result.summary, warnings: [], runs: [reached, unmeasured, other], groups: [
       { taskId: "t", taskName: "Task", profileId: "default", profileName: "Careful reader", runs: [reached, unmeasured], findings: [] },
       { taskId: "u", taskName: "Checkout", profileId: "default", profileName: "Careful reader", runs: [other], findings: [] },
     ] };
@@ -251,6 +252,45 @@ describe("run", () => {
     expect(out).toContain("All 3 runs: reached the goal in 2 of 3 runs · not measured 1");
     expect(out).toContain("Batch: /p/.rawstep/experiments/b");
     expect(formatSuiteResult({ ...suite, runs: [reached, other], groups: suite.groups.map(g => ({ ...g, runs: g.runs.filter(r => r !== unmeasured) })) })).toContain("All 2 runs: reached the goal in 2 of 2 runs");
+  });
+  it("compares a batch with a baseline, writes the summary, JUnit and the GitHub job summary, and exits 4 only on what --fail-on caught", async () => {
+    const directory = await temporaryDirectory(), io = output(directory);
+    const cell = (reached: number[], gaveUp = 0) => ({ taskId: "pay", taskName: "Pay", profileId: "p", profileName: "Item by item", runs: reached.length + gaveUp,
+      endings: { reached: reached.length, "gave-up": gaveUp, mistaken: 0, unmeasured: 0, error: 0 }, reachedMoves: reached, stuck: [], pageFindings: [] });
+    const summaryOf = (id: string, c: ReturnType<typeof cell>) => ({ schemaVersion: "1.0" as const, batch: { id, createdAt: "2026-11-01T00:00:00.000Z" }, cells: [c] });
+    await writeFile(join(directory, "baseline.json"), JSON.stringify(summaryOf("base", cell([10, 11, 12]))));
+    const [reached] = result.runs as [RunSuiteResult["runs"][number]];
+    const suiteOf = (c: ReturnType<typeof cell>): RunSuiteResult => ({ batch: result.batch, summary: summaryOf("head", c), warnings: [], runs: [reached], groups: [] });
+    const env = { GITHUB_STEP_SUMMARY: join(directory, "step-summary.md") };
+    const dropped = vi.fn(async () => suiteOf(cell([11], 2)));
+    expect(await runCli(["suite", "--baseline", "baseline.json", "--save-summary", "next.json", "--junit", "junit.xml"], { ...io, runSuite: dropped, env })).toBe(4);
+    expect(text(io.stdout)).toContain("! Pay: Reached the goal in 1 of 3 runs, against 3 of 3 in the baseline.");
+    expect(text(io.stdout)).toContain("1 change caught by --fail-on reach (marked !).");
+    expect(JSON.parse(await readFile(join(directory, "next.json"), "utf8")).batch.id).toBe("head");
+    expect(await readFile(join(directory, "junit.xml"), "utf8")).toContain('failures="1"');
+    expect(await readFile(env.GITHUB_STEP_SUMMARY, "utf8")).toContain("## Rawstep");
+    // Within noise, or a change no gate names: the run's own exit code.
+    const steady = output(directory);
+    expect(await runCli(["suite", "--baseline", "baseline.json"], { ...steady, runSuite: vi.fn(async () => suiteOf(cell([11, 12], 1))) })).toBe(0);
+    expect(text(steady.stdout)).toContain("Pay: no change beyond noise");
+    const slower = output(directory);
+    expect(await runCli(["suite", "--baseline", "baseline.json"], { ...slower, runSuite: vi.fn(async () => suiteOf(cell([30, 31, 32]))) })).toBe(0);
+    expect(await runCli(["suite", "--baseline", "baseline.json", "--fail-on", "moves"], { ...output(directory), runSuite: vi.fn(async () => suiteOf(cell([30, 31, 32]))) })).toBe(4);
+    // The compare command reads summary files or batch folders.
+    await mkdir(join(directory, "batch"), { recursive: true });
+    await writeFile(join(directory, "batch", "summary.json"), JSON.stringify(summaryOf("head", cell([11], 2))));
+    const compared = output(directory);
+    expect(await runCli(["compare", "baseline.json", "batch"], compared)).toBe(4);
+    expect(text(compared.stdout)).toMatch(/^Against the baseline \(base\):/);
+    expect(await runCli(["compare", "baseline.json", "batch", "--fail-on", "stuck"], output(directory))).toBe(0);
+    const missing = output(directory);
+    expect(await runCli(["compare", "baseline.json", "nowhere"], missing)).toBe(1);
+    expect(text(missing.stderr)).toContain("No batch summary at");
+  });
+  it("refuses --fail-on without a baseline and an unknown gate", () => {
+    expect(() => parseCliArguments(["suite", "--fail-on", "reach"])).toThrow(/--fail-on needs --baseline/);
+    expect(() => parseCliArguments(["compare", "a", "b", "--fail-on", "speed"])).toThrow(/--fail-on takes reach, moves, stuck, missing/);
+    expect(() => parseCliArguments(["compare", "a"])).toThrow(/compare requires a baseline and batch/);
   });
   it("exits 0 when every run gave a measurement, 3 when none broke but one was not measured, and 1 when any ended on an error", async () => {
     const io = () => output("/unused");
@@ -291,7 +331,7 @@ describe("run", () => {
     expect(signals.listenerCount("SIGINT") + signals.listenerCount("SIGTERM")).toBe(0);
   });
   it("formats a run without an outcome and a run without findings", () => {
-    const out = formatRunResult({ batch: result.batch, conditions: {}, warnings: [], runs: [{ ...where, runId: "x", outDir: "/o", outcome: undefined, hints: { ...result.runs[1]!.hints, steps: 0 } }], findings: [] });
+    const out = formatRunResult({ batch: result.batch, summary: result.summary, conditions: {}, warnings: [], runs: [{ ...where, runId: "x", outDir: "/o", outcome: undefined, hints: { ...result.runs[1]!.hints, steps: 0 } }], findings: [] });
     expect(out).toContain("Run 1 of 1: no outcome recorded · 0 moves"); expect(out).toContain("No findings."); expect(out).not.toContain("Conditions:");
   });
 });

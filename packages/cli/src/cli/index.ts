@@ -1,4 +1,4 @@
-import { readFile, stat } from 'node:fs/promises';
+import { appendFile, readFile, stat, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -19,12 +19,16 @@ import { projectAnalyzer, runSuite, runTask, type BatchRun, type RunSuiteResult,
 import { CLI_USAGE, CliUsageError, parseCliArguments, parseRunRules, type CliArguments } from './args.js';
 
 export { CLI_USAGE, CliUsageError, parseCliArguments } from './args.js';
+import { parseGates } from './args.js';
+import { compareSummaries, gatedChanges, junitXml, summaryMarkdown, validateBatchSummary, type BatchSummary, type SummaryComparison } from '@rawstep/reports/compare';
 
 /** Injectable boundaries let CLI checks run without a browser, a model or a native screen reader. */
 export interface CliDependencies {
   startDashboard?: (options: { projectDir: string; port: number }) => Promise<{ url: string; close(): Promise<void> }>;
   runTask?: typeof runTask;
   runSuite?: typeof runSuite;
+  /** The process environment (GITHUB_STEP_SUMMARY); defaults to process.env. */
+  env?: Record<string, string | undefined>;
   /** Launches and closes a browser; rejects when none can start. */
   launchBrowser?: (options: { executablePath?: string; cdpEndpoint?: string }) => Promise<void>;
   /** Opens and closes an AT Driver session; rejects when the endpoint does not answer. */
@@ -77,8 +81,9 @@ export async function runCli(argv: string[] = process.argv.slice(2), dependencie
         return 0;
       }
       case 'ui': return await ui(args, projectDir, dependencies, stdout);
-      case 'run': return await run(args, projectDir, dependencies, stdout, stderr);
-      case 'suite': return await suite(args, projectDir, dependencies, stdout, stderr);
+      case 'run': return await run(args, projectDir, cwd, dependencies, stdout, stderr);
+      case 'suite': return await suite(args, projectDir, cwd, dependencies, stdout, stderr);
+      case 'compare': return await compare(args, cwd, dependencies, stdout);
       case 'doctor': return await doctor(projectDir, dependencies, stdout);
       case 'hints': {
         const input = resolve(cwd, args.positionals[0]!);
@@ -154,33 +159,84 @@ async function cancellable<T>(dependencies: CliDependencies, stderr: (text: stri
     throw error;
   }
 }
-async function run(args: CliArguments, projectDir: string, dependencies: CliDependencies, stdout: (text: string) => void, stderr: (text: string) => void): Promise<number> {
+async function run(args: CliArguments, projectDir: string, cwd: string, dependencies: CliDependencies, stdout: (text: string) => void, stderr: (text: string) => void): Promise<number> {
   const { options } = args, task = args.positionals[0]!, repeat = options.repeat === undefined ? 1 : Number(options.repeat);
   if (!options.json) stderr(`Running ${task}${repeat > 1 ? `, ${repeat} times` : ''}...\n`);
   const result = await cancellable(dependencies, stderr, signal => (dependencies.runTask ?? runTask)(task, {
     projectDir, signal, ...batchOptions(options), ...(options.profile ? { profile: String(options.profile) } : {}),
   }));
   if (typeof result === 'number') return result;
-  stdout(options.json ? JSON.stringify(result, null, 2) + '\n' : formatRunResult(result));
-  return exitCodeOf(result.runs);
+  const against = await againstBaseline(options, result.summary, cwd, dependencies);
+  stdout(options.json ? JSON.stringify({ ...result, ...(against.comparison ? { comparison: against.comparison } : {}) }, null, 2) + '\n' : formatRunResult(result) + against.text);
+  return exitCodeOf(result.runs, against.caught);
 }
-async function suite(args: CliArguments, projectDir: string, dependencies: CliDependencies, stdout: (text: string) => void, stderr: (text: string) => void): Promise<number> {
+async function suite(args: CliArguments, projectDir: string, cwd: string, dependencies: CliDependencies, stdout: (text: string) => void, stderr: (text: string) => void): Promise<number> {
   const { options } = args, tags = (options.tag as string[] | undefined) ?? [], profiles = (options.profile as string[] | undefined) ?? [];
   if (!options.json) stderr(`Running ${args.positionals.length ? args.positionals.join(', ') : tags.length ? `the tasks tagged ${tags.join(', ')}` : 'every task'}...\n`);
   const result = await cancellable(dependencies, stderr, signal => (dependencies.runSuite ?? runSuite)({
     projectDir, signal, ...batchOptions(options), ...(args.positionals.length ? { tasks: args.positionals } : {}), ...(tags.length ? { tags } : {}), ...(profiles.length ? { profiles } : {}),
   }));
   if (typeof result === 'number') return result;
-  stdout(options.json ? JSON.stringify(result, null, 2) + '\n' : formatSuiteResult(result));
-  return exitCodeOf(result.runs);
+  const against = await againstBaseline(options, result.summary, cwd, dependencies);
+  stdout(options.json ? JSON.stringify({ ...result, ...(against.comparison ? { comparison: against.comparison } : {}) }, null, 2) + '\n' : formatSuiteResult(result) + against.text);
+  return exitCodeOf(result.runs, against.caught);
+}
+/** A summary.json file, or the one in a batch folder. */
+async function readSummary(path: string): Promise<BatchSummary> {
+  const file = (await stat(path).catch(() => undefined))?.isDirectory() ? join(path, 'summary.json') : path;
+  let text: string;
+  try { text = await readFile(file, 'utf8'); }
+  catch { throw new ProjectError('summary-not-found', `No batch summary at ${file}. Give a summary.json (rawstep run/suite --save-summary writes one) or a batch folder.`, 404); }
+  try { return validateBatchSummary(JSON.parse(text)); }
+  catch (error) { throw new ProjectError('invalid-summary', `${file}: ${errorDetails(error)}`); }
+}
+/**
+ * The outputs that follow a batch: its summary saved elsewhere (--save-summary), the comparison with a baseline and what the gates
+ * caught, JUnit XML, and the summary table in a GitHub Actions job summary.
+ */
+async function againstBaseline(options: CliArguments['options'], summary: BatchSummary, cwd: string, dependencies: CliDependencies): Promise<{ comparison?: SummaryComparison; caught: number; text: string }> {
+  if (typeof options['save-summary'] === 'string') await writeFile(resolve(cwd, options['save-summary']), JSON.stringify(summary, null, 2) + '\n');
+  const base = typeof options.baseline === 'string' ? await readSummary(resolve(cwd, options.baseline)) : undefined;
+  const gates = base ? parseGates(typeof options['fail-on'] === 'string' ? options['fail-on'] : 'reach') : [];
+  const comparison = base ? compareSummaries(base, summary) : undefined;
+  await writeCiOutputs(options, summary, comparison, gates, cwd, dependencies);
+  const caught = comparison ? gatedChanges(comparison, gates) : [];
+  return { ...(comparison ? { comparison } : {}), caught: caught.length, text: comparison ? formatComparison(comparison, caught, gates) : '' };
+}
+async function writeCiOutputs(options: CliArguments['options'], summary: BatchSummary, comparison: SummaryComparison | undefined, gates: string[], cwd: string, dependencies: CliDependencies) {
+  if (typeof options.junit === 'string') await writeFile(resolve(cwd, options.junit), junitXml(summary, comparison, gates));
+  const stepSummary = (dependencies.env ?? process.env).GITHUB_STEP_SUMMARY;
+  if (stepSummary) await appendFile(stepSummary, summaryMarkdown(summary, comparison, gates));
+}
+/** The comparison in a few lines: per task and profile what changed beyond noise, the caught ones marked, then what the gates say. */
+export function formatComparison(comparison: SummaryComparison, caught: readonly SummaryComparison['changes'][number][], gates: readonly string[]): string {
+  const lines = ['', `Against the baseline (${comparison.base.note ?? comparison.base.id}):`];
+  const profiles = new Set(comparison.cells.map(cell => cell.profileId)).size;
+  for (const cell of comparison.cells) {
+    const name = `${cell.taskName}${profiles > 1 ? ` · ${cell.profileName}` : ''}`;
+    if (!cell.changes.length) lines.push(`  ${name}: ${cell.reach === 'too-few-runs' ? 'too few runs on a side to tell (repeat at least 2)' : 'no change beyond noise'}`);
+    for (const change of cell.changes) lines.push(`  ${caught.includes(change) ? '!' : '·'} ${name}: ${change.text}`);
+  }
+  lines.push(caught.length ? `${caught.length} change${caught.length > 1 ? 's' : ''} caught by --fail-on ${gates.join(',')} (marked !).` : `Nothing caught by --fail-on ${gates.join(',')}.`);
+  return lines.join('\n') + '\n';
+}
+async function compare(args: CliArguments, cwd: string, dependencies: CliDependencies, stdout: (text: string) => void): Promise<number> {
+  const { options } = args, [base, head] = await Promise.all(args.positionals.map(path => readSummary(resolve(cwd, path))));
+  const gates = parseGates(typeof options['fail-on'] === 'string' ? options['fail-on'] : 'reach');
+  const comparison = compareSummaries(base!, head!), caught = gatedChanges(comparison, gates);
+  await writeCiOutputs(options, head!, comparison, gates, cwd, dependencies);
+  stdout(options.json ? JSON.stringify({ comparison, caught }, null, 2) + '\n' : formatComparison(comparison, caught, gates).replace(/^\n/, ''));
+  return caught.length ? 4 : 0;
 }
 /**
  * 0: every run gave a measurement (reached the goal, gave up, or said it was done when it was not). 1: a run broke (setup or infrastructure),
  * which says nothing about the page and must not be read as a result. 3: no run broke, but at least one was not measured (a limit, a
- * block, a model that was unsure). 2 stays usage errors only.
+ * block, a model that was unsure). 4: a gate (--fail-on) caught a change against the baseline. 2 stays usage errors only.
  */
-function exitCodeOf(runs: readonly BatchRun[]): 0 | 1 | 3 {
+function exitCodeOf(runs: readonly BatchRun[], caught = 0): 0 | 1 | 3 | 4 {
   if (runs.some(run => endedOnError(run.outcome))) return 1;
+  // A change the gates caught matters more than a run that was only not measured.
+  if (caught) return 4;
   return runs.some(run => !run.outcome || runEnding(run.outcome, stopOf(run.outcome))?.ending === 'unmeasured') ? 3 : 0;
 }
 

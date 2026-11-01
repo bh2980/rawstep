@@ -1,6 +1,7 @@
 import { aggregateHints, extractHints, HINTS_SCHEMA_VERSION, selectReference, type Hint, type HintFinding, type HintTarget } from '@rawstep/reports/hints';
 import { readTrace, type RunTrace, type TraceEvent } from '@rawstep/core/trace';
 import type { AnalysisReport } from '@rawstep/reports';
+import { validateBatchSummary, type BatchSummary } from '@rawstep/reports/compare';
 import type { ComparedRun, HintReport, ProfileFacts, RunComparison, RunExplanation, RunHintsView, RunResult, RunStepsView, StuckPlace, TaskBatch, TaskFindings, TaskSummary } from '../shared/api.js';
 import { isStuck, isWrongGuess, runEnding } from '@rawstep/reports/endings';
 import type { RunRecord } from '../shared/config.js';
@@ -81,6 +82,23 @@ export class RunViews {
       if (t && selectReference([t])) { reference = { experimentId: c.experimentId, runId: c.run.id, trace: t }; break; }
     }
     return { ...extractHints(trace, reference ? { reference: reference.trace } : {}), ...(reference ? { referenceRun: { experimentId: reference.experimentId, runId: reference.runId } } : {}) };
+  }
+  /**
+   * A finished batch summed up per task and profile: its summary.json, which the queue writes when the batch's last run ends, or one
+   * written now for a batch from before that (or whose runs were deleted since). A batch with runs still waiting or going has none yet.
+   */
+  async summary(experimentId: string): Promise<BatchSummary> {
+    const experiment = this.queue.experiments.find(e => e.id === experimentId);
+    if (!experiment) throw new HttpError(404, 'experiment-not-found');
+    if (experiment.runs.some(live)) throw new HttpError(409, 'summary-not-ready');
+    // The queue leaves out a run that was cancelled before it started; the saved summary is current when it counts the same runs.
+    const counted = experiment.runs.filter(run => run.state !== 'cancelled' || run.startedAt).length;
+    const raw = await readOptional(await this.store.file('.rawstep/experiments/' + experimentId + '/summary.json')).catch(() => undefined);
+    try {
+      const saved = raw ? validateBatchSummary(JSON.parse(raw)) : undefined;
+      if (saved && saved.cells.reduce((sum, cell) => sum + cell.runs, 0) === counted) return saved;
+    } catch { /* unreadable or from another version: written again below */ }
+    return this.queue.writeSummary(experiment);
   }
   /** The batches (experiments) that ran a task, newest first. */
   batches(taskId: string): TaskBatch[] {

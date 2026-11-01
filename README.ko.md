@@ -56,7 +56,7 @@ Details: npx rawstep hints <run-dir>, npx rawstep report <run-dir>, or the batch
 
 실행 폴더에는 실행 기록(trace), 실행이 따른 계획, 힌트, HTML 보고서가 들어 있습니다. `run`으로 돌린 실행도 대시보드가 쓰는 곳(`.rawstep/experiments/`)에 한 묶음(batch)으로 저장되므로, `npx rawstep ui`에서 CLI 실행과 대시보드 실행을 작업별, 실행별로 함께 볼 수 있습니다.
 
-작업 여러 개를 한 번에 돌리려면 `npx rawstep suite --tag checkout --repeat 3 --parallel 2`를 쓰세요. 그 태그가 붙은 작업을 한 묶음으로 실행하고, 작업마다 결과를 출력합니다.
+작업 여러 개를 한 번에 돌리려면 `npx rawstep suite --tag checkout --repeat 3 --parallel 2`를 쓰세요. 그 태그가 붙은 작업을 한 묶음으로 실행하고, 작업마다 결과를 출력합니다. 메인 브랜치에서 저장해 둔 기준선과 풀 리퀘스트를 비교하고, 잡음을 넘는 변화가 있을 때 작업을 실패시키려면 [CI에서 쓰기](./docs/ci.md)를 보세요.
 
 ## Rawstep이 아닌 것
 
@@ -68,6 +68,7 @@ Rawstep은 접근성 인증도, 적합성 검사도 아닙니다. 목표에 닿�
 |---|---|
 | [시작하기](./docs/getting-started.md) | 설치, 데모 실행, 모델 연결, 내 작업 만들기, 결과 읽기 |
 | [개념](./docs/concepts.md) | 작업과 실행 프로필, 찾는 방법, 시뮬레이션 사용자가 알 수 있는 것, 끝나는 방식, 대가, 힌트 |
+| [CI에서 쓰기](./docs/ci.md) | 메인 브랜치에서 기준선 저장하기, 풀 리퀘스트와 비교하기, 무엇을 잡음으로 보는지, GitHub Actions 워크플로 |
 | [계획](./docs/planning.md) | 계획 문서, Rawstep이 계획을 따르는 방식, 새 계획을 요청하는 때, 계획 파일, 계획 모델 프롬프트 |
 | [스크린리더](./docs/screen-readers.md) | VoiceOver 시뮬레이션과 실제 VoiceOver·NVDA 비교, AT Driver 설정, 지원 동작, 알려진 한계 |
 | [설정 레퍼런스](./docs/reference/config.md) | `rawstep.config.json`의 모든 필드와 페이지 환경 |

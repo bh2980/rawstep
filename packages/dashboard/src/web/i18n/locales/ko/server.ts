@@ -82,6 +82,7 @@ export const server = {
     'retry-run-active': '진행 중인 실행은 먼저 끝내세요.',
     'task-changed': '작업이 변경되었습니다. 차이를 다시 확인하세요.',
     'experiment-not-found': '실행 묶음을 찾을 수 없습니다.',
+    'summary-not-ready': '이 묶음은 아직 실행 중이어서 요약이 없습니다. 마지막 실행이 끝나면 만들어집니다.',
     'run-not-found': '실행을 찾을 수 없습니다.',
     'delete-run-active': '진행 중이거나 대기 중인 실행은 삭제할 수 없습니다. 끝나거나 중지한 뒤 삭제하세요.',
     'batch-running-elsewhere': '이 묶음은 다른 Rawstep 프로세스(CLI나 다른 대시보드)에서 실행 중입니다. 그쪽에서 멈추세요.',

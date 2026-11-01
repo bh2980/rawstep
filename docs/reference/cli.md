@@ -17,6 +17,7 @@ npx rawstep --version     # the package version (also: -v; only when it is the o
 | `ui` | Starts the dashboard. | nothing (creates the demo in an empty folder) |
 | `run <task>` | Runs a task, saves the runs as a batch, prints the result. | config, task, a planner |
 | `suite [<task>...]` | Runs several tasks under one or more profiles as one batch, prints each task's result. | config, tasks, a planner |
+| `compare <baseline> <batch>` | Compares a batch with a baseline and says what changed beyond noise. | two `summary.json` files or batch folders |
 | `hints <run-dir>` | Writes `hints.json` for a saved run and lists the hints. | a saved run |
 | `report <run-dir>` | Writes `report.html` and `report.json` for a saved run. | a saved run |
 | `analyze <run-dir>` | Writes `analysis.json` for a saved run. | a saved run; `--llm` also needs an analysis model |
@@ -34,18 +35,19 @@ A project is the folder that holds `rawstep.config.json`. Every command that rea
 
 ## Using it in CI
 
-Rawstep reports friction hints, not pass or fail, so the exit code of `run` and `suite` does not say whether the goal was reached. It says whether every run gave a measurement.
+Rawstep reports friction hints, not pass or fail, so the exit code of `run` and `suite` does not say whether the goal was reached. It says whether every run gave a measurement, and, with `--baseline`, whether a gate caught a change. The whole flow (a saved baseline, noise, a GitHub Actions workflow) is in [Using Rawstep in CI](../ci.md).
 
 | Code | When |
 | --- | --- |
-| `0` | The command finished. For `run` and `suite`: every run gave a measurement. The user reached the goal, gave up, or said it was done but the goal was not reached. For `doctor`: no `FAIL` line. For `analyze`: the analysis completed. For `ui`: stopped by SIGINT or SIGTERM. |
-| `1` | An error: no config, a bad config, an unknown task or profile, a missing key, a profile that cannot run, any `run` or `suite` run that ended on an error (the result is still printed, with the error), an unreadable run folder, a `doctor` `FAIL`, a failed `analyze`, or `init` over an existing config. The message is on stderr (`doctor` prints on stdout). |
-| `2` | Bad usage: an unknown command or option, a missing value, a wrong number of arguments, `--port`, `--repeat` or `--parallel` out of range, an invalid `--rule`. The message is on stderr and nothing is run. |
+| `0` | The command finished. For `run` and `suite`: every run gave a measurement. The user reached the goal, gave up, or said it was done but the goal was not reached. For `compare`: no gate caught a change. For `doctor`: no `FAIL` line. For `analyze`: the analysis completed. For `ui`: stopped by SIGINT or SIGTERM. |
+| `1` | An error: no config, a bad config, an unknown task or profile, a missing key, a profile that cannot run, any `run` or `suite` run that ended on an error (the result is still printed, with the error), an unreadable run folder, a baseline or batch summary that is missing or not a summary, a `doctor` `FAIL`, a failed `analyze`, or `init` over an existing config. The message is on stderr (`doctor` prints on stdout). |
+| `2` | Bad usage: an unknown command or option, a missing value, a wrong number of arguments, `--port`, `--repeat` or `--parallel` out of range, an invalid `--rule`, an unknown name in `--fail-on`, or `--fail-on` on `run` or `suite` without `--baseline`. The message is on stderr and nothing is run. |
 | `3` | For `run` and `suite`: no run ended on an error, but at least one was not measured. It hit a limit (steps, time, planner calls), the repetition guard, a bot check or access block, a planner that did not answer in time, a page environment this computer could not apply, or the model was unsure. |
+| `4` | For `run` and `suite` with `--baseline`, and for `compare`: a gate named in `--fail-on` caught a change against the baseline. |
 | `130` | `run` or `suite` was cancelled by SIGINT. |
 | `143` | `run` or `suite` was cancelled by SIGTERM. |
 
-A run that ended on an error says nothing about the page, and a run that was not measured says nothing about the user, so a script must not read either as a result. When both happen in one command, the exit code is 1. To treat "not measured" as acceptable, accept 0 and 3. In a script, read the printed result, `--json`, or call [`runSuite`](./api.md#runsuite) from your test runner and apply your own threshold.
+A run that ended on an error says nothing about the page, and a run that was not measured says nothing about the user, so a script must not read either as a result. When more than one applies to a `run` or `suite`, the order is 1, then 4, then 3, then 0. To treat "not measured" as acceptable, accept 0 and 3. In a script, read the printed result, `--json`, or call [`runSuite`](./api.md#runsuite) from your test runner and apply your own threshold.
 
 The pattern for CI is one `suite` over the tasks you care about:
 
@@ -53,7 +55,7 @@ The pattern for CI is one `suite` over the tasks you care about:
 npx rawstep suite --tag checkout --repeat 3 --parallel 2 --note "build $GITHUB_SHA"
 ```
 
-This runs every task tagged `checkout` three times under each task's usual profiles (the first profile if it lists none), two runs at a time, and saves them as one batch in `.rawstep/experiments/`. Keep that folder as a CI artifact if you want to open the runs afterwards in `npx rawstep ui`. Start with a `--parallel` of 2 to 4: see [Runs at the same time](#runs-at-the-same-time).
+This runs every task tagged `checkout` three times under each task's usual profiles (the first profile if it lists none), two runs at a time, and saves them as one batch in `.rawstep/experiments/`. Keep that folder as a CI artifact if you want to open the runs afterwards in `npx rawstep ui`. Start with a `--parallel` of 2 to 4: see [Runs at the same time](#runs-at-the-same-time). To fail a pull request when a task got harder than on your main branch, add `--baseline`: see [Against a baseline](#against-a-baseline) and [Using Rawstep in CI](../ci.md).
 
 ## `rawstep init`
 
@@ -106,6 +108,7 @@ If the project has no `rawstep.config.json`, `ui` first does what `init` does (s
 ```text
 rawstep run <task> [--profile <id|name>] [--rule <name>=<value>]...
                    [--repeat <n>] [--parallel <n>] [--note <text>] [--json] [--project <dir>]
+                   [--baseline <summary>] [--fail-on <gates>] [--save-summary <file>] [--junit <file>]
 ```
 
 `<task>` is a task id from the config, or the path of a task JSON file. A relative path is resolved from the project folder. See the [task reference](./task.md) for the file format.
@@ -119,6 +122,10 @@ rawstep run <task> [--profile <id|name>] [--rule <name>=<value>]...
 | `--note <text>` | none | What this batch is for, up to 200 characters, for example `made Add to cart a button`. The dashboard shows it with the batch. |
 | `--json` | off | Prints the result object as JSON instead of the text report. |
 | `--project <dir>` | `.` | The project folder. |
+| `--baseline <summary>` | none | A `summary.json` or a batch folder to compare this batch with. See [Against a baseline](#against-a-baseline). |
+| `--fail-on <gates>` | `reach`, when `--baseline` is given | Which changes against the baseline fail the command (exit code 4). Needs `--baseline`. |
+| `--save-summary <file>` | none | Also writes this batch's summary to `<file>`, for example to commit it as the next baseline. |
+| `--junit <file>` | none | Writes JUnit XML, one test case per task and profile. |
 
 `--rule` values are read as the rule's type (a number, `true` or `false`, or a word) and checked against the run rules schema. The rules are `repetitionGuard`, `maxUnchangedTransitions`, `confirmationGrace`, `maxPlannerCalls`, `reviewEvery`, `stepActionLimit`, `failureLimit`, `noChangeLimit`, `plannerHistoryLimit` and `survey`. Their meaning, ranges and defaults are in the run rules section of the [config reference](./config.md). A name that is not a rule, a missing value or a value out of range is a usage error that names what is allowed, for example `--rule survey=x is not valid: survey must be one of none, headings.`
 
@@ -183,7 +190,7 @@ The ending words in a run line:
 
 ### `--json`
 
-`--json` prints the same data the library returns from `runTask`: `batch` (`id` and `dir`), `conditions`, `warnings`, `runs` (each with `runId`, `taskId`, `taskName`, `profileId`, `profileName`, `outDir`, `outcome` and `hints`) and `findings`. See [api.md](./api.md#runtask) for the fields.
+`--json` prints the same data the library returns from `runTask`: `batch` (`id` and `dir`), `summary`, `conditions`, `warnings`, `runs` (each with `runId`, `taskId`, `taskName`, `profileId`, `profileName`, `outDir`, `outcome` and `hints`) and `findings`. With `--baseline` it also has `comparison`. See [api.md](./api.md#runtask) for the fields.
 
 ### Cancelling
 
@@ -194,6 +201,7 @@ Ctrl+C (SIGINT) or SIGTERM stops the runs, closes the browser and the screen rea
 ```text
 rawstep suite [<task>...] [--tag <tag>]... [--profile <id|name>]... [--rule <name>=<value>]...
                     [--repeat <n>] [--parallel <n>] [--note <text>] [--json] [--project <dir>]
+                    [--baseline <summary>] [--fail-on <gates>] [--save-summary <file>] [--junit <file>]
 ```
 
 Runs several tasks as one batch. Which tasks:
@@ -214,6 +222,7 @@ Each task runs under every `--profile`. With no `--profile`, each task runs with
 | `--note <text>` | none | What this batch is for, up to 200 characters. The dashboard shows it. |
 | `--json` | off | Prints the result object as JSON instead of the text report. |
 | `--project <dir>` | `.` | The project folder. |
+| `--baseline <summary>`, `--fail-on <gates>`, `--save-summary <file>`, `--junit <file>` | none | As for [`run`](#rawstep-run). See [Against a baseline](#against-a-baseline). |
 
 Before anything runs, `suite` checks every task under every profile as `run` does. If one cannot run (no planner, no key, an action the screen reader lacks), `suite` stops with that error and starts nothing.
 
@@ -243,11 +252,66 @@ After the blocks come the totals, `All <n> runs: ...` with the same counts over 
 
 ### `--json`
 
-`--json` prints what the library returns from [`runSuite`](./api.md#runsuite): `batch`, `warnings`, `runs` and `groups` (one per task under a profile, each with its `runs` and `findings`).
+`--json` prints what the library returns from [`runSuite`](./api.md#runsuite): `batch`, `summary`, `warnings`, `runs` and `groups` (one per task under a profile, each with its `runs` and `findings`). With `--baseline` it also has `comparison`.
 
 ### Exit codes and cancelling
 
-The exit codes are those of `run`, taken over all runs of the batch. Cancelling works as for `run`: what was written is kept.
+The exit codes are those of `run`, taken over all runs of the batch, and, with `--baseline`, code 4 as for `run`. Cancelling works as for `run`: what was written is kept.
+
+## Against a baseline
+
+`run` and `suite` can compare the batch they just ran with an earlier one, per task and profile, with the spread between repeats in mind. The earlier batch is the **baseline**: a `summary.json` you saved and committed, or a batch folder. The comparison says what changed beyond noise in three things: the share of runs that reached the goal (reach), the moves it took to reach it (moves), and the places where pressing did not respond as the user expected (stuck places). It does not say which side is better.
+
+| Option | Meaning |
+| --- | --- |
+| `--baseline <summary>` | A `summary.json` file, or a batch folder (its `summary.json` is read). Prints the comparison after the usual result. |
+| `--fail-on <gates>` | Comma-separated gates. Default `reach`. Needs `--baseline` on `run` and `suite`; without it the command exits 2. |
+| `--save-summary <file>` | Writes this batch's summary to `<file>`, relative to the current directory. Works without `--baseline`: it is how a baseline is saved. |
+| `--junit <file>` | Writes JUnit XML to `<file>`. |
+
+The gates:
+
+| Gate | Fails the command when |
+| --- | --- |
+| `reach` | The share of runs that reached the goal dropped beyond noise. |
+| `moves` | The median moves of the runs that reached the goal rose beyond noise. |
+| `stuck` | A stuck place is new: in at least half of this batch's runs and in none of the baseline's. |
+| `missing` | A task or profile of the baseline was not run in this batch. |
+
+A caught change makes the exit code 4 (after errors, which are 1, and before not-measured runs, which are 3). Changes in the other direction (reach rose, fewer moves, a stuck place gone) and a new task or profile are printed but never caught.
+
+The comparison is printed after the result:
+
+```text
+Against the baseline (baseline):
+  Checkout: no change beyond noise
+  ! Newsletter: Reached the goal in 1 of 3 runs, against 3 of 3 in the baseline.
+1 change caught by --fail-on reach (marked !).
+```
+
+A line with `!` was caught by a gate and one with `·` was not. A cell with fewer than 2 runs on a side says `too few runs on a side to tell (repeat at least 2)`. The profile name follows the task name when the batch used more than one profile. What counts as noise, with worked numbers, is in [Using Rawstep in CI](../ci.md#what-is-compared).
+
+With `--json`, the object has the result plus `comparison`. `--save-summary`, `--junit` and the job summary below work with or without `--baseline`.
+
+On GitHub Actions, when `GITHUB_STEP_SUMMARY` is set, Rawstep appends a Markdown table to it: one row per task and profile with the result and the change against the baseline, with caught changes in bold. Nothing needs to be turned on.
+
+The JUnit file has one test case per task and profile, in a suite named `rawstep`. A case fails when a gate caught a change in it, errors when a run in it ended on an error, and is skipped when nothing was measured. See [the JUnit file](../ci.md#the-junit-file).
+
+## `rawstep compare`
+
+```text
+rawstep compare <baseline> <batch> [--fail-on <gates>] [--junit <file>] [--json]
+```
+
+Compares two batches that are already saved, without running anything. Each of `<baseline>` and `<batch>` is a `summary.json` file or a batch folder (relative paths are resolved from the current directory). `<batch>` is the newer one.
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `--fail-on <gates>` | `reach` | The gates, as above. Needs no `--baseline`. |
+| `--junit <file>` | none | Writes JUnit XML for `<batch>`. |
+| `--json` | off | Prints `{ comparison, caught }` as JSON instead of the text. |
+
+It prints the comparison as shown above, and the Markdown table is added to `GITHUB_STEP_SUMMARY` when it is set. Exit code 0 when no gate caught a change, 4 when one did, 1 when a file is missing or is not a summary, 2 for bad usage. A summary written by another version of the format is refused.
 
 ## Runs at the same time
 
@@ -377,4 +441,4 @@ Each value is read from `<project>/.env.local` first, then from the process envi
 
 ## Where `run` and `suite` write
 
-`<project>/.rawstep/experiments/<id>/`, where `<id>` is the batch's id (a UUID). It holds `experiment.json`, the record of the batch, and one folder per run, named by the run's id. The `outDir` of each run in the printed result and in `--json` is that folder. A task file that is not registered is kept in the batch under its file name. See the [results reference](./results.md) for the files.
+`<project>/.rawstep/experiments/<id>/`, where `<id>` is the batch's id (a UUID). It holds `experiment.json`, the record of the batch, `summary.json`, the batch summed up per task and profile (what `--baseline` and `compare` read), and one folder per run, named by the run's id. The `outDir` of each run in the printed result and in `--json` is that folder. A task file that is not registered is kept in the batch under its file name. See the [results reference](./results.md) for the files.
