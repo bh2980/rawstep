@@ -161,11 +161,11 @@ export const core: LocaleShape<typeof ko> = {
     },
   },
   steps: {
-    loadFailed: 'Could not load the step record.',
+    loadFailed: 'Could not load the move record.',
     start: 'Start screen',
     baselineTrue: '{{n}} completion check(s) already held on the start screen',
     baselineNone: 'No completion check held on the start screen',
-    screenshot: 'Screen at step {{n}}',
+    screenshot: 'Screen at move {{n}}',
     screenshotMissing: 'Could not load the screen',
     redacted: 'Hidden for input protection',
     redactedBody: 'Values that may be sensitive are hidden from the record and the screen.',

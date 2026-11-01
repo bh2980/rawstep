@@ -263,7 +263,7 @@ export const taskUi: LocaleShape<typeof ko> = {
     liveReason: 'Runs that are running or queued cannot be deleted. Delete them after they finish or are stopped.',
     title: 'Delete {{count}} run records?',
     title_one: 'Delete {{count}} run record?',
-    removes: 'Deletes the step records, screenshots and report files of the selected runs from the .rawstep folder.',
+    removes: 'Deletes the move records, screenshots and report files of the selected runs from the .rawstep folder.',
     final: 'Deleted records cannot be restored. The task stays.',
     cancel: 'Cancel',
     confirm: 'Delete',
