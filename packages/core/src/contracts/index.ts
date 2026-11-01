@@ -69,7 +69,17 @@ export type Task = {
   /** Per-input handling. Inputs are sensitive unless marked otherwise: the model never sees their values. */
   inputOptions?: Record<string, TaskInputOptions>;
   navigation?: NavigationPolicy;
+  /** What the site needs of the browser (see `TaskBrowser`); without it Rawstep launches one. */
+  browser?: TaskBrowser;
 };
+/**
+ * What a site needs of the browser, a property of the task like its address. `launch` (the default): a browser Rawstep starts.
+ * `connect`: a Chrome the person started with a remote debugging port (the computer's `browserEndpoint`), which sites see as an
+ * ordinary browser; each run gets its own context there, and `copySignIn` starts it with a copy of that Chrome's sign-in. `personCheck`:
+ * a person passes the site's human check in a visible window (Rawstep never answers one); in a launched browser that uses a kept
+ * profile, so those runs go one at a time.
+ */
+export type TaskBrowser = { mode: 'launch' | 'connect'; copySignIn?: boolean; personCheck?: boolean };
 export type PolicyAction = { kind: 'intent'; intent: string } | { kind: 'key'; key: string } | { kind: 'typeText'; input: string } | { kind: 'replaceText'; input: string };
 /**
  * Who ended a run early: a custom decision policy (`model`), the planner judging the goal reached (`planner`), Rawstep's repetition guard
@@ -177,7 +187,7 @@ function onlyKeys(value: Record<string, unknown>, allowed: readonly string[], la
 }
 export function resolveTask(raw: unknown, baseDir = process.cwd()): Task {
   if (!object(raw)) throw new Error('Task must be an object.');
-  onlyKeys(raw, ['id','url','goal','context','maxSteps','timeoutMs','verify','input','inputOptions','navigation','profile'], 'Task');
+  onlyKeys(raw, ['id','url','goal','context','maxSteps','timeoutMs','verify','input','inputOptions','navigation','profile','browser'], 'Task');
   const url = text(raw.url, 'Task URL');
   const goal = text(raw.goal, 'Task goal');
   const context = raw.context === undefined ? undefined : text(raw.context, 'Task context');
@@ -211,14 +221,25 @@ export function resolveTask(raw: unknown, baseDir = process.cwd()): Task {
   // Page time only (waiting for the planner does not count), so an hour is far more than any task needs.
   if (!Number.isSafeInteger(timeoutMs) || (timeoutMs as number) < 1 || (timeoutMs as number) > 3_600_000) throw new Error('timeoutMs must be an integer from 1 to 3600000 (one hour).');
   const navigation = validateNavigation(raw.navigation);
+  const browser = raw.browser === undefined ? undefined : validateBrowser(raw.browser);
   let resolvedUrl: string;
   if (/^[a-z][a-z0-9+.-]*:/i.test(url) && !/^[A-Za-z]:[\\/]/.test(url)) {
     const parsed = new URL(url);
     if (!['http:', 'https:', 'file:'].includes(parsed.protocol)) throw new Error('Task URL must use http, https, or file.');
     resolvedUrl = parsed.href;
   } else resolvedUrl = pathToFileURL(isAbsolute(url) ? url : resolve(baseDir, url)).href;
-  return { ...(raw.id !== undefined ? { id: text(raw.id, 'Task id') } : {}), url: resolvedUrl, goal, ...(context ? { context } : {}), ...(raw.profile !== undefined ? { profile: resolveEnvironmentProfile(raw.profile) } : {}), maxSteps: maxSteps as number, timeoutMs: timeoutMs as number, verify: { all: rules }, ...(input ? { input: { ...input } as Record<string, string> } : {}), ...(object(inputOptions) ? { inputOptions: structuredClone(inputOptions) as Record<string, TaskInputOptions> } : {}), navigation };
+  return { ...(raw.id !== undefined ? { id: text(raw.id, 'Task id') } : {}), url: resolvedUrl, goal, ...(context ? { context } : {}), ...(raw.profile !== undefined ? { profile: resolveEnvironmentProfile(raw.profile) } : {}), maxSteps: maxSteps as number, timeoutMs: timeoutMs as number, verify: { all: rules }, ...(input ? { input: { ...input } as Record<string, string> } : {}), ...(object(inputOptions) ? { inputOptions: structuredClone(inputOptions) as Record<string, TaskInputOptions> } : {}), navigation, ...(browser ? { browser } : {}) };
 }
+function validateBrowser(value: unknown): TaskBrowser {
+  if (!object(value)) throw new Error('Task browser must be an object.');
+  onlyKeys(value, ['mode', 'copySignIn', 'personCheck'], 'Task browser');
+  if (value.mode !== 'launch' && value.mode !== 'connect') throw new Error('browser.mode must be "launch" or "connect".');
+  for (const key of ['copySignIn', 'personCheck'] as const) if (value[key] !== undefined && typeof value[key] !== 'boolean') throw new Error(`browser.${key} must be boolean.`);
+  if (value.copySignIn && value.mode !== 'connect') throw new Error('browser.copySignIn needs mode "connect": it copies the sign-in of a Chrome you started yourself.');
+  return { mode: value.mode, ...(value.copySignIn ? { copySignIn: true } : {}), ...(value.personCheck ? { personCheck: true } : {}) };
+}
+/** Whether runs of a task share the kept browser profile, which one Chrome at a time can open. */
+export const usesKeptProfile = (browser: TaskBrowser | undefined) => !!browser?.personCheck && browser.mode !== 'connect';
 export function validateNavigation(value: unknown): NavigationPolicy {
   if (value === undefined) return { strategy: 'same-origin' };
   if (!object(value)) throw new Error('navigation must be an object.');

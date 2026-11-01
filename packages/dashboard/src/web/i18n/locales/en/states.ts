@@ -47,7 +47,7 @@ export const states: LocaleShape<typeof ko> = {
       restartedNext: 'Run again with the same conditions. Moves already recorded are still there.',
       interruptedWhat: 'The run was interrupted partway.',
       blockedWhat: 'The site blocked this browser (a bot check or an access error), so nothing was measured.',
-      blockedNext: 'In Settings › This computer, turn on “A person passes bot checks” to pass it yourself, or connect a Chrome you started yourself. For a page behind a sign-in, connect that Chrome and start runs signed in.',
+      blockedNext: 'In the Browser part of Edit task, turn on “A person passes bot checks” to pass it yourself, or connect to a Chrome you started. For a page behind a sign-in, pick “Connect and start signed in like that Chrome”.',
       environmentWhat: 'This computer could not apply the page environment\'s conditions.',
       environmentNext: 'Change the page environment\'s conditions, or run with a page environment this computer can apply.',
       patternWhat: 'This page\'s structure could not be handled by the current way of running.',

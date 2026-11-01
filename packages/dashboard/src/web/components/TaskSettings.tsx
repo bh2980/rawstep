@@ -3,12 +3,14 @@ import { useTranslation } from 'react-i18next';
 import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import type { ManagedTask } from '@rawstep/project/config';
 import type { ConfigView } from '../../shared/config';
+import { browserChoiceOf } from '../lib/taskBrowser';
 import { taskInputOptions, taskInputs } from '../lib/taskInputs';
 import { asObject, parseTaskJson, updateTaskJson, type Json } from '../lib/taskJson';
 import { Choice, Field } from './forms';
 import { Disclosure } from './layout/Disclosure';
 import { ErrorState } from './layout/ErrorState';
 import { SectionHead } from './layout/PageHeader';
+import { TagList } from './TagList';
 import { TaskInputsField } from './TaskInputsField';
 import { Button } from './ui/button';
 import { Collapsible, CollapsibleContent } from './ui/collapsible';
@@ -29,7 +31,7 @@ type Props = {
  * 작업 수정; then limits, where navigation may go, typed inputs and commentary instructions as open sections; the file and its raw
  * JSON last, folded.
  */
-export function TaskSettings({ task, onTask, json, onJson, view: _view, onEdit }: Props) {
+export function TaskSettings({ task, onTask, json, onJson, view, onEdit }: Props) {
   const { t } = useTranslation();
   const uid = useId();
   const [rawOpen, setRawOpen] = useState(false);
@@ -39,14 +41,21 @@ export function TaskSettings({ task, onTask, json, onJson, view: _view, onEdit }
     <ErrorState alert view={{ kind: 'data', what: t('taskSettings.invalidJson'), progress: t('taskSettings.invalidJsonProgress'), next: t('taskSettings.invalidJsonNext') }} />
     <Field label={t('taskSettings.jsonTitle')} multiline value={json} onChange={onJson} />
   </div>;
-  const navigation = asObject(parsed.navigation);
+  const navigation = asObject(parsed.navigation), browser = browserChoiceOf(parsed);
+  const users = (task.profiles ?? []).flatMap(id => view.config.profiles.find(profile => profile.id === id)?.name ?? []);
   return <div className="grid max-w-3xl gap-8">
     <section aria-labelledby="task-basics" className="grid gap-3">
       <SectionHead id="task-basics" title={t('taskSettings.basicsTitle')} aside={<Button variant="outline" size="sm" onClick={onEdit}>{t('taskPage.edit')}</Button>} />
-      <dl className="grid gap-x-4 gap-y-1.5 text-sm sm:grid-cols-[7rem_minmax(0,1fr)]">
+      <dl className="grid gap-x-4 gap-y-1.5 text-sm sm:grid-cols-[9rem_minmax(0,1fr)]">
         <dt className="text-muted-foreground">{t('taskSettings.name')}</dt><dd className="break-words">{task.name}</dd>
+        <dt className="text-muted-foreground">{t('tags.label')}</dt>
+        <dd>{task.tags?.length ? <TagList tags={task.tags} /> : <span className="text-muted-foreground">{t('tags.none')}</span>}</dd>
         <dt className="text-muted-foreground">{t('taskSettings.url')}</dt><dd className="font-mono text-[13px] break-all">{String(parsed.url ?? '')}</dd>
         <dt className="text-muted-foreground">{t('taskSettings.goal')}</dt><dd className="leading-6">{String(parsed.goal ?? '')}</dd>
+        <dt className="text-muted-foreground">{t('taskSettings.users')}</dt>
+        <dd>{users.length ? users.join(', ') : <span className="text-muted-foreground">{t('taskSettings.usersNone')}</span>}</dd>
+        <dt className="text-muted-foreground">{t('taskSettings.browser')}</dt>
+        <dd>{t(`taskBrowser.summary.${browser.mode}`)}{browser.personCheck && <span className="text-muted-foreground"> · {t('taskBrowser.personCheckName')}</span>}</dd>
       </dl>
     </section>
 

@@ -37,9 +37,9 @@ const isRuntime = (stage: string | undefined): stage is (typeof RUNTIME_STAGES)[
 const stageText = (stage: Stage) => ({ what: t(`errors.stage.${stage}.what`), next: t(`errors.stage.${stage}.next`) });
 
 // Functions, not constants, so the label is in the language shown when the view is made.
-const goMachine = (): ErrorView['link'] => ({ to: { view: 'settings' }, label: t('errors.go.machine') });
+const goMachine = (): ErrorView['link'] => ({ to: { view: 'settings', section: 'machine' }, label: t('errors.go.machine') });
 const goModels = (): ErrorView['link'] => ({ to: { view: 'settings', section: 'connections' }, label: t('errors.go.models') });
-const goConditions = (): ErrorView['link'] => ({ to: { view: 'settings', section: 'profiles' }, label: t('errors.go.conditions') });
+const goConditions = (): ErrorView['link'] => ({ to: { view: 'profiles' }, label: t('errors.go.conditions') });
 
 /** The recorded codes of a run's end, for the "원본 오류 보기" block: the state, reason, stage, action number and the server's own message. */
 export function rawRunRecord(run: Pick<RunRecord, 'state' | 'outcome' | 'error' | 'errorDetail'>): string {

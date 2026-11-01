@@ -9,14 +9,16 @@ import { defaultProfile } from '@rawstep/project/config';
 await i18n.changeLanguage('ko');
 
 describe('routes', () => {
-  it('keeps the page in the URL: the task list first, tasks and runs under 작업, every setting under 설정', () => {
+  it('keeps the page in the URL: the task list first, tasks and runs under 작업, 실행 프로필 on its own page, the rest under 설정', () => {
     expect(routeSearch({})).toBe('/');
     expect(routeSearch({ view: 'tasks' })).toBe('/');
     expect(routeSearch({ view: 'runs' })).toBe('?view=runs');
-    // 설정 holds everything that is configured; its part is in `section`, and only there.
+    // 실행 프로필 is a page of its own; 설정 holds AI 연결 and 이 컴퓨터, and its part is in `section`, and only there.
+    expect(routeSearch({ view: 'profiles' })).toBe('?view=profiles');
     expect(routeSearch({ view: 'settings' })).toBe('?view=settings');
-    expect(routeSearch({ view: 'settings', section: 'profiles' })).toBe('?view=settings&section=profiles');
-    expect(routeSearch({ view: 'runs', section: 'profiles' })).toBe('?view=runs');
+    expect(routeSearch({ view: 'settings', section: 'machine' })).toBe('?view=settings&section=machine');
+    expect(routeSearch({ view: 'profiles', section: 'machine' })).toBe('?view=profiles');
+    expect(routeSearch({ view: 'runs', section: 'connections' })).toBe('?view=runs');
     expect(routeSearch({ task: 'abc' })).toBe('?task=abc');
     expect(routeSearch({ task: 'abc', run: 'r1', step: 3 })).toBe('?task=abc&run=r1&step=3');
     expect(routeSearch({ task: 'abc', tab: 'check' })).toBe('?task=abc&tab=check');
@@ -26,19 +28,23 @@ describe('routes', () => {
     expect(routeSearch({ task: 'abc', tab: 'settings', step: 2 })).toBe('?task=abc&tab=settings');
     expect(parseRoute('')).toEqual({ view: 'tasks', tab: 'overview' });
     expect(parseRoute('?view=connections')).toEqual({ view: 'settings', section: 'connections', tab: 'overview' });
-    expect(parseRoute('?view=conditions')).toEqual({ view: 'settings', section: 'profiles', tab: 'overview' });
+    expect(parseRoute('?view=profiles')).toEqual({ view: 'profiles', tab: 'overview' });
+    // The old addresses of 실행 프로필 (a part of 설정, and before that 실험 조건) open its page.
+    expect(parseRoute('?view=conditions')).toEqual({ view: 'profiles', tab: 'overview' });
+    expect(parseRoute('?view=settings&section=profiles')).toEqual({ view: 'profiles', tab: 'overview' });
     expect(parseRoute('?view=home')).toEqual({ view: 'tasks', tab: 'overview' });
     expect(parseRoute('?view=settings&section=machine')).toEqual({ view: 'settings', section: 'machine', tab: 'overview' });
     expect(parseRoute('?view=nonsense')).toMatchObject({ view: 'tasks' });
     expect(parseRoute('?view=settings&section=nonsense')).toEqual({ view: 'settings', tab: 'overview' });
-    // Old and unknown pages fall back to the task list; old 실험 조건 and 연결 addresses open their part of 설정 (실행 프로필 and 연결).
+    // Old and unknown pages fall back to the task list; the old 연결 address opens its part of 설정.
     expect(parseRoute('?view=agents')).toMatchObject({ view: 'tasks' });
     expect(parseRoute('?task=abc&run=r1&step=2')).toEqual({ view: 'tasks', task: 'abc', run: 'r1', tab: 'overview', step: 2 });
     expect(parseRoute('?task=abc&tab=settings')).toMatchObject({ task: 'abc', tab: 'settings' });
     expect(parseRoute('?task=abc&tab=nonsense')).toMatchObject({ tab: 'overview' });
     expect(parseRoute('?task=abc&step=2')).not.toHaveProperty('step');
     expect(parseRoute('?view=runs&run=r1')).not.toHaveProperty('run');
-    for (const search of ['?view=runs', '?view=settings', '?view=settings&section=profiles', '?task=new', '?task=a&tab=check', '?task=a&tab=runs', '?task=a&run=b&step=0']) expect(routeSearch(parseRoute(search))).toBe(search);
+    for (const search of ['?view=runs', '?view=settings', '?view=profiles', '?view=settings&section=connections', '?view=settings&section=machine', '?task=new', '?task=a&tab=check', '?task=a&tab=runs', '?task=a&run=b&step=0']) expect(routeSearch(parseRoute(search))).toBe(search);
+    expect(routeSearch(parseRoute('?view=settings&section=profiles'))).toBe('?view=profiles');
   });
 });
 

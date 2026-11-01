@@ -18,7 +18,7 @@ export const SERVER_MESSAGE_CODES = [
   'at-driver-session-failed', 'task-run-active', 'custom-key-per-connection', 'connection-key-env-required', 'suggest-model-missing',
   'suggest-failed', 'start-page-unreadable', 'run-id-required', 'report-not-ready', 'screenshot-missing', 'trace-missing',
   'batch-not-for-task', 'plan-changed', 'too-many-combinations', 'shutting-down', 'select-supported', 'retry-no-task-file',
-  'retry-run-active', 'task-changed', 'experiment-not-found', 'run-not-found', 'delete-run-active',
+  'retry-run-active', 'task-changed', 'experiment-not-found', 'run-not-found', 'delete-run-active', 'batch-running-elsewhere', 'browser-profile-busy',
   // Plan warnings.
   'analysis-key-missing', 'analysis-not-llm', 'warning-text',
   // Successful checks.

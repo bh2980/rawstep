@@ -3,13 +3,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { EventEmitter } from "node:events";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { runCli, parseCliArguments, formatRunResult, nodeSupported, type CliDependencies } from "@rawstep/cli/cli";
+import { runCli, parseCliArguments, formatRunResult, formatSuiteResult, nodeSupported, type CliDependencies } from "@rawstep/cli/cli";
 import { BrowserConnectError } from "@rawstep/browser/browser";
 import { ProjectError } from "@rawstep/project/errors";
 import { ProjectStore, demoConfig, initProject } from "@rawstep/project/store";
 import type { ProviderId } from "@rawstep/project/config";
 import { defaultConfig } from "@rawstep/project/config";
-import type { RunTaskResult } from "@rawstep/project/run";
+import type { RunSuiteResult, RunTaskResult } from "@rawstep/project/run";
 import type { RunTrace } from "@rawstep/core/trace";
 import type { CheckKind, ModelInspection } from "@rawstep/project/checks";
 
@@ -42,12 +42,17 @@ function fixtureTrace(status: "success" | "failure" = "success"): RunTrace {
 }
 
 describe("CLI argument contract", () => {
-  it("parses the seven commands and their options", () => {
+  it("parses the eight commands and their options", () => {
     expect(parseCliArguments(["init"]).command).toBe("init");
     expect(parseCliArguments(["ui", "--port=5432", "--project", "project"]).options).toEqual({ port: "5432", project: "project" });
-    expect(parseCliArguments(["run", "login", "--profile", "zoom", "--repeat", "3", "--out", "out", "--json"])).toMatchObject({
-      command: "run", positionals: ["login"], options: { profile: "zoom", repeat: "3", out: "out", json: true },
+    expect(parseCliArguments(["run", "login", "--profile", "zoom", "--repeat", "3", "--parallel", "2", "--note", "button fixed", "--json"])).toMatchObject({
+      command: "run", positionals: ["login"], options: { profile: "zoom", repeat: "3", parallel: "2", note: "button fixed", json: true },
     });
+    // A suite takes any number of tasks, and its tags and profiles repeat.
+    expect(parseCliArguments(["suite", "--tag", "checkout", "--tag=login", "--profile", "a", "--profile", "b", "--parallel", "4"])).toMatchObject({
+      command: "suite", positionals: [], options: { tag: ["checkout", "login"], profile: ["a", "b"], parallel: "4" },
+    });
+    expect(parseCliArguments(["suite", "one", "two"]).positionals).toEqual(["one", "two"]);
     expect(parseCliArguments(["run", "login", "--profile=strict", "--rule", "maxPlannerCalls=1", "--rule=stepActionLimit=30", "--rule", "repetitionGuard=false"]).options)
       .toEqual({ profile: "strict", rule: ["maxPlannerCalls=1", "stepActionLimit=30", "repetitionGuard=false"] });
     expect(parseCliArguments(["analyze", "run-1", "--llm"]).options).toEqual({ llm: true });
@@ -61,7 +66,8 @@ describe("CLI argument contract", () => {
     ["ui", "--port", "0"], ["ui", "--port", "65536"], ["ui", "--port", "1", "--port", "2"], ["ui", "task.json"],
     ["init", "extra"], ["doctor", "--backend", "nvda"],
     ["run"], ["run", "a", "b"], ["run", "a", "--mode", "screenreader"], ["run", "a", "--mode", "keyboard"], ["run", "a", "--repeat", "0"], ["run", "a", "--repeat", "101"], ["run", "a", "--repeat", "two"],
-    ["run", "a", "--json=yes"], ["run", "a", "--model"], ["run", "a", "--model", "fast"], ["analyze", "run", "--model", "judge"], ["run", "a", "--out", "x", "--out", "y"],
+    ["run", "a", "--json=yes"], ["run", "a", "--model"], ["run", "a", "--model", "fast"], ["analyze", "run", "--model", "judge"], ["run", "a", "--out", "x"], ["run", "a", "--profile", "x", "--profile", "y"],
+    ["run", "a", "--parallel", "0"], ["suite", "--parallel", "9"], ["suite", "--repeat", "0"], ["suite", "--tag"],
     ["run", "a", "--rule", "maxPlannerCalls=1001"], ["run", "a", "--rule", "maxPlannerCalls=-1"], ["run", "a", "--rule", "stepActionLimit=0"], ["run", "a", "--rule", "stepActionLimit=many"],
     ["run", "a", "--rule", "survey=wide"], ["run", "a", "--rule", "repetitionGuard=auto"], ["run", "a", "--rule", "repetitionGuard=on"], ["run", "a", "--rule", "modelGiveUp=true"], ["run", "a", "--rule", "maxStateVisits=3"], ["run", "a", "--rule", "maxPlannerCalls"], ["run", "a", "--rule", "maxPlannerCalls="], ["run", "a", "--rule", "nope=1"], ["run", "a", "--max-replans", "1"], ["run", "a", "--max-task-actions", "5"], ["ui", "--rule", "maxPlannerCalls=1"],
     ["run", "a", "--diagnose-stop"], ["run", "a", "--profile"], ["run", "a", "--profile", "x", "--profile", "y"], ["run", "a", "--preset", "x"], ["run", "a", "--at", "nvda"], ["analyze", "run", "--combo", "x"], ["doctor", "--profile", "x"],
@@ -126,15 +132,18 @@ describe("init", () => {
   });
 });
 
+/** Which task and profile a fixture run belongs to. */
+const where = { taskId: "t", taskName: "Task", profileId: "default", profileName: "Careful reader" };
 const result: RunTaskResult = {
+  batch: { id: "b", dir: "/p/.rawstep/experiments/b" },
   conditions: {
     profile: { id: "default", name: "Careful reader" }, combo: { id: "default", name: "Default", planner: "Claude · plan" }, actionSet: { id: "basic", name: "Basic" },
     pageEnvironment: { id: "default", name: "Careful reader", profile: "default" }, atEnvironment: { id: "default", name: "Careful reader", backend: "simulation" },
   },
   warnings: [],
   runs: [
-    { runId: "r1", outDir: "/p/.rawstep/runs/x/run-1", outcome: { status: "success" }, hints: { schemaVersion: "3.0", runId: "r1", taskId: "t", steps: 7, durationMs: 10, goalReached: true, hints: [{ kind: "slow-run", source: "run", certainty: "observed", steps: [], summary: "7 steps against a 3-step reference run (+4).", detail: {}, evidence: [] }], limitations: [] } },
-    { runId: "r2", outDir: "/p/.rawstep/runs/x/run-2", outcome: { status: "inconclusive", reason: "maxSteps" }, hints: { schemaVersion: "3.0", runId: "r2", taskId: "t", steps: 40, durationMs: 10, goalReached: false, hints: [], limitations: [] } },
+    { ...where, runId: "r1", outDir: "/p/.rawstep/experiments/b/r1", outcome: { status: "success" }, hints: { schemaVersion: "3.0", runId: "r1", taskId: "t", steps: 7, durationMs: 10, goalReached: true, hints: [{ kind: "slow-run", source: "run", certainty: "observed", steps: [], summary: "7 steps against a 3-step reference run (+4).", detail: {}, evidence: [] }], limitations: [] } },
+    { ...where, runId: "r2", outDir: "/p/.rawstep/experiments/b/r2", outcome: { status: "inconclusive", reason: "maxSteps" }, hints: { schemaVersion: "3.0", runId: "r2", taskId: "t", steps: 40, durationMs: 10, goalReached: false, hints: [], limitations: [] } },
   ],
   findings: [
     { kind: "backtracking", source: "model", runs: 1, totalRuns: 2, occurrences: [] },
@@ -148,8 +157,8 @@ const measured: RunTaskResult = { ...result, runs: [result.runs[0]!] };
 describe("run", () => {
   it("passes the options to runTask, prints the conditions, how each run ended and what it cost, and findings grouped as Page and Model, and exits 3 when a run was not measured", async () => {
     const directory = await temporaryDirectory(), io = output(directory), runTask = vi.fn(async () => result);
-    expect(await runCli(["run", "login", "--profile", "zoom", "--repeat", "2", "--out", "out"], { ...io, runTask })).toBe(3);
-    expect(runTask).toHaveBeenCalledWith("login", expect.objectContaining({ projectDir: directory, profile: "zoom", repeat: 2, outDir: join(directory, "out"), signal: expect.any(AbortSignal) }));
+    expect(await runCli(["run", "login", "--profile", "zoom", "--repeat", "2", "--parallel", "2", "--note", "button fixed"], { ...io, runTask })).toBe(3);
+    expect(runTask).toHaveBeenCalledWith("login", expect.objectContaining({ projectDir: directory, profile: "zoom", repeat: 2, parallel: 2, note: "button fixed", signal: expect.any(AbortSignal) }));
     const out = text(io.stdout);
     expect(out.startsWith("Conditions: Careful reader (planner Claude · plan)\n  page default · screen reader simulation\n")).toBe(true);
     expect(out.indexOf("Conditions:")).toBeLessThan(out.indexOf("Run 1 of 2"));
@@ -177,7 +186,7 @@ describe("run", () => {
     for (const key of ["profile", "runRules"]) expect(runTask.mock.calls[3]![1]).not.toHaveProperty(key);
   });
   it("shows why a run broke and does not count it as a try", () => {
-    const broke = { runId: "r1", outDir: "/p/run-1", outcome: { status: "failure" as const, reason: "error", stage: "browser-start", error: "page.goto: net::ERR_FILE_NOT_FOUND at file:///p/page.html\nCall log: ..." }, hints: { ...result.runs[0]!.hints, steps: 0, hints: [] } };
+    const broke = { ...where, runId: "r1", outDir: "/p/run-1", outcome: { status: "failure" as const, reason: "error", stage: "browser-start", error: "page.goto: net::ERR_FILE_NOT_FOUND at file:///p/page.html\nCall log: ..." }, hints: { ...result.runs[0]!.hints, steps: 0, hints: [] } };
     const out = formatRunResult({ ...result, runs: [broke], findings: [] });
     expect(out).toContain("  Error (browser-start): page.goto: net::ERR_FILE_NOT_FOUND at file:///p/page.html\n");
     expect(out).not.toContain("Call log");
@@ -188,7 +197,7 @@ describe("run", () => {
     const stuck = { kind: "expectation-broken" as const, source: "model" as const, target: { role: "button", name: "Size" }, certainty: "observed" as const, steps: [17], summary: "", evidence: [],
       detail: { assumption: { id: "A3", text: "Pressing Size announces it as selected" }, pressed: 16, gaveUpOn: true } };
     const guess = { ...stuck, target: { role: "cell", name: "1%" }, steps: [30], detail: { assumption: { id: "A4", text: "Buy comes after the table" } } };
-    const out = formatRunResult({ ...result, runs: [{ runId: "r1", outDir: "/p/run-1", outcome: { status: "failure", reason: "policy-stuck", policyStopSource: "user-gave-up" }, hints: { schemaVersion: "3.0", runId: "r1", taskId: "t", steps: 34, durationMs: 1, goalReached: false, limitations: [],
+    const out = formatRunResult({ ...result, runs: [{ ...where, runId: "r1", outDir: "/p/run-1", outcome: { status: "failure", reason: "policy-stuck", policyStopSource: "user-gave-up" }, hints: { schemaVersion: "3.0", runId: "r1", taskId: "t", steps: 34, durationMs: 1, goalReached: false, limitations: [],
       hints: [stuck, guess, { kind: "early-stop", source: "model", certainty: "observed", steps: [34], summary: "The user gave up", evidence: [], detail: { stopSource: "user-gave-up", giveUp: { reason: "Size never selects", tried: ["A3"] } } },
         { kind: "goal-word-stretch", source: "run", certainty: "observed", steps: [3, 11], summary: "9 moves", evidence: [], detail: { moves: 9 } },
         ...[["failures", 12], ["failures", 20], ["no-change", 25]].map(([trigger, step]) => ({ kind: "replan" as const, source: "run" as const, certainty: "observed" as const, steps: [step as number], summary: "replanned", evidence: [], detail: { trigger } }))] } }],
@@ -211,10 +220,12 @@ describe("run", () => {
     expect(planned).toContain("  note: The analysis model is not an LLM");
     expect(planned.indexOf("note:")).toBeLessThan(planned.indexOf("Run 1 of 2"));
   });
-  it("leaves everything else to the profile, with one run and the current directory", async () => {
+  it("leaves everything else to the profile and runTask's defaults, in the current directory", async () => {
     const directory = await temporaryDirectory(), io = output(directory), runTask = vi.fn(async (_task: string, _options?: unknown) => measured);
     expect(await runCli(["run", "task.json"], { ...io, runTask })).toBe(0);
-    expect(runTask.mock.calls[0]).toEqual(["task.json", expect.objectContaining({ projectDir: directory, repeat: 1 })]);
+    expect(runTask.mock.calls[0]).toEqual(["task.json", expect.objectContaining({ projectDir: directory })]);
+    // Repeats and runs at once are left to runTask (one run, the project's machine.parallelRuns).
+    expect(runTask.mock.calls[0]![1]).not.toHaveProperty("repeat"); expect(runTask.mock.calls[0]![1]).not.toHaveProperty("parallel");
     expect(runTask.mock.calls[0]![1]).not.toHaveProperty("mode"); expect(runTask.mock.calls[0]![1]).not.toHaveProperty("model"); expect(runTask.mock.calls[0]![1]).not.toHaveProperty("profile");
   });
   it("prints the result object with --json", async () => {
@@ -222,6 +233,24 @@ describe("run", () => {
     expect(await runCli(["run", "task.json", "--json"], { ...io, runTask: async () => measured })).toBe(0);
     expect(JSON.parse(text(io.stdout))).toEqual(measured);
     expect(text(io.stderr)).not.toContain("Running");
+  });
+  it("runs a suite by tags and profiles, prints each task under each profile and the batch, and exits like run", async () => {
+    const directory = await temporaryDirectory(), io = output(directory);
+    const [reached, unmeasured] = result.runs as [RunSuiteResult["runs"][number], RunSuiteResult["runs"][number]];
+    const other = { ...reached, taskId: "u", taskName: "Checkout", runId: "r3" };
+    const suite: RunSuiteResult = { batch: result.batch, warnings: [], runs: [reached, unmeasured, other], groups: [
+      { taskId: "t", taskName: "Task", profileId: "default", profileName: "Careful reader", runs: [reached, unmeasured], findings: [] },
+      { taskId: "u", taskName: "Checkout", profileId: "default", profileName: "Careful reader", runs: [other], findings: [] },
+    ] };
+    const runSuite = vi.fn(async () => suite);
+    expect(await runCli(["suite", "--tag", "shop", "--profile", "default", "--repeat", "2"], { ...io, runSuite })).toBe(3);
+    expect(runSuite).toHaveBeenCalledWith(expect.objectContaining({ projectDir: directory, tags: ["shop"], profiles: ["default"], repeat: 2 }));
+    const out = text(io.stdout);
+    expect(out).toContain("Task: reached the goal in 1 of 2 runs · not measured 1\n  cost of reaching it: 7 moves");
+    expect(out).toContain("Checkout: reached the goal in 1 of 1 runs");
+    expect(out).toContain("All 3 runs: reached the goal in 2 of 3 runs · not measured 1");
+    expect(out).toContain("Batch: /p/.rawstep/experiments/b");
+    expect(formatSuiteResult({ ...suite, runs: [reached, other], groups: suite.groups.map(g => ({ ...g, runs: g.runs.filter(r => r !== unmeasured) })) })).toContain("All 2 runs: reached the goal in 2 of 2 runs");
   });
   it("exits 0 when every run gave a measurement, 3 when none broke but one was not measured, and 1 when any ended on an error", async () => {
     const io = () => output("/unused");
@@ -262,7 +291,7 @@ describe("run", () => {
     expect(signals.listenerCount("SIGINT") + signals.listenerCount("SIGTERM")).toBe(0);
   });
   it("formats a run without an outcome and a run without findings", () => {
-    const out = formatRunResult({ conditions: {}, warnings: [], runs: [{ runId: "x", outDir: "/o", outcome: undefined, hints: { ...result.runs[1]!.hints, steps: 0 } }], findings: [] });
+    const out = formatRunResult({ batch: result.batch, conditions: {}, warnings: [], runs: [{ ...where, runId: "x", outDir: "/o", outcome: undefined, hints: { ...result.runs[1]!.hints, steps: 0 } }], findings: [] });
     expect(out).toContain("Run 1 of 1: no outcome recorded · 0 moves"); expect(out).toContain("No findings."); expect(out).not.toContain("Conditions:");
   });
 });
@@ -520,20 +549,27 @@ describe("doctor", () => {
     expect(out).toContain("FAIL  Claude Code: Claude Code needs a sign-in. Run `claude` once and sign in there");
     expect(out).not.toContain("dashboard connection check");
   });
-  it("says when machine.headless does not apply, ends a browser failure with exactly one period, and explains an invalid machine setting", async () => {
-    const connected = await project(config => { config.machine.browserEndpoint = "http://localhost:9222"; });
-    const io = output(connected);
-    expect(await runCli(["doctor"], { ...io, launchBrowser: async () => {} })).toBe(0);
-    expect(text(io.stdout)).toContain("Browser window: runs use the Chrome you started, so machine.headless does not apply");
+  it("says which tasks need a Chrome you started yourself, ends a browser failure with exactly one period, and explains an invalid machine setting", async () => {
+    const connecting = async (endpoint: string) => {
+      const directory = await project(config => { config.machine.browserEndpoint = endpoint; config.tasks.push({ id: "shop", name: "Shop", file: "shop.json" }); });
+      await writeFile(join(directory, "shop.json"), JSON.stringify({ url: "https://shop.example/", goal: "Buy", verify: { all: [{ urlIncludes: "done" }] }, browser: { mode: "connect", copySignIn: true } }));
+      return directory;
+    };
+    const connected = output(await connecting("http://localhost:9222"));
+    expect(await runCli(["doctor"], { ...connected, launchBrowser: async () => {} })).toBe(0);
+    expect(text(connected.stdout)).toContain("ok    Browser for tasks: Shop runs in the Chrome you started (http://localhost:9222)");
+    const missing = output(await connecting(""));
+    expect(await runCli(["doctor"], { ...missing, launchBrowser: async () => {} })).toBe(1);
+    expect(text(missing.stdout)).toContain("FAIL  Browser for tasks: Shop needs a Chrome you started yourself, but machine.browserEndpoint is empty");
     const failing = output(await project());
     expect(await runCli(["doctor"], { ...failing, launchBrowser: async () => { throw new Error("no chromium."); } })).toBe(1);
     expect(text(failing.stdout)).toMatch(/Browser: no chromium\. Install one/); expect(text(failing.stdout)).not.toContain("..");
-    const signIn = output(await project(config => { config.machine.copySignIn = true; }));
-    expect(await runCli(["doctor"], { ...signIn, launchBrowser: async () => {} })).toBe(1);
-    expect(text(signIn.stdout)).toContain("rawstep.config.json · machine.copySignIn: copySignIn needs browserEndpoint");
-    const proxy = output(await project(config => { config.machine.browserEndpoint = "http://localhost:9222"; config.machine.proxyServer = "http://localhost:8080"; }));
+    const old = output(await project(config => { (config.machine as Record<string, unknown>).personCheck = true; }));
+    expect(await runCli(["doctor"], { ...old, launchBrowser: async () => {} })).toBe(1);
+    expect(text(old.stdout)).toContain('rawstep.config.json · machine.personCheck: unknown field "personCheck"');
+    const proxy = output(await project(config => { config.machine.proxyServer = "ftp://localhost:8080"; }));
     expect(await runCli(["doctor"], { ...proxy, launchBrowser: async () => {} })).toBe(1);
-    expect(text(proxy.stdout)).toContain("machine.proxyServer: proxyServer cannot be used with browserEndpoint");
+    expect(text(proxy.stdout)).toContain("machine.proxyServer: proxyServer must be a credential-free HTTP(S) or SOCKS URL");
   });
   it("probes the endpoint of each native screen reader environment once, with the machine's address or the usual one", async () => {
     const directory = await project(config => {

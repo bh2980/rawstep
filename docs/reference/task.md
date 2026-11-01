@@ -1,8 +1,8 @@
 # Task file
 
-Look-up reference for the task JSON file: what a task may contain, how its goal is checked, how named inputs are hidden, and where the simulated user may navigate. For how a task fits into a run see [concepts.md](../concepts.md); to write your first one see [getting-started.md](../getting-started.md). Registering a task in the config is in [config.md](config.md#tasks).
+Look-up reference for the task JSON file: what a task may contain, how its goal is checked, how named inputs are hidden, where the simulated user may navigate, and what the site needs of the browser. For how a task fits into a run see [concepts.md](../concepts.md); to write your first one see [getting-started.md](../getting-started.md). Registering a task in the config is in [config.md](config.md#tasks).
 
-A task says only what to do: the start page, the goal, and how Rawstep recognises that the goal is reached. Who the user is and how they move is the run profile's job.
+A task says what to do and what the site needs: the start page, the goal, how Rawstep recognises that the goal is reached, and what the site needs of the browser. Who the user is and how they move is the run profile's job.
 
 ## Fields
 
@@ -18,6 +18,7 @@ A task says only what to do: the start page, the goal, and how Rawstep recognise
 | `input` | `{ name: value }`, strings | none | Named values the user may type. See [named inputs](#named-inputs). |
 | `inputOptions` | `{ name: { sensitive?, description? } }` | none | Per-input handling. Each key must be a name in `input`. |
 | `navigation` | object | `{ "strategy": "same-origin" }` | Where the user may go. See [navigation](#navigation). |
+| `browser` | object | `{ "mode": "launch" }` | What the site needs of the browser. See [browser](#browser). |
 | `profile` | page environment object or built-in name | none | Accepted in the file but ignored by `rawstep run` and the dashboard: a run uses the run profile's `page` ([config.md](config.md#page-environments)). It is still checked like a `page`, so an unknown field or name is an error. |
 
 Unknown fields are rejected. The file is read as JSON; there are no comments.
@@ -190,6 +191,42 @@ In every case only `http`, `https` and `file` URLs without credentials are allow
 - Blocks requests other than GET, HEAD and OPTIONS before they are sent, and blocks form submissions other than GET.
 - Stops the run when the first response is 401, 403, 407 or 429, or the page looks like a bot check or access-denied page. It does not log in or work around the block.
 - Does not protect against a site that changes data through GET.
+
+## Browser
+
+`browser` says what the site needs of the browser. It belongs to the task, like the start page, because it depends on the site and not on who tries it. Leave it out and Rawstep launches its own browser.
+
+| Field | Type | Default | Meaning |
+|---|---|---|---|
+| `mode` | `launch` or `connect` | required inside `browser` | `launch`: Rawstep starts a browser for each run. `connect`: the run uses a Chrome you started yourself with `--remote-debugging-port`, at the address in `machine.browserEndpoint` ([config.md](config.md#machine)). A site sees that Chrome as an ordinary browser. Each run gets its own isolated context in it, and your own windows are not touched. |
+| `copySignIn` | boolean | `false` | Only with `mode: "connect"` (otherwise the task is rejected). Each run's fresh context starts with a copy of that Chrome's cookies and site storage, so a page behind a sign-in opens signed in. |
+| `personCheck` | boolean | `false` | For a site with a human check (a bot check). The run uses a visible window and pauses while you pass the check in it. Rawstep never answers a check itself. With `mode: "launch"` the browser keeps its profile in `.rawstep/browser-profile`, so those runs go one at a time. |
+
+Unknown fields are rejected. The address of your Chrome is not in the task: it belongs to the computer, so it is set once in `machine.browserEndpoint`. A run of a `connect` task while that address is empty does not start (`browser-endpoint-missing`), and `npx rawstep doctor` says so. `machine.proxyServer` does not apply to a Chrome you started yourself, which has its own proxy settings; Rawstep warns when both are set.
+
+A site behind a sign-in, using the Chrome you are already signed in with:
+
+```json
+{
+  "url": "https://shop.example.com/account",
+  "goal": "Open the order history.",
+  "verify": { "all": [{ "textVisible": "Your orders" }] },
+  "browser": { "mode": "connect", "copySignIn": true }
+}
+```
+
+A site with a human check, in a browser Rawstep launches:
+
+```json
+{
+  "url": "https://shop.example.com/",
+  "goal": "Open the first product.",
+  "verify": { "all": [{ "urlIncludes": "/product/" }] },
+  "browser": { "mode": "launch", "personCheck": true }
+}
+```
+
+In the dashboard this is the Browser choice in the task editor.
 
 ## Examples
 

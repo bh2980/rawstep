@@ -8,10 +8,10 @@ Rawstep asks one question: can a first-time screen reader user complete this tas
 
 A run is a **task** run with a **run profile**.
 
-- A **task** says what to do: a start address, a goal, what a newcomer knows about the site (`context`), the inputs the user may type, and a completion check. It says nothing about how to do it. See the [task reference](./reference/task.md).
-- A **run profile** says who does it and under what conditions. In the dashboard a profile answers four questions: Who is it? (the actions the user may take), Which AI thinks? (the planner), Where do they listen? (the page environment and the screen reader) and When to stop? (the run rules). There is no layer between Rawstep's defaults and a profile.
+- A **task** says what to do and what the site needs: a start address, a goal, what a newcomer knows about the site (`context`), the inputs the user may type, a completion check, and what the site needs of the browser (`browser`, for example a Chrome you started yourself for a site with a bot check). It says nothing about who tries it or how. See the [task reference](./reference/task.md).
+- A **run profile** says who does it and under what conditions. In the dashboard a profile answers four questions: How do they find things? (the actions the user may take), Which AI thinks? (the planner), Where do they listen? (the page environment and the screen reader) and When to stop? (the run rules). There is no layer between Rawstep's defaults and a profile.
 
-You pick the profile when a run starts, so one task can run under many profiles. To learn what one thing changes, make two profiles that differ only in it (the planner model, the way of finding things, the page environment) and run the same task with each. Every run records the full profile it used and the run rules it ran with, so results from different conditions are never mixed up.
+A profile is not tied to a task: you pick it when a run starts, so one task can run under many profiles and one profile can be reused across tasks. A task can list the profiles it usually runs with (`profiles` in the config), which the dashboard offers first and `rawstep run` uses when you name none. To learn what one thing changes, make two profiles that differ only in it (the planner model, the way of finding things, the page environment) and run the same task with each. Every run records the full profile it used and the run rules it ran with, so results from different conditions are never mixed up.
 
 A task can also be marked as a broken copy of another (`variantOf`): the same goal on a copy of the page with one accessibility defect. Results then show how many more moves the broken copy took.
 

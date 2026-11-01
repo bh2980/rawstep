@@ -373,7 +373,7 @@ Trace Rail은 행동이 발생할 때마다 하나씩 늘어난다. 최신 단�
 
 ## 32. SETTINGS
 
-Dashboard 안의 또 다른 card collection으로 만들지 않는다. 전체 페이지 + sub navigation(Models, Run profiles, This computer). 각 화면을 Configuration Sheet로 디자인한다.
+Dashboard 안의 또 다른 card collection으로 만들지 않는다. 전체 페이지 + 사이드바의 sub navigation(Models, This computer). 실행 프로필은 작업과 실행 기록 사이의 사이드바 항목으로 따로 둔다. 각 화면을 Configuration Sheet로 디자인한다.
 
 ## 33. SETTINGS / Models
 

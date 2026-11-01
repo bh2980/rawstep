@@ -19,6 +19,7 @@ import { useTaskFindings } from '../hooks/useTaskFindings';
 import { taskTabs, type RouteChange, type TaskTab } from '../hooks/useRoute';
 import { isLive, taskRunNumbers, type RunRef } from '../lib/runs';
 import { createManagedTask } from '../lib/taskFiles';
+import { browserChoiceOf, browserField } from '../lib/taskBrowser';
 import { inputFields, taskInputOptions, taskInputs } from '../lib/taskInputs';
 import { parseTaskJson, sameTaskJson, taskRules, updateTaskJson, withRules } from '../lib/taskJson';
 import type { PageProps } from './types';
@@ -58,17 +59,17 @@ export function TaskPage({ taskId, tab, pageProps, runs, navigate, onRun }: Prop
   const parsed = parseTaskJson(json), rules = parsed ? taskRules(parsed) : [];
   const dirty = JSON.stringify(task) !== JSON.stringify(saved) || !sameTaskJson(json, savedJson);
   const savedParsed = parseTaskJson(savedJson) ?? {}, savedRules = taskRules(savedParsed);
-  /** The draft with the sheet's name, base task and fewest moves; the task's profile is changed in the run setup, not here. */
-  const withChoice = (entry: ManagedTask, basics: Pick<TaskBasics, 'name' | 'variantOf' | 'minimalSteps'>): ManagedTask => {
-    const { variantOf: _v, minimalSteps: _m, ...rest } = entry;
-    return { ...rest, name: basics.name, ...(basics.variantOf ? { variantOf: basics.variantOf } : {}), ...(basics.minimalSteps ? { minimalSteps: Number(basics.minimalSteps) } : {}) };
+  /** The draft with the sheet's name, tags, usual profiles, base task and fewest moves; the profile of one run is picked in the run dialog, not here. */
+  const withChoice = (entry: ManagedTask, basics: Pick<TaskBasics, 'name' | 'variantOf' | 'minimalSteps' | 'tags' | 'profiles'>): ManagedTask => {
+    const { variantOf: _v, minimalSteps: _m, tags: _t, profiles: _p, ...rest } = entry;
+    return { ...rest, name: basics.name, ...(basics.tags.length ? { tags: basics.tags } : {}), ...(basics.profiles.length ? { profiles: basics.profiles } : {}), ...(basics.variantOf ? { variantOf: basics.variantOf } : {}), ...(basics.minimalSteps ? { minimalSteps: Number(basics.minimalSteps) } : {}) };
   };
-  /** The task file fields the sheet owns; an empty context is removed rather than saved empty. */
-  const fileFields = (basics: TaskBasics) => ({ url: basics.url, goal: basics.goal, context: basics.context || undefined, ...inputFields(basics.input, basics.inputOptions) });
+  /** The task file fields the sheet owns; an empty context is removed rather than saved empty, and a launched browser needs no `browser` field. */
+  const fileFields = (basics: TaskBasics) => ({ url: basics.url, goal: basics.goal, context: basics.context || undefined, browser: browserField(basics.browser), ...inputFields(basics.input, basics.inputOptions) });
   // What the 세부 설정 tab changed, apart from what the sheet owns (the inputs are edited in both, so the sheet saves them with the rest).
-  const sheetless = ({ name: _n, variantOf: _v, minimalSteps: _m, ...rest }: ManagedTask) => JSON.stringify(rest);
+  const sheetless = ({ name: _n, variantOf: _v, minimalSteps: _m, tags: _t, profiles: _p, ...rest }: ManagedTask) => JSON.stringify(rest);
   const otherChanges = sheetless(task) !== sheetless(saved)
-    || !sameTaskJson(updateTaskJson(json, { url: savedParsed.url, goal: savedParsed.goal, context: savedParsed.context, input: savedParsed.input, inputOptions: savedParsed.inputOptions }), savedJson);
+    || !sameTaskJson(updateTaskJson(json, { url: savedParsed.url, goal: savedParsed.goal, context: savedParsed.context, browser: savedParsed.browser, input: savedParsed.input, inputOptions: savedParsed.inputOptions }), savedJson);
 
   /** Writes a task entry and its file against `base`, then starts the draft again from what the server stored. */
   async function write(next: { task: ManagedTask; json: string }, base: string, current = config) {
@@ -134,7 +135,7 @@ export function TaskPage({ taskId, tab, pageProps, runs, navigate, onRun }: Prop
           {taskRuns.length > 0
             ? <div className="grid gap-5">{batchesOf(taskRuns).map(group => <section key={group.experiment.id} aria-label={batchLabel(group.batch, t)} className="grid gap-2">
               <h3 className="text-sm font-semibold">{batchLabel(group.batch, t)}</h3>
-              <RunsTable runs={group.runs} config={config} navigate={navigate} hideTask numbers={numbers} showConditions showHints />
+              <RunsTable runs={group.runs} config={config} navigate={navigate} hideTask hideVia numbers={numbers} showConditions showHints />
             </section>)}</div>
             : <EmptyState compact title={t('taskPage.runsTabEmpty')} action={<Button variant="outline" size="sm" onClick={onRun}>{t('empty.taskRuns.action')}</Button>} />}
         </section>
@@ -147,7 +148,9 @@ export function TaskPage({ taskId, tab, pageProps, runs, navigate, onRun }: Prop
 
     <TaskEditSheet open={editing} onOpenChange={setEditing} busy={pageProps.busy} otherChanges={otherChanges} onSave={saveBasics}
       initial={{ name: task.name, url: String(parsed?.url ?? ''), goal: String(parsed?.goal ?? ''), context: typeof parsed?.context === 'string' ? parsed.context : '',
-        input: taskInputs(parsed ?? {}), inputOptions: taskInputOptions(parsed ?? {}), variantOf: task.variantOf ?? '', minimalSteps: task.minimalSteps === undefined ? '' : String(task.minimalSteps) }}
+        input: taskInputs(parsed ?? {}), inputOptions: taskInputOptions(parsed ?? {}), variantOf: task.variantOf ?? '', minimalSteps: task.minimalSteps === undefined ? '' : String(task.minimalSteps), tags: task.tags ?? [],
+        profiles: task.profiles ?? [], browser: browserChoiceOf(parsed) }}
+      profiles={config.profiles.map(({ id, name }) => ({ id, name }))} endpointSet={config.machine.browserEndpoint.trim() !== ''}
       bases={config.tasks.some(other => other.variantOf === taskId) ? [] : config.tasks.filter(other => other.id !== taskId && !other.variantOf).map(({ id, name }) => ({ id, name }))}
     />
     <DeleteTaskDialog open={deleting} onOpenChange={setDeleting} name={saved.name} file={saved.file} runCount={taskRuns.length} activeCount={active.length} onConfirm={remove} />
@@ -160,6 +163,6 @@ function batchesOf(runs: readonly RunRef[]) {
   for (const ref of runs) groups.set(ref.experiment.id, [...groups.get(ref.experiment.id) ?? [], ref]);
   return [...groups.values()].map(list => {
     const experiment = list[0]!.experiment;
-    return { experiment, runs: list, batch: { experimentId: experiment.id, createdAt: experiment.createdAt, ...(experiment.request.note ? { note: experiment.request.note } : {}), runs: list.length, finished: 0 } };
+    return { experiment, runs: list, batch: { experimentId: experiment.id, createdAt: experiment.createdAt, ...(experiment.request.note ? { note: experiment.request.note } : {}), ...(experiment.owner ? { via: experiment.owner.via } : {}), runs: list.length, finished: 0 } };
   }).sort((a, b) => b.experiment.createdAt.localeCompare(a.experiment.createdAt));
 }

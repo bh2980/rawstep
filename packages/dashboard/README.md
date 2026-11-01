@@ -4,10 +4,10 @@ This page is for people who work on the local dashboard (`npx rawstep ui`). It a
 
 The dashboard is a private workspace. It is bundled into the published `rawstep` package, and `rawstep ui` serves it. It has two parts:
 
-- **`src/server`**: a Node HTTP server on `127.0.0.1`. It reads and writes the project's files through `@rawstep/project`, runs experiments through the same code `rawstep run` uses, and serves the built UI. There is no database.
+- **`src/server`**: a Node HTTP server on `127.0.0.1`. It reads and writes the project's files through `@rawstep/project`, runs experiments through the same code `rawstep run` and `rawstep suite` use, and serves the built UI. There is no database.
 - **`src/web`**: a React 19 single-page app built with Vite and Tailwind 4, using local shadcn/ui components. Every visible string is in Korean and English: the language follows the browser, and a switch in the top bar changes it.
 
-Its menu has Tasks, Run history and Settings. Settings has three groups: Run with Run profiles, Models with AI connections, and This computer. (In Korean: 작업, 실행 기록, 설정; 실행 프로필, AI 연결, 이 컴퓨터.)
+Its menu has Tasks, Run profiles, Run history and Settings; AI connections and This computer sit under Settings. (In Korean: 작업, 실행 프로필, 실행 기록, 설정 › AI 연결, 이 컴퓨터.)
 
 ## Run it
 
@@ -51,7 +51,7 @@ Tests live in the repository root `tests/` (`tests/dashboard-*.test.ts`). The on
 | Connections, run profiles, tasks, machine settings | `rawstep.config.json` in the project (the same file the CLI and `runTask` read) |
 | Task definitions | The `tasks/*.json` files the config points at |
 | API keys, the AT Driver start command | `.env.local` in the project. Keys are returned to the UI only as configured or not configured. |
-| Experiment records | `.rawstep/experiments/<experiment-id>/experiment.json` |
+| Experiment records (batches) | `.rawstep/experiments/<experiment-id>/experiment.json`. The CLI's `run` and `suite` write batches in the same place and format; the server lists them too. |
 | A run's files | `.rawstep/experiments/<experiment-id>/<run-id>/` (`trace.json`, `trace.jsonl`, `plan.json`, `plan.md`, `hints.json`, `analysis.json`, `report.html`, `report.json`, `diagnostics/`) |
 | Browser profile for runs | `.rawstep/browser-profile` |
 
@@ -67,7 +67,7 @@ On start, the server marks any run still `queued` or `running` as `interrupted`.
 |---|---|
 | `index.ts` | `startDashboard`: routing, the loopback and origin checks, the event stream, static files |
 | `bin.ts` | The `dashboard` executable (`--project`, `--port`) |
-| `queue.ts` | `ExperimentQueue`: planning combinations, running them one at a time, cancel, retry, deletion, persistence |
+| `queue.ts` | Re-exports `BatchQueue` from `@rawstep/project/batch` as `ExperimentQueue`: planning combinations, running them (up to `machine.parallelRuns` at a time), cancel, retry, deletion, persistence |
 | `views.ts` | `RunViews`: read-only projections of saved runs (steps, hints, findings per task, task summaries) |
 | `steps.ts` | Folding a trace into steps and a plan document; bot-check and blocked-navigation notices; the screenshot path rule |
 | `checks.ts` | Provider, model and browser checks |
@@ -77,7 +77,7 @@ On start, the server marks any run still `queued` or `running` as `interrupted`.
 
 `src/shared` holds types and a Zod schema used by both sides with no Node code: `api.ts` (response shapes), `config.ts` (experiment and request types) and `messages.ts` (the message codes the server sends).
 
-An experiment is tasks × run profiles × repeats. `POST /api/plan` expands a request into combinations and says for each whether it can run and why not (no planner, no key, an action the screen reader lacks). `POST /api/experiments` stores the supported ones and starts the queue. Runs go one at a time. Each run gets its hints, analysis and report when it ends; when the last repeat of a task under a profile in the experiment has finished, `compareRepeats` (from `@rawstep/project/run`) rewrites every repeat's hints and report against the fastest one that reached the goal, as `rawstep run --repeat` does. A retry keeps the original run's public conditions and re-reads input values from the task file.
+An experiment is tasks × run profiles × repeats. `POST /api/plan` expands a request into combinations and says for each whether it can run and why not (no planner, no key, an action the screen reader lacks). `POST /api/experiments` stores the supported ones and starts the queue. Runs go up to `machine.parallelRuns` at a time (runs of tasks with `browser.personCheck` in a launched browser share one kept browser profile, so those go one at a time while the others keep going). Each run gets its hints, analysis and report when it ends; when the last repeat of a task under a profile in the experiment has finished, `compareRepeats` (from `@rawstep/project/run`) rewrites every repeat's hints and report against the fastest one that reached the goal, as `rawstep run --repeat` does. Each batch records its `owner` (process id, computer, and `dashboard`, `cli` or `api`). The server watches `.rawstep/experiments` (and looks again every few seconds) and lists batches other processes wrote, such as a CLI `suite` that is running; it never stops one whose process is alive (`batch-running-elsewhere`), and marks one whose process is gone as interrupted. A retry keeps the original run's public conditions and re-reads input values from the task file.
 
 ### Security
 
@@ -147,7 +147,8 @@ The route lives in the URL, so reload and the back button restore the page:
 | `?task=new` | New task |
 | `?task=<id>&run=<run-id>&step=<n>` | One run, at a step |
 | `?view=runs` | Run history |
-| `?view=settings&section=profiles\|connections\|machine` | Settings: Run profiles, AI connections, This computer |
+| `?view=profiles` | Run profiles |
+| `?view=settings&section=connections\|machine` | Settings: AI connections, This computer |
 
 Behaviour worth knowing before you change it:
 

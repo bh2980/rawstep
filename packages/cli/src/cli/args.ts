@@ -1,6 +1,6 @@
 import { runRulesOverrideSchema, type RunRulesOverride } from '@rawstep/project/config';
 
-export type Command = 'init' | 'ui' | 'run' | 'hints' | 'report' | 'analyze' | 'doctor';
+export type Command = 'init' | 'ui' | 'run' | 'suite' | 'hints' | 'report' | 'analyze' | 'doctor';
 export type CliArguments = {
   command: Command;
   positionals: string[];
@@ -15,17 +15,21 @@ export class CliUsageError extends Error {
 const optionsByCommand: Record<Command, readonly string[]> = {
   init: ['project'],
   ui: ['port', 'project'],
-  run: ['project', 'profile', 'repeat', 'rule', 'out', 'json'],
+  run: ['project', 'profile', 'repeat', 'parallel', 'rule', 'note', 'json'],
+  suite: ['project', 'tag', 'profile', 'repeat', 'parallel', 'rule', 'note', 'json'],
   hints: ['reference'],
   report: ['analysis', 'out'],
   analyze: ['project', 'llm', 'out'],
   doctor: ['project'],
 };
-const repeatableOptions = new Set(['rule']);
+const repeatableOptions = new Set(['rule', 'tag']);
+/** Options that repeat for one command only: `suite` may run several profiles, `run` one. */
+const repeatableFor: Partial<Record<Command, readonly string[]>> = { suite: ['profile'] };
 const booleanOptions = new Set(['json', 'llm']);
 const positionalsByCommand: Record<Command, { count: number; noun: string }> = {
   init: { count: 0, noun: '' }, ui: { count: 0, noun: '' }, doctor: { count: 0, noun: '' },
   run: { count: 1, noun: 'task id or task JSON file' },
+  suite: { count: -1, noun: 'task ids or task JSON files' },
   hints: { count: 1, noun: 'run directory' }, report: { count: 1, noun: 'run directory' }, analyze: { count: 1, noun: 'run directory' },
 };
 
@@ -48,7 +52,8 @@ export function parseCliArguments(argv: readonly string[]): CliArguments {
     if (!optionsByCommand[command].includes(option)) {
       throw new CliUsageError(`Unknown option for ${command}: --${option}`);
     }
-    if (!repeatableOptions.has(option) && Object.hasOwn(result.options, option)) {
+    const repeatable = repeatableOptions.has(option) || !!repeatableFor[command]?.includes(option);
+    if (!repeatable && Object.hasOwn(result.options, option)) {
       throw new CliUsageError(`Option --${option} may only be provided once.`);
     }
     if (booleanOptions.has(option)) {
@@ -58,16 +63,19 @@ export function parseCliArguments(argv: readonly string[]): CliArguments {
     }
     const value = equalIndex < 0 ? args[++i] : token.slice(equalIndex + 1);
     if (!value || value.startsWith('--')) throw new CliUsageError(`Option --${option} requires a value.`);
-    if (repeatableOptions.has(option)) result.options[option] = [...(result.options[option] as string[] | undefined ?? []), value];
+    if (repeatable) result.options[option] = [...(result.options[option] as string[] | undefined ?? []), value];
     else result.options[option] = value;
   }
   const { count, noun } = positionalsByCommand[command];
-  if (result.positionals.length !== count) {
+  // A count of -1 takes any number (suite: none means every registered task, or the tagged ones).
+  if (count >= 0 && result.positionals.length !== count) {
     throw new CliUsageError(count === 0 ? `${command} does not accept positional arguments.` : `${command} requires exactly one ${noun}.`);
   }
   if (command === 'ui' && result.options.port !== undefined && (!/^[0-9]+$/.test(String(result.options.port)) || Number(result.options.port) < 1 || Number(result.options.port) > 65535)) throw new CliUsageError('--port must be an integer from 1 to 65535.');
-  if (command === 'run') {
+  if (command === 'run' || command === 'suite') {
     if (result.options.repeat !== undefined && (!/^[0-9]+$/.test(String(result.options.repeat)) || Number(result.options.repeat) < 1 || Number(result.options.repeat) > 100)) throw new CliUsageError('--repeat must be an integer from 1 to 100.');
+    if (result.options.parallel !== undefined && (!/^[0-9]+$/.test(String(result.options.parallel)) || Number(result.options.parallel) < 1 || Number(result.options.parallel) > 8)) throw new CliUsageError('--parallel must be an integer from 1 to 8.');
+    if (typeof result.options.note === 'string' && result.options.note.length > 200) throw new CliUsageError('--note may be at most 200 characters.');
     parseRunRules(result.options.rule as string[] | undefined);
   }
   return result;
@@ -110,7 +118,9 @@ Usage:
   rawstep init [--project <dir>]
   rawstep ui [--port <port>] [--project <dir>]
   rawstep run <task> [--profile <id|name>] [--rule <name>=<value>]...
-                     [--repeat <n>] [--out <dir>] [--json] [--project <dir>]
+                     [--repeat <n>] [--parallel <n>] [--note <text>] [--json] [--project <dir>]
+  rawstep suite [<task>...] [--tag <tag>]... [--profile <id|name>]... [--rule <name>=<value>]...
+                     [--repeat <n>] [--parallel <n>] [--note <text>] [--json] [--project <dir>]
   rawstep hints <run-dir> [--reference <run-dir>]
   rawstep report <run-dir> [--analysis <analysis.json>] [--out <dir>]
   rawstep analyze <run-dir> [--llm] [--out <dir>] [--project <dir>]
@@ -123,6 +133,8 @@ Commands:
   run       Run a task from rawstep.config.json (by id) or a task JSON file with a run profile (models, allowed
             actions, page environment, screen reader, run rules), then print the conditions, each run's outcome and the
             findings gathered across the runs, grouped as Page, Run and Model. Runs also write plan.json and plan.md. With an analysis model (the project's) each run is also analysed.
+  suite     Run several tasks as one batch: the ones named, the ones with a --tag, or every task in rawstep.config.json,
+            each under every --profile, and print each task's result under each profile.
   hints     List the places worth a look in a saved run (hints.json is written next to the trace).
   report    Write report.html and report.json for a saved run.
   analyze   Analyze a saved run. Without --llm the analysis is a local summary; --llm sends the saved
@@ -143,10 +155,11 @@ Run defaults:
   --rule     <name>=<value>, repeatable; overrides one run rule for these runs (the profile's, then these), e.g. --rule maxPlannerCalls=20 --rule survey=headings;
              see the runRules section of docs/reference/config.md for the rules
   --repeat   1; repeats are compared with the fastest run that reached the goal
-  --out      <project>/.rawstep/runs/<timestamp>-<id>/, one run-<n> directory per repeat, each the next free number
-             when the directory is reused
+  --parallel machine.parallelRuns (1); how many runs go at once, each its own browser. Tasks where a person passes bot checks in a launched browser go one at a time
+  --note     what this batch is for ("made Add to cart a button"), shown with it in the dashboard
+  Runs are saved as one batch in <project>/.rawstep/experiments/<id>/, one folder per run; the dashboard lists them.
 
-Exit codes (run): 0 when every run gave a measurement (reached the goal, gave up, or said it was done but the goal was not reached);
+Exit codes (run, suite): 0 when every run gave a measurement (reached the goal, gave up, or said it was done but the goal was not reached);
 1 on errors, including any run that ended on one; 2 on bad usage; 3 when no run broke but at least one was not measured (a limit,
 a block, a model that was unsure); 130 or 143 when cancelled by SIGINT or SIGTERM. Other commands: 0 on success, 1 on errors, 2 on bad usage.
 Rawstep reports friction hints, not pass or fail.

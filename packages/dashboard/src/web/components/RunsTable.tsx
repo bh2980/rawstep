@@ -5,6 +5,7 @@ import { formatDate } from '../lib/format';
 import { displayState, endingGlyph, finishedEnding, resultLabel, runGlyphKind } from '../lib/runStrip';
 import type { ProjectConfig } from '@rawstep/project/config';
 import { isFinished, isLive, runConditions, runStartedAt, runStepCount, durationSeconds, type RunRef, taskNameOf, runModelsName } from '../lib/runs';
+import { CliMark, startedFromCli } from './CliMark';
 import { HintBadge } from './HintBadge';
 import { Link } from './Link';
 import { RunGlyph } from './trace/RunStrip';
@@ -25,6 +26,8 @@ type Props = {
   showConditions?: boolean;
   /** Current task names, so a renamed task shows its new name. */
   tasks?: readonly { id: string; name: string }[];
+  /** Leaves out the "CLI" mark of runs started from the command line, for a table under a heading that already says so. */
+  hideVia?: boolean;
   /** Adds a checkbox column. Queued and running runs cannot be picked. */
   selection?: { selected: ReadonlySet<string>; onToggle: (runId: string, on: boolean) => void; onToggleAll: (on: boolean) => void };
 };
@@ -38,7 +41,7 @@ const rowLink = 'rounded-sm after:absolute after:inset-0 focus-visible:outline-n
  * The log index of runs, the densest table of the dashboard (spec §31): time, task, model, result, actions and duration,
  * one 40px line each. The result is a glyph and its words; the colour only reinforces them.
  */
-export function RunsTable({ runs, config, navigate, hideTask, numbers, showHints, showConditions, tasks = [], selection }: Props) {
+export function RunsTable({ runs, config, navigate, hideTask, numbers, showHints, showConditions, hideVia, tasks = [], selection }: Props) {
   const { t } = useTranslation();
   const hintsFor = useHintSummaries();
   useRequestHintSummaries(showHints ? runs.filter(ref => isFinished(ref.run)).map(ref => ({ experimentId: ref.experiment.id, runId: ref.run.id })) : []);
@@ -76,6 +79,7 @@ export function RunsTable({ runs, config, navigate, hideTask, numbers, showHints
           {numbers && <TableCell className={cell + ' tabular-nums'}><Link to={open} navigate={navigate} className={rowLink + ' text-trace underline-offset-2 hover:underline'}>{hideTask ? '' : `${label} `}#{numbers.get(run.id) ?? '—'}</Link></TableCell>}
           <TableCell className={cell + ' font-mono tabular-nums whitespace-nowrap text-muted-foreground'}>
             {numbers || !hideTask ? when : <Link to={open} navigate={navigate} className={rowLink + ' hover:underline'}>{when}</Link>}
+            {!hideVia && startedFromCli(ref.experiment) && <CliMark />}
           </TableCell>
           {taskColumn && <TableCell className={cell + ' font-medium'}>
             <Link to={open} navigate={navigate} className={rowLink + ' hover:underline'}>{label}<span className="sr-only"> {t('sidebar.repeat', { n: run.repeat })}</span></Link>

@@ -85,6 +85,8 @@ export const server: LocaleShape<typeof ko> = {
     'experiment-not-found': 'The batch of runs cannot be found.',
     'run-not-found': 'The run cannot be found.',
     'delete-run-active': 'Runs that are running or queued cannot be deleted. Delete them after they end or are stopped.',
+    'batch-running-elsewhere': 'This batch is running in another Rawstep process (the CLI or another dashboard). Stop it there.',
+    'browser-profile-busy': 'The kept browser profile is in use by another run. Runs that pass bot checks with a person go one at a time.',
 
     'analysis-key-missing': 'The commentary model has no API key, so the run is analysed by rules only.',
     'analysis-not-llm': 'The commentary model is not on an LLM connection, so the run is analysed by rules only.',

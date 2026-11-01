@@ -49,12 +49,14 @@ Cost of reaching it: 7 moves
 No findings.
 
 Stuck places are the user model's judgement: whether the page or the expectation is wrong is for you to decide.
-Details: npx rawstep hints <run-dir>, npx rawstep report <run-dir>
+Details: npx rawstep hints <run-dir>, npx rawstep report <run-dir>, or the batch in npx rawstep ui
 ```
 
 A run ends in one of four ways: reached the goal, gave up, said it was done but the goal was not reached, or not measured. Its cost is counted in moves. On a real page the output also lists where pressing something did not respond as the user expected, and what the page did along the way (focus lost, a change nobody announced). [Concepts](./docs/concepts.md) explains each of these.
 
-The run folder holds the trace, the plan the run followed, the hints and an HTML report. Runs started from the dashboard are shown there per task and per run; a CLI run stays in its run folder.
+The run folder holds the trace, the plan the run followed, the hints and an HTML report. Every `run` is saved as a batch in `.rawstep/experiments/`, the same place the dashboard uses, so `npx rawstep ui` shows CLI runs and dashboard runs side by side, per task and per run.
+
+To run many tasks at once, `npx rawstep suite --tag checkout --repeat 3 --parallel 2` runs the tasks with that tag as one batch and prints each task's result.
 
 ## What Rawstep is not
 
@@ -71,8 +73,8 @@ Rawstep is not an accessibility certification or a conformance test. A run that 
 | [Config reference](./docs/reference/config.md) | Every field of `rawstep.config.json`, including page environments |
 | [Task reference](./docs/reference/task.md) | The task file: goal, completion checks, inputs, navigation scope |
 | [CLI reference](./docs/reference/cli.md) | Commands, options, output and exit codes |
-| [API reference](./docs/reference/api.md) | `runTask`, the public import paths and writing your own policy |
-| [Results reference](./docs/reference/results.md) | The files in a run folder and every hint kind |
+| [API reference](./docs/reference/api.md) | `runTask`, `runSuite`, the public import paths and writing your own policy |
+| [Results reference](./docs/reference/results.md) | Where batches are saved, the files in a run folder and every hint kind |
 | [CONTRIBUTING.md](./CONTRIBUTING.md) | Building and testing from source, where code lives, repository rules |
 | [Examples](./examples/README.md) | What each example file shows |
 | [Simulator internals](./packages/screenreaders/src/mock-voiceover/README.md) | How the simulated VoiceOver speaks, its evidence and its assumptions |

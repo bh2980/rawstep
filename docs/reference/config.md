@@ -10,7 +10,7 @@ One file in the project folder holds the whole setup. The dashboard (`npx rawste
 - Every `id` matches `^[A-Za-z0-9._-]{1,100}$`. Ids are unique within `connections`, `profiles` and `tasks`.
 - `name` and other required text is trimmed, 1 to 16384 characters.
 - A file with `version` 1 to 6 does not load (error code `old-config`). Start a new project with `npx rawstep init` and copy your task files over.
-- A profile's `planner.connectionId`, `project.analysis.model.connectionId` and `project.suggestions.model.connectionId` must name a connection that exists.
+- A profile's `planner.connectionId`, `project.analysis.model.connectionId` and `project.suggestions.model.connectionId` must name a connection that exists. Every id in a task's `profiles` must name a profile that exists.
 - `rawstep init` writes the demo setup: no connections, two profiles, one task. See [the example](#complete-example).
 
 ## Top level
@@ -69,7 +69,7 @@ Nothing is connected by default. A connection sends what the simulated user hear
 
 ## Profiles
 
-A run profile says who the simulated user is and how a run goes. A run is a task plus a profile ([concepts.md](../concepts.md)). `rawstep run <task>` uses the project's first profile unless `--profile <id|name>` is given.
+A run profile says who the simulated user is and how a run goes. A run is a task plus a profile ([concepts.md](../concepts.md)). `rawstep run <task>` uses the task's first usual profile (`profiles` on the [task](#tasks)), or the project's first profile if it has none, unless `--profile <id|name>` is given. A profile is not tied to one task: any task can run with it. In the dashboard: Run profiles.
 
 | Field | Type | Default | Meaning |
 |---|---|---|---|
@@ -222,8 +222,10 @@ Registered tasks. The task file itself is described in [task.md](task.md).
 | `variantOf` | task `id` | none | This task is a broken version of another: the same goal on a copy of its page with one accessibility defect. Results compare its moves with that task. One level only; the target cannot itself be a variant or be this task. |
 | `minimalSteps` | integer 1 to 10000 | none | The fewest moves the goal takes, as a person counted or measured it. Results show moves against it. |
 | `analysisInstructions` | text, up to 16384 characters | none | Replaces `project.analysis.instructions` for this task. |
+| `profiles` | list of profile `id`s, up to 20 | none | The run profiles this task usually runs with. The dashboard's run dialog picks them. `npx rawstep run <task>` uses the first one, and `npx rawstep suite` without `--profile` runs the task with each of them. Without this field the project's first profile is used. Every id must be a profile in `profiles`, or the file is rejected. |
+| `tags` | up to 10 tags | none | Labels that group tasks, for example `checkout` or `login`. A tag is 1 to 30 letters, digits, `-` or `_`, starting with a letter or digit, with no spaces. `rawstep suite --tag <tag>` runs the tasks that have it, and the dashboard filters tasks and run history by tag. |
 
-A task file that is not registered can still run by path: `npx rawstep run path/to/task.json` uses the project's first profile unless `--profile` is given.
+A task file that is not registered can still run by path: `npx rawstep run path/to/task.json` uses the project's first profile unless `--profile` is given. Such a file has no `profiles` of its own.
 
 ## Project
 
@@ -235,7 +237,7 @@ A task file that is not registered can still run by path: `npx rawstep run path/
 
 ## Machine
 
-Settings that belong to the computer, not to an experiment.
+Settings that belong to the computer, not to an experiment. In the dashboard: Settings › This computer.
 
 | Field | Type | Default | Meaning |
 |---|---|---|---|
@@ -243,10 +245,9 @@ Settings that belong to the computer, not to an experiment.
 | `atEndpoints.nvda` | text | `""` | AT Driver WebSocket address for NVDA. Empty means `ws://localhost:3031/session`. |
 | `browserExecutablePath` | text | `""` | Path of the Chrome or Chromium to launch. Empty lets Rawstep pick one. |
 | `headless` | boolean | `true` | Run the simulation without a visible browser window. Native screen reader runs always use a visible window. |
-| `browserEndpoint` | text | `""` | A Chrome you started yourself with `--remote-debugging-port`, for example `http://localhost:9222`. Runs connect to it instead of launching one, and each run gets its own isolated context there. |
-| `personCheck` | boolean | `false` | For real sites with a human check. Runs use a visible Chrome (with a profile kept in `.rawstep/browser-profile`, or your `browserEndpoint`) and pause while you pass the check in that window. Rawstep never answers a check itself. |
-| `copySignIn` | boolean | `false` | Only with `browserEndpoint` (otherwise the file is rejected: "copySignIn needs browserEndpoint"). Each run's fresh context starts with a copy of that Chrome's cookies and site storage, so a page behind a sign-in opens signed in. Your own windows are not touched. |
-| `proxyServer` | text | `""` | A credential-free HTTP(S) or SOCKS proxy URL, such as `http://localhost:8080`, for the browsers Rawstep launches. No path, query or fragment. Not allowed together with `browserEndpoint`: a proxy belongs to the browser you started. |
+| `browserEndpoint` | text | `""` | The address of a Chrome you started yourself with `--remote-debugging-port`, for example `http://localhost:9222`. Only tasks that [connect](task.md#browser) (`browser.mode: "connect"`) use it: each of their runs gets its own isolated context in that Chrome. Other tasks launch their own browser. A task that connects while this is empty does not run (`browser-endpoint-missing`). It is only the address; what a site needs of the browser (connecting, copying the sign-in, a person passing a bot check) is set on the [task](task.md#browser). |
+| `proxyServer` | text | `""` | A credential-free HTTP(S) or SOCKS proxy URL, such as `http://localhost:8080`, for the browsers Rawstep launches. No path, query or fragment. Does not apply to a Chrome you started yourself (a task that connects): a proxy belongs to that browser. |
+| `parallelRuns` | integer 1 to 8 | `1` | How many runs go at once. `--parallel` on `run` and `suite` overrides it for one command. Each run is its own browser, and a planner model or agent CLI may slow down or refuse many calls at once, so start with 2 to 4. Runs of tasks with `browser.personCheck` in a launched browser share one kept browser profile (`.rawstep/browser-profile`), so those go one at a time whatever this says; other runs keep going in parallel. |
 
 Native screen reader addresses must be a `ws:` or `wss:` URL on a loopback host without credentials, otherwise the run is refused (`endpoint-not-loopback`).
 
@@ -305,7 +306,7 @@ All fields in use. It assumes `rawstep/demo/plan.json` exists, as after `rawstep
     }
   ],
   "tasks": [
-    { "id": "demo", "name": "Demo: add a mug to the cart", "file": "rawstep/demo/task.json", "minimalSteps": 3 }
+    { "id": "demo", "name": "Demo: add a mug to the cart", "file": "rawstep/demo/task.json", "minimalSteps": 3, "tags": ["demo"], "profiles": ["written-plan"] }
   ],
   "project": {
     "analysis": { "model": { "connectionId": "openai", "modelId": "gpt-5-mini" }, "instructions": "" },
@@ -316,9 +317,8 @@ All fields in use. It assumes `rawstep/demo/plan.json` exists, as after `rawstep
     "browserExecutablePath": "",
     "headless": true,
     "browserEndpoint": "",
-    "personCheck": false,
-    "copySignIn": false,
-    "proxyServer": ""
+    "proxyServer": "",
+    "parallelRuns": 1
   }
 }
 ```
@@ -332,7 +332,7 @@ The file `rawstep init` writes is the same shape with `connections` empty, the p
 | `rawstep.config.json` | yes | Shared setup. No secrets. |
 | `rawstep/` (demo page, task files, plan files) and your own task and plan files | yes | They are the experiment. |
 | `.env.local` | no | Holds API keys and `RAWSTEP_AT_DRIVER_COMMAND`. |
-| `.rawstep/` | no | Run records (`.rawstep/runs/`) and the kept browser profile (`.rawstep/browser-profile`, which can hold sign-ins). |
+| `.rawstep/` | no | Run records (`.rawstep/experiments/`) and the kept browser profile (`.rawstep/browser-profile`, which can hold sign-ins). |
 
 `rawstep init` does not write a `.gitignore`. Add:
 

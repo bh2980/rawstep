@@ -13,10 +13,11 @@ import { cn } from '../lib/utils';
 import { CompareSummary, ENOUGH_RUNS } from './CompareSummary';
 import { Link } from './Link';
 
-/** "10월 31일 14:05 · 담기를 button으로 바꿈 · 실행 4번": a batch as the pickers name it. */
+/** "10월 31일 14:05 · 담기를 button으로 바꿈 · 실행 4번": a batch as the pickers name it, with " · CLI" after a batch started from the command line. */
 export function batchLabel(batch: TaskBatch, t: TFunction): string {
   const when = new Date(batch.createdAt).toLocaleString(currentLanguage(), { month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
-  return batch.note ? t('taskPage.batch.label', { when, note: batch.note, runs: batch.runs, count: batch.runs }) : t('taskPage.batch.labelNoNote', { when, runs: batch.runs, count: batch.runs });
+  const label = batch.note ? t('taskPage.batch.label', { when, note: batch.note, runs: batch.runs, count: batch.runs }) : t('taskPage.batch.labelNoNote', { when, runs: batch.runs, count: batch.runs });
+  return batch.via === 'cli' ? `${label} · ${t('runList.cli')}` : label;
 }
 
 type Props = {

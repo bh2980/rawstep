@@ -37,7 +37,7 @@ export function RunDiagnosis({ run, steps, notices, plan, onSelect }: Props) {
   for (const notice of notices) lines.push({
     key: notice.kind, icon: notice.kind === 'person-check' ? UserCheck : notice.kind === 'navigation-blocked' ? Signpost : ShieldAlert, step: notice.step,
     text: t(`diagnosis.${notice.kind}`, { hosts: notice.hosts.join(', '), count: notice.count, seconds: notice.kind === 'person-check' ? Math.round(notice.waitedMs / 1000) : 0 }),
-    note: notice.kind === 'bot-check' && personPassed ? t('diagnosis.bot-checkPassedNote') : t(`diagnosis.${notice.kind}Note`, { setting: t('machine.personCheck') }),
+    note: notice.kind === 'bot-check' && personPassed ? t('diagnosis.bot-checkPassedNote') : t(`diagnosis.${notice.kind}Note`, { setting: t('taskBrowser.personCheckName') }),
   });
   if (!lines.length) return null;
   return <section aria-labelledby="run-diagnosis" className="grid gap-1.5">

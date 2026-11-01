@@ -155,6 +155,7 @@ describe('public API surface', () => {
       "llmModelOf",
       "llmPlannerSchema",
       "loadPlanFile",
+      "lockBrowserProfile",
       "machineSchema",
       "modelKeyEnv",
       "modelKeyEnvNames",
@@ -183,8 +184,10 @@ describe('public API surface', () => {
       "runRulesOverrideSchema",
       "runRulesSchema",
       "runSpecOf",
+      "runSuite",
       "runTask",
       "suggestionModel",
+      "tagSchema",
       "taskSchema",
     ]
   `); });
@@ -247,6 +250,7 @@ describe('public API surface', () => {
       "resolveTask",
       "runEnding",
       "runMockVoiceOverTask",
+      "runSuite",
       "runTask",
       "speechChoices",
       "summarizeTrace",

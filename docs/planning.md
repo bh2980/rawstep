@@ -13,7 +13,7 @@ Every run follows a plan. The run profile's `planner` says where the plan comes 
 | Planner model | `{ "connectionId", "modelId", "reasoningEffort"?, "instructions" }` | A model on one of your connections writes the plan and revises it during the run. |
 | Plan file | `{ "planFile": "plans/{task}/plan.json" }` | A plan written beforehand. It never changes during the run. |
 
-In the dashboard this is under Settings › Run profiles, in How to get the plan: LLM planner or Plan file.
+In the dashboard this is under Run profiles, in How to get the plan: LLM planner or Plan file.
 
 No model picks individual actions. Rawstep carries out the plan as written: it moves, presses and types, decides when a task is done, and decides when to ask the planner for a new plan. A profile without a planner cannot run; `npx rawstep doctor` reports it as `warn` ("no planner yet, so it cannot run").
 

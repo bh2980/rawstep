@@ -49,12 +49,14 @@ Cost of reaching it: 7 moves
 No findings.
 
 Stuck places are the user model's judgement: whether the page or the expectation is wrong is for you to decide.
-Details: npx rawstep hints <run-dir>, npx rawstep report <run-dir>
+Details: npx rawstep hints <run-dir>, npx rawstep report <run-dir>, or the batch in npx rawstep ui
 ```
 
 실행은 네 가지 중 하나로 끝납니다. CLI는 reached the goal, gave up, said it was done but the goal was not reached, not measured라고 쓰고, 대시보드는 같은 네 가지를 해냄, 포기함, 잘못 끝냄, 측정 못 함이라고 씁니다. 대가는 움직인 횟수(moves)로 셉니다. 실제 페이지라면 출력에 사용자가 무언가를 눌렀는데 예상대로 반응하지 않은 곳과, 그 사이 페이지가 한 일(포커스를 잃음, 아무도 알려 주지 않은 변화)도 함께 나옵니다. 하나하나의 뜻은 [개념](./docs/concepts.md)에서 설명합니다.
 
-실행 폴더에는 실행 기록(trace), 실행이 따른 계획, 힌트, HTML 보고서가 들어 있습니다. 대시보드에서 시작한 실행은 대시보드에서 작업별, 실행별로 볼 수 있고, CLI로 돌린 실행은 실행 폴더에만 남습니다.
+실행 폴더에는 실행 기록(trace), 실행이 따른 계획, 힌트, HTML 보고서가 들어 있습니다. `run`으로 돌린 실행도 대시보드가 쓰는 곳(`.rawstep/experiments/`)에 한 묶음(batch)으로 저장되므로, `npx rawstep ui`에서 CLI 실행과 대시보드 실행을 작업별, 실행별로 함께 볼 수 있습니다.
+
+작업 여러 개를 한 번에 돌리려면 `npx rawstep suite --tag checkout --repeat 3 --parallel 2`를 쓰세요. 그 태그가 붙은 작업을 한 묶음으로 실행하고, 작업마다 결과를 출력합니다.
 
 ## Rawstep이 아닌 것
 
@@ -71,8 +73,8 @@ Rawstep은 접근성 인증도, 적합성 검사도 아닙니다. 목표에 닿�
 | [설정 레퍼런스](./docs/reference/config.md) | `rawstep.config.json`의 모든 필드와 페이지 환경 |
 | [작업 레퍼런스](./docs/reference/task.md) | 작업 파일: 목표, 완료 확인, 입력값, 이동 범위 |
 | [CLI 레퍼런스](./docs/reference/cli.md) | 명령, 옵션, 출력, 종료 코드 |
-| [API 레퍼런스](./docs/reference/api.md) | `runTask`, 공개 import 경로, 직접 정책 만들기 |
-| [결과 레퍼런스](./docs/reference/results.md) | 실행 폴더의 파일과 모든 힌트 종류 |
+| [API 레퍼런스](./docs/reference/api.md) | `runTask`, `runSuite`, 공개 import 경로, 직접 정책 만들기 |
+| [결과 레퍼런스](./docs/reference/results.md) | 묶음이 저장되는 곳, 실행 폴더의 파일, 모든 힌트 종류 |
 | [CONTRIBUTING.md](./CONTRIBUTING.md) | 소스에서 빌드·테스트하기, 코드 위치, 저장소 규칙 |
 | [예제](./examples/README.md) | 예제 파일마다 무엇을 보여 주는지 |
 | [시뮬레이터 내부](./packages/screenreaders/src/mock-voiceover/README.md) | VoiceOver 시뮬레이션이 말하는 방식, 근거, 가정 |

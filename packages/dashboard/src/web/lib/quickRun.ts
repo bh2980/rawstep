@@ -29,21 +29,21 @@ export function comboProblem(config: Pick<ProjectConfig, 'connections'>, credent
   return undefined;
 }
 
-/** A run request from the run dialog: the tasks, the profiles each runs with, and how many times. */
-export type RunOptions = { taskIds: string[]; profileIds: string[]; repeats: number; /** What this batch is for, in the person's words. */ note?: string };
+/** A run request from the run dialog: the tasks, the profiles each runs with (one list for all, or a list per task), and how many times. */
+export type RunOptions = { taskIds: string[]; profileIds: string[]; /** Profiles for some tasks instead of `profileIds` (each task with its own usual profiles). */ profilesByTask?: Record<string, string[]>; repeats: number; /** What this batch is for, in the person's words. */ note?: string };
 
 /**
  * Starts runs of tasks × profiles × repeats. The server checks every combination first; a reason one cannot run is thrown in words
  * a person can act on.
  */
 export async function startRun(view: ConfigView, options: RunOptions): Promise<Experiment> {
-  for (const id of options.profileIds) {
+  for (const id of new Set([...options.profileIds, ...Object.values(options.profilesByTask ?? {}).flat()])) {
     const profile = view.config.profiles.find(item => item.id === id);
     if (!profile) throw new Error(t('quickRun.noProfile'));
     const problem = comboProblem(view.config, view.credentialStatus, profile);
     if (problem) throw new Error(`${profile.name}: ${problem}`);
   }
-  const request: PlanRequest = { taskIds: options.taskIds, profileIds: options.profileIds, repeats: options.repeats, revision: view.revision, ...(options.note?.trim() ? { note: options.note.trim() } : {}) };
+  const request: PlanRequest = { taskIds: options.taskIds, profileIds: options.profileIds, ...(options.profilesByTask ? { profilesByTask: options.profilesByTask } : {}), repeats: options.repeats, revision: view.revision, ...(options.note?.trim() ? { note: options.note.trim() } : {}) };
   const blocked = (await api<Combination[]>('/plan', { method: 'POST', body: request })).find(row => !row.supported);
   if (blocked) throw new Error(blocked.reason ? serverText(blocked.reason) : t('quickRun.unsupported'));
   return api<Experiment>('/experiments', { method: 'POST', body: request });

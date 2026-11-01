@@ -18,3 +18,9 @@ export type ListProps = {
   pageProps: PageProps; runs: RunRef[]; summaries: TaskSummary[]; summaryError: string;
   navigate: (change: RouteChange) => void;
 };
+
+/** The parts of the dashboard that can hold edits not saved yet, so the left navigation can mark them. */
+export type UnsavedPart = 'profiles' | 'connections' | 'machine';
+export type Unsaved = Partial<Record<UnsavedPart, boolean>>;
+/** Tells the shell whether a part has edits that are not saved; a part that goes away reports `false`. */
+export type MarkUnsaved = (part: UnsavedPart, unsaved: boolean) => void;

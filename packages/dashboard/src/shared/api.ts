@@ -6,6 +6,7 @@ import type { VerifyRule } from '@rawstep/core/contracts';
 import type { PlanDocument, PlanPhase, PlanTask } from '@rawstep/policies/policy';
 import type { Hint, HintFinding, HintReport, HintTarget } from '@rawstep/reports/hints';
 import type { RunEnding, UnmeasuredBy } from '@rawstep/reports/endings';
+import type { BatchOwner } from '@rawstep/project/experiment';
 
 export type { Hint, HintFinding, HintReport, PlanDocument, PlanPhase, PlanTask };
 
@@ -116,7 +117,7 @@ export type RunStepsView = {
 export type RunHintsView = HintReport & { referenceRun?: { experimentId: string; runId: string } };
 
 /** One batch of runs (an experiment) that ran a task. */
-export type TaskBatch = { experimentId: string; createdAt: string; note?: string; runs: number; finished: number };
+export type TaskBatch = { experimentId: string; createdAt: string; note?: string; /** Where the batch was started from, when its owner recorded it (the command line shows as "CLI" in lists). */ via?: BatchOwner['via']; runs: number; finished: number };
 
 /**
  * Facts and recurring hint findings of one task over the finished runs of one batch. Batches are never counted together: the page

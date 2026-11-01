@@ -4,7 +4,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { readFile, stat } from 'node:fs/promises';
 import { resolve, relative, isAbsolute, sep, extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { existsSync } from 'node:fs';
+import { existsSync, watch, type FSWatcher } from 'node:fs';
 import { z } from 'zod';
 import { BUILTIN_PROFILES } from '@rawstep/browser/profiles';
 import { createBrowserSession } from '@rawstep/browser/browser';
@@ -62,7 +62,14 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
     if (entry) { entry.pending = message; return; }
     emit(message); const timer = setTimeout(() => tick(runId), 250); timer.unref(); throttles.set(runId, { timer });
   };
-  const queue = new ExperimentQueue(store, changed, options.execute, runEvent); await queue.initialize();
+  const queue = new ExperimentQueue(store, { onChange: changed, ...(options.execute ? { executor: options.execute } : {}), onRunEvent: runEvent, via: 'dashboard' }); await queue.initialize();
+  // Batches the CLI (or another dashboard) writes show up here too: the folder is watched, and looked at every few seconds in case
+  // watching is not available.
+  let looking: ReturnType<typeof setTimeout> | undefined;
+  const look = () => { if (looking) return; looking = setTimeout(() => { looking = undefined; void queue.refresh().catch(() => {}); }, 300); looking.unref(); };
+  let watcher: FSWatcher | undefined;
+  try { watcher = watch(await store.file('.rawstep/experiments'), { recursive: true }, look); watcher.on('error', () => { watcher?.close(); watcher = undefined; }); } catch { watcher = undefined; }
+  const sweep = setInterval(look, 5000); sweep.unref();
   const views = new RunViews(store, queue);
   const webDir = options.webDir ?? defaultWebDir();
   const server = createServer((req, res) => { void handle(req, res).catch(error => {
@@ -290,7 +297,7 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
   }, 1500);
   timer.unref();
   return { url, store, queue, async close() {
-    clearInterval(timer); for (const entry of throttles.values()) clearTimeout(entry.timer); throttles.clear(); await queue.close(); for (const res of listeners) res.end(); listeners.clear();
+    clearInterval(timer); clearInterval(sweep); if (looking) clearTimeout(looking); watcher?.close(); for (const entry of throttles.values()) clearTimeout(entry.timer); throttles.clear(); await queue.close(); for (const res of listeners) res.end(); listeners.clear();
     await new Promise<void>((accept, reject) => server.close(e => e ? reject(e) : accept())); server.closeAllConnections();
   } };
 }

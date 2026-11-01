@@ -6,12 +6,13 @@ import type { TaskSummary } from '../../shared/api';
 import { cn } from '../lib/utils';
 import { ErrorState } from '../components/layout/ErrorState';
 import { EmptyState } from '../components/layout/EmptyState';
-import { FilterBar, FilterSearch, FilterSegments } from '../components/layout/FilterBar';
+import { FilterBar, FilterSearch, FilterSegments, FilterSelect } from '../components/layout/FilterBar';
 import { InfoTip } from '../components/layout/InfoTip';
 import { PageHeader, SectionHead } from '../components/layout/PageHeader';
 import { Link } from '../components/Link';
 import { RunStateLabel } from '../components/RunStateLabel';
 import { SetupRail, type SetupStep } from '../components/SetupRail';
+import { TagList } from '../components/TagList';
 import { TaskImportDialog } from '../components/TaskImportDialog';
 import { RunStrip, RunStripLegend } from '../components/trace/RunStrip';
 import { Button } from '../components/ui/button';
@@ -24,10 +25,12 @@ import { comboSummary, profileReady } from '../lib/conditions';
 import { formatSteps } from '../lib/format';
 import { displayState, recentRuns } from '../lib/runStrip';
 import { isFinished, isLive, runModelsName, runStepCount, taskNameOf, taskRunNumbers } from '../lib/runs';
+import { activeTag, hasTag, projectTags } from '../lib/tags';
 import type { ListProps } from './types';
 
 type Filter = 'all' | 'findings' | 'missed';
 const filters: Filter[] = ['all', 'findings', 'missed'];
+const ALL = '__all__';
 const head = 'h-8 px-3 text-xs font-medium text-muted-foreground';
 const cell = 'px-3 py-0 text-[13px]';
 
@@ -37,11 +40,11 @@ const cell = 'px-3 py-0 text-[13px]';
  */
 export function TasksPage({ pageProps, runs, summaries, summaryError, navigate, onRun }: ListProps & { onRun: (taskIds: string[]) => void }) {
   const { t } = useTranslation();
-  const [query, setQuery] = useState(''), [filter, setFilter] = useState<Filter>('all'), [importing, setImporting] = useState(false);
+  const [query, setQuery] = useState(''), [filter, setFilter] = useState<Filter>('all'), [importing, setImporting] = useState(false), [chosenTag, setTag] = useState(ALL);
   const { config, tasks } = pageProps.view, byTask = useMemo(() => new Map(summaries.map(row => [row.taskId, row])), [summaries]);
-  const needle = query.trim().toLowerCase();
+  const needle = query.trim().toLowerCase(), tags = projectTags(config.tasks), tag = activeTag(chosenTag, ALL, config.tasks);
   const rows = config.tasks.map(task => ({ task, url: taskUrl(tasks[task.id]), row: byTask.get(task.id), base: config.tasks.find(other => other.id === task.variantOf) })).filter(({ task, url, row }) =>
-    (!needle || task.name.toLowerCase().includes(needle) || url.toLowerCase().includes(needle))
+    (!needle || task.name.toLowerCase().includes(needle) || url.toLowerCase().includes(needle)) && hasTag(task, tag)
     && (filter === 'all' || (filter === 'findings' ? !!row && row.findingCount > 0 : !!row && row.facts.reached < row.facts.runs)));
   // Each variant right under its base task; a variant whose base is filtered out keeps its place.
   const shown = new Set(rows.map(item => item.task.id));
@@ -54,7 +57,7 @@ export function TasksPage({ pageProps, runs, summaries, summaryError, navigate, 
   const ready = config.profiles.find(profile => profileReady(profile, config.connections));
   const steps: SetupStep[] = [
     { id: 'model', done: !!ready, detail: ready ? t('taskList.setup.modelDone', { profile: ready.name, models: comboSummary(ready, config.connections) }) : config.connections.length ? t('taskList.setup.modelPick') : t('taskList.setup.modelTodo'),
-      to: { view: 'settings', section: config.connections.length ? 'profiles' : 'connections' } },
+      to: config.connections.length ? { view: 'profiles' } : { view: 'settings', section: 'connections' } },
     { id: 'task', done: config.tasks.length > 0, detail: config.tasks.length ? t('taskList.setup.taskDone', { count: config.tasks.length }) : t('taskList.setup.taskTodo'), to: { task: NEW_TASK } },
     { id: 'run', done: finished.length > 0, detail: finished.length ? t('taskList.setup.runDone', { count: finished.length }) : t('taskList.setup.runTodo') },
   ];
@@ -78,6 +81,7 @@ export function TasksPage({ pageProps, runs, summaries, summaryError, navigate, 
 
     {config.tasks.length > 0 && <FilterBar label={t('taskList.filterLabel')}>
       <FilterSearch label={t('taskList.search')} value={query} onChange={setQuery} placeholder={t('taskList.searchPlaceholder')} />
+      {tags.length > 0 && <FilterSelect label={t('taskList.tagFilter')} value={tag ?? ALL} onChange={setTag} options={[{ id: ALL, name: t('taskList.allTags') }, ...tags.map(name => ({ id: name, name }))]} className="max-w-40" />}
       <FilterSegments label={t('taskList.filterLabel')} value={filter} onChange={value => setFilter(value as Filter)} options={filters.map(id => ({ id, name: t(`taskList.filters.${id}`) }))} />
     </FilterBar>}
     {summaryError && <ErrorState view={dataFailureView(t('taskList.loadFailed'), summaryError)} />}
@@ -96,6 +100,7 @@ export function TasksPage({ pageProps, runs, summaries, summaryError, navigate, 
             <TableHead scope="col" className={head + ' w-9'}><Checkbox aria-label={t('taskList.pickAll')} checked={allShown ? true : picked.length ? 'indeterminate' : false}
               onCheckedChange={on => setPicked(on === true ? ordered.map(item => item.task.id) : [])} /></TableHead>
             <TableHead scope="col" className={head}>{t('taskList.columns.task')}</TableHead>
+            {tags.length > 0 && <TableHead scope="col" className={head}>{t('taskList.columns.tags')}</TableHead>}
             <TableHead scope="col" className={head}><span className="inline-flex items-center gap-0.5">{t('taskList.columns.results')}<InfoTip term={t('taskList.columns.results')}>{t('taskList.resultsInfo')}</InfoTip></span></TableHead>
             <TableHead scope="col" className={head}><span className="inline-flex items-center gap-0.5">{t('taskList.columns.recent')}<InfoTip term={t('taskList.columns.recent')}><RunStripLegend /></InfoTip></span></TableHead>
             <TableHead scope="col" className={head}>{t('taskList.columns.finding')}</TableHead>
@@ -113,6 +118,7 @@ export function TasksPage({ pageProps, runs, summaries, summaryError, navigate, 
                   {!base && <span className="truncate font-mono text-xs text-muted-foreground">{url}</span>}
                 </Link>
               </TableCell>
+              {tags.length > 0 && <TableCell className={cell + ' max-w-52 py-1.5'}>{task.tags?.length ? <TagList tags={task.tags} limit={3} more={n => t('taskList.moreTags', { n })} /> : <span className="text-muted-foreground">—</span>}</TableCell>}
               <TableCell className={cell + ' py-1.5'}>{groups.length
                 ? <ul className="grid gap-0.5 text-[13px] tabular-nums">{groups.slice(0, 3).map(group => {
                   const same = baseGroups.find(other => other.profileId === group.profileId);

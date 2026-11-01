@@ -83,10 +83,10 @@ Cost of reaching it: 7 moves
 No findings.
 
 Stuck places are the user model's judgement: whether the page or the expectation is wrong is for you to decide.
-Details: npx rawstep hints <run-dir>, npx rawstep report <run-dir>
+Details: npx rawstep hints <run-dir>, npx rawstep report <run-dir>, or the batch in npx rawstep ui
 ```
 
-With no `--profile`, a run uses the project's first profile. The run folder is `.rawstep/runs/<time>-<id>/run-1/`. Check what can run:
+With no `--profile`, a run uses the task's first usual profile (see [step 4](#4-make-your-own-task)), or the project's first profile if the task lists none. The runs are saved as one batch in `.rawstep/experiments/<id>/`, with one folder per run; the printed run folder is inside it, and `npx rawstep ui` lists the batch. Check what can run:
 
 ```sh
 npx rawstep doctor
@@ -97,7 +97,7 @@ ok    Node: v24.19.0 (needs >= 22.12)
 ok    Config: <project>/rawstep.config.json (0 connections, 1 tasks, 2 run profiles)
 ok    Task demo: rawstep/demo/task.json is a valid task
 ok    Profile Written plan (no model): follows the plan file rawstep/demo/plan.json (no model)
-warn  Profile Item by item: no planner yet, so it cannot run. Pick a model in `npx rawstep ui` (Settings > Run profiles)
+warn  Profile Item by item: no planner yet, so it cannot run. Pick a model in `npx rawstep ui` (Run profiles)
 ok    Browser: launched
 skip  Screen reader: only the simulation is configured; no native screen reader to check
 ```
@@ -114,7 +114,7 @@ It prints `Rawstep dashboard: http://127.0.0.1:4318` and keeps running until you
 
 The dashboard is in English and Korean. It opens in Korean when the browser prefers Korean and in English otherwise; the language switch in the top bar changes it, and the browser remembers the choice. This guide uses the English labels.
 
-The menu has three entries: Tasks, Run history and Settings. The dashboard shows the runs started from it; a run made with `npx rawstep run` stays in its run folder and does not appear here. Open Tasks, then the demo task, and press Run… to run it from the dashboard. Its Overview tab then shows the run under Could a first-time user do it?. Open the run from Run history to see the Plan document and each step: what the screen reader said and where its cursor was.
+The menu has Tasks, Run profiles, Run history and Settings, with AI connections and This computer under Settings. The dashboard shows the runs started from it and the batches that `npx rawstep run` and `npx rawstep suite` saved, also while the dashboard is open. Open Tasks, then the demo task, and press Run… to run it from the dashboard. Its Overview tab then shows the run under Could a first-time user do it?. Open the run from Run history to see the Plan document and each step: what the screen reader said and where its cursor was.
 
 ## 3. Connect a model
 
@@ -140,7 +140,7 @@ The planner hears what the simulated user hears. With a remote connection, that 
 1. Settings › AI connections › Add connection.
 2. Pick a way: API · LLM, or Coding-agent CLI. Pick the provider. For an API, type the key; it is saved only to `.env.local` in the project.
 3. Check connection loads the model list once. It does not call a model.
-4. Settings › Run profiles › "Item by item". Under Which AI thinks?, set How to get the plan to LLM planner, then pick the connection and a model. For a coding-agent CLI, model `default` leaves the choice to the CLI. Save.
+4. Run profiles › "Item by item". Under Which AI thinks?, set How to get the plan to LLM planner, then pick the connection and a model. For a coding-agent CLI, model `default` leaves the choice to the CLI. Save.
 
 ### By hand
 
@@ -216,13 +216,18 @@ and register it in the config's `tasks`:
 
 `npx rawstep run` also takes a task file path that is not registered; it then runs with the project's first profile unless you pass `--profile`.
 
+A task can also say what the site needs of the browser, and which profiles it usually runs with. Both are optional:
+
+- **`browser`** in the task file. Leave it out and Rawstep launches its own browser. For a site that only works in a Chrome you started yourself, or one with a bot check that a person must pass, see [browser in the task reference](./reference/task.md#browser). In the dashboard it is the Browser choice in the task editor.
+- **`profiles`** on the task in `rawstep.config.json`: the run profiles you usually try it with, for example `"profiles": ["item-by-item"]`. In the dashboard it is Users to try it in the task editor. `npx rawstep run newsletter` uses the first one, and `npx rawstep suite` runs each task with its own.
+
 Three rules keep the measurement honest:
 
 - **The goal goes to the planner word for word.** Write what a first-time user would be trying to do, not where things are on the page ("press the third button in the footer" gives the answer away).
 - **`context` is only what a newcomer knows** before arriving: what kind of site and page this is. At most 1000 characters.
 - **The completion check is never shown to the planner.** Rawstep uses it to decide whether the goal was reached. Write it from the page's state (visible text, title, URL, a request that was sent).
 
-The simulated user can type only the inputs listed in `input`, by name, and only if the profile allows typing. The profiles `init` writes allow it (`actions.typeText` is `true`). In the dashboard it is Allow typing the task’s inputs under the profile's Who is it?. The planner sees an input's name, never its value, unless `inputOptions` marks it `"sensitive": false` (a search term, say). Sensitive values are also redacted in the saved run. The [task reference](./reference/task.md) lists every completion check, input option and the navigation scope.
+The simulated user can type only the inputs listed in `input`, by name, and only if the profile allows typing. The profiles `init` writes allow it (`actions.typeText` is `true`). In the dashboard it is Allow typing the task’s inputs under the profile's How do they find things?. The planner sees an input's name, never its value, unless `inputOptions` marks it `"sensitive": false` (a search term, say). Sensitive values are also redacted in the saved run. The [task reference](./reference/task.md) lists every completion check, input option and the navigation scope.
 
 ## 5. Run it
 
@@ -230,11 +235,19 @@ The simulated user can type only the inputs listed in `input`, by name, and only
 npx rawstep run newsletter --profile item-by-item --repeat 3
 ```
 
+To run several tasks at once, use `suite`. It runs the tasks you name, the ones with a tag (set `"tags": ["checkout"]` on a task in `rawstep.config.json`), or every registered task, each under every `--profile`, or, without `--profile`, with its own usual profiles:
+
+```sh
+npx rawstep suite --tag checkout --repeat 3 --parallel 2 --note "made Add to cart a button"
+```
+
+`--parallel` is how many runs go at once. Start with 2 to 4: a model or agent CLI can slow down or refuse many calls at the same time. `--note` says what the batch is for; the dashboard shows it. Both `run` and `suite` save their runs as one batch that the dashboard lists.
+
 In the dashboard, open the task and press Run…. The dialog picks the tasks, the profiles and how many times each runs; you can pick several profiles at once. Add a note under What changed this time if you changed the page: the runs are counted as one batch, which you can compare with an earlier batch later. As with `--repeat`, once the last repeat of a task under a profile has finished, each repeat is compared with the fastest one that reached the goal.
 
 Each run calls the planner a few times: for the first plan, and again when a task keeps failing, changes nothing or runs long. `maxPlannerCalls` (default 40) caps it. A run that reaches the cap ends as not measured, not as the user failing.
 
-Exit code 0 means every run gave a measurement: the user reached the goal, gave up, or said it was done when it was not. Rawstep does not fail a run for missing the goal. Exit code 1 means an error, including any run that ended on an error: such a run says nothing about the page. Exit code 2 means no run broke, but at least one was not measured (for example it hit a limit). See the [CLI reference](./reference/cli.md) for options and exit codes.
+Exit code 0 means every run gave a measurement: the user reached the goal, gave up, or said it was done when it was not. Rawstep does not fail a run for missing the goal. Exit code 1 means an error, including any run that ended on an error: such a run says nothing about the page. Exit code 3 means no run broke, but at least one was not measured (for example it hit a limit). Exit code 2 is bad usage. See the [CLI reference](./reference/cli.md) for options and exit codes.
 
 ## 6. Read the results
 
@@ -265,7 +278,7 @@ step 1,2 · goal-word-stretch · observed · 2 moves in a row (steps 1–2) with
 Wrote <run folder>/hints.json
 ```
 
-Add `--json` to `run` for the whole result as JSON. The files in a run folder are listed in the [results reference](./reference/results.md).
+`suite` prints one block per task (and per profile), then totals and the batch folder. Add `--json` to `run` or `suite` for the whole result as JSON. The files in a run folder are listed in the [results reference](./reference/results.md).
 
 ### In the dashboard
 
