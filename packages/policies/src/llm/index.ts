@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
-import { generateText, Output, type LanguageModel } from 'ai';
+import { APICallError, generateText, Output, RetryError, type LanguageModel } from 'ai';
 import { z } from 'zod';
 import { isLoopbackHostname, RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import { RawstepError } from '@rawstep/core/errors';
@@ -26,8 +26,9 @@ export function modelBaseURL(value: string): URL {
  * Every Rawstep LLM call goes through the Vercel AI SDK with an OpenAI-compatible chat endpoint
  * (OpenAI, OpenRouter, LM Studio, Ollama, ...), or through a coding-agent CLI spoken to over ACP
  * (`createAgentModel`) with the person's own sign-in. Provider error text can carry credentials or page content, so errors
- * are never forwarded: callers only see a RawstepError with a fixed message and one of `llm-cancelled`, `llm-timeout` or `llm-failed`.
- * When the model answered but its reply could not be used, the error's `detail.modelFailure` says why (see `ModelFailure`).
+ * are never forwarded: callers only see a RawstepError with a message Rawstep wrote and one of `llm-cancelled`, `llm-timeout` or
+ * `llm-failed`. A failed call's `detail.modelFailure` says why (see `ModelFailure`): a reply that could not be used, or how the
+ * provider failed. A timeout ends a run as not measured (`planner-timeout`), since a slow model says nothing about the page.
  */
 export type LlmModel = ({ readonly model: LanguageModel } | { readonly agent: AcpAgent; readonly reasoningEffort?: string }) & {
   /** The model ID that was requested; a response that names another model is rejected. An agent's `default` keeps its own choice. */
@@ -47,10 +48,51 @@ export type LlmCallOptions = { signal?: AbortSignal; timeoutMs?: number };
 
 const MESSAGES = {
   'llm-cancelled': 'LLM call was cancelled.',
-  'llm-timeout': 'LLM call timed out.',
-  'llm-failed': 'LLM call failed: connection, response format or model identity; raw provider details omitted for privacy.',
+  'llm-timeout': 'The model did not answer within the connection\'s time limit. A slow model can need a longer limit (the connection\'s timeoutMs).',
+  'llm-failed': 'The model call failed.',
 } as const;
-export const llmError = (code: keyof typeof MESSAGES, failure?: ModelFailure) => new RawstepError(code, MESSAGES[code], failure ? { detail: { modelFailure: failure } } : {});
+/** What went wrong and what to do, in Rawstep's words; the provider's own error text is never shown. */
+const FAILURE_MESSAGES: Record<ModelFailure['kind'], string> = {
+  'key-refused': 'The provider refused the API key. Check the key for this connection (rawstep doctor checks it).',
+  'model-not-found': 'The provider does not know this model ID. Check the model ID (rawstep doctor lists what the provider offers).',
+  'rate-limited': 'The provider kept refusing requests as too many (rate limit or quota), also after retrying. Wait and run again, or use another model.',
+  'provider-error': 'The provider failed on its side, also after retrying. Run again later.',
+  'unreachable': 'The provider could not be reached. Check the network and the connection\'s address.',
+  'agent-failed': 'The agent CLI did not start or answer. Check that it is installed and signed in (rawstep doctor).',
+  'no-reply': 'The model gave no usable reply.',
+  'not-json': 'The model\'s reply held no JSON object, also after asking again.',
+  'schema': 'The model\'s reply did not have the required shape, also after asking again.',
+  'incomplete': 'The model\'s reply was cut off.',
+  'model-changed': 'The reply came from another model than the one requested.',
+  'credential-echoed': 'The model\'s reply contained the API key, so it was not used.',
+};
+const TIMEOUT_OUTCOME = { status: 'inconclusive', reason: 'planner-timeout' } as const;
+export const llmError = (code: keyof typeof MESSAGES, failure?: ModelFailure) => new RawstepError(code,
+  code === 'llm-failed' && failure ? `${MESSAGES[code]} ${FAILURE_MESSAGES[failure.kind]}${failure.status ? ` (HTTP ${failure.status})` : ''}${UNANSWERED.has(failure.kind) ? ' Set RAWSTEP_DEBUG=1 to print the provider\'s own error on this computer.' : ''}` : MESSAGES[code],
+  { ...(failure ? { detail: { modelFailure: failure } } : {}), ...(code === 'llm-timeout' ? { outcome: TIMEOUT_OUTCOME } : {}) });
+/**
+ * Sorts a provider error into a `ModelFailure` by its HTTP status or its being a network error; nothing of its text is kept. With
+ * RAWSTEP_DEBUG set, the raw error goes to this computer's stderr only, never into a record.
+ */
+function providerFailure(error: unknown): ModelFailure {
+  if (process.env.RAWSTEP_DEBUG) console.error('[rawstep debug] model call failed:', error);
+  const last = RetryError.isInstance(error) ? error.lastError : error;
+  if (APICallError.isInstance(last)) {
+    const status = last.statusCode;
+    const kind = status === 401 || status === 403 ? 'key-refused' : status === 404 ? 'model-not-found' : status === 429 || status === 402 ? 'rate-limited'
+      : status !== undefined && status >= 500 ? 'provider-error' : status === undefined ? 'unreachable' : 'no-reply';
+    return { kind, ...(status ? { status } : {}) };
+  }
+  return { kind: last instanceof TypeError ? 'unreachable' : 'no-reply' };
+}
+function agentFailure(error: unknown): ModelFailure {
+  if (process.env.RAWSTEP_DEBUG) console.error('[rawstep debug] agent call failed:', error);
+  return { kind: 'agent-failed' };
+}
+/** Failures that come from the provider or the agent, not from a reply: the raw error may say more. */
+const UNANSWERED = new Set<ModelFailure['kind']>(['key-refused', 'model-not-found', 'rate-limited', 'provider-error', 'unreachable', 'agent-failed', 'no-reply']);
+/** Retries the SDK makes on its own for a rate limit, a server error or a dropped connection, with growing waits (it honours retry-after). */
+const PROVIDER_RETRIES = 2;
 /** Characters of a rejected reply kept for the run's record. */
 const REPLY_LIMIT = 4000;
 /** A reply the model gave that could not be used. Only this, never a provider error, reaches the record. */
@@ -127,7 +169,7 @@ export async function generateStructured<T>(request: StructuredRequest<T>): Prom
     try {
       result = await generateText({
         model: model.model, instructions: request.system, messages: [{ role: 'user', content: user }],
-        output: Output.json(), maxRetries: 0, abortSignal,
+        output: Output.json(), maxRetries: PROVIDER_RETRIES, abortSignal,
       });
     } catch (error) {
       // The SDK keeps the text of a reply it could not parse; other errors are the provider's and are not kept.
@@ -141,7 +183,7 @@ export async function generateStructured<T>(request: StructuredRequest<T>): Prom
   }, error => {
     if (signal?.aborted) return llmError('llm-cancelled');
     if (timeout.aborted) return llmError('llm-timeout');
-    return llmError('llm-failed', error instanceof ReplyRejected ? error.failure : { kind: 'no-reply' });
+    return llmError('llm-failed', error instanceof ReplyRejected ? error.failure : providerFailure(error));
   });
 }
 
@@ -149,7 +191,10 @@ export async function generateStructured<T>(request: StructuredRequest<T>): Prom
 async function generateWithAgent<T>(model: LlmModel & { reasoningEffort?: string }, agent: AcpAgent, request: StructuredRequest<T>): Promise<StructuredResult<T>> {
   const { signal } = request;
   try { await agent.start(signal); }
-  catch { if (signal?.aborted) throw llmError('llm-cancelled'); throw llmError('llm-failed'); }
+  catch (error) {
+    if (signal?.aborted) throw llmError('llm-cancelled');
+    throw llmError('llm-failed', agentFailure(error));
+  }
   // Starting (and an adapter download) is not part of the call's time.
   const timeout = AbortSignal.timeout(request.timeoutMs ?? model.timeoutMs);
   return withOneRetry(request, async user => {
@@ -164,7 +209,7 @@ async function generateWithAgent<T>(model: LlmModel & { reasoningEffort?: string
   }, error => {
     if (signal?.aborted) return llmError('llm-cancelled');
     if (timeout.aborted) return llmError('llm-timeout');
-    return llmError('llm-failed', error instanceof ReplyRejected ? error.failure : { kind: 'no-reply' });
+    return llmError('llm-failed', error instanceof ReplyRejected ? error.failure : agentFailure(error));
   });
 }
 

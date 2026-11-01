@@ -52,7 +52,7 @@ export function TaskOverview({ taskId, runs, numbers, findings, navigate, onRun,
       {compareTo && compared.data && compared.data.batch !== data.batch && (() => {
         // The earlier batch is "before", whichever of the two was picked first.
         const [before, after] = [compared.data, data].sort((a, b) => (a.batches.find(x => x.experimentId === a.batch)?.createdAt ?? '').localeCompare(b.batches.find(x => x.experimentId === b.batch)?.createdAt ?? ''));
-        return <BatchCompare before={before!} after={after!} profiles={profiles} runs={runs} minimalSteps={minimalSteps} />;
+        return <BatchCompare before={before!} after={after!} profiles={profiles} runs={runs} minimalSteps={minimalSteps} navigate={navigate} />;
       })()}
       {data.facts.byProfile.length > 0 && <TaskResults taskId={taskId} data={data} numbers={numbers} navigate={navigate} profiles={profiles} minimalSteps={minimalSteps}
         lastRunAt={runs.find(ref => ref.experiment.id === data.batch)?.run.startedAt} />}

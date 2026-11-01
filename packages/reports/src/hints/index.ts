@@ -10,7 +10,7 @@ import { goalLeads } from '@rawstep/policies/policy';
 export const HINTS_SCHEMA_VERSION = '3.0' as const;
 export type HintKind =
   | 'slow-run' | 'excess-keystrokes' | 'backtracking'
-  | 'focus-lost' | 'focus-not-visible' | 'modal-focus-outside' | 'missing-announcement'
+  | 'focus-lost' | 'focus-not-visible' | 'modal-focus-outside' | 'missing-announcement' | 'live-interruptions'
   | 'early-stop' | 'goal-met-at-start' | 'focus-left-page'
   | 'replan' | 'task-limit' | 'wanted-to-give-up' | 'goal-word-stretch' | 'expectation-broken';
 /**
@@ -29,7 +29,7 @@ export const HINT_SOURCES: Readonly<Record<HintKind, HintSource>> = Object.freez
   'slow-run': 'run', 'goal-met-at-start': 'run', 'replan': 'run', 'task-limit': 'run',
   'wanted-to-give-up': 'run', 'goal-word-stretch': 'run',
   'excess-keystrokes': 'page', 'focus-lost': 'page', 'focus-left-page': 'page', 'focus-not-visible': 'page',
-  'modal-focus-outside': 'page', 'missing-announcement': 'page',
+  'modal-focus-outside': 'page', 'missing-announcement': 'page', 'live-interruptions': 'page',
   'backtracking': 'model', 'early-stop': 'model', 'expectation-broken': 'model',
 });
 export type Hint = {
@@ -39,6 +39,8 @@ export type Hint = {
   /** observed: directly recorded. suspected: inferred from indirect signals and may be wrong. */
   certainty: 'observed' | 'suspected';
   steps: number[];
+  /** How many times this happened in the run, when the same page behaviour on the same element repeated and was merged into this hint (steps and evidence then hold all of them). Absent means once. */
+  count?: number;
   summary: string;
   detail: Record<string, unknown>;
   /** Trace event ids the hint was derived from. */
@@ -60,9 +62,11 @@ export type HintThresholds = {
   keystrokesToTarget: number;
   /** Direction reversals such as Tab followed by Shift+Tab. */
   backtrackReversals: number;
+  /** Moves after which the page announced something on its own (a live region), before it counts as talking over the user. */
+  liveInterruptions: number;
 };
 export const DEFAULT_HINT_THRESHOLDS: Readonly<HintThresholds> = Object.freeze({
-  slowRunStepRatio: 1.5, slowRunMinExtraSteps: 3, keystrokesToTarget: 10, backtrackReversals: 2,
+  slowRunStepRatio: 1.5, slowRunMinExtraSteps: 3, keystrokesToTarget: 10, backtrackReversals: 2, liveInterruptions: 3,
 });
 export type HintOptions = { reference?: Readonly<RunTrace>; thresholds?: Partial<HintThresholds> };
 
@@ -81,6 +85,22 @@ const label = (o: { role?: string | null; name?: string }) => o.name && o.name !
 const keyOf = (a: Action) => a.key ?? a.intent;
 const targetOf = (o: { role?: string | null; name?: string } | undefined): HintTarget | undefined =>
   o ? { role: o.role ?? 'element', ...(o.name && o.name !== REDACTED ? { name: o.name } : {}) } : undefined;
+/** Hints are "the same" by kind and element, in a run and across runs. */
+const hintKey = (hint: Pick<Hint, 'kind' | 'target'>) => JSON.stringify([hint.kind, hint.target?.role ?? null, hint.target?.name ?? null]);
+/** Page behaviour that repeats on one element is one place to look at, said once with its count. excess-keystrokes stays per stretch: each one has its own count of keys. */
+const collapsible = (hint: Hint) => hint.source === 'page' && hint.kind !== 'excess-keystrokes' && !!hint.target;
+function collapseRepeats(hints: Hint[]): Hint[] {
+  const out: Hint[] = [], merged = new Map<string, Hint>();
+  for (const hint of hints) {
+    if (!collapsible(hint)) { out.push(hint); continue; }
+    const key = `${hintKey(hint)}|${hint.certainty}`, first = merged.get(key);
+    if (!first) { const copy = { ...hint, steps: [...hint.steps], evidence: [...hint.evidence] }; merged.set(key, copy); out.push(copy); continue; }
+    first.count = (first.count ?? 1) + 1;
+    first.steps = [...new Set([...first.steps, ...hint.steps])].sort((a, b) => a - b);
+    first.evidence = [...new Set([...first.evidence, ...hint.evidence])];
+  }
+  return out;
+}
 const isActivation = (a: Action) => a.key === 'Enter' || a.key === 'Space' || a.intent === 'activate';
 const isNavigation = (a: Action) => (a.key !== undefined && NAVIGATION_KEYS.includes(a.key)) || a.intent === 'next' || a.intent === 'previous';
 
@@ -96,6 +116,7 @@ export function selectReference(traces: readonly Readonly<RunTrace>[]): Readonly
 }
 
 function collect(trace: Readonly<RunTrace>) {
+  const announced: { step: number; id: string; lines: string[] }[] = [];
   const actions: Action[] = [], observer: ObserverRecord[] = [], evidence: { step: number; id: string; data: Record<string, unknown> }[] = [], diagnostics: { step: number; id: string; data: Record<string, unknown> }[] = [];
   let step = 0;
   for (const event of trace.events as readonly TraceEvent[]) {
@@ -110,16 +131,20 @@ function collect(trace: Readonly<RunTrace>) {
       observer.push({ ...(data as Omit<ObserverRecord, 'id'>), id: event.id });
     } else if (event.type === 'policy.evidence' && typeof data.step === 'number' && record(data.evidence)) {
       evidence.push({ step: data.step, id: event.id, data: data.evidence });
+    } else if (event.type.endsWith('.observation') && Array.isArray(data.announcements) && step > 0) {
+      // Lines a live region said on its own after a move; withheld lines (after a secret was typed) say nothing.
+      const lines = data.announcements.filter((line): line is string => typeof line === 'string' && line !== '[REDACTED]');
+      if (lines.length) announced.push({ step, id: event.id, lines });
     } else if (event.type === 'browser.accessibility-diagnostic' && typeof data.step === 'number' && record(data.diagnostic)) {
       diagnostics.push({ step: data.step, id: event.id, data: data.diagnostic });
     }
   }
-  return { actions, observer, evidence, diagnostics };
+  return { actions, observer, evidence, diagnostics, announced };
 }
 
 export function extractHints(trace: Readonly<RunTrace>, options: HintOptions = {}): HintReport {
   const t = { ...DEFAULT_HINT_THRESHOLDS, ...options.thresholds };
-  const run = summarizeRun(trace), { actions, observer, evidence, diagnostics } = collect(trace);
+  const run = summarizeRun(trace), { actions, observer, evidence, diagnostics, announced } = collect(trace);
   const hints: Hint[] = [];
   const add = (hint: Omit<Hint, 'source' | 'target'>, target?: { role?: string | null; name?: string }) => {
     const element = targetOf(target);
@@ -206,6 +231,17 @@ export function extractHints(trace: Readonly<RunTrace>, options: HintOptions = {
       evidence: [action.eventId, ...events.map(o => o.id)] }, focusBefore(action.step - 1));
   }
 
+  // A live region that keeps talking (a rotating banner, a viewer count) cuts into what every move says, and a real screen reader
+  // user hears it too. Counted only after moves that did not press anything: an announcement a press caused is the page answering.
+  const interrupted = announced.filter(a => { const action = actions.find(x => x.step === a.step); return !action || !isActivation(action); });
+  if (interrupted.length >= t.liveInterruptions) {
+    const lines = [...new Set(interrupted.flatMap(a => a.lines))];
+    const region = observer.find(o => o.kind === 'live-region' && interrupted.some(a => a.step === o.step));
+    add({ kind: 'live-interruptions', certainty: 'observed', steps: interrupted.map(a => a.step),
+      summary: `The page announced something on its own after ${interrupted.length} moves (${lines.length} different ${lines.length === 1 ? 'text' : 'texts'}, such as "${lines[0]!.slice(0, 80)}"), cutting into what each move said.`,
+      detail: { moves: interrupted.length, distinct: lines.length, examples: lines.slice(0, 3).map(line => line.slice(0, 120)) }, evidence: interrupted.map(a => a.id) }, region);
+  }
+
   for (const item of evidence.filter(e => e.data.kind === 'orchestration-plan')) {
     const trigger = item.data.trigger, version = item.data.version;
     if (trigger === 'failures' || trigger === 'no-change' || trigger === 'oscillation') add({ kind: 'replan', certainty: 'observed', steps: [item.step],
@@ -290,27 +326,32 @@ export function extractHints(trace: Readonly<RunTrace>, options: HintOptions = {
     summary: outcome.policyStopSource === 'exploration-guard' ? 'The repetition guard stopped the run.'
       : outcome.policyStopSource === 'orchestration-limit' ? 'The run reached its planner-call limit before the user reached the goal or gave up: not measured.'
       : outcome.policyStopSource === 'no-allowed-action' ? 'The run profile allows no action the task in the plan needs: not measured.'
-      : outcome.policyStopSource === 'user-gave-up' ? `The user gave up: ${String(gaveUp?.data.reason ?? '')}`
+      : outcome.policyStopSource === 'user-gave-up' ? `The user gave up: ${typeof gaveUp?.data.reason === 'string' && gaveUp.data.reason ? gaveUp.data.reason : '(the reason was withheld, because a secret had been typed before it)'}`
       : `The model stopped as ${outcome.reason === 'policy-stuck' ? 'stuck' : 'uncertain'}.`,
     detail: { reason: outcome.reason, ...(outcome.policyStopSource ? { stopSource: outcome.policyStopSource } : {}),
       ...(outcome.policyStopSource === 'user-gave-up' && gaveUp ? { giveUp: { reason: gaveUp.data.reason, tried: gaveUp.data.tried, effort: gaveUp.data.effort } } : {}) }, evidence: gaveUp ? [gaveUp.id] : [] });
 
-  hints.sort((a, b) => (a.steps[0] ?? -1) - (b.steps[0] ?? -1));
+  const collapsed = collapseRepeats(hints);
+  collapsed.sort((a, b) => (a.steps[0] ?? -1) - (b.steps[0] ?? -1));
   const limitations = ['Hints point to steps worth reviewing; they do not establish accessibility defects or conformance.'];
   if (!observer.length) limitations.push('No page observer events were recorded, so focus, announcement and dialog hints are unavailable.');
   if (observer.some(o => o.name === REDACTED)) limitations.push('Names and text after text entry are redacted; those hints keep structure only.');
   return { schemaVersion: HINTS_SCHEMA_VERSION, ...run, taskId: String(trace.task.id),
     ...(outcome ? { outcome: { status: outcome.status, ...(outcome.reason ? { reason: outcome.reason } : {}) } } : {}),
-    ...(reference ? { reference } : {}), hints, limitations };
+    ...(reference ? { reference } : {}), hints: collapsed, limitations };
 }
 
-/** Reads a saved trace (and optional reference), extracts hints and writes hints.json next to the trace. */
-export async function writeHints(pathOrOutDir: string, options: { reference?: string; thresholds?: Partial<HintThresholds> } = {}): Promise<{ path: string; report: HintReport }> {
+/**
+ * Reads a saved trace (and optional reference), extracts hints and writes hints.json next to the trace.
+ * With a reference, `comparison` says which hints are new in the trace, gone from it, or in both.
+ */
+export async function writeHints(pathOrOutDir: string, options: { reference?: string; thresholds?: Partial<HintThresholds> } = {}): Promise<{ path: string; report: HintReport; comparison?: HintComparison }> {
   const trace = await readTrace(pathOrOutDir), reference = options.reference ? await readTrace(options.reference) : undefined;
-  const report = extractHints(trace, { ...(reference ? { reference } : {}), ...(options.thresholds ? { thresholds: options.thresholds } : {}) });
+  const thresholds = options.thresholds ? { thresholds: options.thresholds } : {};
+  const report = extractHints(trace, { ...(reference ? { reference } : {}), ...thresholds });
   const path = join(dirname(await traceFilePath(pathOrOutDir)), 'hints.json');
   await writeJsonAtomic(path, report);
-  return { path, report };
+  return { path, report, ...(reference ? { comparison: compareHints(report, extractHints(reference, thresholds)) } : {}) };
 }
 
 function countBy(values: string[]): Record<string, number> {
@@ -331,12 +372,11 @@ export type HintFinding = {
   runs: number;
   totalRuns: number;
   /** Every occurrence, so a reader can open the step it points at. */
-  occurrences: { runId: string; steps: number[]; certainty: Hint['certainty']; detail: Record<string, unknown> }[];
+  occurrences: { runId: string; steps: number[]; count?: number; certainty: Hint['certainty']; detail: Record<string, unknown> }[];
   /** Kind-specific numbers across occurrences: for excess-keystrokes, the navigation key counts. */
   counts?: { min: number; max: number; mean: number };
 };
 
-const findingKey = (hint: Hint) => JSON.stringify([hint.kind, hint.target?.role ?? null, hint.target?.name ?? null]);
 
 /**
  * Groups hints from several runs of one task by kind and target element. run-level hints (slow-run,
@@ -348,9 +388,9 @@ export function aggregateHints(reports: readonly Pick<HintReport, 'runId' | 'hin
     const seen = new Set<string>();
     for (const hint of report.hints) {
       if (hint.source === 'run') continue;
-      const key = findingKey(hint);
+      const key = hintKey(hint);
       const finding = groups.get(key) ?? { kind: hint.kind, source: hint.source, ...(hint.target ? { target: hint.target } : {}), runs: 0, totalRuns: reports.length, occurrences: [] };
-      finding.occurrences.push({ runId: report.runId, steps: hint.steps, certainty: hint.certainty, detail: hint.detail });
+      finding.occurrences.push({ runId: report.runId, steps: hint.steps, ...(hint.count ? { count: hint.count } : {}), certainty: hint.certainty, detail: hint.detail });
       if (!seen.has(key)) { finding.runs++; seen.add(key); }
       groups.set(key, finding);
     }
@@ -360,4 +400,33 @@ export function aggregateHints(reports: readonly Pick<HintReport, 'runId' | 'hin
     if (values.length) finding.counts = { min: Math.min(...values), max: Math.max(...values), mean: values.reduce((a, b) => a + b, 0) / values.length };
   }
   return [...groups.values()].sort((a, b) => b.runs - a.runs || b.occurrences.length - a.occurrences.length || (a.source === b.source ? 0 : a.source === 'page' ? -1 : 1));
+}
+
+/**
+ * Two runs' hints side by side, matched by kind and element (the same identity findings use). Wording stays neutral: a hint that
+ * is new, gone or in both says what differs between the two runs, not which run is better. `slow-run` is left out: it exists
+ * only because of the reference.
+ */
+export type HintComparison = {
+  /** Only in the current run. */
+  new: Hint[];
+  /** Only in the reference run. */
+  gone: Hint[];
+  /** Same kind and element in both; every matching hint of each run, since a run can have several (for example one per stretch of keys). */
+  both: { current: Hint[]; reference: Hint[] }[];
+};
+
+export function compareHints(current: Pick<HintReport, 'hints'>, reference: Pick<HintReport, 'hints'>): HintComparison {
+  const group = (report: Pick<HintReport, 'hints'>) => {
+    const groups = new Map<string, Hint[]>();
+    for (const hint of report.hints) if (hint.kind !== 'slow-run') groups.set(hintKey(hint), [...(groups.get(hintKey(hint)) ?? []), hint]);
+    return groups;
+  };
+  const now = group(current), before = group(reference), comparison: HintComparison = { new: [], gone: [], both: [] };
+  for (const [key, hints] of now) {
+    const other = before.get(key);
+    if (other) comparison.both.push({ current: hints, reference: other }); else comparison.new.push(...hints);
+  }
+  for (const [key, hints] of before) if (!now.has(key)) comparison.gone.push(...hints);
+  return comparison;
 }

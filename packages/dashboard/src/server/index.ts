@@ -1,4 +1,5 @@
 import { isLoopbackHostname } from '@rawstep/core/defaults';
+import { REPORT_CSP } from '@rawstep/reports/report';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import { resolve, relative, isAbsolute, sep, extname, join } from 'node:path';
@@ -189,14 +190,14 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
       return send(res, { value: (await store.credential(await savedConnection(body.connectionId))) ?? null });
     }
     if (path === '/api/suggest-checks' && method === 'POST') {
-      const body = z.object({ url: z.string().min(1).max(2000), goal: z.string().trim().min(1).max(4000) }).strict().parse(await jsonBody(req));
+      const body = z.object({ url: z.string().min(1).max(2000), goal: z.string().trim().min(1).max(4000), language: z.enum(['en', 'ko']).optional() }).strict().parse(await jsonBody(req));
       const { config } = await store.read();
       // The project's suggestion model, otherwise its analysis model.
       const model = suggestionModel(config);
       if (!model) throw new HttpError(400, 'suggest-model-missing');
       const apiKey = await requireKey(store, model);
       return send(res, await exclusivePageRead(async () => {
-        try { return await suggestChecks({ url: body.url, goal: body.goal, projectDir: store.root, model, apiKey, machine: config.machine }); }
+        try { return await suggestChecks({ url: body.url, goal: body.goal, projectDir: store.root, model, apiKey, machine: config.machine, ...(body.language ? { language: body.language } : {}) }); }
         catch (error) {
           throw error instanceof HttpError ? error : new HttpError(400, 'start-page-unreadable');
         }
@@ -227,6 +228,10 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
       const body = z.object({ runs: z.array(z.object({ experiment: z.string().regex(/^[0-9a-f-]{36}$/), run: z.string().regex(/^[0-9a-f-]{36}$/) }).strict()).min(1).max(1000) }).strict().parse(await jsonBody(req));
       return send(res, { removed: await queue.deleteMany(body.runs) });
     }
+    if (path === '/api/runs/compare' && method === 'POST') {
+      const body = z.object({ runs: z.array(z.object({ experiment: z.string().regex(/^[0-9a-f-]{36}$/), run: z.string().regex(/^[0-9a-f-]{36}$/) }).strict()).min(1).max(50) }).strict().parse(await jsonBody(req));
+      return send(res, await views.compare(body.runs));
+    }
     const match = path.match(/^\/api\/experiments\/([0-9a-f-]{36})(?:\/runs\/([0-9a-f-]{36}))?(?:\/(cancel|retry|events|steps|hints|trace|analysis|report|png)(?:\/([^/]+))?)?$/);
     if (match) {
       const [, experimentId, runId, operation, eventId] = match;
@@ -253,7 +258,7 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
       }
       if (operation === 'report' && method === 'GET') {
         if (run.reportStatus !== 'complete') throw new HttpError(404, 'report-not-ready');
-        res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'; sandbox" });
+        res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'content-security-policy': REPORT_CSP + "; img-src data:; sandbox allow-scripts" });
         return res.end(await readFile(await store.file(prefix + 'report.html', true)));
       }
       if (operation === 'png' && method === 'GET') {

@@ -35,6 +35,27 @@ export async function installProfileStyles(page: Page, profile: EnvironmentProfi
         if (spacing) { el.style.setProperty('line-height', String(spacing.lineHeight), 'important'); el.style.setProperty('letter-spacing', `${spacing.letterSpacingEm}em`, 'important'); el.style.setProperty('word-spacing', `${spacing.wordSpacingEm}em`, 'important'); if (el.tagName === 'P') el.style.setProperty('margin-bottom', `${spacing.paragraphSpacingEm}em`, 'important'); }
       }
       const known = new WeakSet(original.map(x=>x.el));
+      const baselineOf = new WeakMap(original.map(x => [x.el, x.font] as const));
+      // Pages keep adding content after load (lazy lists, banners, dialogs). Each new element gets the same treatment: one whose size
+      // follows its already scaled parent keeps it, one sized on its own is scaled. Its unscaled size is recorded for the check.
+      const adopt = (el: HTMLElement) => {
+        if (known.has(el)) return;
+        const font = parseFloat(getComputedStyle(el).fontSize), parent = el.parentElement;
+        const parentFont = parent ? parseFloat(getComputedStyle(parent).fontSize) : NaN, parentBase = parent ? baselineOf.get(parent) : undefined;
+        const inherits = textScale !== 1 && Number.isFinite(parentFont) && parentBase !== undefined && Math.abs(font - parentFont) < .01 && Math.abs(parentFont - parentBase) > .01;
+        const base = inherits ? font / textScale : font;
+        if (textScale !== 1 && Number.isFinite(font) && !inherits) el.style.setProperty('font-size', `${font * textScale}px`, 'important');
+        if (spacing) { el.style.setProperty('line-height', String(spacing.lineHeight), 'important'); el.style.setProperty('letter-spacing', `${spacing.letterSpacingEm}em`, 'important'); el.style.setProperty('word-spacing', `${spacing.wordSpacingEm}em`, 'important'); if (el.tagName === 'P') el.style.setProperty('margin-bottom', `${spacing.paragraphSpacingEm}em`, 'important'); }
+        known.add(el); baselineOf.set(el, base); original.push({ el, font: base });
+      };
+      new MutationObserver(records => {
+        for (const record of records) for (const node of Array.from(record.addedNodes)) {
+          // SVG and other elements too: the check counts every element under body.
+          if (!(node instanceof Element)) continue;
+          adopt(node as HTMLElement);
+          for (const child of Array.from(node.querySelectorAll<HTMLElement>('*'))) adopt(child);
+        }
+      }).observe(document.documentElement, { childList: true, subtree: true });
       (window as unknown as { __rawstepMeasureProfile: () => unknown }).__rawstepMeasureProfile = () => {
         const body = document.body ? getComputedStyle(document.body) : null; const paragraph = document.querySelector('p');
         return { textScale, unprofiledNodes:Array.from(document.querySelectorAll('body,body *')).filter(el=>!known.has(el as HTMLElement)).length, samples: original.filter(x => x.font > 0 && x.el.isConnected).map(x => ({ baseline: x.font, actual: parseFloat(getComputedStyle(x.el).fontSize) })), spacing: spacing && body ? original.filter(x=>x.el.isConnected).map(({el})=>{const c=getComputedStyle(el);return {fontSize:parseFloat(c.fontSize),lineHeight:parseFloat(c.lineHeight),letterSpacing:parseFloat(c.letterSpacing),wordSpacing:parseFloat(c.wordSpacing),paragraph:el.tagName==='P'?{fontSize:parseFloat(c.fontSize),margin:parseFloat(c.marginBottom)}:null}}) : null };
@@ -46,7 +67,7 @@ export async function installProfileStyles(page: Page, profile: EnvironmentProfi
 
 export async function verifyProfileStyles(page: Page, profile: EnvironmentProfile): Promise<ProfileSetting[]> {
   const styles = await page.evaluate(() => (window as unknown as { __rawstepMeasureProfile?: () => { unprofiledNodes:number;samples:{baseline:number;actual:number}[];spacing:null|{fontSize:number;lineHeight:number;letterSpacing:number;wordSpacing:number;paragraph:null|{fontSize:number;margin:number}}[] } }).__rawstepMeasureProfile?.() ?? null);
-  const result: ProfileSetting[] = [{name:'textScale',requested:profile.textScale,observed:styles?.samples??null,status:profile.textScale===1 || (!!styles?.samples.length && styles.unprofiledNodes===0 && styles.samples.every(s=>Math.abs(s.actual/s.baseline-profile.textScale)<.03))?'applied':'mismatch',mechanism:'browser-content-user-style',detail:'Computed font-size multiplication, not native browser text-only zoom or OS magnification. All initially styled nodes are remeasured; newly inserted unprofiled nodes cause a mismatch rather than an applied claim.'}];
+  const result: ProfileSetting[] = [{name:'textScale',requested:profile.textScale,observed:styles?.samples??null,status:profile.textScale===1 || (!!styles?.samples.length && styles.unprofiledNodes===0 && styles.samples.every(s=>Math.abs(s.actual/s.baseline-profile.textScale)<.03))?'applied':'mismatch',mechanism:'browser-content-user-style',detail:'Computed font-size multiplication, not native browser text-only zoom or OS magnification. Every styled node is remeasured, including ones the page adds later (they are scaled as they appear); a node that escaped scaling causes a mismatch rather than an applied claim.'}];
   if(profile.textSpacing){const a=styles?.spacing;const e=profile.textSpacing;const close=(x:number,y:number)=>Number.isFinite(x)&&Math.abs(x-y)<.6; const match=!!a?.length&&styles?.unprofiledNodes===0&&a.every(v=>close(v.lineHeight,v.fontSize*e.lineHeight)&&close(v.letterSpacing,v.fontSize*e.letterSpacingEm)&&close(v.wordSpacing,v.fontSize*e.wordSpacingEm)&&(!v.paragraph||close(v.paragraph.margin,v.paragraph.fontSize*e.paragraphSpacingEm)));result.push({name:'textSpacing',requested:e,observed:a,status:match?'applied':'mismatch',mechanism:'browser-content-user-style',detail:'Computed spacing is checked for every initially styled element/paragraph; dynamic unprofiled nodes cause a mismatch.'});}
   return result;
 }

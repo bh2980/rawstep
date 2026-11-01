@@ -185,12 +185,12 @@ export class ExperimentQueue {
         if (trace.outcome?.reason === 'error' && typeof trace.outcome.error === 'string') run.errorDetail = failureDetail(new Error(trace.outcome.error), [plannerApiKey ?? '', ...Object.values(task?.input ?? {})]);
         run.state = controller.signal.aborted ? 'cancelled' : trace.outcome?.status === 'success' ? 'success' : trace.outcome?.status === 'failure' ? 'failure' : 'inconclusive';
         const analysisModel = run.analysisModel;
-        const done = await finalizeRun(trace, outDir, analysisModel ? { createAnalyzer: async () => llmAnalyzer(analysisModel, await this.store.credential(analysisModel), run.analysisInstructions, controller.signal) } : {});
+        const done = await finalizeRun(trace, outDir, { taskName: run.snapshot.taskName, ...(analysisModel ? { createAnalyzer: async () => llmAnalyzer(analysisModel, await this.store.credential(analysisModel), run.analysisInstructions, controller.signal) } : {}) });
         // The last repeat of a task under a profile: every repeat is compared with the fastest one that reached the goal, before
         // this run counts as done, so nothing reads its hints in between.
         const repeats = experiment.runs.filter(other => other.taskId === run.taskId && other.profileId === run.profileId);
         if (repeats.length > 1 && !repeats.some(other => other !== run && (other.state === 'queued' || other.state === 'running')))
-          await compareRepeats(await Promise.all(repeats.map(other => this.store.file('.rawstep/experiments/' + experiment.id + '/' + other.id)))).catch(() => {});
+          await compareRepeats(await Promise.all(repeats.map(other => this.store.file('.rawstep/experiments/' + experiment.id + '/' + other.id))), { taskName: run.snapshot.taskName }).catch(() => {});
         run.analysisStatus = done.analysis.status;
         if (done.analysis.status === 'failed') run.analysisError = done.analysis.threw ? 'analysis-failed' : done.analysis.error ?? 'analysis-failed';
         run.reportStatus = done.report.status;

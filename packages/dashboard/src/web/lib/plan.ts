@@ -28,6 +28,19 @@ export function endingLabel(doc: PlanDocument, task: PlanTask): string | undefin
   return undefined;
 }
 
+/**
+ * Whether a task was cut short by the move limit: a new plan was asked for because of it (`task-limit`) right after a move that served
+ * this task. The plan version records why it was made but not for which task, so the task is the one the last move before it served.
+ */
+export function hitMoveLimit(plan: Pick<RunPlanView, 'versions' | 'stepTasks'>, taskId: string): boolean {
+  const served = Object.keys(plan.stepTasks).map(Number).sort((a, b) => a - b);
+  return plan.versions.some(version => {
+    if (version.trigger !== 'task-limit') return false;
+    const before = served.filter(step => step < version.step).at(-1);
+    return before !== undefined && plan.stepTasks[before]?.taskId === taskId;
+  });
+}
+
 /** Seconds spent waiting for the planner. */
 export const plannerWait = (calls: RunPlanView['calls']): number => Object.values(calls).flat().reduce((s, call) => s + (call.elapsedMs ?? 0), 0) / 1000;
 

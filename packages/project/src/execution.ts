@@ -68,7 +68,7 @@ export const executeRun: RunExecutor = async ({ task, settings, environment, bac
     const common = { policy, outDir, signal, allowedActions: permissions, confirmationGrace: rules.confirmationGrace, ...(onEvent ? { onEvent } : {}), ...(conditions ? { conditions } : {}),
       headless: backend !== 'simulation' ? false : machine.headless,
       browserExecutablePath: machine.browserExecutablePath || undefined,
-      ...(endpoint ? { browserEndpoint: endpoint } : {}),
+      ...(endpoint ? { browserEndpoint: endpoint, ...(machine.copySignIn ? { copySignIn: true } : {}) } : machine.proxyServer.trim() ? { proxyServer: machine.proxyServer.trim() } : {}),
       ...(machine.personCheck && endpoint ? { personCheck: {} } : machine.personCheck && browserProfileDir ? { personCheck: { userDataDir: browserProfileDir } } : {}) };
     setupSignal.throwIfAborted();
     if (Date.now() >= deadline) throw new Error('The task time limit passed while preparing the run.');

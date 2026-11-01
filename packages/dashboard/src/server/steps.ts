@@ -243,5 +243,9 @@ export function buildSteps({ experimentId, runId, events, hints = [], live }: St
   }
   const waits = events.filter(event => event.type === 'run.waiting-for-person' || event.type === 'run.person-resumed' || event.type === 'run.person-check-timeout');
   const waitingForPerson = live && waits.at(-1)?.type === 'run.waiting-for-person';
-  return { experimentId, runId, steps: [...byStep.values()].sort((a, b) => a.step - b.step), notices: noticesOf(events), ...(waitingForPerson ? { waitingForPerson } : {}), ...(baseline ? { baseline } : {}), live };
+  // The planner was asked and has not answered yet: the last planner call has no plan or cue answer after it.
+  const calls = events.filter(event => event.type === 'policy.planner-call' || (event.type === 'policy.evidence' && ['orchestration-plan', 'orchestration-cue'].includes(String((event.data as { evidence?: { kind?: unknown } } | undefined)?.evidence?.kind))));
+  const asked = live ? calls.at(-1) : undefined;
+  const plannerWaiting = asked?.type === 'policy.planner-call' ? { since: asked.timestamp, ...(text((asked.data as { trigger?: unknown }).trigger) ? { trigger: text((asked.data as { trigger?: unknown }).trigger)! } : {}) } : undefined;
+  return { experimentId, runId, steps: [...byStep.values()].sort((a, b) => a.step - b.step), notices: noticesOf(events), ...(waitingForPerson ? { waitingForPerson } : {}), ...(plannerWaiting ? { plannerWaiting } : {}), ...(baseline ? { baseline } : {}), live };
 }

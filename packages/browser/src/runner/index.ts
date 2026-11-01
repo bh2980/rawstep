@@ -3,7 +3,7 @@ import { collectBrowserDiagnostics, verifyLiveProfile, ProfileApplicationError, 
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { mkdir } from 'node:fs/promises';
-import { createBrowserSession, isBotCheckPage, isBotCheckUrl, settlePage, watchPageActivity, BrowserSetupError, BrowserAccessBlockedError, type BrowserSession, type CreateBrowserSessionOptions } from '../browser/index.js';
+import { createBrowserSession, isBotCheckPage, isBotCheckUrl, settlePage, watchPageActivity, BrowserSetupError, BrowserAccessBlockedError, BLOCKED_NEXT, type BrowserSession, type CreateBrowserSessionOptions } from '../browser/index.js';
 import { describeInputs, resolveTask, STOP_SOURCES, type ActionExecution, type AllowedActions, type Backend, type Decision, type DecisionPolicy, type HistoryEntry, type Observation, type PolicyAction, type Task, type VerificationRecord, type VerificationWitness } from '@rawstep/core/contracts';
 import { TraceRecorder, createRedactor, type RunOutcome, type RunTrace, type TraceEvent } from '@rawstep/core/trace';
 import { RawstepError, findRawstepError } from '@rawstep/core/errors';
@@ -31,6 +31,13 @@ export type RunOptions = {
   browserExecutablePath?: string;
   /** Connect to a browser the person started with a remote debugging port instead of launching one (see `cdpEndpoint`). */
   browserEndpoint?: string;
+  /**
+   * How long one decision may take, in milliseconds. Waiting for the policy is not page time, so the task's time limit does not bound
+   * it; this does, for a policy that hangs. Default 30 minutes: a planner call is already bounded by its connection's limit.
+   */
+  policyTimeoutMs?: number;
+  /** With `browserEndpoint`: start each run with a copy of that browser's sign-in (see `copySignIn`). */
+  copySignIn?: boolean;
   proxyServer?: string;
   browserSessionFactory?: (url: string, options: CreateBrowserSessionOptions) => Promise<BrowserSession>;
   /** Receives every stored (redacted) trace event as it is recorded, e.g. for a live dashboard. */
@@ -48,6 +55,8 @@ export type RunOptions = {
   personCheck?: { userDataDir?: string; timeoutMs?: number };
 };
 const PERSON_CHECK_TIMEOUT_MS = 5 * 60_000, PERSON_CHECK_POLL_MS = 1000, PERSON_CHECK_CLEAR_MS = 3000;
+/** The longest one policy decision may take (see `policyTimeoutMs`). */
+const POLICY_TIMEOUT_MS = 30 * 60_000;
 /** Chromium cannot capture taller images reliably, and pins far down a page are found from the step screenshots instead. */
 const START_PAGE_MAX_HEIGHT = 16_000;
 /** Text entry found no editable focused field; recorded as the `not-editable` failure the model may see. */
@@ -68,19 +77,21 @@ export async function runWithPolicy(source: Task, options: RunOptions): Promise<
   // Values under 4 characters cannot be hidden by substring matching without destroying unrelated speech; the withheld typing step covers their echo.
   const sensitiveValues = Object.entries(task.input ?? {}).filter(([name, value]) => inputDescriptors[name]!.sensitive && value.length >= 4).map(([, value]) => value);
   const maskForPolicy = createRedactor(sensitiveValues);
+  // Every secret, however short, for checking whether the page shows one before a screenshot.
+  const secretValues = Object.entries(task.input ?? {}).filter(([name, value]) => inputDescriptors[name]!.sensitive && value).map(([, value]) => value);
   const withheldObservations = new WeakSet<Observation>();
   // The title gets the same masking as speech: a site can reflect typed text in it as well.
   const policyView = (value: Observation): Observation => {
     const { title, ...rest } = value;
-    if (withheldObservations.has(value)) return { ...rest, speech: ['[typed input withheld]'] };
-    return { ...rest, speech: value.speech.map(line => maskForPolicy(line).value), ...(title ? { title: maskForPolicy(title).value } : {}) };
+    if (withheldObservations.has(value)) { const { announcements: _withheld, ...bare } = rest; return { ...bare, speech: ['[typed input withheld]'] }; }
+    return { ...rest, speech: value.speech.map(line => maskForPolicy(line).value), ...(title ? { title: maskForPolicy(title).value } : {}), ...(value.announcements ? { announcements: value.announcements.map(line => maskForPolicy(line).value) } : {}) };
   };
   /** Page titles the screen reader has actually spoken; only those reach the policy, never one read from the DOM unheard. */
   const heardTitles = new Set<string>();
   const trace = new TraceRecorder({ ...task, id: task.id ?? randomUUID() }, options.outDir, { includeSensitiveInputValues: options.includeSensitiveInputValues, environment: { observationProvenance }, ...(options.onEvent ? { onEvent: options.onEvent } : {}) });
   await trace.initialize();
   const controller = new AbortController();
-  // Moved later by the time a person spends passing a human check.
+  // Page time only: moved later by the time a person spends passing a human check and the time spent waiting for the policy.
   let deadline = Date.now() + task.timeoutMs!;
   let stage = 'initialization';
   let activeStep = 0;
@@ -101,6 +112,23 @@ export async function runWithPolicy(source: Task, options: RunOptions): Promise<
     controller.signal.throwIfAborted();
     if (Date.now() >= deadline) { const error = new BudgetExceeded(); controller.abort(error); throw error; }
   };
+  /**
+   * Waiting for the policy (a planner model can take a minute) is not page time: the deadline moves by that wait. Cancellation and
+   * the connection's own call limit still stop it.
+   */
+  const outsideBudget = async <T>(work: () => Promise<T> | T): Promise<T> => {
+    throwIfStopped();
+    const started = Date.now();
+    try {
+      return await new Promise<T>((resolve, reject) => {
+        const cleanup = () => { clearTimeout(timer); controller.signal.removeEventListener('abort', abort); };
+        const abort = () => { cleanup(); reject(evidenceFailure ?? controller.signal.reason); };
+        const timer = setTimeout(() => controller.abort(new BudgetExceeded()), options.policyTimeoutMs ?? POLICY_TIMEOUT_MS);
+        controller.signal.addEventListener('abort', abort, { once: true });
+        Promise.resolve().then(work).then(value => { cleanup(); resolve(value); }, error => { cleanup(); reject(error); });
+      });
+    } finally { deadline += Date.now() - started; }
+  };
   const withinBudget = <T>(work: () => Promise<T> | T): Promise<T> => {
     try { throwIfStopped(); } catch (error) { return Promise.reject(error); }
     return new Promise<T>((resolve, reject) => {
@@ -116,8 +144,15 @@ export async function runWithPolicy(source: Task, options: RunOptions): Promise<
   let browser: BrowserSession | undefined;
   let unsubscribe: (() => void) | undefined;
   let active = true;
-  // Speech has no reliable completion/causal signal. Taint persists after input for late echoes.
+  /**
+   * Set while a secret is being typed: everything recorded then (keystroke payloads, the character echo, page diagnostics) is withheld,
+   * because those echoes cannot be matched as whole values. The trace masks the secret's whole value everywhere on its own, so with the
+   * simulation, whose speech is exact text, the record opens again once the typing step's speech has been taken. A real screen reader
+   * can echo late and in its own words, so there it stays withheld for the rest of the run.
+   */
   let inputTainted = false;
+  /** A secret has been typed: screenshots from then on hide form fields, and are left out when the page shows the secret. */
+  let secretTyped = false;
   let outcome: RunOutcome = { status: 'inconclusive', reason: 'maxSteps' };
   let steps = 0;
   const history: HistoryEntry[] = [];
@@ -166,7 +201,7 @@ export async function runWithPolicy(source: Task, options: RunOptions): Promise<
     // A launch that completes after the deadline still owns resources and must close them.
     stage = 'browser-start';
     browser = await withinBudget(async () => {
-      const opened = await (options.browserSessionFactory ?? createBrowserSession)(task.url, { headless: options.personCheck ? false : options.headless ?? false, ...(options.personCheck ? { personCheck: true, ...(options.personCheck.userDataDir && !options.browserEndpoint ? { userDataDir: options.personCheck.userDataDir } : {}) } : {}), executablePath: options.browserExecutablePath, ...(options.browserEndpoint ? { cdpEndpoint: options.browserEndpoint } : {}), proxyServer: options.proxyServer, ...(options.observe !== undefined ? { observe: options.observe } : {}), navigation: task.navigation, verify: task.verify, profile: task.profile });
+      const opened = await (options.browserSessionFactory ?? createBrowserSession)(task.url, { headless: options.personCheck ? false : options.headless ?? false, ...(options.personCheck ? { personCheck: true, ...(options.personCheck.userDataDir && !options.browserEndpoint ? { userDataDir: options.personCheck.userDataDir } : {}) } : {}), executablePath: options.browserExecutablePath, ...(options.browserEndpoint ? { cdpEndpoint: options.browserEndpoint, ...(options.copySignIn ? { copySignIn: true } : {}) } : {}), proxyServer: options.proxyServer, ...(options.observe !== undefined ? { observe: options.observe } : {}), navigation: task.navigation, verify: task.verify, profile: task.profile });
       if (controller.signal.aborted) { await opened.close(); throw controller.signal.reason; }
       // A page opened bare for a human check gets its guards and the backend only after the check is passed.
       if (!opened.armGuards) try { await options.backend.attachSession?.(opened); } catch (error) { await opened.close(); throw error; }
@@ -181,8 +216,18 @@ export async function runWithPolicy(source: Task, options: RunOptions): Promise<
      * waiting is recorded and added back to the time budget. On a page opened bare, the guards and the backend are attached only
      * now, and a site that shows its check again once they are attached rejects this browser.
      */
+    const checkedPages = new Set<string>();
     const waitForPerson = async (step: number) => {
-      if (!options.personCheck) return;
+      if (!options.personCheck) {
+        // Without a person to pass it, a check that comes up mid-run ends the run as blocked. The start page was checked when the
+        // browser opened; a check comes with a page of its own, so only a page the run has not been on yet is looked at.
+        const at = typeof browser!.page.url === 'function' ? browser!.page.url() : undefined;
+        if (step === 0 || !at || checkedPages.has(at)) { if (at) checkedPages.add(at); return; }
+        checkedPages.add(at);
+        if (await withinBudget(() => isBotCheckPage(browser!.page)).catch(error => { if (controller.signal.aborted || evidenceFailure || error instanceof BudgetExceeded) throw error; return false; }))
+          throw new BrowserAccessBlockedError(at, undefined, `The site showed a bot check after step ${step}. ${BLOCKED_NEXT}`);
+        return;
+      }
       const bare = !!browser!.armGuards;
       let waited = false;
       if (await withinBudget(() => isBotCheckPage(browser!.page))) {
@@ -281,10 +326,12 @@ export async function runWithPolicy(source: Task, options: RunOptions): Promise<
       const pageTitle = typeof browser?.page.title === 'function' ? (await browser.page.title().catch(() => undefined))?.trim() : undefined;
       if (pageTitle && collected.speech.some(line => line.includes(pageTitle))) heardTitles.add(pageTitle);
       const title = pageTitle && heardTitles.has(pageTitle) ? pageTitle : undefined;
+      // The simulation marks what a live region said; a real screen reader's output does not say.
+      const announcements = collected.outputs.filter(output => (output.raw as { announcement?: unknown } | undefined)?.announcement === 'live-region').map(output => output.text);
       const observation: Observation = { kind: 'screenreader', ...(options.backend.evidenceProvenance ? { provenance: options.backend.evidenceProvenance } : {}), speech: [...collected.speech], outputEventIds: ids, window: { id: collected.windowId, startedAt: collected.startedAt, endedAt: collected.endedAt, reason: collected.reason },
-        ...(title ? { title: title.slice(0, 300) } : {}) };
+        ...(title ? { title: title.slice(0, 300) } : {}), ...(announcements.length ? { announcements } : {}) };
       // Where the cursor sat is for people reading the run: it goes into the trace, never into the observation a policy gets.
-      append(`${speechSource}.observation`, { ...observation, ...(inputTainted ? { speech: ['[REDACTED]'], ...(title ? { title: '[REDACTED]' } : {}) } : collected.cursor ? { cursor: collected.cursor } : {}), association: 'temporal-only', speechCompletionKnown: false }, { source: speechSource, redacted: inputTainted, collectionWindow: { startedAt: collected.startedAt, endedAt: collected.endedAt } });
+      append(`${speechSource}.observation`, { ...observation, ...(inputTainted ? { speech: ['[REDACTED]'], ...(title ? { title: '[REDACTED]' } : {}), ...(announcements.length ? { announcements: ['[REDACTED]'] } : {}) } : collected.cursor ? { cursor: collected.cursor } : {}), association: 'temporal-only', speechCompletionKnown: false }, { source: speechSource, redacted: inputTainted, collectionWindow: { startedAt: collected.startedAt, endedAt: collected.endedAt } });
       return observation;
     };
     let observation = await observe();
@@ -292,11 +339,20 @@ export async function runWithPolicy(source: Task, options: RunOptions): Promise<
     /** A screenshot for people only (`policyVisible: false`), never after text entry. Step 0 is the page before the first action. */
     const diagnosticScreenshot = async (step: number) => {
       if (!options.diagnosticScreenshots) return;
-      if (inputTainted) { append('browser.screenshot-redacted', { step, policyVisible: false, reason: 'Diagnostic screenshot omitted after text entry.' }, { source: 'browser-diagnostic', redacted: true }); return; }
+      const omitted = (reason: string) => append('browser.screenshot-redacted', { step, policyVisible: false, reason }, { source: 'browser-diagnostic', redacted: true });
+      if (inputTainted) { omitted('Diagnostic screenshot omitted while a secret was being typed.'); return; }
+      // The page's text is compared here, not in the page, so the secret never reaches page scripts.
+      if (secretTyped && await secretOnScreen()) { omitted('Diagnostic screenshot omitted: the page shows a typed secret.'); return; }
       await mkdir(join(options.outDir, 'diagnostics'), { recursive: true });
       const path = join(options.outDir, 'diagnostics', `step-${step}.png`);
-      await withinBudget(() => browser!.page.screenshot({ path }));
+      const fields = secretTyped && typeof browser!.page.locator === 'function' ? { mask: [browser!.page.locator('input, textarea, select, [contenteditable]:not([contenteditable="false"])')] } : {};
+      await withinBudget(() => browser!.page.screenshot({ path, ...fields }));
       append('browser.screenshot', { step, path: `diagnostics/step-${step}.png`, policyVisible: false }, { source: 'browser-diagnostic' });
+    };
+    const secretOnScreen = async (): Promise<boolean> => {
+      if (!secretValues.length) return false;
+      const text = await withinBudget(() => browser!.page.evaluate(() => document.body?.innerText ?? '')).catch(error => { if (controller.signal.aborted || evidenceFailure || error instanceof BudgetExceeded) throw error; return undefined; });
+      return typeof text !== 'string' || secretValues.some(value => text.includes(value));
     };
     /** The whole start page, to show where on it runs got stuck. Very long pages are cut at START_PAGE_MAX_HEIGHT. */
     const startPageScreenshot = async () => {
@@ -342,7 +398,8 @@ export async function runWithPolicy(source: Task, options: RunOptions): Promise<
     for (let step = 1; step <= task.maxSteps!; step++) {
       activeStep = step;
       stage = 'policy';
-      const decision = await withinBudget(() => options.policy.decide({ goal: task.goal, ...(task.context ? { context: task.context } : {}), observation: structuredClone(policyView(observation)), history: structuredClone(history.map(entry => ({ ...entry, observation: policyView(entry.observation) }))), allowedActions: structuredClone(allowedActions), inputs: inputDescriptors, signal: controller.signal }));
+      const onPlannerCall = ({ trigger }: { trigger: string }) => bestEffortEvidence(() => append('policy.planner-call', { step, trigger: /^[a-z-]{1,40}$/.test(trigger) ? trigger : 'other' }, { source: 'policy' }));
+      const decision = await outsideBudget(() => options.policy.decide({ goal: task.goal, ...(task.context ? { context: task.context } : {}), observation: structuredClone(policyView(observation)), history: structuredClone(history.map(entry => ({ ...entry, observation: policyView(entry.observation) }))), allowedActions: structuredClone(allowedActions), inputs: inputDescriptors, signal: controller.signal, onPlannerCall }));
       for (const evidence of options.policy.takeDecisionEvidence?.() ?? []) {
         append('policy.evidence', inputTainted ? { step, details: '[REDACTED]', reason: 'Model evidence omitted after text entry.', summary: evidenceSummary(evidence) } : { step, evidence }, { source: 'policy', redacted: inputTainted });
       }
@@ -374,8 +431,10 @@ export async function runWithPolicy(source: Task, options: RunOptions): Promise<
           if (!editable) throw new NotEditableError();
           // Only a secret's echo has to be hidden; typing a value marked not sensitive (a search term) keeps the record readable.
           if (!options.includeSensitiveInputValues && inputDescriptors[action.input]!.sensitive) {
-            inputTainted = true;
-            append('privacy.input-taint', { step, reason: 'Subsequent protocol payloads, speech and diagnostic screenshots are redacted because late input echoes cannot be attributed reliably.' }, { redacted: true });
+            inputTainted = secretTyped = true;
+            append('privacy.input-taint', { step, until: simulation ? 'end-of-step' : 'end-of-run', reason: simulation
+              ? 'The typing step\'s protocol payloads, speech and diagnostics are withheld; afterwards only the value is masked.'
+              : 'A real screen reader can echo input late and in its own words, so payloads, speech and diagnostics are withheld from here on.' }, { redacted: true });
           }
           await withinBudget(() => options.backend.execute({ kind: action.kind, text: task.input![action.input]!, sensitive: inputDescriptors[action.input]!.sensitive }, { signal: controller.signal }));
         } else await withinBudget(() => options.backend.execute(action, { signal: controller.signal }));
@@ -399,7 +458,9 @@ export async function runWithPolicy(source: Task, options: RunOptions): Promise<
       for (const blocked of browser.takeBlockedNavigations()) recordBrowserDiagnostic('browser.navigation-blocked', blocked);
       for (const warning of browser.takeNavigationGuardWarnings()) recordBrowserDiagnostic('browser.navigation-warning', warning);
       await diagnosticScreenshot(step);
-      if ((await verify(step)).passed) {
+      const verification = await verify(step);
+      if (inputTainted && simulation) { inputTainted = false; append('privacy.input-taint-ended', { step }, { source: 'runner' }); }
+      if (verification.passed) {
         // Reached: stop unless the user could not have heard it, then give them a few actions to notice (or not).
         if (reached === undefined) {
           const heard = confirmationHeard(task, observation);

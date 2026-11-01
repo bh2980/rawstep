@@ -9,10 +9,11 @@ import { readTrace } from '@rawstep/core/trace';
 import { findRawstepError } from '@rawstep/core/errors';
 import { analyzeSavedTrace, readAnalysis } from '@rawstep/reports/analyze';
 import { writeReport } from '@rawstep/reports/report';
-import { HINTS_SCHEMA_VERSION, writeHints, type HintFinding, type HintReport } from '@rawstep/reports/hints';
+import { HINTS_SCHEMA_VERSION, writeHints, type Hint, type HintComparison, type HintFinding, type HintReport } from '@rawstep/reports/hints';
 import { isStuck, isWrongGuess, runEnding, type RunEnding, type UnmeasuredBy } from '@rawstep/reports/endings';
 import { ProjectError } from '@rawstep/project/errors';
-import { agentOf, atEndpointOf, CONFIG_FILE, credentialRequirements, isFilePlanner, PROVIDERS, type ProviderId } from '@rawstep/project/config';
+import { agentOf, atEndpointOf, CONFIG_FILE, credentialId, credentialRequirements, isFilePlanner, modelKeyEnvNames, modelKeyRequired, PROVIDERS, type ProviderId } from '@rawstep/project/config';
+import { inspectModel, type ModelInspection } from '@rawstep/project/checks';
 import { ProjectStore, findAgentCli, initProject } from '@rawstep/project/store';
 import { projectAnalyzer, runTask, type RunTaskResult } from '@rawstep/project/run';
 import { CLI_USAGE, CliUsageError, parseCliArguments, parseRunRules, type CliArguments } from './args.js';
@@ -30,6 +31,8 @@ export interface CliDependencies {
   /** Test seam: whether a coding-agent CLI is installed and signed in. */
   /** Starts a coding-agent CLI over ACP and reads its models; rejects when it is missing or needs a sign-in. */
   checkAgent?: (connection: { provider: string }) => Promise<unknown>;
+  /** Test seam: asks the provider whether a key works and a model is listed (the model list request); defaults to the real one. */
+  checkModel?: (model: { provider: ProviderId; baseURL?: string; modelId?: string }, apiKey: string) => Promise<ModelInspection>;
   /** Test seam: the coding-agent CLI `init` finds on PATH. */
   findAgent?: () => Promise<ProviderId | undefined>;
   cwd?: string;
@@ -77,9 +80,8 @@ export async function runCli(argv: string[] = process.argv.slice(2), dependencie
       case 'doctor': return await doctor(projectDir, dependencies, stdout);
       case 'hints': {
         const input = resolve(cwd, args.positionals[0]!);
-        const { path, report } = await writeHints(input, args.options.reference ? { reference: resolve(cwd, String(args.options.reference)) } : {});
-        stdout(`Hints: ${report.hints.length} · goal reached: ${report.goalReached ? 'yes' : 'no'} · steps ${report.steps}${report.reference ? ` · reference ${report.reference.steps} steps` : ''}\n`
-          + report.hints.map(hint => `step ${hint.steps.join(',')} · ${hint.kind} · ${hint.certainty} · ${hint.summary}\n`).join('') + `Wrote ${path}\n`);
+        const { path, report, comparison } = await writeHints(input, args.options.reference ? { reference: resolve(cwd, String(args.options.reference)) } : {});
+        stdout(hintsText(report, comparison) + `Wrote ${path}\n`);
         return 0;
       }
       case 'analyze': {
@@ -149,12 +151,20 @@ async function run(args: CliArguments, projectDir: string, cwd: string, dependen
     throw error;
   }
   stdout(options.json ? JSON.stringify(result, null, 2) + '\n' : formatRunResult(result));
-  // Any outcome is a result, but a run that broke says nothing: a script must not read it as one.
-  return result.runs.some(run => endedOnError(run.outcome)) ? 1 : 0;
+  return exitCodeOf(result);
+}
+/**
+ * 0: every run gave a measurement (reached the goal, gave up, or said it was done when it was not). 1: a run broke (setup or infrastructure),
+ * which says nothing about the page and must not be read as a result. 3: no run broke, but at least one was not measured (a limit, a
+ * block, a model that was unsure). 2 stays usage errors only.
+ */
+function exitCodeOf(result: RunTaskResult): 0 | 1 | 3 {
+  if (result.runs.some(run => endedOnError(run.outcome))) return 1;
+  return result.runs.some(run => !run.outcome || runEnding(run.outcome, stopOf(run.outcome))?.ending === 'unmeasured') ? 3 : 0;
 }
 
 const ENDING_TEXT: Record<RunEnding, string> = { reached: 'reached the goal', 'gave-up': 'gave up', mistaken: 'said it was done, but the goal was not reached', unmeasured: 'not measured' };
-const BY_TEXT: Record<UnmeasuredBy, string> = { 'planner-calls': 'planner-call limit', 'no-allowed-action': "the profile allows no action the plan's task needs", 'max-steps': 'max steps', timeout: 'time limit', 'repetition-guard': 'repetition guard', 'model-uncertain': 'the model was unsure', other: 'stopped early' };
+const BY_TEXT: Record<UnmeasuredBy, string> = { 'planner-calls': 'planner-call limit', 'no-allowed-action': "the profile allows no action the plan's task needs", 'max-steps': 'max steps', timeout: 'time limit', 'repetition-guard': 'repetition guard', 'model-uncertain': 'the model was unsure', 'planner-timeout': 'the planner did not answer in time', blocked: 'the site blocked the browser (a bot check or an access error)', environment: 'this computer could not apply the page environment', other: 'stopped early' };
 /** "gave up", "not measured (max steps)": how a run ended, in the terms of the question Rawstep answers. */
 export function endingText(outcome: RunTaskResult['runs'][number]['outcome']): string {
   if (!outcome) return 'no outcome recorded';
@@ -167,6 +177,23 @@ export function endingText(outcome: RunTaskResult['runs'][number]['outcome']): s
 const endedOnError = (outcome: RunTaskResult['runs'][number]['outcome']) => outcome?.reason === 'error' || outcome?.reason === 'trace-persistence-error';
 /** Who stopped a run that stopped itself, as the trace recorded it. */
 const stopOf = (outcome: Record<string, unknown>) => typeof outcome.policyStopSource === 'string' ? outcome.policyStopSource : undefined;
+/** One line per hint: where, what, how sure, and how many times when the same thing repeated. */
+const hintLine = (hint: Hint, prefix = 'step') => `${hint.steps.length ? `${prefix} ${hint.steps.join(',')}` : 'whole run'} · ${hint.kind}${hint.count ? ` ×${hint.count}` : ''} · ${hint.certainty} · ${hint.summary}\n`;
+const timesOf = (hints: Hint[]) => hints.reduce((total, hint) => total + (hint.count ?? 1), 0);
+/** The `hints` command's output. With a reference run: a count of what is new, gone and in both, then those groups, in plain terms. */
+function hintsText(report: HintReport, comparison?: HintComparison): string {
+  const lines = [`Hints: ${report.hints.length} · goal reached: ${report.goalReached ? 'yes' : 'no'} · steps ${report.steps}${report.reference ? ` · reference ${report.reference.steps} steps` : ''}\n`];
+  if (!comparison) lines.push(...report.hints.map(hint => hintLine(hint)));
+  else {
+    lines.push(`Against the reference run: ${comparison.new.length} new, ${comparison.gone.length} gone, ${comparison.both.length} in both\n`);
+    lines.push(...report.hints.filter(hint => hint.kind === 'slow-run').map(hint => hintLine(hint)));
+    if (comparison.new.length) lines.push('New in this run:\n', ...comparison.new.map(hint => `  ${hintLine(hint)}`));
+    if (comparison.gone.length) lines.push('Only in the reference run:\n', ...comparison.gone.map(hint => `  ${hintLine(hint, 'reference step')}`));
+    if (comparison.both.length) lines.push('In both:\n', ...comparison.both.map(({ current, reference }) => `  ${hintLine(current[0]!)}    this run ×${timesOf(current)}, reference ×${timesOf(reference)}\n`));
+  }
+  if (report.hints.length || comparison?.gone.length) lines.push('observed: recorded directly · suspected: inferred from indirect signals, may be wrong\n');
+  return lines.join('');
+}
 const elementText = (target: HintFinding['target']) => target ? `${target.role}${target.name ? ` "${target.name}"` : ''}` : '(no element)';
 const median = (values: number[]) => { const s = [...values].sort((a, b) => a - b), m = s.length >> 1; return s.length % 2 ? s[m]! : (s[m - 1]! + s[m]!) / 2; };
 /** Hints shown in their own lines of a run's block rather than as summaries. */
@@ -253,6 +280,24 @@ export function nodeSupported(version: string): boolean {
   return major > 22 || (major === 22 && minor >= 12);
 }
 
+/** What the model list check found, as the words of a doctor line: whether it counts as ok, and what to say. */
+function keyCheckText(inspection: ModelInspection, env: string, label: string, provider: ProviderId, modelId: string | undefined, seconds: string): [boolean, string] {
+  const { check, cause } = inspection, model = modelId ? `model ${modelId}` : 'its models';
+  switch (check.kind) {
+    case 'ready': return [true, `${env} works${modelId ? ` · model ${modelId} listed` : ''} (${seconds})`];
+    case 'unverified': return [true, `${env} was accepted · ${label} has no model list, so ${model} could not be checked (${seconds})`];
+    case 'rejected': {
+      const status = cause?.httpStatus;
+      return [false, status === 401 || status === 403 ? `${env} was refused by ${label} (HTTP ${status}): the key is wrong, expired or not allowed to list models` : `${label} answered HTTP ${status ?? 'with an error'} when asked for its model list, so ${env} could not be checked`];
+    }
+    case 'model-not-listed': return [false, `${env} works, but ${label} does not list ${model}. Check the model ID${provider === 'openrouter' ? ' (OpenRouter ids look like vendor/model, free ones end in :free)' : ''}`];
+    case 'unreachable': return [false, cause?.code === 'model-timeout' ? `${label} did not answer the model list request in time (${seconds}), so ${env} could not be checked. Try again, or check the network` : `cannot reach ${label}, so ${env} could not be checked. Check the network connection${provider === 'custom' ? ' and the server address' : ''}`];
+    case 'invalid-address': return [false, cause?.message ?? 'the server address is not valid'];
+    case 'missing-key': return [false, `${env} is empty`];
+    default: return [false, `${env} could not be checked: ${cause?.message ?? 'the model list request failed'}`];
+  }
+}
+
 async function doctor(projectDir: string, dependencies: CliDependencies, stdout: (text: string) => void): Promise<number> {
   let failed = false;
   // `warn`: nothing is broken, but something is missing before a run can go (no planner, no task).
@@ -265,6 +310,11 @@ async function doctor(projectDir: string, dependencies: CliDependencies, stdout:
     const c = read.config;
     report(true, 'Config', `${store.path} (${c.connections.length} connections, ${c.tasks.length} tasks, ${c.profiles.length} run profiles)`);
     if (!c.tasks.length) report('warn', 'Tasks', 'none yet. Add one with `npx rawstep ui`, or run `npx rawstep init` in an empty folder for a demo task');
+    // Each task is checked on its own: a broken one is reported and the checks after it still run.
+    for (const task of c.tasks) {
+      try { await store.task(task.file); report(true, `Task ${task.id}`, `${task.file} is a valid task`); }
+      catch (error) { report(false, `Task ${task.id}`, errorDetails(error)); }
+    }
     for (const profile of c.profiles) {
       const planner = profile.planner, connection = planner && !isFilePlanner(planner) ? c.connections.find(x => x.id === planner.connectionId) : undefined;
       if (!planner) report('warn', `Profile ${profile.name}`, 'no planner yet, so it cannot run. Pick a model in `npx rawstep ui` (Settings > Run profiles)');
@@ -272,8 +322,12 @@ async function doctor(projectDir: string, dependencies: CliDependencies, stdout:
         const fixed = !planner.planFile.includes('{task}');
         const exists = fixed ? await stat(resolve(projectDir, planner.planFile)).then(() => true, () => false) : undefined;
         report(exists === false ? false : true, `Profile ${profile.name}`, exists === false ? `its plan file ${planner.planFile} is missing` : `follows the plan file ${planner.planFile} (no model)`);
-      } else report(true, `Profile ${profile.name}`, `plans with ${connection?.name ?? planner.connectionId} · ${planner.modelId}`);
+      } else if (!connection) report(false, `Profile ${profile.name}`, `cannot run: it plans with the connection "${planner.connectionId}", which does not exist`);
+      else if (modelKeyRequired(connection) && !await store.credentialSource(connection)) report(false, `Profile ${profile.name}`, `cannot run: it plans with ${connection.name} · ${planner.modelId}, but the key ${modelKeyEnvNames(connection).join(' or ')} is not set`);
+      else report(true, `Profile ${profile.name}`, `plans with ${connection.name} · ${planner.modelId}`);
     }
+    // headless is on by default, so this is information, not a warning.
+    if (c.machine.browserEndpoint.trim() || c.machine.personCheck) report(true, 'Browser window', c.machine.browserEndpoint.trim() ? 'runs use the Chrome you started, so machine.headless does not apply' : 'machine.personCheck opens a visible Chrome window, so machine.headless does not apply');
   } catch (error) { report(false, 'Config', errorDetails(error)); }
   const executablePath = read?.config.machine.browserExecutablePath || undefined, cdpEndpoint = read?.config.machine.browserEndpoint.trim() || undefined;
   try {
@@ -282,24 +336,40 @@ async function doctor(projectDir: string, dependencies: CliDependencies, stdout:
   } catch (error) {
     const connect = findRawstepError(error, e => e instanceof BrowserConnectError);
     if (connect) report(false, 'Browser', `${connect.message} The address comes from machine.browserEndpoint in the config.`);
-    else report(false, 'Browser', `${errorDetails(error)}. ${cdpEndpoint ? 'Start Chrome with `--remote-debugging-port=9222 --user-data-dir=<separate folder>` and check machine.browserEndpoint in the config.' : 'Install one with `npx playwright install chromium` or set machine.browserExecutablePath in the config.'}`);
+    else report(false, 'Browser', `${errorDetails(error).replace(/[.\s]+$/, '')}. ${cdpEndpoint ? 'Start Chrome with `--remote-debugging-port=9222 --user-data-dir=<separate folder>` and check machine.browserEndpoint in the config.' : 'Install one with `npx playwright install chromium` or set machine.browserExecutablePath in the config.'}`);
   }
   if (read) {
-    for (const key of credentialRequirements(read.config)) {
+    const config = read.config;
+    // The models each key is used for: a key is checked against the models a profile, the analysis or the suggestions name on it.
+    const choices = [...config.profiles.flatMap(profile => profile.planner && !isFilePlanner(profile.planner) ? [profile.planner] : []), ...[config.project.analysis.model, config.project.suggestions.model].flatMap(choice => choice ? [choice] : [])];
+    const modelsOf = (id: string) => [...new Set(choices.filter(choice => { const connection = config.connections.find(x => x.id === choice.connectionId); return connection && credentialId(connection) === id; }).map(choice => choice.modelId))];
+    for (const key of credentialRequirements(config)) {
       const label = `Key ${key.label}`;
       if (agentOf(key.connection)) {
         try {
           await (dependencies.checkAgent ?? (connection => discover({ provider: connection.provider as never })))({ provider: key.connection.provider });
           report(true, key.label, 'starts and lists its models (its own sign-in pays for calls)');
         } catch (error) {
-          const code = error instanceof ProjectError ? error.code : '';
-          report(false, key.label, code === 'agent-missing' ? 'not found on this computer. Install it first' : code === 'agent-signed-out' ? 'needs a sign-in. Sign in from the dashboard connection check' : 'could not be started');
+          // Discovery words these itself: not installed, started but silent, or needs a sign-in with the agent's own CLI.
+          report(false, key.label, error instanceof ProjectError ? error.message : `could not be started: ${errorDetails(error)}`);
         }
         continue;
       }
       if (!key.env) { report(!key.required, label, key.required ? 'no environment variable is named for it' : 'no API key needed'); continue; }
-      const present = !!await store.credential(key.connection);
-      report(present || !key.required, label, present ? `${key.env} is set` : key.required ? `${key.env} is missing. Add ${key.env}=... to .env.local or export it` : `${key.env} is not set (optional for this server)`);
+      const source = await store.credentialSource(key.connection), names = modelKeyEnvNames(key.connection);
+      if (!source) {
+        report(!key.required, label, key.required ? `${key.env} is missing. Add ${key.env}=... to .env.local or export it${names.length > 1 ? ` (${names.slice(1).join(' or ')} also works)` : ''}` : `${key.env} is not set (optional for this server)`);
+        continue;
+      }
+      // Present is not valid: ask the provider's model list, which costs nothing, once for each model the key is used for.
+      for (const modelId of modelsOf(key.id).length ? modelsOf(key.id) : [undefined]) {
+        const started = Date.now();
+        try {
+          const inspection = await (dependencies.checkModel ?? ((model, apiKey) => inspectModel(model, apiKey)))({ provider: key.connection.provider, ...(key.connection.baseURL ? { baseURL: key.connection.baseURL } : {}), ...(modelId ? { modelId } : {}) }, source.value);
+          const [ok, detail] = keyCheckText(inspection, source.env, key.label, key.connection.provider, modelId, `${((Date.now() - started) / 1000).toFixed(1)} s`);
+          report(ok, label, detail);
+        } catch (error) { report(false, label, `${source.env} could not be checked: ${errorDetails(error)}`); }
+      }
     }
     const natives = [...new Set(read.config.profiles.map(p => p.screenReader).filter(b => b !== 'simulation'))];
     if (!natives.length) report(undefined, 'Screen reader', 'only the simulation is configured; no native screen reader to check');

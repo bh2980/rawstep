@@ -4,14 +4,14 @@ import { useTranslation } from 'react-i18next';
 import type { ModelCall, PlanDocument, PlanTask, RunPlanView, StepView } from '../../../shared/api';
 import { t as translate } from '../../i18n';
 import { describeStep } from '../../lib/describe';
-import { endingLabel, plannerWait, placedTasks, replanCount, speechChanged, taskName, taskSteps, triggerLabel, type PlacedTask } from '../../lib/plan';
+import { endingLabel, hitMoveLimit, plannerWait, placedTasks, replanCount, speechChanged, taskName, taskSteps, triggerLabel, type PlacedTask } from '../../lib/plan';
 import { FactLine } from './FactLine';
 import { cn } from '../../lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 
 type Props = {
   plan: RunPlanView; steps: StepView[];
-  /** Actions one task may take before Rawstep asks for a new plan (the run's rules). */
+  /** Moves on one task without hearing anything new before Rawstep asks for a new plan (the run's rules). */
   actionLimit: number;
   /** The step shown below the plan; picking an action here selects it. */
   selectedStep: number | undefined; onSelectStep: (step: number) => void;
@@ -175,7 +175,7 @@ function History({ doc }: { doc: PlanDocument }) {
   </details>;
 }
 
-/** The picked task: its cue, state, actions against the limit, the actions it took and the planner calls of the picked action. */
+/** The picked task: its cue, state, moves (and whether the move limit cut it short), the actions it took and the planner calls of the picked action. */
 function TaskPane({ plan, doc, task, steps, actionLimit, selectedStep, onSelectStep }: Omit<Props, 'live'> & { doc: PlanDocument; task: PlacedTask }) {
   const { t } = useTranslation();
   const mine = taskSteps(plan, task.id, steps);
@@ -188,7 +188,7 @@ function TaskPane({ plan, doc, task, steps, actionLimit, selectedStep, onSelectS
       <h3 className="text-lg leading-7 font-semibold"><span className="mr-2 font-mono text-sm text-muted-foreground">{task.number}</span>{task.goal || '—'}</h3>
       <p className="flex flex-wrap items-center gap-x-2 text-sm leading-6">
         <TaskMark status={task.status} /><span>{t(`planDoc.status.${task.status}`)}</span>
-        <span className="text-muted-foreground">· {t('planDoc.actionsOfLimit', { n: task.actions, limit: actionLimit, count: actionLimit })}</span>
+        <span className="text-muted-foreground">· {t('planDoc.moves', { count: task.actions })}{hitMoveLimit(plan, task.id) && ` · ${t('planDoc.limitHit', { limit: actionLimit })}`}</span>
         <span className="text-muted-foreground">· {t('planDoc.addedVersion', { version: task.addedIn })}</span>
         {verified && <span className="text-muted-foreground">· {t(`planDoc.verified.${verified}`)}</span>}
       </p>

@@ -119,6 +119,9 @@ export function RunHeader({ runRef, numbers, view, pageProps, navigate }: Props)
         <span className="text-muted-foreground">{t('runHeader.liveCurrent')}</span>
         {newest ? <span className="font-mono break-words">{liveCurrentLine(newest)}</span> : <span className="text-muted-foreground">{t('runHeader.liveWaiting')}</span>}
       </p>}
+      {run.state === 'running' && view?.plannerWaiting && <p className="text-sm text-muted-foreground">
+        {t('runHeader.plannerThinking', { seconds: Math.max(0, Math.round((now - Date.parse(view.plannerWaiting.since)) / 1000)) })}
+      </p>}
     </div>}
     <FactLine className="text-[13px] text-muted-foreground" items={[
       !live && steps !== undefined && t('runHeader.factSteps', { steps, count: steps }),

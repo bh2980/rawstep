@@ -34,6 +34,11 @@
       "import": "./dist/discover.js",
       "default": "./dist/discover.js"
     },
+    "./checks": {
+      "types": "./dist/checks.d.ts",
+      "import": "./dist/checks.js",
+      "default": "./dist/checks.js"
+    },
     "./llm": {
       "types": "./dist/llm.d.ts",
       "import": "./dist/llm.js",

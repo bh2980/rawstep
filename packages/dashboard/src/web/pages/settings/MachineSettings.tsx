@@ -16,6 +16,8 @@ import type { PageProps } from '../types';
 
 /** What a check ended in, as the row shows it: nothing yet, running, ready, or not working with a kind of reason. */
 type Status = { kind: 'unchecked' } | { kind: 'running' } | { kind: 'ready'; text: string; note?: string } | { kind: 'failed'; reason: string };
+/** How to start a Chrome Rawstep can connect to; a literal command, so it is not translated. */
+const CHROME_CDP_COMMAND = 'chrome --remote-debugging-port=9222 --user-data-dir=<folder>';
 const NATIVE = ['voiceover', 'nvda'] as const;
 type Native = (typeof NATIVE)[number];
 
@@ -59,7 +61,8 @@ export function MachineSettings({ onDirty, ...props }: PageProps & { onDirty: (d
   const dirty = !sameValue(machine, config.machine) || command.trim() !== savedCommand;
   useEffect(() => { onDirty(dirty); }, [dirty]);
   const updateMachine = (part: Partial<Machine>) => {
-    setMachine({ ...machine, ...part });
+    // Copying the sign-in only means something with a connected Chrome; clearing the address turns it off so the config stays valid.
+    setMachine({ ...machine, ...part, ...('browserEndpoint' in part && !part.browserEndpoint?.trim() ? { copySignIn: false } : {}) });
     if ('browserExecutablePath' in part || 'browserEndpoint' in part) setBrowser({ kind: 'unchecked' });
     if ('atEndpoints' in part) setDrivers({ voiceover: { kind: 'unchecked' }, nvda: { kind: 'unchecked' } });
   };
@@ -95,7 +98,12 @@ export function MachineSettings({ onDirty, ...props }: PageProps & { onDirty: (d
       <StatusRow label={t('machine.env.browser')} status={browser} busy={props.busy} onCheck={() => void checkBrowser()}>
         {browser.kind === 'unchecked' && <p className="text-xs leading-5 text-muted-foreground">{t(connected ? 'machine.env.browserConnectedHint' : 'machine.env.browserHint')}</p>}
       </StatusRow>
-      <Field label={t('machine.browserEndpoint')} value={machine.browserEndpoint} onChange={browserEndpoint => updateMachine({ browserEndpoint })} placeholder="http://localhost:9222" info={t('machine.browserEndpointHint')} />
+      <div className="grid gap-1.5">
+        <Field label={t('machine.browserEndpoint')} value={machine.browserEndpoint} onChange={browserEndpoint => updateMachine({ browserEndpoint })} placeholder="http://localhost:9222" info={t('machine.browserEndpointHint')} hint={t('machine.browserEndpointLaunch')} />
+        <code className="block overflow-x-auto rounded-md border border-edge bg-raised px-2.5 py-1.5 font-mono text-xs leading-5">{CHROME_CDP_COMMAND}</code>
+        <p className="text-xs leading-5 text-muted-foreground">{t(machine.copySignIn ? 'machine.browserEndpointCopied' : 'machine.browserEndpointFresh')}</p>
+      </div>
+      <Toggle label={t('machine.copySignIn')} info={t('machine.copySignInHint')} checked={connected && machine.copySignIn} disabled={!connected} onChange={copySignIn => updateMachine({ copySignIn })} />
       <Field label={t('machine.browserPath')} value={machine.browserExecutablePath} onChange={browserExecutablePath => updateMachine({ browserExecutablePath })} placeholder={t('machine.browserPathPlaceholder')} info={t('machine.browserPathHint')} disabled={connected} />
       <Toggle label={t('machine.showBrowser')} info={t('machine.showBrowserHint')} checked={visible} disabled={machine.personCheck || connected} onChange={show => updateMachine({ headless: !show })} />
       <Toggle label={t('machine.personCheck')} info={t('machine.personCheckHint')} checked={machine.personCheck} onChange={personCheck => updateMachine({ personCheck })} />

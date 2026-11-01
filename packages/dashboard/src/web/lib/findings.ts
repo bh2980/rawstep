@@ -32,6 +32,7 @@ export function describeFinding(finding: Pick<HintFinding, 'kind' | 'counts' | '
       return detail.indicator === 'not-detected' ? t('findings.focusNoIndicator') : undefined;
     case 'modal-focus-outside': return isRecord(detail.dialog) ? t('findings.dialogFocusNotMoved') : t('findings.modalFocusOutside');
     case 'missing-announcement': return t('findings.missingAnnouncement');
+    case 'live-interruptions': return t('findings.liveInterruptions');
     case 'backtracking': {
       const reversals = numbers(finding, 'reversals');
       return reversals.length ? t('findings.backtracking', { max: Math.max(...reversals) }) : t('findings.backtrackingPlain');

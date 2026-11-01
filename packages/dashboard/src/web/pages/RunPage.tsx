@@ -55,8 +55,8 @@ export function RunPage({ runRef, runs, route, pageProps, navigate }: Props) {
       <p className="text-[15px] leading-6 font-semibold">{t('runPage.waitingForPerson')}</p>
       <p className="text-[13px] leading-5">{t('runPage.waitingForPersonNote')}</p>
     </section>}
-    {view?.plan && <PlanFacts plan={view.plan} />}
     {view && !live && <RunDiagnosis run={run} steps={view.steps} notices={view.notices} plan={view.plan} onSelect={select} />}
+    {view?.plan && <PlanFacts plan={view.plan} />}
     {view?.plan && <PlanDocumentView plan={view.plan} steps={view.steps} actionLimit={run.snapshot.spec.settings.runRules.stepActionLimit} selectedStep={selected} onSelectStep={select} live={live} />}
     <section aria-label={t('runPage.timelineSection')} className="grid gap-2">
       {loading && !view && <div aria-busy="true" className="flex gap-3 p-1.5">{Array.from({ length: 9 }, (_, i) => <Skeleton key={i} className="h-9 w-9 shrink-0" />)}</div>}

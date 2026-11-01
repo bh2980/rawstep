@@ -238,3 +238,6 @@
 /* A row with a divider directly under it: the band also covers that 1px rule, so it is exactly as tall as the row and its rule. */
 .row-rail.rail-divider::before { bottom: -1px; }
 .row-rail[data-selected='true']::before { background: var(--trace); }
+
+/* An ⓘ note never takes the pointer, wrapper included (Radix wraps the note in a positioning box), so it cannot hide the ⓘ under it. */
+[data-radix-popper-content-wrapper]:has(> [data-info-tip]) { pointer-events: none; }

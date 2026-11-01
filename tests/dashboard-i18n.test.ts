@@ -60,7 +60,7 @@ describe('dashboard languages', () => {
     expect(i18n.t('runHeader.factSteps', { steps: 12, count: 12 })).toBe('12 moves');
     expect(i18n.t('hints.text.backtracking', { n: 1, count: 1 })).toBe('The direction of travel reversed 1 time.');
     expect(i18n.t('hints.text.backtracking', { n: 2, count: 2 })).toBe('The direction of travel reversed 2 times.');
-    expect(i18n.t('planDoc.factTasks', { done: 1, total: 1, count: 1 })).toBe('1 of 1 task done');
+    expect(i18n.t('planDoc.factTasks', { done: 1, total: 1, count: 1 })).toBe('1 of 1 plan step done');
     await i18n.changeLanguage('ko');
     expect(moves(1)).toBe(moves(2).replace('2', '1'));
     expect(moves(1)).toBe('1번');

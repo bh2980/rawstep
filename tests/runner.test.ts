@@ -247,10 +247,15 @@ describe('model-neutral runner',()=>{
     expect(rejected?.redacted).toBe(true);expect(rejected?.data).toMatchObject({step:2,action:{kind:'key',details:'[REDACTED]'},reasonCode:'action-not-allowed'});
     expect(JSON.stringify(trace)).not.toContain('Echo A z');
   });
-  it('bounds a hung policy by timeout and aborts its signal',async()=>{
+  it('bounds a hung policy by its own limit, not page time, and aborts its signal',async()=>{
     const f=fixture();let signal:AbortSignal|undefined;
-    const trace=await runWithPolicy({...task,timeoutMs:30},{...f,outDir:await out(),policy:{decide:input=>{signal=input.signal;return new Promise(()=>{});}}});
+    const trace=await runWithPolicy({...task,timeoutMs:20},{...f,outDir:await out(),policyTimeoutMs:60,policy:{decide:input=>{signal=input.signal;return new Promise(()=>{});}}});
     expect(trace.outcome?.reason).toBe('timeout');expect(signal?.aborted).toBe(true);expect(f.backend.close).toHaveBeenCalled();
+  });
+  it('does not count time spent waiting for the policy against the task time limit',async()=>{
+    const f=fixture();let calls=0;f.verifier.mockResolvedValue({passed:false,failures:['missing']});
+    const trace=await runWithPolicy({...task,timeoutMs:1000},{...f,outDir:await out(),policy:{decide:async()=>{calls++;await new Promise(resolve=>setTimeout(resolve,450));return calls<3?{action:{kind:'intent',intent:'next'}}:{stop:'stuck'};}}});
+    expect(trace.outcome?.reason).toBe('policy-stuck');expect(calls).toBe(3);
   });
   it.each(['SIGINT','SIGTERM'])('saves an aborted outcome and interruption point for %s without waiting for budget',async(signal)=>{
     const f=fixture();const controller=new AbortController();let ready!:()=>void;

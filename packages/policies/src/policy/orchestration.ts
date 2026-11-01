@@ -226,6 +226,7 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
     this.asked.add(heard);
     const started = performance.now();
     this.plannerCalls++;
+    input.onPlannerCall?.({ trigger: 'cue-check' });
     const result = await this.planner.recognize({ goal: input.goal, ...(input.context ? { context: input.context } : {}), task: { goal: task.goal, done: task.done, cue: cueText(task) }, heard: heard.slice(0, 300) }, { signal: input.signal });
     input.signal.throwIfAborted();
     if (result.retried) { this.plannerCalls++; this.evidence.push({ kind: 'model-retry', role: 'planner', taskId: task.id, failure: result.retried }); }
@@ -278,6 +279,7 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
     const actions = speechChoices(input.allowedActions, input.inputs).map(({ id, label }) => ({ id, label }));
     const started = performance.now();
     this.plannerCalls++;
+    input.onPlannerCall?.({ trigger });
     const { draft, model, prompt, retried, ranOut } = await this.planner.plan({ goal: input.goal, ...(input.context ? { context: input.context } : {}), ...currentItemState(input), trigger, speech: [...input.observation.speech], ...(input.observation.title ? { title: input.observation.title } : {}), actions,
       ...(this.doc ? { document: structuredClone(this.doc) } : {}), attempts: this.attempts(input.history, input), effort: this.effort(input), ...(refusedGiveUp ? { refusedGiveUp } : {}) }, { signal: input.signal });
     input.signal.throwIfAborted();

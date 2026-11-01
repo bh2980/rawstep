@@ -68,11 +68,23 @@ describe('shared AI SDK LLM module', () => {
     expect(error).toMatchObject({ name: 'RawstepError', code: 'llm-failed' });
     expect(`${error.message} ${JSON.stringify(error.cause ?? '')}`).not.toMatch(/PRIVATE_BODY|sk-secret-key|evil\.example/);
   });
-  it('never retries and refuses redirects', async () => {
+  it('retries a busy provider twice, refuses redirects, and says how it failed without its text', async () => {
     let seen = 0, redirect: RequestRedirect | undefined;
-    const fetcher: typeof fetch = async (_url, init) => { seen++; redirect = init!.redirect; return new Response('busy', { status: 503 }); };
-    await expect(ask(llm(fetcher))).rejects.toMatchObject({ code: 'llm-failed' });
-    expect(seen).toBe(1); expect(redirect).toBe('error');
+    const fetcher: typeof fetch = async (_url, init) => { seen++; redirect = init!.redirect; return new Response('PRIVATE busy', { status: 503 }); };
+    const failed = await ask(llm(fetcher)).catch(error => error);
+    expect(failed).toMatchObject({ code: 'llm-failed', detail: { modelFailure: { kind: 'provider-error', status: 503 } } });
+    expect(failed.message).toContain('HTTP 503'); expect(failed.message).not.toContain('PRIVATE');
+    expect(seen).toBe(3); expect(redirect).toBe('error');
+  }, 20_000);
+  it.each([[401, 'key-refused'], [403, 'key-refused'], [404, 'model-not-found']])('does not retry HTTP %i and names it %s', async (status, kind) => {
+    let seen = 0;
+    const fetcher: typeof fetch = async () => { seen++; return new Response('PRIVATE', { status }); };
+    await expect(ask(llm(fetcher))).rejects.toMatchObject({ code: 'llm-failed', detail: { modelFailure: { kind, status } } });
+    expect(seen).toBe(1);
+  });
+  it('ends a run as not measured when the model does not answer in time', async () => {
+    const hang: typeof fetch = (_url, init) => new Promise((_resolve, reject) => { init!.signal!.addEventListener('abort', () => reject(new Error('PRIVATE_TRANSPORT')), { once: true }); });
+    await expect(ask(llm(hang, { timeoutMs: 20 }))).rejects.toMatchObject({ code: 'llm-timeout', outcome: { status: 'inconclusive', reason: 'planner-timeout' } });
   });
   it('combines the caller signal with the timeout and tells them apart', async () => {
     const hang: typeof fetch = (_url, init) => new Promise((_resolve, reject) => { if (init!.signal!.aborted) reject(new Error('PRIVATE_TRANSPORT')); init!.signal!.addEventListener('abort', () => reject(new Error('PRIVATE_TRANSPORT')), { once: true }); });

@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 
-/** How long the pointer may be away from the ⓘ and its note before a note opened by hovering closes. */
+/** How long the pointer may be away from the ⓘ before a note opened by hovering closes. */
 const LEAVE_MS = 150;
 
 /**
@@ -28,9 +28,11 @@ export function InfoTip({ term, children, className, side = 'bottom' }: { term: 
         <Info aria-hidden="true" className="size-3.5" />
       </button>
     </PopoverTrigger>
-    <PopoverContent side={side} align="start" onPointerEnter={enter} onPointerLeave={leave}
+    {/* The note never takes the pointer: it opens over the next rows, and a note that caught clicks would hide the next ⓘ (the click would
+        land on this note instead). A click that passes through also dismisses a pinned note, as a click elsewhere should. */}
+    <PopoverContent data-info-tip="" side={side} align="start" collisionPadding={8}
       onOpenAutoFocus={event => { if (open === 'hover') event.preventDefault(); }}
-      className="w-72 text-[13px] leading-5 font-normal text-foreground">
+      className="pointer-events-none w-72 text-[13px] leading-5 font-normal text-foreground">
       <p className="mb-1 font-semibold">{term}</p>
       <div className="grid gap-1.5 text-muted-foreground">{children}</div>
     </PopoverContent>

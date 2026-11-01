@@ -37,7 +37,7 @@ export function EnvironmentFields({ value, onChange, presets, id }: Props) {
   };
   return <div className="grid gap-5">
     <div className="grid gap-1.5">
-      <Choice label={t('environmentFields.preset')} info={preset !== 'custom' ? t('environmentFields.editNote') : undefined} value={preset} options={[...Object.keys(presets).map(name => ({ id: name, name: t(`environmentFields.presets.${name}.name`, { defaultValue: name }) })), { id: 'custom', name: t('environmentFields.custom') }]}
+      <Choice label={t('environmentFields.preset')} info={t(preset !== 'custom' ? 'environmentFields.editNote' : 'environmentFields.customNote')} value={preset} options={[...Object.keys(presets).map(name => ({ id: name, name: t(`environmentFields.presets.${name}.name`, { defaultValue: name }) })), { id: 'custom', name: t('environmentFields.custom') }]}
         onChange={next => onChange(next === 'custom' ? { ...resolved, id } : next)} />
       {preset !== 'custom' && <p className="text-[13px] leading-5 text-muted-foreground">{t(`environmentFields.presets.${preset}.hint`, { defaultValue: '' })}</p>}
     </div>

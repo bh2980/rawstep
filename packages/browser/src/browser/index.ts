@@ -120,12 +120,19 @@ export type CreateBrowserSessionOptions = {
    */
   cdpEndpoint?: string;
   /**
+   * With `cdpEndpoint`: copy that browser's cookies and site storage into the run's own context when it opens, so a page behind a
+   * sign-in opens signed in. The person's own windows are left alone, and what the run does to the copy stays in the run.
+   */
+  copySignIn?: boolean;
+  /**
    * Open the start address bare and let human-check pages through, so a person can pass a check in the visible window. Implied by
    * `userDataDir`; set it with `cdpEndpoint` to do the same in a connected browser.
    */
   personCheck?: boolean;
 };
 
+/** What to do about a site that blocks the browser: Rawstep never answers a check itself. */
+export const BLOCKED_NEXT = 'Rawstep does not answer checks: turn on machine.personCheck to pass it yourself in a visible window, or connect a Chrome you started yourself (machine.browserEndpoint, with machine.copySignIn for a page behind a sign-in).';
 /** Hosts that serve human checks (Cloudflare Turnstile/challenges, hCaptcha, reCAPTCHA). */
 const BOT_CHECK_HOSTS = /(^|\.)(challenges\.cloudflare\.com|hcaptcha\.com|recaptcha\.net)$/;
 export function isBotCheckUrl(url: string): boolean {
@@ -140,14 +147,15 @@ export function isBotCheckUrl(url: string): boolean {
  * A check widget inside an ordinary page (an invisible reCAPTCHA next to ads, a Turnstile box on a form) is not one.
  */
 export async function isBotCheckPage(page: Page): Promise<boolean> {
-  if (isBotCheckUrl(page.url())) return true;
-  const title = await page.title().catch(() => '');
+  // A page that cannot answer (closing, navigating) is not taken for a check: detecting one must never break a run itself.
+  if (isBotCheckUrl(await Promise.resolve().then(() => page.url()).catch(() => ''))) return true;
+  const title = String(await Promise.resolve().then(() => page.title()).catch(() => '') ?? '');
   if (/just a moment|attention required|checking your browser|verify (you are|you're) human|잠시만 기다려|보안 확인/i.test(title)) return true;
-  return await page.evaluate(() => {
+  return true === await Promise.resolve().then(() => page.evaluate(() => {
     if (document.querySelector('#challenge-form, #challenge-running, #cf-challenge-running, script[src*="/cdn-cgi/challenge-platform/h/"]')) return true;
     const text = document.body?.innerText ?? '';
     return text.length < 3000 && /ray[ _]?id/i.test(text);
-  }).catch(() => false);
+  })).catch(() => false);
 }
 
 export function validateProxyServer(value: string): string {
@@ -232,6 +240,7 @@ export async function createBrowserSession(
   const proxyServer = options.proxyServer === undefined ? undefined : validateProxyServer(options.proxyServer);
   const cdpEndpoint = options.cdpEndpoint?.trim() ? validateCdpEndpoint(options.cdpEndpoint) : undefined;
   if (cdpEndpoint && proxyServer) throw new RawstepError("browser-setup", "A proxy is a launch setting; set it on the browser you started yourself instead.");
+  if (options.copySignIn && !cdpEndpoint) throw new RawstepError("browser-setup", "Copying the sign-in needs a Chrome you started yourself (machine.browserEndpoint).");
   const personCheck = !!options.userDataDir || !!options.personCheck;
   const browserLaunchStartedAt = Date.now();
   const launch = {
@@ -257,7 +266,9 @@ export async function createBrowserSession(
   let stopNavigationGuard = () => {};
   let observer: PageObserver | undefined;
   try {
-    const context = persistent ?? await browser!.newContext(contextOptions);
+    // The person's sign-in, read from the browser's own context (the one their windows use), not shared with it.
+    const signIn = cdpEndpoint && options.copySignIn ? await browser!.contexts()[0]?.storageState() : undefined;
+    const context = persistent ?? await browser!.newContext({ ...contextOptions, ...(signIn ? { storageState: signIn } : {}) });
     // A persistent profile opens with a tab of its own; use it, and close any others it restored.
     const page = persistent ? persistent.pages()[0] ?? await persistent.newPage() : await context.newPage();
     if (persistent) for (const extra of persistent.pages().filter(other => other !== page)) await extra.close().catch(() => undefined);
@@ -423,8 +434,10 @@ export async function createBrowserSession(
       });
       const pageLoadStartedAt = Date.now();
       const initialResponse=await page.goto(url, { waitUntil: "load" });
-      if(options.navigation?.readOnly && initialResponse && [401,403,407,429].includes(initialResponse.status()))throw new BrowserAccessBlockedError(initialResponse.url(),initialResponse.status(),`Public read-only navigation was blocked by HTTP ${initialResponse.status()}; no alternate route or authentication attempted.`);
+      // A site that refuses the start page to this browser blocks the run before it starts: nothing measured, no move spent.
+      if(initialResponse && [401,403,407,429].includes(initialResponse.status()))throw new BrowserAccessBlockedError(initialResponse.url(),initialResponse.status(),`The site answered HTTP ${initialResponse.status()} to the start address: it refuses this browser (or asks to sign in). ${BLOCKED_NEXT}`);
       await waitForNetworkIdleBestEffort(page);
+      if(!personCheck && await isBotCheckPage(page))throw new BrowserAccessBlockedError(page.url(),initialResponse?.status(),`The site shows a bot check instead of the page. ${BLOCKED_NEXT}`);
       if(options.navigation?.readOnly){const title=await page.title();const challenge=await page.locator('iframe[src*="captcha" i],iframe[src*="challenge" i]').count();if(challenge||/access denied|verify (you are|you're) human|just a moment|robot check/i.test(title))throw new BrowserAccessBlockedError(page.url(),initialResponse?.status(),'Public read-only page presents an access or human-verification barrier; no challenge interaction attempted.');}
       const appliedProfile = options.profile ? await applyProfile(page, options.profile) : undefined;
       if (appliedProfile) session.appliedProfile = appliedProfile;

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mkdir, mkdtemp, readFile, writeFile, rm, symlink } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { basename, dirname, join } from 'node:path';
@@ -8,20 +8,23 @@ import { speechChoices } from '@rawstep/policies/policy';
 import { validateDecision } from '@rawstep/browser/runner';
 import { TraceRecorder, readTrace } from '@rawstep/core/trace';
 import {
-  CONFIG_FILE, comboPlanner, configSchema, credentialId, credentialRequirements, defaultConfig, defaultProfile,
-  findByIdOrName, modelKeyEnv, parseConfig, profileConditions, projectAnalysisModel, resolveBaseURL, resolveRunRules, suggestionModel, firstProfile, taskSchema,
+  CONFIG_FILE, comboPlanner, configProblems, configSchema, credentialId, credentialRequirements, defaultConfig, defaultProfile,
+  findByIdOrName, modelKeyEnv, modelKeyEnvNames, parseConfig, profileConditions, projectAnalysisModel, resolveBaseURL, resolveRunRules, suggestionModel, firstProfile, taskSchema,
   type Profile, type ProjectConfig,
 } from '@rawstep/project/config';
 import { ProjectError } from '@rawstep/project/errors';
 import { ProjectStore, demoConfig, findAgentCli, initProject } from '@rawstep/project/store';
 import { discover } from '@rawstep/project/discover';
+import { checkConnection, checkModel, inspectModel } from '@rawstep/project/checks';
 import { assertRunnable, backendCapabilities, checkRun, conditionsRecord, loadPlanFile, resolvePermissions, runSpecOf } from '@rawstep/project/plan';
 import { projectAnalyzer, runTask } from '@rawstep/project/run';
 import type { RunExecutor, RunSpec } from '@rawstep/project/execution';
 import { connection, profileWith } from './helpers/project-config.js';
 
 const dirs: string[] = [];
-afterEach(async () => { await Promise.all(dirs.splice(0).map(dir => rm(dir, { recursive: true, force: true }))); });
+afterEach(async () => { vi.unstubAllEnvs(); await Promise.all(dirs.splice(0).map(dir => rm(dir, { recursive: true, force: true }))); });
+// The providers' standard key variables are read too; a developer's own keys must not leak into the tests.
+beforeEach(() => { for (const name of ['OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'GEMINI_API_KEY', 'GOOGLE_GENERATIVE_AI_API_KEY', 'OPENROUTER_API_KEY']) vi.stubEnv(name, ''); });
 async function root() { const r = await mkdtemp(join(tmpdir(), 'rawstep-project-')); dirs.push(r); return r; }
 const task = { url: 'https://example.com', goal: 'Complete fixture', input: { email: 'private-value' }, verify: { all: [{ titleIncludes: 'Done' }] } };
 function setup(): ProjectConfig {
@@ -60,6 +63,32 @@ describe('project store', () => {
     await expect(store.setCredential('custom', 'sk')).rejects.toMatchObject({ code: 'credential-target' });
     await expect(store.setCredential('openai', 'two\nlines')).rejects.toMatchObject({ code: 'invalid-credential' });
     expect(credentialRequirements(config).map(k => [k.id, k.env, k.required, k.connection.id])).toEqual([['connection:a', undefined, false, 'a'], ['connection:b', undefined, false, 'b'], ['connection:setup-llm', undefined, false, 'setup-llm'], ['provider:openrouter', 'RAWSTEP_OPENROUTER_API_KEY', true, 'or-llm'], ['connection:keyed', 'RAWSTEP_TEST_CUSTOM_KEY', false, 'keyed']]);
+  });
+  it('reads the provider\'s standard key variable when its own RAWSTEP_ one is not set, and says which it used', async () => {
+    const dir = await root(), store = new ProjectStore(dir);
+    const vars = ['RAWSTEP_OPENROUTER_API_KEY', 'OPENROUTER_API_KEY', 'RAWSTEP_GOOGLE_API_KEY', 'GEMINI_API_KEY', 'GOOGLE_GENERATIVE_AI_API_KEY'];
+    for (const name of vars) vi.stubEnv(name, '');
+    try {
+      expect(await store.credentialSource('openrouter')).toBeUndefined();
+      vi.stubEnv('OPENROUTER_API_KEY', 'sk-standard');
+      expect(await store.credentialSource('openrouter')).toEqual({ env: 'OPENROUTER_API_KEY', value: 'sk-standard' });
+      expect(await store.credential(connection('or', { provider: 'openrouter' }))).toBe('sk-standard');
+      // The RAWSTEP_ variable wins, in the environment and in .env.local.
+      vi.stubEnv('RAWSTEP_OPENROUTER_API_KEY', 'sk-own');
+      expect(await store.credentialSource('openrouter')).toEqual({ env: 'RAWSTEP_OPENROUTER_API_KEY', value: 'sk-own' });
+      vi.stubEnv('RAWSTEP_OPENROUTER_API_KEY', '');
+      await store.setCredential('openrouter', 'sk-file');
+      expect(await store.credentialSource('openrouter')).toEqual({ env: 'RAWSTEP_OPENROUTER_API_KEY', value: 'sk-file' });
+      // Google has two standard names.
+      vi.stubEnv('GOOGLE_GENERATIVE_AI_API_KEY', 'g-sdk');
+      expect(await store.credentialSource('google')).toEqual({ env: 'GOOGLE_GENERATIVE_AI_API_KEY', value: 'g-sdk' });
+      vi.stubEnv('GEMINI_API_KEY', 'g-gemini');
+      expect((await store.credentialSource('google'))!.env).toBe('GEMINI_API_KEY');
+      // A custom connection reads only the variable it names; the dashboard writes the RAWSTEP_ one.
+      expect(modelKeyEnvNames(connection('c', { apiKeyEnv: 'MY_KEY' }))).toEqual(['MY_KEY']);
+      expect(modelKeyEnvNames(connection('p', { provider: 'openai' }))).toEqual(['RAWSTEP_OPENAI_API_KEY', 'OPENAI_API_KEY']);
+      expect(modelKeyEnvNames(connection('k', { provider: 'claudeCode' }))).toEqual([]);
+    } finally { vi.unstubAllEnvs(); }
   });
   it('rejects paths outside the project and symlink escapes', async () => {
     const dir = await root(), other = await root(); const store = new ProjectStore(dir); await store.initialize();
@@ -103,7 +132,7 @@ describe('project store', () => {
     await expect(initProject(dir)).rejects.toBeInstanceOf(ProjectError);
     expect(await readFile(join(dir, 'rawstep.config.json'), 'utf8')).toBe('{"mine":true}');
   });
-  it('reads an invalid config as an error naming the file, an old-version one as old-config with what to do instead, and a missing task file as 404', async () => {
+  it('reads an invalid config as an error naming the file, an old-version one as old-config with what to do instead', async () => {
     const dir = await root(), store = new ProjectStore(dir);
     for (const version of [0, 8]) {
       await writeFile(store.path, JSON.stringify({ ...defaultConfig(), version }));
@@ -115,8 +144,60 @@ describe('project store', () => {
       await writeFile(store.path, JSON.stringify({ version, agents: [] }));
       await expect(store.read()).rejects.toMatchObject({ code: 'old-config', message: expect.stringMatching(new RegExp(`version ${version}.*rawstep init`)) });
     }
-    await writeFile(store.path, JSON.stringify({ ...setup() }));
-    await expect(store.read()).rejects.toMatchObject({ code: 'task-file-missing', status: 404 });
+  });
+  it('says what is wrong with a config as readable lines with the path and the value found, not as a JSON array', async () => {
+    const dir = await root(), store = new ProjectStore(dir);
+    const broken = JSON.parse(JSON.stringify(defaultConfig()));
+    broken.profiles[0].runRules.failureLimit = 500; broken.profiles[0].runRules.survey = 'bogus'; broken.machine.proxy = 'x';
+    await writeFile(store.path, JSON.stringify(broken));
+    const error = await store.read().catch(e => e as ProjectError);
+    expect(error).toMatchObject({ code: 'invalid-config' });
+    const lines = (error as Error).message.split('\n');
+    expect(lines).toContain('rawstep.config.json · profiles[0].runRules.failureLimit: must be at most 100 (now: 500)');
+    expect(lines).toContain('rawstep.config.json · profiles[0].runRules.survey: must be one of "none", "headings" (now: "bogus")');
+    expect(lines).toContain('rawstep.config.json · machine.proxy: unknown field "proxy" (now: "x")');
+    expect((error as Error).message).not.toMatch(/^\[/);
+    // Beyond five problems the rest is counted.
+    const many = JSON.parse(JSON.stringify(defaultConfig())); for (let i = 0; i < 7; i++) many.machine['extra' + i] = i;
+    const counted = configProblems((() => { try { parseConfig(many); } catch (e) { return e as { issues: unknown[] }; } throw new Error('parsed'); })(), many);
+    expect(counted).toHaveLength(6); expect(counted[5]).toBe('rawstep.config.json · and 2 more');
+    // A planner that is neither a model nor a plan file is named by the closest form.
+    const planner = JSON.parse(JSON.stringify(defaultConfig())); planner.profiles[0].planner = { planFile: 'plans/x.txt' };
+    await writeFile(store.path, JSON.stringify(planner));
+    expect((await store.read().catch(e => e as Error) as Error).message).toContain('profiles[0].planner.planFile: A plan file is a .json file.');
+  });
+  it('keeps the project working when a registered task file is missing: only using that task fails', async () => {
+    const dir = await root(), store = new ProjectStore(dir), initial = await store.initialize(), config = setup();
+    config.tasks.push({ id: 'ghost', name: 'Ghost', file: 'ghost.json' });
+    await writeFile(join(dir, 'task.json'), JSON.stringify(task));
+    await writeFile(store.path, JSON.stringify(config));
+    const read = await store.read();
+    expect(read.taskProblems).toEqual({ ghost: { code: 'task-file-missing', message: 'Task file ghost.json was not found.' } });
+    expect(read.revision).not.toBe(initial.revision);
+    // Healthy tasks still resolve; the broken one is left out and says why when it is asked for.
+    expect(Object.keys(await store.tasks(read.config))).toEqual(['task']);
+    expect(Object.keys(await store.taskFiles(read.config))).toEqual(['task']);
+    await expect(store.task('ghost.json')).rejects.toMatchObject({ code: 'task-file-missing', status: 404 });
+    await expect(runTask('ghost', { projectDir: dir }, { execute: async () => { throw new Error('not reached'); } })).rejects.toMatchObject({ code: 'task-file-missing' });
+    // The revision moves when the file appears, and the task can be deleted with its file already gone.
+    await writeFile(join(dir, 'ghost.json'), JSON.stringify(task));
+    const healed = await store.read();
+    expect(healed.taskProblems).toEqual({}); expect(healed.revision).not.toBe(read.revision);
+    await rm(join(dir, 'ghost.json'));
+    const gone = await store.read();
+    await expect(store.deleteTask('ghost', gone.revision)).resolves.toMatchObject({ fileRemoved: false });
+    // A file that is not valid JSON is a problem of its task too.
+    await writeFile(join(dir, 'task.json'), '{nope');
+    await expect(store.task('task.json')).rejects.toMatchObject({ code: 'invalid-task', message: expect.stringContaining('task.json is not valid JSON') });
+    expect(Object.keys(await store.tasks((await store.read()).config))).toEqual([]);
+  });
+  it('registers a new task only when its file is usable, and saves other changes while an old task is broken', async () => {
+    const dir = await root(), store = new ProjectStore(dir), initial = await store.initialize(), config = { ...initial.config, tasks: [{ id: 'old', name: 'Old', file: 'old.json' }] };
+    await writeFile(store.path, JSON.stringify(config));
+    const broken = await store.read();
+    await expect(store.save({ ...broken.config, tasks: [...broken.config.tasks, { id: 'new', name: 'New', file: 'new.json' }] }, broken.revision)).rejects.toMatchObject({ code: 'task-file-missing' });
+    const changed = { ...broken.config, machine: { ...broken.config.machine, headless: false } };
+    expect((await store.save(changed, broken.revision)).config.machine.headless).toBe(false);
   });
   it('throws plain project errors with a status hint, never HTTP errors', async () => {
     const dir = await root(), store = new ProjectStore(dir), initial = await store.initialize(), config = setup();
@@ -186,7 +267,32 @@ describe('model discovery', () => {
   it('answers an unreachable server and a server without a model list with project errors', async () => {
     await expect(discover({ provider: 'custom', baseURL: 'http://127.0.0.1:1/v1' }, undefined, { timeoutMs: 500 })).rejects.toMatchObject({ code: 'model-unreachable', status: 502 });
     await expect(discover({ provider: 'openai' }, 'k', { fetch: async () => json({ object: 'list' }) })).rejects.toMatchObject({ code: 'model-list-missing', status: 502 });
-    await expect(discover({ provider: 'openai' }, 'k', { fetch: async () => json({}, 401) })).rejects.toMatchObject({ code: 'model-http' });
+    await expect(discover({ provider: 'openai' }, 'k', { fetch: async () => json({}, 401) })).rejects.toMatchObject({ code: 'model-http', httpStatus: 401 });
+  });
+  it('tells a program that is not installed from one that did not answer, and names the ACP server Antigravity needs', async () => {
+    const missing = await discover({ provider: 'antigravity' }, undefined, { timeoutMs: 5000 }).catch(e => e as ProjectError);
+    expect(missing).toMatchObject({ code: 'agent-missing' });
+    expect((missing as Error).message).toContain('agy_acp_server.par was not found on PATH');
+    expect((missing as Error).message).toContain('agy CLI alone is not enough');
+  });
+});
+
+describe('key and model checks', () => {
+  const list = (ids: string[], status = 200) => async () => new Response(JSON.stringify({ data: ids.map(id => ({ id })) }), { status, headers: { 'content-type': 'application/json' } });
+  it('says ready only when the key is accepted and the model is listed, and keeps the failure behind a kind', async () => {
+    expect((await inspectModel({ provider: 'openai', modelId: 'gpt-fixture' }, 'sk', { fetch: list(['gpt-fixture']) })).check).toMatchObject({ ok: true, kind: 'ready', via: 'model-list' });
+    expect((await inspectModel({ provider: 'openai', modelId: 'nope' }, 'sk', { fetch: list(['gpt-fixture']) })).check).toMatchObject({ ok: false, kind: 'model-not-listed' });
+    const refused = await inspectModel({ provider: 'openai', modelId: 'gpt-fixture' }, 'sk', { fetch: list([], 401) });
+    expect(refused.check).toMatchObject({ ok: false, kind: 'rejected' }); expect(refused.cause).toMatchObject({ code: 'model-http', httpStatus: 401 });
+    expect((await inspectModel({ provider: 'openai', modelId: 'x' }, undefined)).check).toMatchObject({ kind: 'missing-key', via: 'none' });
+    expect((await inspectModel({ provider: 'openai', modelId: 'x' }, 'sk', { fetch: async () => { throw new TypeError('fetch failed'); } })).check.kind).toBe('unreachable');
+    // A timeout is told apart from an unreachable server.
+    const slow = await inspectModel({ provider: 'openai', modelId: 'x' }, 'sk', { timeoutMs: 20, fetch: (_url, init) => new Promise((_accept, reject) => init!.signal!.addEventListener('abort', () => reject(init!.signal!.reason), { once: true })) });
+    expect(slow.check.kind).toBe('unreachable'); expect(slow.cause).toMatchObject({ code: 'model-timeout' });
+    // The dashboard's two forms: a model that must be listed, and a connection alone.
+    expect(await checkModel({ provider: 'openai', modelId: 'gpt-fixture' }, 'sk', { fetch: list(['gpt-fixture']) })).toMatchObject({ kind: 'ready' });
+    expect(await checkConnection({ provider: 'openai' }, 'sk', { fetch: list([]) })).toMatchObject({ kind: 'ready' });
+    expect(await checkConnection({ provider: 'openai' }, 'sk', { fetch: async () => new Response('{}') })).toMatchObject({ kind: 'unverified', ok: true });
   });
 });
 
@@ -243,10 +349,15 @@ describe('connection schema', () => {
     // Without a project analysis model there is none; a model on a connection that is gone is none either.
     expect(projectAnalysisModel(setup())).toBeUndefined();
     expect(projectAnalysisModel({ ...config, project: { ...config.project, analysis: { ...config.project.analysis, model: { connectionId: 'ghost', modelId: 'own' } } } })).toBeUndefined();
-    // Suggestions use their own model, otherwise the analysis model.
+    // Suggestions use their own model, otherwise the analysis model, otherwise the first planner a profile has.
     expect(suggestionModel(config)).toMatchObject({ id: 'llm', modelId: 'writer' });
     config.project.suggestions.model = { connectionId: 'llm2', modelId: 'suggest' };
     expect(suggestionModel(config)).toMatchObject({ id: 'llm2', modelId: 'suggest' });
+    const planned = setup(); planned.connections.push(connection('llm2')); planned.profiles.push(profileWith('second', 'llm2', 'plans-well', 'Second'));
+    expect(suggestionModel(planned)).toMatchObject({ id: 'setup-llm', modelId: 'planner' });
+    planned.profiles.shift();
+    expect(suggestionModel(planned)).toMatchObject({ id: 'llm2', modelId: 'plans-well' });
+    expect(suggestionModel(defaultConfig())).toBeUndefined();
     // A plan file or no planner has no model to call.
     expect(comboPlanner(config, { planner: { planFile: 'plans/common.json' } })).toBeUndefined();
     expect(comboPlanner(config, {})).toBeUndefined();
@@ -540,6 +651,19 @@ describe('runTask', () => {
     expect(wandering!.outcome).toMatchObject({ status: 'failure', steps: 5 });
     expect(wandering!.hints.hints.map(h => h.kind)).toContain('backtracking');
     expect(result.findings).toEqual([expect.objectContaining({ kind: 'backtracking', source: 'model', runs: 1, totalRuns: 3 })]);
+  });
+  it('gives every run its own run-<n> folder when --out is reused, one after the other or at the same time', async () => {
+    const { dir } = await project(), out = join(dir, 'shared-out');
+    const play = (calls: { outDir: string }[]) => (async (spec, { outDir }) => { calls.push({ outDir }); return recorded(['Tab', 'Enter'], 'success')(spec, outDir); }) as RunExecutor;
+    const first: { outDir: string }[] = [], second: { outDir: string }[] = [], a: { outDir: string }[] = [], b: { outDir: string }[] = [];
+    await runTask('task', { projectDir: dir, outDir: out }, { execute: play(first) });
+    await runTask('task', { projectDir: dir, outDir: out, repeat: 2 }, { execute: play(second) });
+    expect(first.map(c => basename(c.outDir))).toEqual(['run-1']); expect(second.map(c => basename(c.outDir))).toEqual(['run-2', 'run-3']);
+    const results = await Promise.all([runTask('task', { projectDir: dir, outDir: out, repeat: 2 }, { execute: play(a) }), runTask('task', { projectDir: dir, outDir: out, repeat: 2 }, { execute: play(b) })]);
+    const taken = [...a, ...b].map(c => c.outDir);
+    expect(new Set(taken).size).toBe(4); expect(results.every(r => r.runs.length === 2)).toBe(true);
+    for (const outDir of taken) expect((await readTrace(outDir)).runId).toBeTruthy();
+    expect(new Set([...taken, ...first.map(c => c.outDir), ...second.map(c => c.outDir)].map(d => basename(d))).size).toBe(7);
   });
   it('resolves the profile by id or by name, and reports an unknown one with the choices', async () => {
     const { dir } = await project(config => {

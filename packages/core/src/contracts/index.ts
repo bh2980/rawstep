@@ -90,7 +90,18 @@ export type ScreenReaderObservation = {
   window: { id: string; startedAt: string; endedAt: string; reason: string };
   /** The page title (document.title), which screen readers announce when a page loads. Absent when it could not be read. */
   title?: string;
+  /**
+   * Lines of `speech` the page announced on its own (live-region updates), not what the move said. The user hears them, so they stay in
+   * `speech`; Rawstep leaves them out when it judges whether a move changed anything or where the cursor is, so a ticker that never
+   * stops talking does not look like progress. Absent when the screen reader does not tell them apart.
+   */
+  announcements?: readonly string[];
 };
+/** What the move itself said: `speech` without the page's own announcements (each listed line taken out once). */
+export function moveSpeech(observation: Pick<ScreenReaderObservation, 'speech' | 'announcements'>): string[] {
+  const pending = [...observation.announcements ?? []];
+  return observation.speech.filter(line => { const i = pending.indexOf(line); if (i < 0) return true; pending.splice(i, 1); return false; });
+}
 /** What a policy observes: Rawstep simulates screen reader users only. */
 export type Observation = ScreenReaderObservation;
 /**
@@ -113,6 +124,8 @@ export interface DecisionPolicy {
     /** Named values are task-provided; the policy cannot submit arbitrary text. */
     inputs: Readonly<Record<string, InputDescriptor>>;
     signal: AbortSignal;
+    /** Called as the policy starts asking its planner, so a live view can say it is waiting and why (`trigger`). */
+    onPlannerCall?: (call: { trigger: string }) => void;
   }): Decision | Promise<Decision>;
 }
 export type TaskInputOptions = { sensitive?: boolean; description?: string };
@@ -195,7 +208,8 @@ export function resolveTask(raw: unknown, baseDir = process.cwd()): Task {
   const maxSteps = raw.maxSteps ?? RAWSTEP_DEFAULTS.task.maxSteps;
   const timeoutMs = raw.timeoutMs ?? RAWSTEP_DEFAULTS.task.timeoutMs;
   if (!Number.isSafeInteger(maxSteps) || (maxSteps as number) < 1) throw new Error('maxSteps must be a positive integer.');
-  if (!Number.isSafeInteger(timeoutMs) || (timeoutMs as number) < 1 || (timeoutMs as number) > 2_147_483_647) throw new Error('timeoutMs must be an integer from 1 to 2147483647.');
+  // Page time only (waiting for the planner does not count), so an hour is far more than any task needs.
+  if (!Number.isSafeInteger(timeoutMs) || (timeoutMs as number) < 1 || (timeoutMs as number) > 3_600_000) throw new Error('timeoutMs must be an integer from 1 to 3600000 (one hour).');
   const navigation = validateNavigation(raw.navigation);
   let resolvedUrl: string;
   if (/^[a-z][a-z0-9+.-]*:/i.test(url) && !/^[A-Za-z]:[\\/]/.test(url)) {

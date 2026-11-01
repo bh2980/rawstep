@@ -99,6 +99,8 @@ export type RunStepsView = {
   notices: RunNotice[];
   /** The run is paused until a person passes a human check in the browser window. */
   waitingForPerson?: boolean;
+  /** The planner has been asked for a plan (since this time, for this reason) and has not answered yet. */
+  plannerWaiting?: { since: string; trigger?: string };
   explanation?: RunExplanation;
   /** Goal rules that already held before the first action (from verifier.baseline). */
   baseline?: { passed: boolean; rules: { ruleIndex: number; ruleType: string; passed: boolean }[] };
@@ -188,6 +190,19 @@ export type RunResult = {
   /** Ran with other conditions than the newest run of its profile. */
   differs: boolean;
 };
+
+/**
+ * One run picked for a side-by-side comparison, which may come from any task or batch. `result` is how it ended and what it cost; it
+ * is null while the run is still going and for a run that never got going (the browser or model could not start), neither of which is
+ * evidence about the page. `stuck` lists the page elements its simulated user's expectations broke at, with the step.
+ */
+export type ComparedRun = {
+  experimentId: string; runId: string; taskId: string; profileId: string;
+  result: RunResult | null;
+  stuck: { target: HintTarget; step: number }[];
+};
+/** The runs asked for, in the order asked. */
+export type RunComparison = { runs: ComparedRun[] };
 
 /** One page object that did not respond as the simulated user expected when they pressed it, across a task's runs. */
 export type StuckPlace = {

@@ -1,12 +1,12 @@
 import { randomUUID } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
+import { mkdir, readFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { resolveTask } from '@rawstep/core/contracts';
 import { readTrace, type RunOutcome, type RunTrace, type TraceEvent } from '@rawstep/core/trace';
 import { resolveEnvironmentProfile } from '@rawstep/browser/profiles';
 import { analyzeTrace, writeReport, LlmTraceAnalyzer, type TraceAnalyzer } from '@rawstep/reports';
 import { aggregateHints, extractHints, selectReference, writeHints, type HintFinding, type HintReport } from '@rawstep/reports/hints';
-import { AT_DRIVER_COMMAND_ENV, findByIdOrName, modelKeyEnv, modelKeyRequired, profileConditions, projectAnalysisModel, firstProfile, type Model, type ProjectConfig, type RunRules } from './config.js';
+import { AT_DRIVER_COMMAND_ENV, findByIdOrName, modelKeyEnvNames, modelKeyRequired, profileConditions, projectAnalysisModel, firstProfile, type Model, type ProjectConfig, type RunRules } from './config.js';
 import { ProjectError } from './errors.js';
 import { llmModelOf } from './llm.js';
 import { ProjectStore, atomicJson } from './store.js';
@@ -18,6 +18,8 @@ export type FinalizeOptions = {
   referenceDir?: string;
   /** Builds the analyzer; called inside the guarded block, so a failure leaves the run's results intact. Without one, analysis is the local deterministic summary. */
   createAnalyzer?: () => Promise<TraceAnalyzer | undefined>;
+  /** The task's name in the project, for the report's heading. */
+  taskName?: string;
 };
 export type FinalizeResult = {
   hints?: HintReport;
@@ -30,7 +32,7 @@ export type FinalizeResult = {
  */
 export async function finalizeRun(trace: RunTrace, outDir: string, options: FinalizeOptions = {}): Promise<FinalizeResult> {
   const hints = await writeHints(outDir, options.referenceDir ? { reference: options.referenceDir } : {}).then(({ report }) => report, () => undefined);
-  const withHints = hints ? { hints } : {};
+  const withHints = { ...(hints ? { hints } : {}), ...(options.taskName ? { taskName: options.taskName } : {}) };
   try {
     const analysis = await analyzeTrace(trace, await options.createAnalyzer?.());
     await atomicJson(join(outDir, 'analysis.json'), analysis);
@@ -46,7 +48,7 @@ export async function finalizeRun(trace: RunTrace, outDir: string, options: Fina
  * Repeats of one task under one profile, run one by one (the dashboard's queue), compared once the last has finished: each run's
  * hints and report are written again against the fastest run that reached the goal, as `runTask` does, keeping its analysis.
  */
-export async function compareRepeats(outDirs: readonly string[]): Promise<void> {
+export async function compareRepeats(outDirs: readonly string[], options: { taskName?: string } = {}): Promise<void> {
   const runs = (await Promise.all(outDirs.map(async outDir => ({ outDir, trace: await readTrace(outDir).catch(() => undefined) }))))
     .filter((run): run is { outDir: string; trace: RunTrace } => !!run.trace);
   const reference = runs.length > 1 ? selectReference(runs.map(run => run.trace)) : undefined;
@@ -56,7 +58,7 @@ export async function compareRepeats(outDirs: readonly string[]): Promise<void> 
     const hints = await writeHints(outDir, { reference: referenceDir }).then(({ report }) => report, () => undefined);
     if (!hints) continue;
     const analysis = await readFile(join(outDir, 'analysis.json'), 'utf8').then(text => JSON.parse(text), () => undefined);
-    await writeReport(trace, analysis, outDir, { hints }).catch(() => {});
+    await writeReport(trace, analysis, outDir, { hints, ...(options.taskName ? { taskName: options.taskName } : {}) }).catch(() => {});
   }
 }
 
@@ -69,7 +71,11 @@ export type RunTaskOptions = {
   runRules?: Partial<RunRules>;
   /** How many times to run the task (default 1). The runs are compared with each other. */
   repeat?: number;
-  /** Where to write the runs, one `run-<n>` directory per repeat; a relative path resolves from the current directory. Defaults to `<projectDir>/.rawstep/runs/<timestamp>-<id>/`. */
+  /**
+   * Where to write the runs, one `run-<n>` directory per repeat, each the next number not taken yet (so a second command, or one running
+   * at the same time, with the same directory keeps the earlier runs); a relative path resolves from the current directory.
+   * Defaults to `<projectDir>/.rawstep/runs/<timestamp>-<id>/`.
+   */
   outDir?: string;
   signal?: AbortSignal;
   onEvent?: (event: TraceEvent) => void;
@@ -84,6 +90,19 @@ export type RunTaskResult = {
   findings: HintFinding[];
 };
 const MAX_REPEAT = 100;
+
+/**
+ * Creates the first `run-<n>` directory under `root`, counting up from `from`, that does not exist. `mkdir` without `recursive` fails
+ * with EEXIST when the name is taken, so runs started at the same moment on the same `root` never share a directory.
+ */
+async function newRunDir(root: string, from: number): Promise<{ outDir: string; n: number }> {
+  await mkdir(root, { recursive: true });
+  for (let n = from; ; n++) {
+    const outDir = join(root, `run-${n}`);
+    try { await mkdir(outDir); return { outDir, n }; }
+    catch (e) { if ((e as NodeJS.ErrnoException).code !== 'EEXIST') throw e; }
+  }
+}
 
 /** A task id from rawstep.config.json, or a path to a task JSON file (relative paths resolve from the project directory). */
 async function loadTask(store: ProjectStore, config: ProjectConfig, reference: string, projectDir: string) {
@@ -143,7 +162,7 @@ export async function runTask(task: string, options: RunTaskOptions = {}, intern
     const referenceDir = reference ? done.find(d => d.trace === reference)?.outDir : undefined;
     const runs: RunTaskResult['runs'] = [];
     for (const { outDir, trace } of done) {
-      const { hints } = await finalizeRun(trace, outDir, { ...(referenceDir ? { referenceDir } : {}),
+      const { hints } = await finalizeRun(trace, outDir, { ...(referenceDir ? { referenceDir } : {}), ...(entry?.name ? { taskName: entry.name } : {}),
         ...(analyse && withAnalysis ? { createAnalyzer: async () => llmAnalyzer(analyse, analysisKey, settings.analysisInstructions, signal) } : {}) });
       runs.push({ runId: trace.runId, outDir, outcome: trace.outcome, hints: hints ?? extractHints(trace, reference ? { reference } : {}) });
     }
@@ -151,9 +170,10 @@ export async function runTask(task: string, options: RunTaskOptions = {}, intern
   };
   // A cancelled run keeps what it did: the traces so far get their hints and reports (no model analysis), then the cancel is reported.
   const stop = async () => { await finalize(false); return cancelled(); };
+  let next = 1;
   for (let i = 1; i <= repeat; i++) {
     if (signal.aborted) throw await stop();
-    const outDir = join(root, `run-${i}`);
+    const { outDir, n } = await newRunDir(root, next); next = n + 1;
     const trace = await execute(spec, { outDir, plannerApiKey, signal, atDriverCommand, browserProfileDir: join(projectDir, '.rawstep', 'browser-profile'), ...(options.onEvent ? { onEvent: options.onEvent } : {}) });
     done.push({ outDir, trace });
     if (signal.aborted) throw await stop();
@@ -163,8 +183,8 @@ export async function runTask(task: string, options: RunTaskOptions = {}, intern
 }
 /** The key a model needs (`undefined` for a server that takes none); a missing required key stops the run before anything starts. */
 export async function requireKey(store: ProjectStore, model: Model): Promise<string | undefined> {
-  const apiKey = await store.credential(model), env = modelKeyEnv(model);
-  if (modelKeyRequired(model) && !apiKey) throw new ProjectError('missing-credential', env ? `The key ${env} for "${model.name}" is not set. Add ${env}=... to .env.local or export it.` : `"${model.name}" needs a key, but no environment variable is named for it.`);
+  const apiKey = await store.credential(model), [env, ...standard] = modelKeyEnvNames(model);
+  if (modelKeyRequired(model) && !apiKey) throw new ProjectError('missing-credential', env ? `The key ${env} for "${model.name}" is not set. Add ${env}=... to .env.local or export it${standard.length ? ` (${standard.join(' or ')} also works)` : ''}.` : `"${model.name}" needs a key, but no environment variable is named for it.`);
   return apiKey;
 }
 /** The trace analyzer of an LLM model. */

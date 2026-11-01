@@ -7,6 +7,7 @@ export const editor: LocaleShape<typeof ko> = {
     preset: 'Base environment',
     custom: 'Custom',
     editNote: 'Change a value below and this becomes a custom environment based on this one.',
+    customNote: 'Your own mix. Screen width and height are in CSS pixels (320 is phone width). Text scale multiplies the text size, from 1 to 4. The rest tell the page what the user prefers: color theme, reduced motion, forced colors, contrast.',
     presets: {
       default: { name: 'Default', hint: 'Runs with the browser defaults on a 1280×800 screen.' },
       narrow: { name: 'Narrow screen', hint: '320px wide. Checks that content reflows without horizontal scrolling at phone size.' },

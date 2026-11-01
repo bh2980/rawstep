@@ -127,8 +127,9 @@ Commands:
   report    Write report.html and report.json for a saved run.
   analyze   Analyze a saved run. Without --llm the analysis is a local summary; --llm sends the saved
             events to the project's analysis model.
-  doctor    Check that a browser can launch, the config parses, each profile can run, credentials are set and, for a
-            native screen reader, that its AT Driver endpoint answers.
+  doctor    Check that a browser can launch, the config parses, each task file is a valid task, each profile can run,
+            each API key works and its model is listed (a request to the provider) and, for a native screen reader,
+            that its AT Driver endpoint answers.
 
 Configuration:
   Everything lives in rawstep.config.json in the project directory: connections (where models are
@@ -142,10 +143,13 @@ Run defaults:
   --rule     <name>=<value>, repeatable; overrides one run rule for these runs (the profile's, then these), e.g. --rule maxPlannerCalls=20 --rule survey=headings;
              see the runRules section of docs/reference/config.md for the rules
   --repeat   1; repeats are compared with the fastest run that reached the goal
-  --out      <project>/.rawstep/runs/<timestamp>-<id>/, one run-<n> directory per repeat
+  --out      <project>/.rawstep/runs/<timestamp>-<id>/, one run-<n> directory per repeat, each the next free number
+             when the directory is reused
 
-Exit codes: 0 when the runs completed, whether or not the goal was reached; 1 on errors, including any run that ended on one; 2 on bad usage;
-130 or 143 when cancelled by SIGINT or SIGTERM. Rawstep reports friction hints, not pass or fail.
+Exit codes (run): 0 when every run gave a measurement (reached the goal, gave up, or said it was done but the goal was not reached);
+1 on errors, including any run that ended on one; 2 on bad usage; 3 when no run broke but at least one was not measured (a limit,
+a block, a model that was unsure); 130 or 143 when cancelled by SIGINT or SIGTERM. Other commands: 0 on success, 1 on errors, 2 on bad usage.
+Rawstep reports friction hints, not pass or fail.
 
 The model receives the speech the screen reader produces, the goal, named input keys and the action history,
 never the DOM, the diagnostic screenshots or verifier results. Saved traces redact input values.

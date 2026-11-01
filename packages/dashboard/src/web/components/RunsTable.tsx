@@ -17,7 +17,7 @@ type Props = {
   config?: Partial<Pick<ProjectConfig, 'profiles'>>;
   /** Leaves out the task column, for a table of one task's runs. */
   hideTask?: boolean;
-  /** "Run #n" of each run by id; adds a column with the number. */
+  /** "Run #n" of each run by id; adds a column with the number (with the task's name in front when the table lists several tasks). */
   numbers?: ReadonlyMap<string, number>;
   /** Adds the friction hints of each finished run (one request per run, so only where the list is short). */
   showHints?: boolean;
@@ -42,6 +42,8 @@ export function RunsTable({ runs, config, navigate, hideTask, numbers, showHints
   const { t } = useTranslation();
   const hintsFor = useHintSummaries();
   useRequestHintSummaries(showHints ? runs.filter(ref => isFinished(ref.run)).map(ref => ({ experimentId: ref.experiment.id, runId: ref.run.id })) : []);
+  // Run numbers restart per task, so in a list of several tasks the number carries the task's name ("Checkout #3") instead of a column of its own.
+  const taskColumn = !hideTask && !numbers;
   const pickable = selection ? runs.filter(ref => !isLive(ref.run)) : [];
   const picked = pickable.filter(ref => selection!.selected.has(ref.run.id)).length;
   return <div className="overflow-x-auto rounded-md border border-edge-strong bg-surface">
@@ -53,7 +55,7 @@ export function RunsTable({ runs, config, navigate, hideTask, numbers, showHints
         </TableHead>}
         {numbers && <TableHead scope="col" className={head}>{t('runList.columns.number')}</TableHead>}
         <TableHead scope="col" className={head}>{t('runList.columns.time')}</TableHead>
-        {!hideTask && <TableHead scope="col" className={head}>{t('runList.columns.task')}</TableHead>}
+        {taskColumn && <TableHead scope="col" className={head}>{t('runList.columns.task')}</TableHead>}
         <TableHead scope="col" className={head}>{t('runList.columns.model')}</TableHead>
         <TableHead scope="col" className={head}>{t('runList.columns.result')}</TableHead>
         <TableHead scope="col" className={head + ' text-right'}>{t('runList.columns.steps')}</TableHead>
@@ -64,17 +66,19 @@ export function RunsTable({ runs, config, navigate, hideTask, numbers, showHints
         const { run } = ref, steps = runStepCount(run), seconds = durationSeconds(run), hints = hintsFor(run.id) ?? [];
         const open = { task: run.taskId, run: run.id };
         const when = formatDate(runStartedAt(ref)), label = taskNameOf(run, tasks);
+        // Every checkbox needs its own name: a list of runs of one task would otherwise read the same name on each row.
+        const number = numbers?.get(run.id), selectName = `${label}${number !== undefined ? ` #${number}` : ''} · ${when}`;
         return <TableRow key={run.id} className="relative h-10">
           {selection && <TableCell className={cell}>
-            <Checkbox className="relative z-10" aria-label={t('runList.select.one', { name: label })} disabled={isLive(run)} title={isLive(run) ? t('runList.select.live') : undefined}
+            <Checkbox className="relative z-10" aria-label={t('runList.select.one', { name: selectName })} disabled={isLive(run)} title={isLive(run) ? t('runList.select.live') : undefined}
               checked={selection.selected.has(run.id)} onCheckedChange={on => selection.onToggle(run.id, on === true)} />
           </TableCell>}
-          {numbers && <TableCell className={cell + ' tabular-nums'}><Link to={open} navigate={navigate} className={rowLink + ' text-trace underline-offset-2 hover:underline'}>#{numbers.get(run.id) ?? '—'}</Link></TableCell>}
+          {numbers && <TableCell className={cell + ' tabular-nums'}><Link to={open} navigate={navigate} className={rowLink + ' text-trace underline-offset-2 hover:underline'}>{hideTask ? '' : `${label} `}#{numbers.get(run.id) ?? '—'}</Link></TableCell>}
           <TableCell className={cell + ' font-mono tabular-nums whitespace-nowrap text-muted-foreground'}>
             {numbers || !hideTask ? when : <Link to={open} navigate={navigate} className={rowLink + ' hover:underline'}>{when}</Link>}
           </TableCell>
-          {!hideTask && <TableCell className={cell + ' font-medium'}>
-            {numbers ? label : <Link to={open} navigate={navigate} className={rowLink + ' hover:underline'}>{label}<span className="sr-only"> {t('sidebar.repeat', { n: run.repeat })}</span></Link>}
+          {taskColumn && <TableCell className={cell + ' font-medium'}>
+            <Link to={open} navigate={navigate} className={rowLink + ' hover:underline'}>{label}<span className="sr-only"> {t('sidebar.repeat', { n: run.repeat })}</span></Link>
           </TableCell>}
           <TableCell className={cell + ' max-w-72 whitespace-nowrap'}>{showConditions ? <span className="grid"><span className="truncate">{runModelsName(run)}</span><ConditionsNote run={run} config={config} /></span> : runModelsName(run)}</TableCell>
           <TableCell className={cell + ' whitespace-nowrap'}><span className="inline-flex items-center gap-1.5"><RunGlyph kind={finishedEnding(run) ? endingGlyph(finishedEnding(run)!.ending) : runGlyphKind(displayState(run))} />{resultLabel(run)}</span></TableCell>

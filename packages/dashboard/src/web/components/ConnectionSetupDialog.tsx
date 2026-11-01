@@ -30,9 +30,9 @@ const ROUTES: Route[] = ['llm-api', 'agent'];
  * Add a connection in three steps: 1 종류, 2 제공자 (address and key), 3 연결 확인 (and its name). No model is picked here:
  * run profiles pick the model ID on a connection.
  */
-export function ConnectionSetupDialog({ open, onOpenChange, pageProps }: { open: boolean; onOpenChange: (open: boolean) => void; pageProps: PageProps }) {
+export function ConnectionSetupDialog({ open, onOpenChange, pageProps, onAdded }: { open: boolean; onOpenChange: (open: boolean) => void; pageProps: PageProps; /** Called with the new connection's id and the check the dialog last ran, so the list can show it without asking again. */ onAdded?: (id: string, check: CheckState) => void }) {
   return <Dialog open={open} onOpenChange={onOpenChange}>
-    <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">{open && <SetupFlow pageProps={pageProps} close={() => onOpenChange(false)} />}</DialogContent>
+    <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">{open && <SetupFlow pageProps={pageProps} onAdded={onAdded} close={() => onOpenChange(false)} />}</DialogContent>
   </Dialog>;
 }
 
@@ -47,7 +47,7 @@ function Stepper({ step }: { step: Step }) {
   </ol>;
 }
 
-function SetupFlow({ pageProps: props, close }: { pageProps: PageProps; close: () => void }) {
+function SetupFlow({ pageProps: props, close, onAdded }: { pageProps: PageProps; close: () => void; onAdded: ((id: string, check: CheckState) => void) | undefined }) {
   const { t } = useTranslation();
   const { error, setError, run } = useGuardedAct(props.act);
   const [step, setStep] = useState<Step>('kind');
@@ -112,9 +112,11 @@ function SetupFlow({ pageProps: props, close }: { pageProps: PageProps; close: (
       if (apiKeyEnv) await api('/credentials', { method: 'POST', body: { connectionId: id, value: key } });
       setApiKey('');
     });
-    if (ok) close();
+    if (ok) { if (check && check.state !== 'running') onAdded?.(id, check); close(); }
   }
   const verdict = check?.state === 'done' ? check.result.ok : false;
+  // Why Add is off, in words next to it: the first thing that is missing.
+  const addBlock = !name.trim() ? 'name' : agent && !consent ? 'consent' : check?.state === 'running' ? 'checking' : undefined;
 
   return <>
     <DialogHeader ref={heading} tabIndex={-1} className="outline-none">
@@ -161,9 +163,10 @@ function SetupFlow({ pageProps: props, close }: { pageProps: PageProps; close: (
       {agent && <div className="flex items-start gap-2"><Checkbox id="agent-consent" className="mt-0.5" checked={consent} onCheckedChange={v => setConsent(v === true)} /><Label htmlFor="agent-consent" className="font-normal leading-5">{t('connections.agentConsent', { provider: providerName })}</Label></div>}
       <DialogFooter className="sm:justify-between">
         <Button type="button" variant="ghost" onClick={() => { setError(undefined); setStep('provider'); }}><ArrowLeft aria-hidden="true" />{t('connections.back')}</Button>
-        <div className="flex flex-col-reverse gap-2 sm:flex-row">
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
+          {addBlock && <p role="status" className="text-xs leading-5 text-muted-foreground">{t(`connections.addBlock.${addBlock}`)}</p>}
           <Button type="button" variant="outline" disabled={check?.state === 'running'} onClick={() => void runCheck()}>{t('connections.checkAgain')}</Button>
-          <Button type="button" variant={verdict ? 'default' : 'outline'} disabled={props.busy || check?.state === 'running' || !name.trim() || (!!agent && !consent)} onClick={() => void add()}>{verdict ? t('connections.submit') : t('connections.addAnyway')}</Button>
+          <Button type="button" variant={verdict ? 'default' : 'outline'} disabled={props.busy || !!addBlock} onClick={() => void add()}>{verdict ? t('connections.submit') : t('connections.addAnyway')}</Button>
         </div>
       </DialogFooter>
     </>}

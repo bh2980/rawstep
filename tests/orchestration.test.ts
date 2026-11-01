@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  applyDraft, currentTask, goalWordStretch, matchCue, renderPlanMarkdown, OrchestratedSpeechPolicy, planTasks, plannerDraftSchema, verifyCue,
+  applyDraft, currentItem, currentTask, goalWordStretch, speechRepetition, matchCue, renderPlanMarkdown, OrchestratedSpeechPolicy, planTasks, plannerDraftSchema, verifyCue,
   type PlanDraft, type PlanRequest, type Planner,
 } from '@rawstep/policies/policy';
 import type { DecisionPolicy, HistoryEntry } from '@rawstep/core/contracts';
@@ -174,6 +174,14 @@ describe('orchestrated speech policy', () => {
     await p2.decide(input());
     for (let i = 1; i <= 3; i++) await p2.decide(input({ history: h.slice(0, i), observation: said('Banner') }));
     expect(still.requests.map(r => r.trigger)).toEqual(['start', 'no-change']);
+  });
+  it('judges repetition and the cursor on what the move said, not on a live region talking meanwhile', () => {
+    const ticking = (step: number) => ({ ...said('Start of content', `${step} viewing now`), announcements: [`${step} viewing now`] });
+    const h: HistoryEntry[] = [1, 2, 3, 4].map(step => ({ step, decision: { action: { kind: 'intent', intent: 'previous' } }, observation: ticking(step), execution: { ok: true } }));
+    expect(speechRepetition(h.slice(1), ticking(5), 3)).toMatchObject({ speech: 'Start of content', times: 3 });
+    expect(currentItem(ticking(5), [])).toBe('Start of content');
+    // Without the marks the changing text hides the repetition, as it did before.
+    expect(speechRepetition(h.slice(1).map(e => ({ ...e, observation: said(...e.observation.speech) })), said('Start of content', '5 viewing now'), 3)).toBeUndefined();
   });
   it('lets a fresh plan run before the repetition guard can stop it', async () => {
     const p = planner(draft({ Cart: ['Find the cart'] }), draft({ Cart: ['Try next'] }));

@@ -19,8 +19,8 @@ export type TaskTab = (typeof taskTabs)[number];
  * `view` is the left-navigation entry the page belongs to: a task, a new task or a run is always under 작업.
  * `tab` belongs to a task page and `step` to an open run.
  */
-export type Route = { view: View; task?: string; run?: string; tab: TaskTab; step?: number; section?: SettingsSection };
-export type RouteChange = { view?: View | undefined; task?: string | undefined; run?: string | undefined; tab?: TaskTab | undefined; step?: number | undefined; section?: SettingsSection | undefined };
+export type Route = { view: View; task?: string; run?: string; tab: TaskTab; step?: number; section?: SettingsSection; compare?: string[] };
+export type RouteChange = { view?: View | undefined; task?: string | undefined; run?: string | undefined; tab?: TaskTab | undefined; step?: number | undefined; section?: SettingsSection | undefined; compare?: readonly string[] | undefined };
 
 /** `?task=new` shows the new-task page instead of an existing task. */
 export const NEW_TASK = 'new';
@@ -36,9 +36,12 @@ export function parseRoute(search: string): Route {
   // The commentary models moved into AI 연결.
   const asked = params.get('section') === 'assist' ? 'connections' : params.get('section');
   const section = view === 'settings' && !task ? settingsSections.find(s => s === asked) ?? legacy?.section : undefined;
+  // `?view=runs&compare=<run>,<run>,…` sets runs of any task side by side.
+  const compare = view === 'runs' && !task ? (params.get('compare') ?? '').split(',').filter(Boolean) : [];
   return {
     view: task ? 'tasks' : view,
     ...(section ? { section } : {}),
+    ...(compare.length ? { compare } : {}),
     ...(task ? { task } : {}),
     ...(task && params.get('run') ? { run: params.get('run')! } : {}),
     tab: taskTabs.find(t => t === params.get('tab')) ?? 'overview',
@@ -46,7 +49,7 @@ export function parseRoute(search: string): Route {
   };
 }
 
-/** The URL query for a route: `?task=&run=` for a task page, `?view=` (and `&section=` in 설정) otherwise, nothing for the task list. */
+/** The URL query for a route: `?task=&run=` for a task page, `?view=` (and `&section=` in 설정, `&compare=` for runs side by side) otherwise, nothing for the task list. */
 export function routeSearch(route: RouteChange): string {
   const params = new URLSearchParams();
   if (route.task) {
@@ -57,6 +60,7 @@ export function routeSearch(route: RouteChange): string {
     } else if (route.tab && route.tab !== 'overview') params.set('tab', route.tab);
   } else if (route.view && route.view !== 'tasks') {
     params.set('view', route.view);
+    if (route.view === 'runs' && route.compare?.length) params.set('compare', route.compare.join(','));
     if (route.view === 'settings' && route.section) params.set('section', route.section);
   }
   const text = params.toString();

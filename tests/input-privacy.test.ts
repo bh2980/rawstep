@@ -119,7 +119,7 @@ type DecideInput = Omit<Parameters<DecisionPolicy['decide']>[0], 'signal'>;
 /** Records a deep copy of every decide() input, then plays the scripted decisions. */
 function recordingPolicy(decisions: Decision[]) {
   const calls: DecideInput[] = [];
-  const policy: DecisionPolicy = { decide: input => { const { signal: _signal, ...rest } = input; calls.push(structuredClone(rest)); return decisions[calls.length - 1] ?? { stop: 'stuck' }; } };
+  const policy: DecisionPolicy = { decide: input => { const { signal: _signal, onPlannerCall: _onPlannerCall, ...rest } = input; calls.push(structuredClone(rest)); return decisions[calls.length - 1] ?? { stop: 'stuck' }; } };
   return { policy, calls };
 }
 const type = (input: string): Decision => ({ action: { kind: 'typeText', input } });
@@ -153,6 +153,23 @@ describe('runner input privacy', () => {
     const withSecret = await runWithPolicy(task, { ...g, outDir: await out(), policy: recordingPolicy([type('email'), tab, { stop: 'stuck' }]).policy });
     expect(withSecret.events.some(e => e.type === 'privacy.input-taint')).toBe(true);
     expect(JSON.stringify(withSecret)).not.toContain(secret);
+  });
+
+  it('with the simulation, withholds only the typing step and then masks the value alone; a real screen reader stays withheld', async () => {
+    const speech = (n: number) => n === 2 ? [`Signed in as ${secret}`, 'Welcome back, heading level 1'] : [`Item ${n}`];
+    const simulated = screenReaderFixture(speech);
+    (simulated.backend as { evidenceProvenance?: string }).evidenceProvenance = 'simulation';
+    const sim = await runWithPolicy(task, { ...simulated, outDir: await out(), policy: recordingPolicy([type('email'), tab, { stop: 'stuck' }]).policy });
+    expect(sim.events.find(e => e.type === 'privacy.input-taint')?.data).toMatchObject({ until: 'end-of-step' });
+    expect(sim.events.some(e => e.type === 'privacy.input-taint-ended')).toBe(true);
+    const after = sim.events.filter(e => e.type === 'simulation.observation').at(-1)!.data as { speech: string[] };
+    expect(after.speech).toEqual(['Signed in as [REDACTED]', 'Welcome back, heading level 1']);
+    expect(JSON.stringify(sim)).not.toContain(secret);
+    const native = screenReaderFixture(speech);
+    const real = await runWithPolicy(task, { ...native, outDir: await out(), policy: recordingPolicy([type('email'), tab, { stop: 'stuck' }]).policy });
+    expect(real.events.find(e => e.type === 'privacy.input-taint')?.data).toMatchObject({ until: 'end-of-run' });
+    const last = real.events.filter(e => e.type.endsWith('.observation')).at(-1)!.data as { speech: string[] };
+    expect(last.speech).toEqual(['[REDACTED]']);
   });
 
   it('passes sensitive:true by default and sensitive:false when configured to the backend', async () => {

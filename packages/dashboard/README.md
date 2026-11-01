@@ -82,7 +82,7 @@ An experiment is tasks × run profiles × repeats. `POST /api/plan` expands a re
 ### Security
 
 - A request is refused unless its `Host` is a loopback name and, when it has an `Origin`, that origin is a loopback address on this server's port (or the dev server's).
-- The report is served with a restrictive Content-Security-Policy and `sandbox`.
+- The report is served with a restrictive Content-Security-Policy (only its own language-switch script, by hash) and `sandbox allow-scripts`.
 - Screenshots are served only for trace events of the screenshot kinds, from a path that must match `diagnostics/(step-<n>|start-page).png`, and not when the event was redacted. A path from the client is never used.
 - Request bodies over 2 MB are refused.
 - `POST /api/credentials/reveal` returns a saved key so the person editing it can see it. It is safe only because the server listens on loopback and checks `Host` and `Origin`.

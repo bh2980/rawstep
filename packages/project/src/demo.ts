@@ -42,16 +42,19 @@ export const DEMO_FILES: Readonly<Record<string, string>> = {
   [`${DEMO_DIR}/plan.json`]: JSON.stringify(DEMO_PLAN, null, 2) + '\n',
 };
 
+/** Whether `command` is an executable file in one of the PATH directories. */
+export async function commandOnPath(command: string, path = process.env.PATH ?? ''): Promise<boolean> {
+  const dirs = path.split(delimiter).filter(Boolean), names = process.platform === 'win32' ? [`${command}.cmd`, `${command}.exe`, command] : [command];
+  for (const dir of dirs) for (const name of names) {
+    try { await access(join(dir, name), constants.X_OK); return true; } catch { /* not here */ }
+  }
+  return false;
+}
 /** Coding-agent CLIs Rawstep can plan with through the person's own sign-in, by the command that shows one is installed. */
 const AGENT_COMMANDS: readonly [string, ProviderId][] = [['claude', 'claudeCode'], ['codex', 'codex'], ['opencode', 'opencode'], ['grok', 'grok']];
 /** The first coding-agent CLI on PATH, if any, to point the person to. Being installed is not being signed in. */
 export async function findAgentCli(path = process.env.PATH ?? ''): Promise<ProviderId | undefined> {
-  const dirs = path.split(delimiter).filter(Boolean), names = (command: string) => process.platform === 'win32' ? [`${command}.cmd`, `${command}.exe`] : [command];
-  for (const [command, provider] of AGENT_COMMANDS) {
-    for (const dir of dirs) for (const name of names(command)) {
-      try { await access(join(dir, name), constants.X_OK); return provider; } catch { /* not here */ }
-    }
-  }
+  for (const [command, provider] of AGENT_COMMANDS) if (await commandOnPath(command, path)) return provider;
   return undefined;
 }
 
