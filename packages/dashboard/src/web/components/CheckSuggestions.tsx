@@ -6,6 +6,7 @@ import { suggestionModel } from '@rawstep/project/config';
 import type { CheckSuggestion, SuggestionResult } from '../../shared/api';
 import { api } from '../api';
 import { useRoute } from '../hooks/useRoute';
+import { currentLanguage } from '../i18n';
 import { describeRule } from '../lib/describeRule';
 import { describeApiError, type ErrorView } from '../lib/errors';
 import type { PageProps } from '../pages/types';
@@ -72,7 +73,7 @@ export function CheckSuggestions({ view, url, goal, onAdd }: Props) {
   async function suggest() {
     setLoading(true); setError(undefined); setResult(undefined); setAdded(new Set());
     try {
-      setResult(await api<SuggestionResult>('/suggest-checks', { method: 'POST', body: { url: url.trim(), goal: goal.trim() } }));
+      setResult(await api<SuggestionResult>('/suggest-checks', { method: 'POST', body: { url: url.trim(), goal: goal.trim(), language: currentLanguage() } }));
     } catch (failure) {
       setError(describeApiError(failure, 'start'));
     } finally { setLoading(false); }

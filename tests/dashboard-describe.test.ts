@@ -26,6 +26,7 @@ describe('describeHint', () => {
     ['modal-focus-outside target', hint('modal-focus-outside', { target: { role: 'textbox', name: 'Email' } }), ['textbox “Email”', '모달']],
     ['modal-focus-outside dialog', hint('modal-focus-outside', { dialog: { role: 'dialog', name: 'Confirm' } }, { certainty: 'suspected' }), ['dialog “Confirm”', '이동하지 않았습니다']],
     ['missing-announcement', hint('missing-announcement', { changes: ['state'] }, { certainty: 'suspected' }), ['안내']],
+    ['live-interruptions', hint('live-interruptions', { moves: 5, distinct: 3, examples: ['12명이 보고 있습니다'] }), ['5번', '12명이 보고 있습니다']],
     ['early-stop stuck', hint('early-stop', { reason: 'policy-stuck' }), ['막혔다고']],
     ['early-stop uncertain', hint('early-stop', { reason: 'policy-uncertain' }), ['확신하지']],
     ['early-stop guard', hint('early-stop', { reason: 'policy-stuck', stopSource: 'exploration-guard' }), ['반복 감시']],
@@ -52,7 +53,7 @@ describe('describeHint', () => {
   it('covers every hint kind', () => {
     const covered = new Set(cases.map(([, input]) => input.kind));
     const all: HintKind[] = ['slow-run', 'excess-keystrokes', 'backtracking', 'focus-lost', 'focus-not-visible', 'modal-focus-outside',
-      'missing-announcement', 'early-stop', 'goal-met-at-start', 'focus-left-page',
+      'missing-announcement', 'live-interruptions', 'early-stop', 'goal-met-at-start', 'focus-left-page',
       'replan', 'task-limit', 'wanted-to-give-up', 'goal-word-stretch', 'expectation-broken'];
     expect(Object.keys(core.hints.kinds).sort()).toEqual([...all].sort());
     for (const kind of all) expect(covered.has(kind)).toBe(true);

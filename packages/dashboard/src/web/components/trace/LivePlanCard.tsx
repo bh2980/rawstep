@@ -25,7 +25,7 @@ function LivePlan({ runRef, number, navigate }: { runRef: RunRef; number: number
   const { t } = useTranslation();
   const { run, experiment } = runRef;
   const { data } = useRunSteps(experiment.id, run.id);
-  const plan = data?.plan, doc = plan?.document, limit = run.snapshot.spec.settings.runRules.stepActionLimit;
+  const plan = data?.plan, doc = plan?.document;
   return <section aria-label={t('planDoc.liveTitle', { version: doc?.version ?? 1 })} className="mt-3 grid max-w-xl gap-1.5 rounded-md border border-trace bg-trace-soft/40 px-3 py-2.5">
     <div className="flex flex-wrap items-baseline justify-between gap-2 text-sm">
       <span className="font-medium"><span aria-hidden="true" className="mr-1.5 inline-block size-2 rounded-full bg-trace" />{t('runPage.number', { n: number ?? '' })} · {doc ? t('planDoc.factVersion', { version: doc.version }) : t('runHeader.liveState')}</span>
@@ -38,7 +38,7 @@ function LivePlan({ runRef, number, navigate }: { runRef: RunRef; number: number
           <TaskMark status={status} className="mt-0.5" />
           <span className={status === 'pending' ? 'text-muted-foreground' : undefined}>
             {phase.title || phase.number}
-            {task && <span className="text-muted-foreground"> › {t('planDoc.liveTask', { task: task.goal, n: task.actions, limit })}</span>}
+            {task && <span className="text-muted-foreground"> › {t('planDoc.liveTask', { task: task.goal, n: task.actions })}</span>}
             <span className="sr-only">, {t(`planDoc.status.${status}`)}</span>
           </span>
         </li>;

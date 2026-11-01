@@ -5,5 +5,7 @@
  */
 export class ProjectError extends Error {
   override name = 'ProjectError';
+  /** The HTTP status a model server answered with, when the failure was its answer (`model-http`). */
+  httpStatus?: number;
   constructor(readonly code: string, message: string, readonly status = 400) { super(message); }
 }

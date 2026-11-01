@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_HINT_THRESHOLDS, HINTS_SCHEMA_VERSION, extractHints, selectReference, summarizeRun } from "@rawstep/reports/hints";
-import type { HintKind } from "@rawstep/reports/hints";
+import { DEFAULT_HINT_THRESHOLDS, HINT_SOURCES, HINTS_SCHEMA_VERSION, compareHints, extractHints, selectReference, summarizeRun } from "@rawstep/reports/hints";
+import type { Hint, HintKind } from "@rawstep/reports/hints";
 import type { RunOutcome, RunTrace, TraceEvent } from "@rawstep/core/trace";
 
 type Pair = readonly [type: string, data: Record<string, unknown>];
@@ -31,6 +31,14 @@ const find = (report: ReturnType<typeof extractHints>, kind: HintKind) => report
 const success = (steps: number): RunOutcome => ({ status: "success", steps });
 
 describe("friction hints", () => {
+  it("reports a live region that keeps talking after moves, but not announcements that a press caused", () => {
+    const move = (step: number, intent: string, announcements?: string[]): Pair[] => [["policy.decision", { step, decision: { action: { kind: "intent", intent } } }],
+      ["simulation.observation", { speech: [`Item ${step}`, ...(announcements ?? [])], ...(announcements ? { announcements } : {}) }]];
+    const talking = trace([...move(1, "next", ["12 viewing now"]), ...move(2, "next", ["13 viewing now"]), ...move(3, "activate", ["Added to cart"]), ...move(4, "next", ["14 viewing now"])]);
+    const [hint] = extractHints(talking).hints.filter(h => h.kind === "live-interruptions");
+    expect(hint).toMatchObject({ source: "page", certainty: "observed", steps: [1, 2, 4], detail: { moves: 3, distinct: 3 } });
+    expect(extractHints(trace([...move(1, "next", ["12 viewing now"]), ...move(2, "activate", ["Added to cart"])])).hints.some(h => h.kind === "live-interruptions")).toBe(false);
+  });
   it("reports a slow run only against a successful reference at the ratio and the minimum extra steps", () => {
     const reference = trace([], success(4), { runId: "reference" });
     const slow = extractHints(trace([], success(7)), { reference });
@@ -127,6 +135,62 @@ describe("friction hints", () => {
     expect(find(suspected, "modal-focus-outside")).toMatchObject([{ certainty: "suspected", steps: [2], detail: { dialog: { role: "dialog", name: "Settings" } } }]);
     const moved = extractHints(trace([...press(2, "Enter"), observer("appeared", 2, { role: "dialog", name: "Settings" }), observer("focus", 2, { role: "button", name: "Close", inDialog: true, modalOpen: true })]));
     expect(find(moved, "modal-focus-outside")).toHaveLength(0);
+  });
+
+  describe("repeats in one run", () => {
+    const skip = (step: number): Pair[] => [observer("focus", step - 1, { role: "link", name: "Skip" }), ...press(step, "Enter"), observer("state", step, { role: "button", name: "Other", attr: "aria-expanded" })];
+
+    it("merges the same page behaviour on the same element into one hint with all steps, evidence and a count", () => {
+      const pairs = [...skip(2), ...skip(4), ...skip(6), ...skip(8)];
+      const report = extractHints(trace(pairs));
+      const hints = find(report, "missing-announcement");
+      expect(hints).toHaveLength(1);
+      expect(hints[0]).toMatchObject({ count: 4, steps: [2, 4, 6, 8], target: { role: "link", name: "Skip" } });
+      expect(hints[0]!.evidence.length).toBeGreaterThan(4);
+      expect(new Set(hints[0]!.evidence).size).toBe(hints[0]!.evidence.length);
+    });
+
+    it("has no count for a hint that happened once, and keeps other elements and other certainty apart", () => {
+      const once = find(extractHints(trace(skip(2))), "missing-announcement");
+      expect(once).toHaveLength(1);
+      expect(once[0]).not.toHaveProperty("count");
+      const two = [...skip(2), observer("focus", 4, { role: "link", name: "Menu" }), ...press(5, "Enter"), observer("state", 5, { role: "button", name: "Other", attr: "aria-expanded" })];
+      expect(find(extractHints(trace(two)), "missing-announcement")).toHaveLength(2);
+      const mixed = extractHints(trace([...press(1, "Tab"), observer("focus", 1, { role: "link", name: "Hidden", visible: false }), ["browser.accessibility-diagnostic", { step: 2, diagnostic: { focus: { indicator: "not-detected" } } }]]));
+      expect(find(mixed, "focus-not-visible").map(hint => hint.certainty).sort()).toEqual(["observed", "suspected"]);
+    });
+
+    it("does not merge excess-keystrokes stretches, which each have their own key count", () => {
+      const stretch = (from: number): Pair[] => [...Array.from({ length: 10 }, (_, index) => press(from + index, "Tab")).flat(), observer("focus", from + 9, { role: "button", name: "Buy" }), ...press(from + 10, "Enter")];
+      expect(find(extractHints(trace([...stretch(1), ...stretch(12)])), "excess-keystrokes")).toHaveLength(2);
+    });
+  });
+
+  describe("comparison with a reference run", () => {
+    const hintOf = (kind: HintKind, target?: { role: string; name?: string }, extra: Partial<Hint> = {}): Hint =>
+      ({ kind, source: HINT_SOURCES[kind], ...(target ? { target } : {}), certainty: "observed", steps: [1], summary: kind, detail: {}, evidence: [], ...extra });
+    const reportOf = (...hints: Hint[]) => ({ hints });
+
+    it("sorts hints into new, gone and in both by kind and element", () => {
+      const current = reportOf(hintOf("focus-lost", { role: "button", name: "Close" }), hintOf("missing-announcement", { role: "link", name: "Skip" }, { count: 4 }), hintOf("backtracking"));
+      const reference = reportOf(hintOf("missing-announcement", { role: "link", name: "Skip" }, { count: 2 }), hintOf("focus-lost", { role: "button", name: "Save" }), hintOf("backtracking"));
+      const comparison = compareHints(current, reference);
+      expect(comparison.new.map(h => h.target?.name)).toEqual(["Close"]);
+      expect(comparison.gone.map(h => h.target?.name)).toEqual(["Save"]);
+      expect(comparison.both.map(pair => [pair.current[0]!.kind, pair.current[0]!.count, pair.reference[0]!.count])).toEqual([["missing-announcement", 4, 2], ["backtracking", undefined, undefined]]);
+    });
+
+    it("leaves slow-run out, since it exists only because of the reference", () => {
+      const comparison = compareHints(reportOf(hintOf("slow-run")), reportOf());
+      expect(comparison).toEqual({ new: [], gone: [], both: [] });
+    });
+
+    it("keeps every hint of one identity together", () => {
+      const keys = [hintOf("excess-keystrokes", { role: "button", name: "Buy" }), hintOf("excess-keystrokes", { role: "button", name: "Buy" }, { steps: [30, 40] })];
+      const comparison = compareHints(reportOf(...keys), reportOf(hintOf("excess-keystrokes", { role: "button", name: "Buy" })));
+      expect(comparison.both).toHaveLength(1);
+      expect(comparison.both[0]!.current).toHaveLength(2);
+    });
   });
 
   describe("missing announcement", () => {

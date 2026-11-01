@@ -28,7 +28,7 @@ This page is for anyone who opens a run folder: to read the files, build on them
 Notes:
 
 - Trace files are written with mode `0600` (owner only).
-- Screenshots are taken only for runs started by `rawstep run` and the dashboard, and never after text has been typed (see [redaction](#redaction)). The report lists them by reference; the dashboard shows them.
+- Screenshots are taken only for runs started by `rawstep run` and the dashboard. After a secret was typed, form fields are blacked out, and a screenshot is left out while the page shows a typed secret (see [redaction](#redaction)). The report lists them by reference; the dashboard shows them.
 - `plan.json` and `plan.md` are written even when the run ended on an error. They are the end state; every plan version is also in the trace as `policy.evidence`.
 - With `--repeat`, `hints.json` is written after the last run ends so each run can be compared with the fastest one that reached the goal. A run started from the dashboard gets its files as soon as it ends, with no reference run. When the last repeat of a task under a profile in the same batch has finished, the dashboard writes every repeat's `hints.json` and report again against the fastest one that reached the goal, keeping each run's analysis. So dashboard repeats get `slow-run` hints too.
 - A cancelled `rawstep run` or `runTask` keeps the traces written so far and still writes their hints, the rule-based analysis and the report, without the model analysis. Run `rawstep analyze --llm` on a folder afterwards if you want one.
@@ -75,7 +75,8 @@ The event types you will meet most:
 | `browser.screenshot`, `browser.start-page`, `browser.screenshot-redacted` | browser-diagnostic | The screenshot files, or that one was withheld. |
 | `browser.accessibility-diagnostic`, `browser.profile`, `browser.profile-check` | browser-diagnostic | DOM diagnostics and what the page environment actually applied. These are measurements, not what the user model sees. |
 | `browser.navigation-blocked`, `browser.navigation-warning`, `browser.access-blocked` | browser-diagnostic | Navigation the task's navigation scope refused or warned about; a site that blocked the browser. |
-| `privacy.input-taint` | runner | Text was typed; later evidence is redacted (see below). |
+| `privacy.input-taint`, `privacy.input-taint-ended` | runner | A secret is being typed, and evidence is withheld; with the simulation the second marks where that stops, after the typing step (see below). |
+| `policy.planner-call` | policy | The policy started asking its planner (`trigger`: why). The plan or cue answer follows as `policy.evidence`; the time between is time spent waiting for the model, which the run's time limit does not count. |
 | `run.error`, `run.aborted`, `run.cleanup-warning` | runner | Why a run ended on an error or was cancelled; a resource that did not close in time. |
 
 Some `run.*` events appear only in some runs (waiting for a person to pass a site's human check, for example).
@@ -107,7 +108,9 @@ Input values you give a task (a password, an email address) must not end up in a
 
 - Every string in the trace is checked against the task's input values. A match is replaced with `[REDACTED]`, and the event gets `redacted: true`. A value is also found when it appears URL-encoded, form-encoded or JSON-escaped. Property names are never changed.
 - An input marked `sensitive: false` in `inputOptions` (a search term, a quantity) is not redacted, and the planner is told its value. Everything else is sensitive by default. See the [task reference](./task.md).
-- After the first text is typed, a later echo of it in speech, page text or a protocol message cannot be told apart from other text. From then on (`privacy.input-taint`) the run withholds more than the value itself: speech and titles are replaced by `[REDACTED]`, observer events keep their kind and role but lose names and text, policy evidence is cut down to bookkeeping (ids, counts, statuses), error messages are replaced, and screenshots are no longer taken (`browser.screenshot-redacted`). Structure is kept so hints still work.
+- While a secret is typed, its echo arrives character by character, which cannot be matched as the whole value. So for the typing step (`privacy.input-taint`) the run withholds more than the value: speech and titles are replaced by `[REDACTED]`, observer events keep their kind and role but lose names and text, policy evidence is cut down to bookkeeping (ids, counts, statuses), error messages are replaced, and no screenshot is taken (`browser.screenshot-redacted`). Structure is kept so hints still work.
+- With the simulation, whose speech is exact text, that ends after the typing step (`privacy.input-taint-ended`): later speech, plans, errors and verification are kept, with the value itself masked wherever it appears. A real screen reader can echo late and in its own words, so with VoiceOver or NVDA the withholding lasts to the end of the run.
+- After a secret was typed, screenshots black out every form field, and one is left out when the page's text shows a typed secret.
 - Before the user model sees speech, the same values are masked in it too, and the speech that follows typing is withheld (`[typed input withheld]`).
 - Redaction covers the configured input values and these recorded boundaries. It does not cover other secrets visible on a page, and screenshots taken before typing show what was on screen. Treat a run folder as sensitive.
 - `privacy.inputValues` is `redacted` for every run started by the CLI or the dashboard. Only a program that calls the low-level runner (or `TraceRecorder`) with `includeSensitiveInputValues: true` can write `included-by-explicit-opt-in`.
@@ -137,6 +140,7 @@ Each hint:
 | `target` | The page element it is about: `{ role, name? }`, as the accessibility tree names it. `name` is left out when unnamed or redacted. |
 | `certainty` | `observed`: directly recorded. `suspected`: inferred from indirect signals; may be wrong. |
 | `steps` | The steps it points at. Empty for `slow-run`, which is about the whole run. |
+| `count` | Only when the same page behaviour repeated on the same element and was merged into this hint: how many times it happened. `steps` and `evidence` then hold all of them. Absent means once. |
 | `summary` | One sentence for people. |
 | `detail` | Numbers and names specific to the kind. |
 | `evidence` | Ids of the trace events it was derived from. |
@@ -148,6 +152,8 @@ Each hint:
 | `page` | The page itself behaved this way: focus, announcements, dialogs, navigation. |
 | `model` | The simulated user wandered, stopped early, or held an expectation that broke. This may say more about the user model or the plan than about the page. |
 | `run` | About the run as a whole (length against a reference, goal already met at the start) and orchestration events: a new plan, a task that ran out of actions. They mark where the plan needed revising. The page may have made that hard, or the plan may have been wrong. |
+
+Within one run, `page` hints of the same kind, on the same element (role and name) and with the same certainty are merged into one hint with a `count`; a skip link whose activation was never announced four times is one `missing-announcement` hint with `count` 4, not four hints. `excess-keystrokes` is not merged, since each stretch has its own number of keys, and neither are hints without an element or hints from `model` and `run` sources.
 
 Only `page` and `model` hints are grouped across runs (see [Findings](#findings-across-runs)).
 
@@ -170,16 +176,21 @@ Only `page` and `model` hints are grouped across runs (see [Findings](#findings-
 | `focus-not-visible` | page | observed or suspected | Focus moved to an element that was hidden or outside the viewport (observed); another element may cover the focused control, or no focus indicator was detected (suspected). |
 | `modal-focus-outside` | page | observed or suspected | A modal dialog was open while focus moved behind it (observed); a dialog opened but focus did not move into it (suspected). |
 | `missing-announcement` | page | suspected | An activation changed the page, but no live region, alert or status, focus move or page load was recorded. |
+| `live-interruptions` | page | observed | After three or more moves that pressed nothing, the page announced something on its own (a live region: a rotating banner, a viewer count), talking over what each move said. `detail` has the number of moves and example texts. Simulation only: a real screen reader's output does not say which lines a live region spoke. |
 
 The thresholds (1.5 times, 3 steps, 10 moves, 2 reversals) are `DEFAULT_HINT_THRESHOLDS` in `rawstep/hints`; `extractHints` and `writeHints` take overrides in the library. The CLI uses the defaults.
 
 ### Findings across runs
 
-`rawstep run` and `runTask` group the `page` and `model` hints of all repeats by kind and element into findings: the same kind of hint about the same element. Each finding has the number of runs that show it (`runs` of `totalRuns`) and every occurrence, so you can open the step. Findings are sorted by how many runs show them, `page` before `model`. `excess-keystrokes` findings also carry the min, max and mean count. A finding is a place to look at, not a conclusion that the page is wrong.
+`rawstep run` and `runTask` group the `page` and `model` hints of all repeats by kind and element into findings: the same kind of hint about the same element. Each finding has the number of runs that show it (`runs` of `totalRuns`) and every occurrence, so you can open the step. Findings are sorted by how many runs show them, `page` before `model`. `excess-keystrokes` findings also carry the min, max and mean count. An occurrence carries the hint's `count` when it has one. Runs are counted once however many times the hint repeated inside them. A finding is a place to look at, not a conclusion that the page is wrong.
+
+### Comparing two runs
+
+`compareHints(current, reference)` (from `rawstep/hints`) takes two hint reports and matches their hints by kind and element, the same identity findings use. It returns `new` (only in `current`), `gone` (only in `reference`) and `both` (a `{ current, reference }` pair of hint lists for each kind and element they share, since a run can have several of one identity). `slow-run` is left out: it exists only because of the reference. The comparison says what differs, not which run is better. `writeHints(runDir, { reference })` returns it as `comparison`, and `rawstep hints <run-dir> --reference <run-dir>` prints it. Neither writes it to `hints.json`.
 
 ## The report
 
-`report.html` is one self-contained page for reading a run. It has no scripts and no remote files, and a content security policy that forbids both. `report.json` is the same information as data: `schemaVersion` `1.0`, `runId`, `runOutcome`, `analysis`, `hints` (when there is a `hints.json`), `eventCount`, `privacy` and a `summary` of counts, actions, the first failure and the verification results.
+`report.html` is one self-contained page for reading a run. It opens with the task and its goal, then what was hard (the stuck places, wrong guesses and why the run stopped), then how it ended and what it cost in moves, then the details; the run id is last. Every sentence is in English and Korean, and the page opens in the reader's language (the browser's, or the one chosen with the switch at the top, remembered in the browser). It has no remote files and one fixed inline script for the language switch, and its content security policy allows that script by its hash and nothing else. `report.json` is the same information as data: `schemaVersion` `1.0`, `runId`, `runOutcome`, `analysis`, `hints` (when there is a `hints.json`), `eventCount`, `privacy` and a `summary` of counts, actions, the first failure and the verification results.
 
 The HTML sections, in order:
 

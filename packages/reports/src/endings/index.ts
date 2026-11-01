@@ -7,7 +7,13 @@
  * Pure and free of Node APIs, so a browser page can use it too.
  */
 export type RunEnding = 'reached' | 'gave-up' | 'mistaken' | 'unmeasured';
-export type UnmeasuredBy = 'planner-calls' | 'no-allowed-action' | 'max-steps' | 'timeout' | 'repetition-guard' | 'model-uncertain' | 'other';
+/**
+ * Why a run was not measured: a cost limit (`planner-calls`, `max-steps`, `timeout`), the repetition guard, a profile that allows no
+ * action the plan needs, a custom policy unsure, the planner not answering in time (`planner-timeout`), the site blocking the browser
+ * (`blocked`: a bot check or an access error on the first page) or this computer not applying the page environment (`environment`).
+ */
+export type UnmeasuredBy = 'planner-calls' | 'no-allowed-action' | 'max-steps' | 'timeout' | 'repetition-guard' | 'model-uncertain'
+  | 'planner-timeout' | 'blocked' | 'environment' | 'other';
 export type EndingOf = { ending: RunEnding; by?: UnmeasuredBy };
 
 /** The ending of a finished run from its outcome and who stopped it (the trace's `policyStopSource`). */
@@ -26,6 +32,9 @@ export function runEnding(outcome: { status: string; reason?: string } | undefin
     case 'policy-uncertain': return { ending: 'unmeasured', by: 'model-uncertain' };
     case 'maxSteps': return { ending: 'unmeasured', by: 'max-steps' };
     case 'timeout': return { ending: 'unmeasured', by: 'timeout' };
+    case 'planner-timeout': return { ending: 'unmeasured', by: 'planner-timeout' };
+    case 'access-blocked': return { ending: 'unmeasured', by: 'blocked' };
+    case 'unsupported-profile': return { ending: 'unmeasured', by: 'environment' };
     default: return { ending: 'unmeasured', by: 'other' };
   }
 }

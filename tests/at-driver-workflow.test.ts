@@ -32,7 +32,7 @@ describe('real WebSocket adapter to runner to saved artifacts',()=>{
     const before=await readFile(join(out,'trace.json'),'utf8');
     expect(await runCli(['analyze',out],{stdout:()=>{},stderr:s=>stderr.push(s)})).toBe(0);
     expect(await readFile(join(out,'trace.json'),'utf8')).toBe(before);
-    expect(await readFile(join(out,'report.html'),'utf8').catch(()=>readFile(join(out,'report','index.html'),'utf8'))).toContain('RawStep');
+    expect(await readFile(join(out,'report.html'),'utf8').catch(()=>readFile(join(out,'report','index.html'),'utf8'))).toContain('<title>Rawstep · ');
   });
   it.each([2,3])('stops a text batch before dispatch when command %i cannot be persisted',async(failedId)=>{
     const server=await mockAtDriverServer();cleanup.push(()=>server.close());

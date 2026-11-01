@@ -1,10 +1,19 @@
-import { comboPlanner, isFilePlanner, credentialId, modelKeyRequired, type Combo, type Model, type ProjectConfig } from '@rawstep/project/config';
-import { api } from '../api';
-import { serverText, t } from '../i18n';
+import { comboPlanner, isFilePlanner, credentialId, modelKeyRequired, type Combo, type Model, type Profile, type ProjectConfig } from '@rawstep/project/config';
+import { api } from '../api.js';
+import { serverText, t } from '../i18n/index.js';
 import type { Combination, ConfigView, Experiment, PlanRequest } from '../../shared/config.js';
 
 /** How many times each profile runs a task unless a person picks another number. */
-export const QUICK_RUN_REPEATS = 3;
+export const QUICK_RUN_REPEATS = 1;
+
+/**
+ * The one profile the run dialog starts with: the last single profile a person ran if it still exists, else the first profile that
+ * plans with a model and can run (a written plan file is a demo, not what most people mean to run), else the first one that can run,
+ * else the first profile. A multi-profile pick is never restored — running several profiles at once has to be chosen each time.
+ */
+export function defaultRunProfileId<P extends Pick<Profile, 'id' | 'planner'>>(profiles: readonly P[], lastId?: string, canRun: (profile: P) => boolean = () => true): string | undefined {
+  return (profiles.find(profile => profile.id === lastId) ?? profiles.find(profile => !isFilePlanner(profile.planner) && canRun(profile)) ?? profiles.find(canRun) ?? profiles[0])?.id;
+}
 
 /**
  * Why a model combo cannot run as far as the dashboard can tell without asking the server: no planner, or no key for the planner.

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Play, Trash2 } from 'lucide-react';
+import { Columns2, Play, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { api } from '../api';
 import { DeleteRunsDialog } from '../components/DeleteRunsDialog';
@@ -9,6 +9,7 @@ import { PageHeader } from '../components/layout/PageHeader';
 import { Link } from '../components/Link';
 import { RunsTable } from '../components/RunsTable';
 import { Button } from '../components/ui/button';
+import { MAX_COMPARE } from '../lib/compare';
 import { displayState } from '../lib/runStrip';
 import { isFinished, isLive, runConditions, taskNameOf, runModelsName, taskRunNumbers, type RunRef } from '../lib/runs';
 import type { ListProps } from './types';
@@ -48,6 +49,8 @@ export function RunsPage({ pageProps, runs, navigate, onRun }: ListProps & { onR
   const narrow = (apply: () => void) => { apply(); setShown(PAGE); };
   // Only runs that still exist and have ended can be picked, whatever the filters show now.
   const chosen = runs.filter(ref => picked.has(ref.run.id) && !isLive(ref.run));
+  // Runs of any task can be set side by side, but not more than fit as columns.
+  const canCompare = chosen.length >= 2 && chosen.length <= MAX_COMPARE;
   const toggle = (id: string, on: boolean) => setPicked(current => { const next = new Set(current); if (on) next.add(id); else next.delete(id); return next; });
   const toggleAll = (on: boolean) => setPicked(current => { const next = new Set(current); for (const { run } of matching.slice(0, shown)) if (!isLive(run)) { if (on) next.add(run.id); else next.delete(run.id); } return next; });
   const remove = () => { setDeleting(false); void pageProps.act(async () => {
@@ -73,8 +76,10 @@ export function RunsPage({ pageProps, runs, navigate, onRun }: ListProps & { onR
         : <>
           {chosen.length > 0 && <div role="region" aria-label={t('runList.select.count', { count: chosen.length })} className="flex flex-wrap items-center gap-2 border-y border-edge-strong py-1.5 text-[13px]">
             <span className="mr-1 font-medium">{t('runList.select.count', { count: chosen.length })}</span>
+            <Button disabled={!canCompare} onClick={() => navigate({ view: 'runs', compare: chosen.map(ref => ref.run.id) })}><Columns2 aria-hidden="true" />{t('runCompare.action')}</Button>
+            {!canCompare && <span className="text-xs text-muted-foreground">{chosen.length < 2 ? t('runCompare.needMore') : t('runCompare.tooMany', { max: MAX_COMPARE })}</span>}
             <Button variant="ghost" onClick={() => setPicked(new Set())}>{t('runList.select.clear')}</Button>
-            <Button variant="ghost" className="ml-auto text-destructive hover:text-destructive" disabled={pageProps.busy} onClick={() => setDeleting(true)}><Trash2 aria-hidden="true" />{t('runList.select.delete')}</Button>
+            <Button variant="outline" className="ml-auto border-destructive/40 text-destructive hover:text-destructive" disabled={pageProps.busy} onClick={() => setDeleting(true)}><Trash2 aria-hidden="true" />{t('runList.select.delete')}</Button>
           </div>}
           <RunsTable runs={matching.slice(0, shown)} numbers={numbers} config={config} tasks={config.tasks} showConditions navigate={navigate} selection={{ selected: picked, onToggle: toggle, onToggleAll: toggleAll }} />
           <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">

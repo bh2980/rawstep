@@ -6,7 +6,7 @@ import type { Experiment } from '../../shared/config';
 import type { RouteChange } from '../hooks/useRoute';
 import { t as translate } from '../i18n';
 import { personaName, personaOf } from '../lib/persona';
-import { comboProblem, QUICK_RUN_REPEATS, startRun } from '../lib/quickRun';
+import { comboProblem, defaultRunProfileId, QUICK_RUN_REPEATS, startRun } from '../lib/quickRun';
 import { cn } from '../lib/utils';
 import type { PageProps } from '../pages/types';
 import { Link } from './Link';
@@ -20,13 +20,14 @@ import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 const MAX_REPEATS = 20;
 /** Past this many runs the dialog says how much it is before it starts them. */
 const MANY_RUNS = 12;
-const MEMORY = 'rawstep.run.profiles';
+const MEMORY = 'rawstep.run.profile';
 
-/** The profiles last picked in this browser; a convenience only, so a missing or blocked storage is no matter. */
-function remembered(): string[] {
-  try { const value = JSON.parse(localStorage.getItem(MEMORY) ?? '[]'); return Array.isArray(value) ? value.filter((id): id is string => typeof id === 'string') : []; } catch { return []; }
+/** The profile last run on its own in this browser; a convenience only, so a missing or blocked storage is no matter. */
+function remembered(): string | undefined {
+  try { return localStorage.getItem(MEMORY) ?? undefined; } catch { return undefined; }
 }
-function remember(ids: string[]) { try { localStorage.setItem(MEMORY, JSON.stringify(ids)); } catch { /* not kept */ } }
+/** Only a single profile is kept: several at once are a choice to make each time, not a default to restore. */
+function remember(ids: string[]) { if (ids.length === 1) try { localStorage.setItem(MEMORY, ids[0]!); } catch { /* not kept */ } }
 
 type Props = {
   open: boolean; onOpenChange: (open: boolean) => void;
@@ -54,14 +55,16 @@ export function RunDialog({ open, onOpenChange, pageProps, taskIds: initialTasks
     if (!open) return;
     setTaskIds(initialTasks);
     setNote('');
-    const kept = remembered().filter(pid => config.profiles.some(p => p.id === pid));
-    setProfileIds(kept.length ? kept : config.profiles.slice(0, 1).map(p => p.id));
+    setRepeats(String(QUICK_RUN_REPEATS));
+    const first = defaultRunProfileId(config.profiles, remembered(), profile => !comboProblem(config, view.credentialStatus, profile));
+    setProfileIds(first ? [first] : []);
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const tasks = config.tasks.filter(task => taskIds.includes(task.id)), profiles = config.profiles.filter(p => profileIds.includes(p.id));
   const count = Number(repeats), valid = Number.isInteger(count) && count >= 1 && count <= MAX_REPEATS;
   const total = valid ? tasks.length * profiles.length * count : 0;
   const problems = profiles.flatMap(profile => { const problem = comboProblem(config, view.credentialStatus, profile); return problem ? [{ profile, problem }] : []; });
+  const factors = [tasks.length > 1 && t('runDialog.factorTasks', { count: tasks.length }), t('runDialog.factorProfiles', { count: profiles.length }), t('runDialog.factorRepeats', { count: valid ? count : 0 })].filter(Boolean).join(' × ');
   const ready = tasks.length > 0 && profiles.length > 0 && valid && !problems.length && !busy;
   const toggle = (list: string[], value: string, on: boolean) => on ? [...list, value] : list.filter(item => item !== value);
 
@@ -121,7 +124,7 @@ export function RunDialog({ open, onOpenChange, pageProps, taskIds: initialTasks
         <Link to={{ view: 'settings', section: 'profiles' }} navigate={change => { onOpenChange(false); navigate(change); }} className="text-[13px] text-trace underline underline-offset-4">{t('runDialog.editProfiles')}</Link>
         <div className="flex gap-2">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>{t('runBox.cancel')}</Button>
-          <Button type="button" disabled={!ready} onClick={run}><Play aria-hidden="true" />{t('runDialog.run', { count: total })}</Button>
+          <Button type="button" disabled={!ready} onClick={run}><Play aria-hidden="true" />{total > 1 ? t('runDialog.runMath', { factors, count: total }) : t('runDialog.run', { count: total })}</Button>
         </div>
       </DialogFooter>
     </DialogContent>

@@ -2,10 +2,11 @@ import { readFile, readdir, stat, writeFile, rename, mkdir, realpath, unlink } f
 import { parseEnv } from 'node:util';
 import { resolve, dirname, relative, isAbsolute } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
+import { ZodError } from 'zod';
 import { resolveTask, type Task } from '@rawstep/core/contracts';
 import { resolveEnvironmentProfile } from '@rawstep/browser/profiles';
 import { modelBaseURL } from '@rawstep/policies/llm';
-import { CONFIG_FILE, KEYED_PROVIDERS, configSchema, credentialId, defaultConfig, modelKeyEnv, parseConfig, type Connection, type ProjectConfig, type ProviderId } from './config.js';
+import { CONFIG_FILE, KEYED_PROVIDERS, configProblems, configSchema, credentialId, defaultConfig, modelKeyEnvNames, parseConfig, type Connection, type ProjectConfig, type ProviderId } from './config.js';
 import { DEMO_FILES, demoConfig } from './demo.js';
 export { DEMO_DIR, demoConfig, findAgentCli } from './demo.js';
 import { ProjectError } from './errors.js';
@@ -21,6 +22,8 @@ export async function atomicJson(path: string, value: unknown, mode = 0o600): Pr
 }
 const digest = (value: string) => createHash('sha256').update(value).digest('hex');
 const NO_CONFIG = `${CONFIG_FILE} was not found. Create it with \`rawstep init\` or \`rawstep ui\`.`;
+/** Why one registered task cannot be used: a problem of that task alone, which never keeps the rest of the project from working. */
+export type TaskProblem = { code: string; message: string };
 
 /**
  * Writes rawstep.config.json into `root` with the demo task and its files (see `demoConfig`); an existing config is never replaced,
@@ -61,10 +64,20 @@ export class ProjectStore {
     const version = json && typeof json === 'object' ? (json as { version?: unknown }).version : undefined;
     if (typeof version === 'number' && Number.isInteger(version) && version >= 1 && version <= 6) throw new ProjectError('old-config', `${CONFIG_FILE} is version ${version}, which this Rawstep does not read. Start a new project with \`rawstep init\` and copy the tasks over.`);
     try { config = parseConfig(json); }
-    catch (e) { throw new ProjectError('invalid-config', `${CONFIG_FILE} is not valid: ${e instanceof Error ? e.message : String(e)}`); }
+    catch (e) { throw new ProjectError('invalid-config', e instanceof ZodError ? configProblems(e, json).join('\n') : `${CONFIG_FILE} is not valid: ${e instanceof Error ? e.message : String(e)}`); }
     this.validateReferences(config);
-    const files = await Promise.all(config.tasks.map(async t => [t.file, digest(await this.taskSource(t.file))]));
-    return { config, revision: digest(JSON.stringify({ raw, files })) };
+    // The revision changes when a task file does. A file that cannot be read is a problem of its task only, and the revision still
+    // moves when it appears or breaks differently.
+    const taskProblems: Record<string, TaskProblem> = {};
+    const files = await Promise.all(config.tasks.map(async t => {
+      try { return [t.file, digest(await this.taskSource(t.file))]; }
+      catch (e) {
+        const problem = { code: (e as ProjectError).code, message: (e as ProjectError).message };
+        taskProblems[t.id] = problem;
+        return [t.file, digest('problem:' + problem.code)];
+      }
+    }));
+    return { config, revision: digest(JSON.stringify({ raw, files })), taskProblems };
   }
   validateReferences(config: ProjectConfig) {
     for (const connection of config.connections) if (connection.baseURL) modelBaseURL(connection.baseURL);
@@ -104,17 +117,21 @@ export class ProjectStore {
   }
   private async taskSource(file: string): Promise<string> {
     try { return await readFile(await this.file(file, true), 'utf8'); }
-    catch (e) { if ((e as NodeJS.ErrnoException).code === 'ENOENT') throw new ProjectError('task-file-missing', `Task file ${file} was not found.`, 404); throw e; }
+    catch (e) {
+      if ((e as NodeJS.ErrnoException).code === 'ENOENT') throw new ProjectError('task-file-missing', `Task file ${file} was not found.`, 404);
+      if (e instanceof ProjectError) throw new ProjectError(e.code, `Task file ${file}: ${e.message}`, e.status);
+      throw new ProjectError('task-file-unreadable', `Task file ${file} could not be read: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+  /** A task file's JSON, or the reason it is not valid JSON. */
+  private async taskJson(file: string): Promise<unknown> {
+    const source = await this.taskSource(file);
+    try { return JSON.parse(source); } catch (e) { throw new ProjectError('invalid-task', `Task file ${file} is not valid JSON: ${e instanceof Error ? e.message : String(e)}`); }
   }
   /** Registered tasks resolve relative start URLs (project HTML files) against the project root, as the dashboard describes them. */
   async task(file: string): Promise<Task> {
-    const source = await this.taskSource(file);
-    return resolveTask(JSON.parse(source), this.root);
+    return resolveTask(await this.taskJson(file), this.root);
   }
-  /**
-   * Each registered task's JSON as written in its file, for editing: relative URLs and omitted defaults stay as
-   * they are, so saving an edit never bakes machine paths or defaults into the file. Every file is still validated.
-   */
   /**
    * Task JSON files already in the project that are not registered yet, so a person can pick one instead of typing its path.
    * A file counts when it parses as a task; dependency, build and run-output folders are skipped, and the walk is bounded.
@@ -141,31 +158,39 @@ export class ProjectStore {
     await walk(this.root, 0);
     return found.sort((a, b) => a.file.localeCompare(b.file));
   }
+  /**
+   * Each registered task's JSON as written in its file, for editing: relative URLs and omitted defaults stay as
+   * they are, so saving an edit never bakes machine paths or defaults into the file. A task whose file is missing or
+   * not a valid task is left out (see `read().taskProblems`): one broken task does not hide the others.
+   */
   async taskFiles(config: ProjectConfig): Promise<Record<string, unknown>> {
-    return Object.fromEntries(await Promise.all(config.tasks.map(async t => {
-      const source = await this.taskSource(t.file), json: unknown = JSON.parse(source);
-      resolveTask(json, this.root);
-      return [t.id, json] as const;
-    })));
+    return Object.fromEntries((await Promise.all(config.tasks.map(async t => {
+      try { const json = await this.taskJson(t.file); resolveTask(json, this.root); return [t.id, json] as const; } catch { return undefined; }
+    }))).filter((entry): entry is readonly [string, unknown] => !!entry));
   }
+  /** The resolved task of each registered task id; a task that cannot be read or resolved is left out, and `task(file)` says why. */
   async tasks(config: ProjectConfig): Promise<Record<string, Task>> {
-    return Object.fromEntries(await Promise.all(config.tasks.map(async t => [t.id, await this.task(t.file)])));
+    return Object.fromEntries((await Promise.all(config.tasks.map(async t => {
+      try { return [t.id, await this.task(t.file)] as const; } catch { return undefined; }
+    }))).filter((entry): entry is readonly [string, Task] => !!entry));
   }
   async save(value: unknown, revision: string, taskWrite?: { file: string; task: unknown }) {
     const work = this.pending.then(async () => {
       const current = await this.read();
       if (current.revision !== revision) throw new ProjectError('config-conflict', 'The configuration was changed outside this window. Reload it and apply your change again.', 409);
       const config = configSchema.parse(value); this.validateReferences(config);
-      if (taskWrite) {
+      // A task being added needs a usable file; tasks that were already registered are not this save's business.
+      const checkAdded = async () => { for (const added of config.tasks) if (added.file !== taskWrite?.file && !current.config.tasks.some(t => t.file === added.file)) await this.task(added.file); };
+      if (!taskWrite) await checkAdded();
+      else {
         if (['package.json', CONFIG_FILE].includes(taskWrite.file) || taskWrite.file.startsWith('.rawstep/')) throw new ProjectError('task-file-reserved', 'Configuration, package and run files cannot be used as a task.');
         if (!taskWrite.file.endsWith('.json') || !config.tasks.some(t => t.file === taskWrite.file)) throw new ProjectError('task-file-not-registered', 'A registered task JSON path is required.');
         const path = await this.file(taskWrite.file);
         resolveTask(taskWrite.task, this.root);
-        await this.tasks({ ...config, tasks: config.tasks.filter(t => t.file !== taskWrite.file) });
+        await checkAdded();
         if (!current.config.tasks.some(t => t.file === taskWrite.file) && await readOptional(path) !== undefined) throw new ProjectError('task-file-exists', 'A file already exists at this path. Import the existing JSON or choose a new path.', 409);
         await atomicJson(path, taskWrite.task, 0o644);
       }
-      await this.tasks(config);
       await atomicJson(this.path, config, 0o644);
       return this.read();
     });
@@ -198,18 +223,27 @@ export class ProjectStore {
     this.pending = work.then(() => {}, () => {});
     return work;
   }
-  /** The environment variable a credential target uses: a preset provider's fixed one, or the one a custom connection names. */
-  private envName(target: ProviderId | Pick<Connection, 'provider' | 'apiKeyEnv'>): string | undefined {
-    if (typeof target !== 'string') return modelKeyEnv(target);
-    return KEYED_PROVIDERS.find(p => p.provider === target)?.keyEnv;
+  /**
+   * The environment variables a credential target reads, in order: a preset provider's own `RAWSTEP_*` one, then the provider's standard
+   * ones (`OPENAI_API_KEY`, ...), or the one variable a custom connection names. The first is where a key is written.
+   */
+  private envNames(target: ProviderId | Pick<Connection, 'provider' | 'apiKeyEnv'>): string[] {
+    if (typeof target !== 'string') return modelKeyEnvNames(target);
+    const preset = KEYED_PROVIDERS.find(p => p.provider === target);
+    return preset ? [preset.keyEnv, ...preset.keyEnvAliases] : [];
   }
   /**
-   * The key of a provider (`'openai'`, `'anthropic'`, ...) or of one connection (a custom connection has its own variable): the value
-   * stored in .env.local, otherwise the process environment. Never part of any config response.
+   * The key of a provider (`'openai'`, `'anthropic'`, ...) or of one connection (a custom connection has its own variable) with the
+   * variable it came from: the value stored in .env.local, otherwise the process environment, for the provider's `RAWSTEP_*` variable
+   * first and its standard one after. Never part of any config response.
    */
+  async credentialSource(target: ProviderId | Pick<Connection, 'provider' | 'apiKeyEnv'>): Promise<{ env: string; value: string } | undefined> {
+    for (const env of this.envNames(target)) { const value = await this.localValue(env); if (value) return { env, value }; }
+    return undefined;
+  }
+  /** The key of a provider or connection (see `credentialSource`). */
   async credential(target: ProviderId | Pick<Connection, 'provider' | 'apiKeyEnv'>): Promise<string | undefined> {
-    const name = this.envName(target);
-    return name ? this.localValue(name) : undefined;
+    return (await this.credentialSource(target))?.value;
   }
   /** A value this computer keeps out of the shared config: .env.local first, then the process environment. */
   async localValue(name: string): Promise<string | undefined> {
@@ -225,7 +259,7 @@ export class ProjectStore {
     return Object.fromEntries(await Promise.all(entries.map(async ([id, value]) => [id, !!await value])));
   }
   async setCredential(target: ProviderId | Pick<Connection, 'provider' | 'apiKeyEnv'>, value: string) {
-    const name = this.envName(target);
+    const name = this.envNames(target)[0];
     if (!name) throw new ProjectError('credential-target', 'This provider or model has no key variable to store a key in. Give the custom connection an environment variable name first.');
     if (!value.trim()) throw new ProjectError('invalid-credential', 'The credential name or value is not valid.');
     return this.setLocalValue(name, value);

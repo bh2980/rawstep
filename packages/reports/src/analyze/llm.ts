@@ -47,7 +47,8 @@ export class LlmTraceAnalyzer implements TraceAnalyzer {
       const llm = findRawstepError(error, e => e.code.startsWith('llm-'));
       if (llm?.code === 'llm-cancelled') throw new RawstepError('analysis-cancelled', 'LLM analysis was cancelled.');
       if (llm?.code === 'llm-timeout') throw new RawstepError('analysis-timeout', 'LLM analysis timed out.');
-      throw new RawstepError('analysis-failed', 'LLM analysis failed: connection, limits, or invalid evidence/JSON; raw provider details omitted for privacy.');
+      // The model call's own message says what failed (key, model, rate limit, reply) in Rawstep's words.
+      throw new RawstepError('analysis-failed', llm ? `LLM analysis failed. ${llm.message.replace(/^The model call failed\. /, '')}` : 'LLM analysis failed: the analysis did not match the run\'s evidence.');
     } finally { if (this.options.llm) await closeLlmModel(this.llm); }
   }
 }

@@ -67,6 +67,17 @@ describe("findings across runs", () => {
     expect(findings.every(f => f.totalRuns === 3)).toBe(true);
   });
 
+  it("counts runs, not occurrences, when a run's repeats were merged into one hint with a count", () => {
+    const findings = aggregateHints([
+      report("a", [{ ...hint("missing-announcement", { role: "link", name: "Skip" }), steps: [2, 4, 6, 8], count: 4 }]),
+      report("b", [hint("missing-announcement", { role: "link", name: "Skip" })]),
+    ]);
+    expect(findings).toHaveLength(1);
+    expect(findings[0]).toMatchObject({ runs: 2, totalRuns: 2 });
+    expect(findings[0]!.occurrences).toMatchObject([{ runId: "a", steps: [2, 4, 6, 8], count: 4 }, { runId: "b" }]);
+    expect(findings[0]!.occurrences[1]).not.toHaveProperty("count");
+  });
+
   it("keeps different elements apart even for the same kind", () => {
     const findings = aggregateHints([report("a", [hint("focus-lost", { role: "button", name: "Close" }), hint("focus-lost", { role: "button", name: "Save" }), hint("focus-lost", { role: "button" })])]);
     expect(findings).toHaveLength(3);

@@ -31,6 +31,23 @@ A project is the folder that holds `rawstep.config.json`. Every command that rea
 - An unknown command, an unknown option, a single-dash option other than `-h` and `-v`, or a wrong number of positional arguments is a usage error (exit code 2).
 - `--project`, `--out`, `--reference` and `--analysis` are resolved from the current directory.
 
+## Using it in CI
+
+Rawstep reports friction hints, not pass or fail, so the exit code of `run` does not say whether the goal was reached. It says whether every run gave a measurement.
+
+| Code | When |
+| --- | --- |
+| `0` | The command finished. For `run`: every run gave a measurement. The user reached the goal, gave up, or said it was done but the goal was not reached. For `doctor`: no `FAIL` line. For `analyze`: the analysis completed. For `ui`: stopped by SIGINT or SIGTERM. |
+| `1` | An error: no config, a bad config, an unknown task or profile, a missing key, a profile that cannot run, any `run` that ended on an error (the result is still printed, with the error), an unreadable run folder, a `doctor` `FAIL`, a failed `analyze`, or `init` over an existing config. The message is on stderr (`doctor` prints on stdout). |
+| `2` | Bad usage: an unknown command or option, a missing value, a wrong number of arguments, `--port` or `--repeat` out of range, an invalid `--rule`. The message is on stderr and nothing is run. |
+| `3` | For `run`: no run ended on an error, but at least one was not measured. It hit a limit (steps, time, planner calls), the repetition guard, a bot check or access block, a planner that did not answer in time, a page environment this computer could not apply, or the model was unsure. |
+| `130` | `run` was cancelled by SIGINT. |
+| `143` | `run` was cancelled by SIGTERM. |
+
+A run that ended on an error says nothing about the page, and a run that was not measured says nothing about the user, so a script must not read either as a result. When both happen in one `run`, the exit code is 1. To treat "not measured" as acceptable, accept 0 and 3. In a script, read the printed result, `--json`, or call [`runTask`](./api.md#runtask) from your test runner and apply your own threshold.
+
+Several `run` commands may share one `--out` folder, one after the other or at the same time: each run takes the next free `run-<n>` folder.
+
 ## `rawstep init`
 
 ```text
@@ -91,13 +108,13 @@ rawstep run <task> [--profile <id|name>] [--rule <name>=<value>]...
 | `--profile <id\|name>` | the first profile in the config | The run profile to use, by id or by name. A task file has no profile of its own. |
 | `--rule <name>=<value>` | none | Overrides one run rule for these runs. Repeatable; the last value for a rule wins. |
 | `--repeat <n>` | `1` | Runs the task `n` times (1 to 100). The runs are compared with the fastest one that reached the goal. |
-| `--out <dir>` | `<project>/.rawstep/runs/<timestamp>-<id>/` | Where to write. One `run-<n>` folder per repeat. |
+| `--out <dir>` | `<project>/.rawstep/runs/<timestamp>-<id>/` | Where to write. One `run-<n>` folder per repeat, each the next number not taken in `<dir>`, so the same `--out` can be reused. |
 | `--json` | off | Prints the result object as JSON instead of the text report. |
 | `--project <dir>` | `.` | The project folder. |
 
 `--rule` values are read as the rule's type (a number, `true` or `false`, or a word) and checked against the run rules schema. The rules are `repetitionGuard`, `maxUnchangedTransitions`, `confirmationGrace`, `maxPlannerCalls`, `reviewEvery`, `stepActionLimit`, `failureLimit`, `noChangeLimit`, `plannerHistoryLimit` and `survey`. Their meaning, ranges and defaults are in the run rules section of the [config reference](./config.md). A name that is not a rule, a missing value or a value out of range is a usage error that names what is allowed, for example `--rule survey=x is not valid: survey must be one of none, headings.`
 
-Before it starts, `run` checks that the profile can run: it has a planner (a model or a plan file), the model key is set, the actions fit the screen reader, and a native screen reader has a loopback AT Driver address. Any of these failing is an error (exit code 1) and nothing is run. A missing analysis key is not: the runs get the rule-based analysis only, and the text report shows a `note:` line.
+Before it starts, `run` checks that the profile can run: it has a planner (a model or a plan file), the model key is set (a `RAWSTEP_*` variable, or the provider's standard one such as `OPENAI_API_KEY`), the actions fit the screen reader, and a native screen reader has a loopback AT Driver address. Any of these failing is an error (exit code 1) and nothing is run. A missing analysis key is not: the runs get the rule-based analysis only, and the text report shows a `note:` line.
 
 ### What `run` prints
 
@@ -176,13 +193,16 @@ Reads the saved trace in `<run-dir>`, works out the friction hints and writes `h
 | --- | --- |
 | `--reference <run-dir>` | Compare with another run. A run of at least 1.5 times the reference's steps, and at least 3 more steps, gets a `slow-run` hint. |
 
-It prints a summary line, one line per hint, and the file it wrote:
+It prints a summary line, one line per hint, a one-line legend for `observed` and `suspected`, and the file it wrote. A hint that repeated on the same element shows `×<n>` after its kind:
 
 ```text
 Hints: <count> · goal reached: yes|no · steps <n>[ · reference <m> steps]
-step <steps> · <kind> · <certainty> · <summary>
+step <steps> · <kind>[ ×<n>] · <certainty> · <summary>
+observed: recorded directly · suspected: inferred from indirect signals, may be wrong
 Wrote <path>/hints.json
 ```
+
+With `--reference`, the hint lines are sorted into what the other run differs in: `Against the reference run: <a> new, <b> gone, <c> in both`, then `New in this run:`, `Only in the reference run:` (steps are the reference run's) and `In both:` (with how many times each run had it). Hints are matched by kind and element. This says what differs, not which run is better.
 
 Hint kinds and sources are in the [results reference](./results.md#hint-kinds). Exit code 0.
 
@@ -192,7 +212,7 @@ Hint kinds and sources are in the [results reference](./results.md#hint-kinds). 
 rawstep report <run-dir> [--analysis <analysis.json>] [--out <dir>]
 ```
 
-Writes `report.html` and `report.json` for a saved run. The HTML report has no scripts and loads no remote files.
+Writes `report.html` and `report.json` for a saved run. The HTML report loads no remote files, and its only script is a fixed one that switches between English and Korean.
 
 | Option | Default | Meaning |
 | --- | --- | --- |
@@ -236,7 +256,7 @@ Exit code 0 when the analysis is `completed`, 1 when it is `failed`. What the tw
 rawstep doctor [--project <dir>]
 ```
 
-Checks whether a run can start, one line per check. It makes no model calls.
+Checks whether a run can start, one line per check. It makes no model calls, but it does ask each API provider for its model list (free) to check the key and the model ID, so it needs the network for that.
 
 ```text
 <status>  <label>: <detail>
@@ -256,29 +276,19 @@ The checks, in order:
 | `Node` | The Node version is 22.12 or newer. |
 | `Config` | `rawstep.config.json` parses. The detail counts connections, tasks and run profiles. |
 | `Tasks` | `warn` when the config has no tasks. |
-| `Profile <name>` | One line per run profile. `ok` with the planner (`plans with <connection> · <model>`, or `follows the plan file <path> (no model)`); `warn` when it has no planner yet; `FAIL` when its plan file is missing. A plan file path with `{task}` in it is not checked here. |
+| `Task <id>` | One line per registered task: `ok` when its file exists and is a valid task, `FAIL` with the reason when the file is missing, unreadable or not a valid task. One broken task does not stop the other checks, and does not stop you running the other tasks. |
+| `Profile <name>` | One line per run profile. `ok` with the planner (`plans with <connection> · <model>`, or `follows the plan file <path> (no model)`); `warn` when it has no planner yet; `FAIL` when it cannot run: its plan file is missing, or its connection's key is not set. A plan file path with `{task}` in it is not checked here. |
 | `Browser` | A headless Chromium launches, or the CDP address in `machine.browserEndpoint` answers. The detail says how to fix a failure. |
-| `Key <label>` | One line per API-key connection: the environment variable is set or missing (`ok` also when a connection needs no key). |
-| `<label>` (a coding-agent CLI, for example `Claude Code`) | One line per coding-agent CLI connection: it starts and lists its models (its own sign-in pays for calls), or it is not found on this computer, or it needs a sign-in. |
+| `Key <label>` | One line per API-key connection and model it is used for. A missing variable is `FAIL` (`ok` when a connection needs no key). A key that is set is tried: `ok  Key OpenRouter: OPENROUTER_API_KEY works · model vendor/model listed (1.8 s)` names the variable used and the time taken. `FAIL` says what failed: the key was refused (HTTP 401 or 403), the model is not in the provider's list, the provider did not answer in time or cannot be reached. A network failure is a `FAIL` line, not a crash. |
+| `Browser window` | `ok`, for information, when `machine.personCheck` or `machine.browserEndpoint` means runs show a window whatever `machine.headless` says. |
+| `<label>` (a coding-agent CLI, for example `Claude Code`) | One line per coding-agent CLI connection: it starts and lists its models (its own sign-in pays for calls); or its program is not found on `PATH`; or it started but did not answer in time; or it needs a sign-in, which you do with that agent's own CLI (for example run `claude` once and sign in). Antigravity needs its ACP server binary `agy_acp_server.par` on `PATH`; the `agy` CLI alone is not enough, and it signs in from the dashboard's connection check. |
 | `Screen reader` | `skip` if every profile uses the simulation. Otherwise, for each native screen reader (`voiceover`, `nvda`) used by a profile, the AT Driver endpoint answers. This checks the protocol connection only; verify real speech on the target host. |
-
-## Exit codes
-
-| Code | When |
-| --- | --- |
-| `0` | The command finished. For `run`: the runs completed, whether or not the goal was reached, and none ended on an error. For `doctor`: no `FAIL` line. For `analyze`: the analysis completed. For `ui`: stopped by SIGINT or SIGTERM. |
-| `1` | An error: no config, a bad config, an unknown task or profile, a missing key, a profile that cannot run, any `run` that ended on an error (the result is still printed, with the error), an unreadable run folder, a `doctor` `FAIL`, a failed `analyze`, or `init` over an existing config. The message is on stderr (`doctor` prints on stdout). |
-| `2` | Bad usage: an unknown command or option, a missing value, a wrong number of arguments, `--port` or `--repeat` out of range, an invalid `--rule`. The message is on stderr. |
-| `130` | `run` was cancelled by SIGINT. |
-| `143` | `run` was cancelled by SIGTERM. |
-
-Rawstep reports friction hints, not pass or fail, so the exit code of `run` never says whether the goal was reached. It only says whether every run worked: a run that ended on an error says nothing about the page, so a script must not read it as a result. In a script, read the printed result, `--json`, or call [`runTask`](./api.md#runtask) from your test runner and apply your own threshold.
 
 ## Environment variables and files
 
 | Name | Used by | Meaning |
 | --- | --- | --- |
-| `RAWSTEP_OPENAI_API_KEY`, `RAWSTEP_ANTHROPIC_API_KEY`, `RAWSTEP_GOOGLE_API_KEY`, `RAWSTEP_OPENROUTER_API_KEY` | `run`, `analyze --llm`, `doctor` | The key of that provider's connection. A custom connection names its own variable in the config (`apiKeyEnv`). Coding-agent CLI connections need none. |
+| `RAWSTEP_OPENAI_API_KEY`, `RAWSTEP_ANTHROPIC_API_KEY`, `RAWSTEP_GOOGLE_API_KEY`, `RAWSTEP_OPENROUTER_API_KEY` | `run`, `analyze --llm`, `doctor` | The key of that provider's connection. When the `RAWSTEP_` variable is not set, the provider's standard one is read: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY` or `GOOGLE_GENERATIVE_AI_API_KEY`, `OPENROUTER_API_KEY`. A custom connection names its own variable in the config (`apiKeyEnv`). Coding-agent CLI connections need none. |
 | `RAWSTEP_AT_DRIVER_COMMAND` | `run`, dashboard runs | The command that starts the AT Driver server when none answers. Only for a native screen reader. See [screen readers](../screen-readers.md). |
 | `PATH` | `init`, `ui` | Searched for `claude`, `codex`, `opencode` and `grok` to name a coding-agent CLI in the `Next:` hints. |
 
@@ -286,4 +296,4 @@ Each value is read from `<project>/.env.local` first, then from the process envi
 
 ## Where `run` writes
 
-By default `<project>/.rawstep/runs/<timestamp>-<id>/run-<n>/`, where `<timestamp>` is the start time (for example `2026-11-01T09-00-00-000Z`) and `<id>` is eight random characters. With `--out <dir>`, `<dir>/run-<n>/`. A run folder is never silently replaced: `run` refuses to write into a folder that already holds a trace. See the [results reference](./results.md) for the files.
+By default `<project>/.rawstep/runs/<timestamp>-<id>/run-<n>/`, where `<timestamp>` is the start time (for example `2026-11-01T09-00-00-000Z`) and `<id>` is eight random characters. With `--out <dir>`, `<dir>/run-<n>/`. A run folder is never silently replaced: each run creates the next `run-<n>` folder that does not exist yet, so reusing an `--out` folder keeps the earlier runs. See the [results reference](./results.md) for the files.

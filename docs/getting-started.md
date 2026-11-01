@@ -95,6 +95,7 @@ npx rawstep doctor
 ```text
 ok    Node: v24.19.0 (needs >= 22.12)
 ok    Config: <project>/rawstep.config.json (0 connections, 1 tasks, 2 run profiles)
+ok    Task demo: rawstep/demo/task.json is a valid task
 ok    Profile Written plan (no model): follows the plan file rawstep/demo/plan.json (no model)
 warn  Profile Item by item: no planner yet, so it cannot run. Pick a model in `npx rawstep ui` (Settings > Run profiles)
 ok    Browser: launched
@@ -122,13 +123,15 @@ A plan file only works for a page you already know. To see what a first-time use
 - **A coding-agent CLI you are signed in to** (Claude Code, Codex, opencode, Grok Build, Antigravity). No API key: calls are paid by that CLI's own sign-in. Claude Code and Codex are reached through an adapter that `npx` downloads on first use, so the first check is slow. opencode and Grok Build use the installed CLI. Antigravity needs its ACP server on your `PATH`.
 - **An API** (OpenAI, Anthropic, Google, OpenRouter), or any OpenAI-compatible server such as LM Studio or Ollama (the "custom" provider, with its address). Each preset provider reads its key from a fixed environment variable:
 
-| Provider | Key variable |
-|---|---|
-| OpenAI | `RAWSTEP_OPENAI_API_KEY` |
-| Anthropic | `RAWSTEP_ANTHROPIC_API_KEY` |
-| Google | `RAWSTEP_GOOGLE_API_KEY` |
-| OpenRouter | `RAWSTEP_OPENROUTER_API_KEY` |
-| Custom | a variable you name on the connection, or none |
+| Provider | Key variable | Also read when it is not set |
+|---|---|---|
+| OpenAI | `RAWSTEP_OPENAI_API_KEY` | `OPENAI_API_KEY` |
+| Anthropic | `RAWSTEP_ANTHROPIC_API_KEY` | `ANTHROPIC_API_KEY` |
+| Google | `RAWSTEP_GOOGLE_API_KEY` | `GEMINI_API_KEY`, `GOOGLE_GENERATIVE_AI_API_KEY` |
+| OpenRouter | `RAWSTEP_OPENROUTER_API_KEY` | `OPENROUTER_API_KEY` |
+| Custom | a variable you name on the connection, or none | none |
+
+If you already export the provider's standard variable for other tools, Rawstep uses it. `RAWSTEP_*` wins when both are set.
 
 The planner hears what the simulated user hears. With a remote connection, that page text leaves your computer for the provider.
 
@@ -161,6 +164,20 @@ RAWSTEP_OPENAI_API_KEY=...
 
 Every field is in the [config reference](./reference/config.md).
 
+> **Model IDs.** Type the ID exactly as the provider's model list shows it. OpenRouter IDs are `vendor/model-name`, and the free ones end in `:free` (`vendor/model-name:free`). OpenAI and Anthropic IDs are plain names, and Google's are the names without the `models/` prefix. In the dashboard, Check connection loads the list so you can pick one. `doctor` says `does not list model ...` when an ID is not in the list.
+>
+> **Free models often hit rate limits.** A `:free` model on OpenRouter, or a free tier elsewhere, may answer with an error or slowly when you ask it for several plans in a row. If a run fails with a rate-limit error from the provider, wait and run again, or try a different model.
+>
+> **Sign in to a coding-agent CLI with the CLI itself,** then run `doctor` again. Rawstep never signs one in for you, except Antigravity.
+>
+> | CLI | How to sign in |
+> |---|---|
+> | Claude Code | run `claude` once and sign in there (`/login`) |
+> | Codex | `codex login` |
+> | opencode | `opencode auth login` |
+> | Grok Build | run `grok` once and sign in there |
+> | Antigravity | put `agy_acp_server.par` (not only the `agy` CLI) on your `PATH`, then use the sign-in button in the dashboard's connection check |
+
 ### Check and run
 
 ```sh
@@ -168,7 +185,9 @@ npx rawstep doctor
 npx rawstep run demo --profile item-by-item
 ```
 
-`doctor` now reports the profile as `ok ... plans with <connection> · <model>`, and checks that the key is set or that the agent CLI starts. The run now has a planner model: it writes a plan from what it hears and Rawstep carries the plan out. The result can differ from the written plan's 7 moves, and from one run to the next. Add `--repeat 3` to see the spread.
+`doctor` now reports the profile as `ok ... plans with <connection> · <model>`. For an API key it asks the provider's model list (no model call, no cost) and prints for example `ok    Key OpenRouter: OPENROUTER_API_KEY works · model vendor/model-name listed (1.8 s)`, or says whether the key was refused, the model is not listed, or the provider did not answer. For a coding-agent CLI it checks that the CLI starts and is signed in. The run now has a planner model: it writes a plan from what it hears and Rawstep carries the plan out. The result can differ from the written plan's 7 moves, and from one run to the next. Add `--repeat 3` to see the spread.
+
+> **A model can take tens of seconds to write one plan,** and a run asks for several, so a first run with a model is slow compared with the written plan. That is normal. A run can also end as "not measured" because the planner did not answer in time. Pick a faster model or raise the connection's `timeoutMs` (a time limit for one model call) if that keeps happening.
 
 ## 4. Make your own task
 
@@ -215,7 +234,7 @@ In the dashboard, open the task and press Run…. The dialog picks the tasks, th
 
 Each run calls the planner a few times: for the first plan, and again when a task keeps failing, changes nothing or runs long. `maxPlannerCalls` (default 40) caps it. A run that reaches the cap ends as not measured, not as the user failing.
 
-Exit code 0 means the runs completed, whatever their outcome. Rawstep does not fail a run for missing the goal. Exit code 1 means an error, including any run that ended on an error: such a run says nothing about the page. See the [CLI reference](./reference/cli.md) for options and exit codes.
+Exit code 0 means every run gave a measurement: the user reached the goal, gave up, or said it was done when it was not. Rawstep does not fail a run for missing the goal. Exit code 1 means an error, including any run that ended on an error: such a run says nothing about the page. Exit code 2 means no run broke, but at least one was not measured (for example it hit a limit). See the [CLI reference](./reference/cli.md) for options and exit codes.
 
 ## 6. Read the results
 

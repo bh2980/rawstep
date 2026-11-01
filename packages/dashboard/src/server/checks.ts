@@ -1,60 +1,15 @@
 import { findRawstepError, RawstepError } from '@rawstep/core/errors';
 import { BrowserConnectError, createBrowserSession } from '@rawstep/browser/browser';
 import { AcpAgent, AcpError } from '@rawstep/policies/acp';
-import { providerPreset, type Connection, type MachineSettings, type Model } from '@rawstep/project/config';
-import { discover } from '@rawstep/project/discover';
-import { ProjectError } from '@rawstep/project/errors';
-import type { BrowserCheck, CheckKind, ModelCheck } from '../shared/api.js';
+import { providerPreset, type Connection, type MachineSettings } from '@rawstep/project/config';
+import { checkResult as result } from '@rawstep/project/checks';
+import type { BrowserCheck, ModelCheck } from '../shared/api.js';
 
-type CheckedModel = Pick<Model, 'provider' | 'modelId' | 'baseURL'>;
-type CheckOptions = { timeoutMs?: number; fetch?: typeof fetch };
+// The key and model checks live in the project package, where `rawstep doctor` uses them too.
+export { checkConnection, checkModel } from '@rawstep/project/checks';
 
-/** Starting an agent CLI takes seconds, and a first npx download longer. */
-const AGENT_TIMEOUT_MS = 120_000;
 /** A sign-in may wait for the person to finish it in a browser. */
 const SIGN_IN_TIMEOUT_MS = 300_000;
-
-const KINDS: Record<string, CheckKind> = {
-  'model-unreachable': 'unreachable', 'model-http': 'rejected', 'invalid-base-url': 'invalid-address',
-  'model-list-missing': 'unverified', 'missing-credential': 'missing-key', 'agent-missing': 'cli-missing', 'agent-signed-out': 'cli-signed-out',
-};
-
-const result = (kind: CheckKind, via: ModelCheck['via']): ModelCheck => ({ ok: kind === 'ready' || kind === 'unverified', kind, via, checkedAt: new Date().toISOString() });
-
-/**
- * Asks the provider one cheap question and says whether the model can be used. The answer is a `CheckKind`; no text the provider
- * sent is kept or shown.
- * - Every provider with a model list: the model list, which costs nothing. Ready means the server answered, the key was
- *   accepted and the model is in the list.
- * - Coding-agent CLIs: the agent is started over ACP and asked for its models (no prompt, nothing billed); a missing program
- *   and a missing sign-in are told apart. Rawstep never signs an agent in during a check.
- */
-export async function checkModel(model: CheckedModel, apiKey: string | undefined, options: CheckOptions = {}): Promise<ModelCheck> {
-  const preset = providerPreset(model), key = apiKey?.trim() || undefined;
-  if (preset.keyRequired && !key) return result('missing-key', 'none');
-  const timeoutMs = options.timeoutMs ?? (preset.agent ? AGENT_TIMEOUT_MS : 15000);
-  const via = preset.agent ? 'agent' : 'model-list';
-  try {
-    const listed = await discover({ provider: model.provider, ...(model.baseURL ? { baseURL: model.baseURL } : {}) }, key, { timeoutMs, ...(options.fetch ? { fetch: options.fetch } : {}) });
-    if (listed.length === 0) return result('unverified', via);
-    return result(listed.some(candidate => candidate.modelId === model.modelId) ? 'ready' : 'model-not-listed', via);
-  } catch (error) {
-    return result(error instanceof ProjectError ? KINDS[error.code] ?? 'failed' : 'failed', via);
-  }
-}
-
-/** Whether a connection answers with its key, without a model: its model list. A list-less server is `unverified` until a model is checked. */
-export async function checkConnection(connection: Pick<Connection, 'provider' | 'baseURL'>, apiKey: string | undefined, options: CheckOptions = {}): Promise<ModelCheck> {
-  const preset = providerPreset(connection), key = apiKey?.trim() || undefined;
-  if (preset.keyRequired && !key) return result('missing-key', 'none');
-  const via = preset.agent ? 'agent' : 'model-list';
-  try {
-    await discover({ provider: connection.provider, ...(connection.baseURL ? { baseURL: connection.baseURL } : {}) }, key, { timeoutMs: options.timeoutMs ?? (preset.agent ? AGENT_TIMEOUT_MS : 15000), ...(options.fetch ? { fetch: options.fetch } : {}) });
-    return result('ready', via);
-  } catch (error) {
-    return result(error instanceof ProjectError ? KINDS[error.code] ?? 'failed' : 'failed', via);
-  }
-}
 
 /**
  * Signs a coding-agent CLI in with its own ACP sign-in method, then checks it like `checkConnection`. Only for the person's

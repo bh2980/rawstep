@@ -138,7 +138,7 @@ function sourceFor(type: string): TraceSource {
 
 /** Restore only known structural fields; arbitrary raw text is never exempted. */
 const RUN_STAGES = ['initialization', 'backend-start', 'browser-start', 'observation', 'policy', 'action', 'settling', 'verification'];
-const OUTCOME_REASONS = ['verified', 'verification-failed', 'policy-stuck', 'maxSteps', 'timeout', 'error', 'aborted', 'trace-persistence-error', 'policy-uncertain', 'unsupported-profile', 'access-blocked', 'unsupported-pattern'];
+const OUTCOME_REASONS = ['verified', 'verification-failed', 'policy-stuck', 'maxSteps', 'timeout', 'error', 'aborted', 'trace-persistence-error', 'policy-uncertain', 'unsupported-profile', 'access-blocked', 'unsupported-pattern', 'planner-timeout'];
 function preserveRunPoint(original: Record<string, unknown>, target: Record<string, unknown>): void {
   if (typeof original.stage === 'string' && RUN_STAGES.includes(original.stage)) target.stage = original.stage;
   if (typeof original.step === 'number') target.step = original.step;

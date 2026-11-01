@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { EventEmitter } from "node:events";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { runCli, parseCliArguments, formatRunResult, nodeSupported, type CliDependencies } from "@rawstep/cli/cli";
 import { BrowserConnectError } from "@rawstep/browser/browser";
 import { ProjectError } from "@rawstep/project/errors";
@@ -11,9 +11,13 @@ import type { ProviderId } from "@rawstep/project/config";
 import { defaultConfig } from "@rawstep/project/config";
 import type { RunTaskResult } from "@rawstep/project/run";
 import type { RunTrace } from "@rawstep/core/trace";
+import type { CheckKind, ModelInspection } from "@rawstep/project/checks";
 
 const directories: string[] = [];
+// Providers' standard key variables are read too; a developer's own keys must not leak into the tests.
+beforeEach(() => { for (const name of ["RAWSTEP_OPENROUTER_API_KEY", "RAWSTEP_ANTHROPIC_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GEMINI_API_KEY", "GOOGLE_GENERATIVE_AI_API_KEY", "OPENROUTER_API_KEY"]) vi.stubEnv(name, ""); });
 afterEach(async () => {
+  vi.unstubAllEnvs();
   await Promise.all(directories.splice(0).map((directory) => rm(directory, { recursive: true, force: true })));
 });
 async function temporaryDirectory(): Promise<string> {
@@ -139,10 +143,12 @@ const result: RunTaskResult = {
     { kind: "missing-announcement", source: "page", runs: 1, totalRuns: 2, occurrences: [] },
   ],
 };
+/** Every run gave a measurement: it reached the goal. */
+const measured: RunTaskResult = { ...result, runs: [result.runs[0]!] };
 describe("run", () => {
-  it("passes the options to runTask, prints the conditions, how each run ended and what it cost, and findings grouped as Page and Model, and exits 0 whatever the outcome", async () => {
+  it("passes the options to runTask, prints the conditions, how each run ended and what it cost, and findings grouped as Page and Model, and exits 3 when a run was not measured", async () => {
     const directory = await temporaryDirectory(), io = output(directory), runTask = vi.fn(async () => result);
-    expect(await runCli(["run", "login", "--profile", "zoom", "--repeat", "2", "--out", "out"], { ...io, runTask })).toBe(0);
+    expect(await runCli(["run", "login", "--profile", "zoom", "--repeat", "2", "--out", "out"], { ...io, runTask })).toBe(3);
     expect(runTask).toHaveBeenCalledWith("login", expect.objectContaining({ projectDir: directory, profile: "zoom", repeat: 2, outDir: join(directory, "out"), signal: expect.any(AbortSignal) }));
     const out = text(io.stdout);
     expect(out.startsWith("Conditions: Careful reader (planner Claude · plan)\n  page default · screen reader simulation\n")).toBe(true);
@@ -159,7 +165,7 @@ describe("run", () => {
     expect(out).toContain("(no element) · backtracking · 1 of 2 runs");
   });
   it("maps the profile flag and the run-rule flags to runTask options, and passes none that were not given", async () => {
-    const directory = await temporaryDirectory(), io = output(directory), runTask = vi.fn(async (_task: string, _options?: unknown) => result);
+    const directory = await temporaryDirectory(), io = output(directory), runTask = vi.fn(async (_task: string, _options?: unknown) => measured);
     expect(await runCli(["run", "t", "--profile", "strict", "--rule", "maxPlannerCalls=1", "--rule", "stepActionLimit=30", "--rule", "survey=headings"], { ...io, runTask })).toBe(0);
     expect(runTask.mock.calls[0]![1]).toMatchObject({ profile: "strict", runRules: { maxPlannerCalls: 1, stepActionLimit: 30, survey: "headings" } });
     await runCli(["run", "t", "--rule", "stepActionLimit=5"], { ...io, runTask });
@@ -206,16 +212,31 @@ describe("run", () => {
     expect(planned.indexOf("note:")).toBeLessThan(planned.indexOf("Run 1 of 2"));
   });
   it("leaves everything else to the profile, with one run and the current directory", async () => {
-    const directory = await temporaryDirectory(), io = output(directory), runTask = vi.fn(async (_task: string, _options?: unknown) => result);
+    const directory = await temporaryDirectory(), io = output(directory), runTask = vi.fn(async (_task: string, _options?: unknown) => measured);
     expect(await runCli(["run", "task.json"], { ...io, runTask })).toBe(0);
     expect(runTask.mock.calls[0]).toEqual(["task.json", expect.objectContaining({ projectDir: directory, repeat: 1 })]);
     expect(runTask.mock.calls[0]![1]).not.toHaveProperty("mode"); expect(runTask.mock.calls[0]![1]).not.toHaveProperty("model"); expect(runTask.mock.calls[0]![1]).not.toHaveProperty("profile");
   });
   it("prints the result object with --json", async () => {
     const io = output(await temporaryDirectory());
-    expect(await runCli(["run", "task.json", "--json"], { ...io, runTask: async () => result })).toBe(0);
-    expect(JSON.parse(text(io.stdout))).toEqual(result);
+    expect(await runCli(["run", "task.json", "--json"], { ...io, runTask: async () => measured })).toBe(0);
+    expect(JSON.parse(text(io.stdout))).toEqual(measured);
     expect(text(io.stderr)).not.toContain("Running");
+  });
+  it("exits 0 when every run gave a measurement, 3 when none broke but one was not measured, and 1 when any ended on an error", async () => {
+    const io = () => output("/unused");
+    const run = (runs: RunTaskResult["runs"]) => runCli(["run", "task.json"], { ...io(), runTask: async () => ({ ...result, runs }) });
+    const [reached, unmeasured] = result.runs as [RunTaskResult["runs"][number], RunTaskResult["runs"][number]];
+    const withOutcome = (outcome: RunTaskResult["runs"][number]["outcome"]) => ({ ...reached, outcome });
+    expect(await run([reached, withOutcome({ status: "failure", reason: "policy-stuck", policyStopSource: "user-gave-up" }), withOutcome({ status: "failure", reason: "verification-failed" })])).toBe(0);
+    expect(await run([reached, unmeasured])).toBe(3);
+    expect(await run([withOutcome({ status: "failure", reason: "timeout" })])).toBe(3);
+    expect(await run([withOutcome({ status: "failure", reason: "access-blocked" })])).toBe(3);
+    expect(await run([withOutcome({ status: "failure", reason: "error", stage: "browser-start", error: "boom" })])).toBe(1);
+    // An error wins over a run that was only not measured.
+    expect(await run([unmeasured, withOutcome({ status: "failure", reason: "trace-persistence-error" })])).toBe(1);
+    // 2 stays bad usage.
+    expect(await runCli(["run"], io())).toBe(2);
   });
   it("reports errors with a non-zero exit code and no stack", async () => {
     const io = output(await temporaryDirectory());
@@ -313,7 +334,10 @@ describe("hints command", () => {
     expect(await runCli(["hints", "slow", "--reference", "fast"], io)).toBe(0);
     const text = io.stdout.mock.calls.flat().join("");
     expect(text).toContain("Hints: 2 · goal reached: yes · steps 12 · reference 4 steps\n");
-    expect(text).toContain("step  · slow-run · observed · 12 steps against a 4-step reference run (+8).");
+    expect(text).toContain("whole run · slow-run · observed · 12 steps against a 4-step reference run (+8).");
+    expect(text).toContain("Against the reference run: 1 new, 0 gone, 0 in both\n");
+    expect(text).toContain("New in this run:\n  step 1,12 · excess-keystrokes · observed");
+    expect(text).toContain("observed: recorded directly · suspected: inferred from indirect signals, may be wrong\n");
     expect(JSON.parse(await readFile(join(directory, "slow", "hints.json"), "utf8")).reference).toMatchObject({ runId: "fast-run", steps: 4 });
   });
   it("reports a missing trace as a hints-stage failure", async () => {
@@ -335,6 +359,9 @@ describe("hints command", () => {
     expect(JSON.parse(await readFile(join(directory, "report.json"), "utf8")).hints.hints).toHaveLength(1);
   });
 });
+
+/** What a model list check found, for the doctor tests that stand in for the provider. */
+const inspected = (kind: CheckKind, cause?: ProjectError): ModelInspection => ({ check: { ok: kind === "ready", kind, via: "model-list", checkedAt: "2026-01-01T00:00:00.000Z" }, ...(cause ? { cause } : {}) });
 
 describe("doctor", () => {
   async function project(configure?: (config: ReturnType<typeof defaultConfig>) => void) {
@@ -394,7 +421,7 @@ describe("doctor", () => {
     expect(await runCli(["run", "task.json"], run)).toBe(1);
     expect(text(run.stderr)).toMatch(/version 2.*rawstep init/);
   });
-  it("checks that the key of each provider and keyed custom connection is set, without printing it", async () => {
+  it("checks the key of each provider and keyed custom connection, without printing it", async () => {
     const present = "RAWSTEP_DOCTOR_PRESENT_KEY", absent = "RAWSTEP_DOCTOR_ABSENT_KEY", optional = "RAWSTEP_DOCTOR_OPTIONAL_KEY";
     const base = { timeoutMs: 1000 };
     const directory = await project(config => {
@@ -407,12 +434,106 @@ describe("doctor", () => {
     });
     await writeFile(join(directory, ".env.local"), `${present}="secret-doctor-value"\n`);
     vi.stubEnv("RAWSTEP_ANTHROPIC_API_KEY", "");
-    const io = output(directory);
-    try { expect(await runCli(["doctor"], { ...io, launchBrowser: async () => {} })).toBe(1); } finally { vi.unstubAllEnvs(); }
+    const io = output(directory), checkModel = vi.fn(async (_model: unknown, _key: string) => inspected("ready"));
+    expect(await runCli(["doctor"], { ...io, launchBrowser: async () => {}, checkModel })).toBe(1);
     const out = text(io.stdout);
-    expect(out).toContain(`ok    Key With key: ${present} is set`); expect(out).toContain(`ok    Key Optional key: ${optional} is not set (optional for this server)`);
+    // A key that is set is tried against the server; the line names the variable and says it works, not that it is set.
+    expect(out).toMatch(new RegExp(`ok    Key With key: ${present} works \\(\\d+\\.\\d s\\)`)); expect(out).not.toContain("is set");
+    expect(checkModel).toHaveBeenCalledOnce(); expect(checkModel).toHaveBeenCalledWith({ provider: "custom", baseURL: "http://127.0.0.1:1234/v1" }, "secret-doctor-value");
+    expect(out).toContain(`ok    Key Optional key: ${optional} is not set (optional for this server)`);
     expect(out).toContain("ok    Key Local: no API key needed"); expect(out).toContain("FAIL  Key Anthropic: RAWSTEP_ANTHROPIC_API_KEY is missing");
+    expect(out).toContain("(ANTHROPIC_API_KEY also works)");
     expect(out).not.toContain("secret-doctor-value");
+  });
+  describe("API keys and models", () => {
+    const model = "vendor/model-name:free";
+    const keyed = () => project(config => {
+      config.connections.push({ id: "or", name: "OpenRouter", provider: "openrouter", timeoutMs: 1000 });
+      config.profiles[0] = { ...config.profiles[0]!, planner: { connectionId: "or", modelId: model, instructions: "" } };
+    });
+    const doctor = async (check: (m: unknown, key: string) => Promise<ModelInspection>) => {
+      const io = output(await keyed()), checkModel = vi.fn(check);
+      const code = await runCli(["doctor"], { ...io, launchBrowser: async () => {}, checkModel });
+      return { code, out: text(io.stdout), checkModel };
+    };
+    it("names the variable that supplied the key and the model it found in the provider's list", async () => {
+      vi.stubEnv("OPENROUTER_API_KEY", "sk-standard-doctor");
+      const { code, out, checkModel } = await doctor(async () => inspected("ready"));
+      expect(code).toBe(0);
+      expect(out).toMatch(/ok    Profile Default: plans with OpenRouter · vendor\/model-name:free/);
+      expect(out).toMatch(/ok    Key OpenRouter: OPENROUTER_API_KEY works · model vendor\/model-name:free listed \(\d+\.\d s\)/);
+      expect(checkModel).toHaveBeenCalledWith({ provider: "openrouter", modelId: model }, "sk-standard-doctor");
+      expect(out).not.toContain("sk-standard-doctor");
+      // RAWSTEP_ wins when both are set.
+      vi.stubEnv("RAWSTEP_OPENROUTER_API_KEY", "sk-own-doctor");
+      expect((await doctor(async () => inspected("ready"))).out).toContain("RAWSTEP_OPENROUTER_API_KEY works");
+    });
+    it.each([
+      ["a refused key", () => inspected("rejected", Object.assign(new ProjectError("model-http", "HTTP 401", 502), { httpStatus: 401 })), /FAIL  Key OpenRouter: OPENROUTER_API_KEY was refused by OpenRouter \(HTTP 401\)/],
+      ["a model that is not listed", () => inspected("model-not-listed"), /FAIL  Key OpenRouter: OPENROUTER_API_KEY works, but OpenRouter does not list model vendor\/model-name:free\. Check the model ID \(OpenRouter ids look like vendor\/model/],
+      ["a provider that does not answer in time", () => inspected("unreachable", new ProjectError("model-timeout", "slow", 502)), /FAIL  Key OpenRouter: OpenRouter did not answer the model list request in time/],
+      ["a provider that cannot be reached", () => inspected("unreachable", new ProjectError("model-unreachable", "down", 502)), /FAIL  Key OpenRouter: cannot reach OpenRouter/],
+    ])("fails on %s", async (_name, inspection, line) => {
+      vi.stubEnv("OPENROUTER_API_KEY", "sk-standard-doctor");
+      const { code, out } = await doctor(async () => inspection());
+      expect(code).toBe(1); expect(out).toMatch(line);
+    });
+    it("reports a check that itself threw as a failed line, and still runs the checks after it", async () => {
+      vi.stubEnv("OPENROUTER_API_KEY", "sk-standard-doctor");
+      const { code, out } = await doctor(async () => { throw new Error("socket hang up"); });
+      expect(code).toBe(1); expect(out).toContain("FAIL  Key OpenRouter: OPENROUTER_API_KEY could not be checked: socket hang up");
+      expect(out).toContain("skip  Screen reader");
+    });
+    it("fails a profile whose key is missing instead of calling it ok, and asks the provider nothing", async () => {
+      const { code, out, checkModel } = await doctor(async () => inspected("ready"));
+      expect(code).toBe(1);
+      expect(out).toContain("FAIL  Profile Default: cannot run: it plans with OpenRouter · vendor/model-name:free, but the key RAWSTEP_OPENROUTER_API_KEY or OPENROUTER_API_KEY is not set");
+      expect(out).toContain("FAIL  Key OpenRouter: RAWSTEP_OPENROUTER_API_KEY is missing. Add RAWSTEP_OPENROUTER_API_KEY=... to .env.local or export it (OPENROUTER_API_KEY also works)");
+      expect(checkModel).not.toHaveBeenCalled();
+    });
+  });
+  it("checks every registered task file on its own: a broken task is a FAIL line and the other checks still run", async () => {
+    const directory = await project(config => { config.tasks.push({ id: "ghost", name: "Ghost", file: "ghost.json" }, { id: "bad", name: "Bad", file: "bad.json" }, { id: "partial", name: "Partial", file: "partial.json" }, { id: "fine", name: "Fine", file: "fine.json" }); });
+    await writeFile(join(directory, "bad.json"), "{nope"); await writeFile(join(directory, "partial.json"), JSON.stringify({ goal: "No start page" }));
+    await writeFile(join(directory, "fine.json"), JSON.stringify({ url: "https://example.com", goal: "Pay", verify: { all: [{ textVisible: "Done" }] } }));
+    const io = output(directory);
+    expect(await runCli(["doctor"], { ...io, launchBrowser: async () => {} })).toBe(1);
+    const out = text(io.stdout);
+    expect(out).toContain("FAIL  Task ghost: Task file ghost.json was not found.");
+    expect(out).toMatch(/FAIL  Task bad: Task file bad.json is not valid JSON/); expect(out).toMatch(/FAIL  Task partial: /);
+    expect(out).toContain("ok    Task fine: fine.json is a valid task");
+    expect(out).toContain("ok    Config"); expect(out).toContain("warn  Profile Default"); expect(out).toContain("ok    Browser"); expect(out).toContain("skip  Screen reader");
+    // Only the broken task cannot be used.
+    const run = output(directory);
+    expect(await runCli(["run", "ghost"], run)).toBe(1); expect(text(run.stderr)).toContain("Task file ghost.json was not found.");
+  });
+  it("says whether a coding-agent CLI is missing, did not answer, or needs a sign-in, in terms of the agent's own CLI", async () => {
+    const directory = await project(config => { config.connections.push({ id: "ag", name: "Antigravity", provider: "antigravity", timeoutMs: 1000 }, { id: "cc", name: "Claude Code", provider: "claudeCode", timeoutMs: 1000 }); });
+    const io = output(directory);
+    const checkAgent = async (connection: { provider: string }) => {
+      if (connection.provider === "antigravity") throw new ProjectError("agent-missing", "agy_acp_server.par was not found on PATH. The agy CLI alone is not enough: Antigravity needs its ACP server binary agy_acp_server.par (from the ACP registry) on PATH.", 502);
+      throw new ProjectError("agent-signed-out", "Claude Code needs a sign-in. Run `claude` once and sign in there (`/login`).", 502);
+    };
+    expect(await runCli(["doctor"], { ...io, launchBrowser: async () => {}, checkAgent })).toBe(1);
+    const out = text(io.stdout);
+    expect(out).toContain("FAIL  Antigravity: agy_acp_server.par was not found on PATH. The agy CLI alone is not enough");
+    expect(out).toContain("FAIL  Claude Code: Claude Code needs a sign-in. Run `claude` once and sign in there");
+    expect(out).not.toContain("dashboard connection check");
+  });
+  it("says when machine.headless does not apply, ends a browser failure with exactly one period, and explains an invalid machine setting", async () => {
+    const connected = await project(config => { config.machine.browserEndpoint = "http://localhost:9222"; });
+    const io = output(connected);
+    expect(await runCli(["doctor"], { ...io, launchBrowser: async () => {} })).toBe(0);
+    expect(text(io.stdout)).toContain("Browser window: runs use the Chrome you started, so machine.headless does not apply");
+    const failing = output(await project());
+    expect(await runCli(["doctor"], { ...failing, launchBrowser: async () => { throw new Error("no chromium."); } })).toBe(1);
+    expect(text(failing.stdout)).toMatch(/Browser: no chromium\. Install one/); expect(text(failing.stdout)).not.toContain("..");
+    const signIn = output(await project(config => { config.machine.copySignIn = true; }));
+    expect(await runCli(["doctor"], { ...signIn, launchBrowser: async () => {} })).toBe(1);
+    expect(text(signIn.stdout)).toContain("rawstep.config.json · machine.copySignIn: copySignIn needs browserEndpoint");
+    const proxy = output(await project(config => { config.machine.browserEndpoint = "http://localhost:9222"; config.machine.proxyServer = "http://localhost:8080"; }));
+    expect(await runCli(["doctor"], { ...proxy, launchBrowser: async () => {} })).toBe(1);
+    expect(text(proxy.stdout)).toContain("machine.proxyServer: proxyServer cannot be used with browserEndpoint");
   });
   it("probes the endpoint of each native screen reader environment once, with the machine's address or the usual one", async () => {
     const directory = await project(config => {

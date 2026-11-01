@@ -8,6 +8,8 @@ export function slugify(text: string): string {
   return text.normalize('NFKD').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40).replace(/-+$/, '');
 }
 
+export { nameFromGoal } from './taskName.js';
+
 export function hostnameOf(url: string): string {
   try { return new URL(url.trim()).hostname; } catch { return ''; }
 }

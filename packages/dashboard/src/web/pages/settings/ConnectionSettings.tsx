@@ -133,7 +133,7 @@ export function ConnectionSettings({ navigate, ...props }: PageProps & { navigat
           })}</TableBody>
         </Table>
       </div>}
-    <ConnectionSetupDialog open={adding} onOpenChange={setAdding} pageProps={props} />
+    <ConnectionSetupDialog open={adding} onOpenChange={setAdding} pageProps={props} onAdded={(id, result) => setChecks(current => ({ ...current, [id]: result }))} />
     <ConnectionEditDialog connection={editing} onClose={() => setEditing(undefined)} pageProps={props} />
     <AlertDialog open={!!deleting} onOpenChange={open => { if (!open) setDeleting(undefined); }}>
       <AlertDialogContent>

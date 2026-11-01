@@ -82,11 +82,19 @@ export function describeHint(hint: Pick<Hint, 'kind' | 'summary' | 'detail'> & P
       if (!Array.isArray(d.changes)) break;
       return t('hints.text.missingAnnouncement', { action: str(d.action) ?? t('hints.text.action') });
     }
+    case 'live-interruptions': {
+      const example = Array.isArray(d.examples) ? str(d.examples[0]) : undefined;
+      if (typeof d.moves !== 'number' || !example) break;
+      return t('hints.text.liveInterruptions', { moves: d.moves, example });
+    }
     case 'early-stop': {
       if (str(d.stopSource) === 'exploration-guard') return t('hints.text.earlyStopGuard');
       if (str(d.stopSource) === 'orchestration-limit') return t('hints.text.earlyStopPlanLimit');
       if (str(d.stopSource) === 'no-allowed-action') return t('hints.text.earlyStopNoAction');
-      if (str(d.stopSource) === 'user-gave-up') return t('hints.text.earlyStopGaveUp', { reason: str((d.giveUp as Record<string, unknown> | undefined)?.reason) ?? '' });
+      if (str(d.stopSource) === 'user-gave-up') {
+        const reason = str((d.giveUp as Record<string, unknown> | undefined)?.reason);
+        return reason ? t('hints.text.earlyStopGaveUp', { reason }) : t('hints.text.earlyStopGaveUpWithheld');
+      }
       if (str(d.reason) === 'policy-stuck') return t('hints.text.earlyStopStuck');
       if (str(d.reason) === 'policy-uncertain') return t('hints.text.earlyStopUncertain');
       break;

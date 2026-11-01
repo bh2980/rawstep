@@ -1,5 +1,5 @@
 import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
-import { inputLabel, type AllowedActions, type Decision, type DecisionPolicy, type HistoryEntry, type InputDescriptor, type Observation } from '@rawstep/core/contracts';
+import { inputLabel, moveSpeech, type AllowedActions, type Decision, type DecisionPolicy, type HistoryEntry, type InputDescriptor, type Observation } from '@rawstep/core/contracts';
 
 /**
  * What each screen reader intent does, in plain words, as the planner reads the actions it may plan with. The item the cursor is
@@ -19,7 +19,8 @@ const intentLabel = (intent: string) => intent === 'activate' ? 'Activate the cu
  */
 export function currentItem(observation: Observation, history: readonly HistoryEntry[]): string | undefined {
   for (const o of [observation, ...history.map(entry => entry.observation).reverse()]) {
-    const line = [...o.speech].reverse().find(text => text.trim());
+    // What a live region said on its own is not where the cursor is.
+    const line = moveSpeech(o).reverse().find(text => text.trim());
     if (line) return line.trim();
   }
   return undefined;
@@ -57,7 +58,8 @@ export function speechRepetition(history: readonly HistoryEntry[], current: Obse
   const action = key(recent[0]!.decision);
   if (!action || recent.some(entry => key(entry.decision) !== action)) return undefined;
   // History holds the speech each decision was made on; the current observation is what the last one produced.
-  const said = [...recent.slice(1).map(entry => entry.observation), current].map(o => o.speech.join('\n'));
+  // The page's own announcements (a rotating banner) are left out: they change while the move keeps saying the same thing.
+  const said = [...recent.slice(1).map(entry => entry.observation), current].map(o => moveSpeech(o).join('\n'));
   if (said.some(text => text !== said[0])) return undefined;
   return { action, speech: said[0]!, times: limit };
 }

@@ -253,6 +253,13 @@ describe('connecting to a browser the person started (cdpEndpoint)',()=>{
     expect(session.connected).toBe(true);expect(session.armGuards).toBeUndefined();
     await session.close();expect(f.context.close).toHaveBeenCalled();expect(f.browser.close).toHaveBeenCalled();
   });
+  it('starts the run signed in from a copy of that browser\'s own context when asked, and refuses it without a connected browser',async()=>{
+    const f=fixture();const state={cookies:[{name:'sid',value:'v',domain:'safe.example',path:'/',expires:-1,httpOnly:true,secure:true,sameSite:'Lax'}],origins:[]};
+    (f.browser as any).contexts=vi.fn(()=>[{storageState:vi.fn(async()=>state)}]);
+    const session=await createBrowserSession('https://safe.example/task',{cdpEndpoint:'http://localhost:9222',copySignIn:true});
+    expect(f.browser.newContext).toHaveBeenCalledWith(expect.objectContaining({storageState:state}));await session.close();
+    fixture();await expect(createBrowserSession('https://safe.example/task',{copySignIn:true})).rejects.toThrow(/browserEndpoint/);
+  });
   it.each(['http://192.168.0.10:9222','http://example.com:9222','http://user:pw@localhost:9222','ftp://localhost:9222','not a URL'])('rejects %s before connecting',async cdpEndpoint=>{
     fixture();await expect(createBrowserSession('https://safe.example/task',{cdpEndpoint})).rejects.toThrow(/Browser address/);expect(mocks.connectOverCDP).not.toHaveBeenCalled();
   });

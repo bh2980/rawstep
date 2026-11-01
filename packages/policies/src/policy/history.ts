@@ -1,4 +1,4 @@
-import type { Decision, ExecutionFailure, HistoryEntry, Observation } from '@rawstep/core/contracts';
+import { moveSpeech, type Decision, type ExecutionFailure, type HistoryEntry, type Observation } from '@rawstep/core/contracts';
 
 /**
  * One past step as a decision model sees it: what it chose, whether the runner could carry it out, and whether
@@ -22,8 +22,8 @@ export function actionOnly(decision: Decision): Decision {
   const a = decision.action;
   return { action: a.kind === 'key' ? { kind: a.kind, key: a.key } : a.kind === 'intent' ? { kind: a.kind, intent: a.intent } : { kind: a.kind, input: a.input } };
 }
-/** Speech text: equal keys mean the model could not observe any difference. */
-const observed = (o: Observation): string => o.speech.join('\n');
+/** What the move said: equal keys mean the move changed nothing. The page's own announcements are not the move's doing. */
+const observed = (o: Observation): string => moveSpeech(o).join('\n');
 
 /** The last `limit` steps with their results, built from the runner's history and the observation the newest step produced. */
 export function modelHistory(history: readonly HistoryEntry[], current: Observation, limit: number): ModelHistoryEntry[] {

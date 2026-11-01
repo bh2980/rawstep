@@ -14,7 +14,7 @@ A task says only what to do: the start page, the goal, and how Rawstep recognise
 | `context` | text, up to 1000 characters | none | What the user knows before starting, as the person who sets up the task: the kind of site and page ("an online store; a product page"), or what a search result said. Not this page's structure, which a user only learns by moving through it. The planner reads it. |
 | `id` | text | none | Free-form label. A registered task is identified by its `id` in `rawstep.config.json`, not by this one. |
 | `maxSteps` | integer, at least 1 | `40` | Most steps the run takes. One step is one action. |
-| `timeoutMs` | integer 1 to 2147483647 | `120000` | Time limit for the run, in milliseconds. |
+| `timeoutMs` | integer 1 to 3600000 | `120000` | Time limit for the run's page time, in milliseconds. Time spent waiting for the planner does not count (each planner call has its own limit, the connection's `timeoutMs`), nor does time a person spends passing a bot check. |
 | `input` | `{ name: value }`, strings | none | Named values the user may type. See [named inputs](#named-inputs). |
 | `inputOptions` | `{ name: { sensitive?, description? } }` | none | Per-input handling. Each key must be a name in `input`. |
 | `navigation` | object | `{ "strategy": "same-origin" }` | Where the user may go. See [navigation](#navigation). |

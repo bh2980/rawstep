@@ -20,6 +20,8 @@ export type ProviderPreset = {
   baseURL?: string;
   /** The environment variable that holds the key. Absent for `custom`: the model names its own. */
   keyEnv?: string;
+  /** The provider's own standard variables, read when `keyEnv` is not set (`keyEnv` always wins), so a key already exported for other tools works. */
+  keyEnvAliases?: readonly string[];
   keyRequired: boolean;
   /** Whether the provider has a model list Rawstep can read; otherwise the model ID is typed by hand. */
   listsModels: boolean;
@@ -34,6 +36,10 @@ export type ProviderPreset = {
      * the person presses the sign-in button, never on its own, because it can reuse or open an account sign-in.
      */
     signIn?: string;
+    /** How to sign in outside Rawstep, in a sentence for `rawstep doctor`: the agent's own CLI, since Rawstep never signs an agent in itself. */
+    signInHint: string;
+    /** What to say when the command is not on PATH, when installing the agent alone is not enough. */
+    missingHint?: string;
   };
 };
 /**
@@ -43,19 +49,21 @@ export type ProviderPreset = {
  */
 const reasoningEffort = z.string().trim().min(1).max(40).optional();
 export const PROVIDERS = {
-  openai: { label: 'OpenAI', baseURL: 'https://api.openai.com/v1', keyEnv: 'RAWSTEP_OPENAI_API_KEY', keyRequired: true, listsModels: true },
+  openai: { label: 'OpenAI', baseURL: 'https://api.openai.com/v1', keyEnv: 'RAWSTEP_OPENAI_API_KEY', keyEnvAliases: ['OPENAI_API_KEY'], keyRequired: true, listsModels: true },
   /** Anthropic's OpenAI-SDK-compatible endpoint. */
-  anthropic: { label: 'Anthropic', baseURL: 'https://api.anthropic.com/v1', keyEnv: 'RAWSTEP_ANTHROPIC_API_KEY', keyRequired: true, listsModels: true },
-  google: { label: 'Google', baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai', keyEnv: 'RAWSTEP_GOOGLE_API_KEY', keyRequired: true, listsModels: true },
-  openrouter: { label: 'OpenRouter', baseURL: 'https://openrouter.ai/api/v1', keyEnv: 'RAWSTEP_OPENROUTER_API_KEY', keyRequired: true, listsModels: true },
+  anthropic: { label: 'Anthropic', baseURL: 'https://api.anthropic.com/v1', keyEnv: 'RAWSTEP_ANTHROPIC_API_KEY', keyEnvAliases: ['ANTHROPIC_API_KEY'], keyRequired: true, listsModels: true },
+  google: { label: 'Google', baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai', keyEnv: 'RAWSTEP_GOOGLE_API_KEY', keyEnvAliases: ['GEMINI_API_KEY', 'GOOGLE_GENERATIVE_AI_API_KEY'], keyRequired: true, listsModels: true },
+  openrouter: { label: 'OpenRouter', baseURL: 'https://openrouter.ai/api/v1', keyEnv: 'RAWSTEP_OPENROUTER_API_KEY', keyEnvAliases: ['OPENROUTER_API_KEY'], keyRequired: true, listsModels: true },
   /** Adapters from the ACP registry, pinned: npx downloads them on first use. */
-  claudeCode: { label: 'Claude Code', keyRequired: false, listsModels: true, agent: { command: 'npx', args: ['-y', '@agentclientprotocol/claude-agent-acp@0.89.1'] } },
-  codex: { label: 'Codex', keyRequired: false, listsModels: true, agent: { command: 'npx', args: ['-y', '@agentclientprotocol/codex-acp@2.2.2'] } },
+  claudeCode: { label: 'Claude Code', keyRequired: false, listsModels: true, agent: { command: 'npx', args: ['-y', '@agentclientprotocol/claude-agent-acp@0.89.1'], signInHint: 'Run `claude` once and sign in there (`/login`).' } },
+  codex: { label: 'Codex', keyRequired: false, listsModels: true, agent: { command: 'npx', args: ['-y', '@agentclientprotocol/codex-acp@2.2.2'], signInHint: 'Run `codex login`.' } },
   /** Built into the installed CLI. */
-  opencode: { label: 'opencode', keyRequired: false, listsModels: true, agent: { command: 'opencode', args: ['acp'] } },
-  grok: { label: 'Grok Build', keyRequired: false, listsModels: true, agent: { command: 'grok', args: ['agent', 'stdio'] } },
+  opencode: { label: 'opencode', keyRequired: false, listsModels: true, agent: { command: 'opencode', args: ['acp'], signInHint: 'Run `opencode auth login`.' } },
+  grok: { label: 'Grok Build', keyRequired: false, listsModels: true, agent: { command: 'grok', args: ['agent', 'stdio'], signInHint: 'Run `grok` once and sign in there.' } },
   /** Google's separate ACP server (not the `agy` CLI): downloaded by the person from the ACP registry and put on PATH. It keeps its own sign-in. */
-  antigravity: { label: 'Antigravity', keyRequired: false, listsModels: true, agent: { command: 'agy_acp_server.par', args: [], signIn: 'oauth-personal' } },
+  antigravity: { label: 'Antigravity', keyRequired: false, listsModels: true, agent: { command: 'agy_acp_server.par', args: [], signIn: 'oauth-personal',
+    signInHint: 'Antigravity keeps its own sign-in, apart from the agy CLI: use the sign-in button in the dashboard connection check (`npx rawstep ui`, Settings > AI connections).',
+    missingHint: 'The agy CLI alone is not enough: Antigravity needs its ACP server binary agy_acp_server.par (from the ACP registry) on PATH.' } },
   custom: { label: 'Custom (OpenAI-compatible)', keyRequired: false, listsModels: true },
 } as const satisfies Record<ProviderId, ProviderPreset>;
 /** The providers in the order a person should see them. */
@@ -68,8 +76,8 @@ export function providerPreset(model: Pick<Connection, 'provider'>): ProviderPre
 /** The key variable of a provider that has a fixed one (everything except `custom` and the agent CLIs). */
 export const providerKeyEnv = (provider: ProviderId): string | undefined => (PROVIDERS[provider] as ProviderPreset).keyEnv;
 /** Preset providers with a key. */
-export const KEYED_PROVIDERS: readonly { provider: ProviderId; label: string; keyEnv: string }[] =
-  providersOf().filter(p => p.preset.keyEnv).map(p => ({ provider: p.id, label: p.preset.label, keyEnv: p.preset.keyEnv! }));
+export const KEYED_PROVIDERS: readonly { provider: ProviderId; label: string; keyEnv: string; keyEnvAliases: readonly string[] }[] =
+  providersOf().filter(p => p.preset.keyEnv).map(p => ({ provider: p.id, label: p.preset.label, keyEnv: p.preset.keyEnv!, keyEnvAliases: p.preset.keyEnvAliases ?? [] }));
 /**
  * Where language models are reached: a provider preset (fixed address and key variable), a coding-agent CLI or a custom
  * OpenAI-compatible server. A connection holds no model: the planner, analysis and suggestions pick the model ID on a connection.
@@ -231,6 +239,13 @@ export const projectSettingsSchema = z.object({
   suggestions: z.object({ model: analysisChoiceSchema.optional() }).strict().default({}),
 }).strict();
 export type ProjectSettings = z.infer<typeof projectSettingsSchema>;
+/** The same rule as `validateProxyServer` in @rawstep/browser, which launching a browser applies; repeated here because this file stays free of browser imports. */
+function validProxyServer(value: string): boolean {
+  try {
+    const proxy = new URL(value);
+    return ['http:', 'https:', 'socks4:', 'socks5:'].includes(proxy.protocol) && !!proxy.hostname && !proxy.username && !proxy.password && !proxy.search && !proxy.hash && (!proxy.pathname || proxy.pathname === '/');
+  } catch { return false; }
+}
 /** Settings that belong to the computer running Rawstep, not to an experiment. */
 export const machineSchema = z.object({
   /** AT Driver WebSocket addresses of the native screen readers; empty means the usual address of that server (`atEndpointOf`). */
@@ -246,7 +261,22 @@ export const machineSchema = z.object({
    * `.rawstep/browser-profile`, and pause while a person passes the check in that window. Rawstep never answers a check itself.
    */
   personCheck: z.boolean().default(false),
-}).strict();
+  /**
+   * With `browserEndpoint`: each run's fresh context starts with a copy of that Chrome's cookies and site storage, so a page behind a
+   * sign-in opens signed in. The person's own windows are untouched.
+   */
+  copySignIn: z.boolean().default(false),
+  /** A credential-free HTTP(S) or SOCKS proxy URL for the browsers Rawstep launches. A Chrome you started yourself has its own proxy. */
+  proxyServer: z.string().trim().default(''),
+}).strict().superRefine((machine, ctx) => {
+  const issue = (path: string, message: string) => ctx.addIssue({ code: 'custom', path: [path], message });
+  const connected = !!machine.browserEndpoint.trim();
+  if (machine.copySignIn && !connected) issue('copySignIn', 'copySignIn needs browserEndpoint: it copies the sign-in of a Chrome you started yourself.');
+  if (machine.proxyServer) {
+    if (connected) issue('proxyServer', 'proxyServer cannot be used with browserEndpoint: a proxy belongs to the browser you started.');
+    else if (!validProxyServer(machine.proxyServer)) issue('proxyServer', 'proxyServer must be a credential-free HTTP(S) or SOCKS URL without a path, query or fragment, such as http://localhost:8080.');
+  }
+});
 export type MachineSettings = z.infer<typeof machineSchema>;
 /** Where each native screen reader's AT Driver server listens unless told otherwise: Bocoup's macOS server and the PAC NVDA server. */
 export const AT_DRIVER_DEFAULTS = { voiceover: 'ws://localhost:4382/session', nvda: 'ws://localhost:3031/session' } as const;
@@ -286,6 +316,11 @@ export const agentOf = (model: Pick<Connection, 'provider'>): ProviderPreset['ag
 export const resolveBaseURL = (model: Pick<Connection, 'provider' | 'baseURL'>): string => providerPreset(model).baseURL ?? model.baseURL!;
 /** The environment variable that holds the connection's key, if it has one. */
 export const modelKeyEnv = (model: Pick<Connection, 'provider' | 'apiKeyEnv'>): string | undefined => model.provider === 'custom' ? model.apiKeyEnv : providerPreset(model).keyEnv;
+/** Every variable that can hold the connection's key, in the order they are read: its own first, then the provider's standard ones. */
+export const modelKeyEnvNames = (model: Pick<Connection, 'provider' | 'apiKeyEnv'>): string[] => {
+  const env = modelKeyEnv(model);
+  return env ? [env, ...(model.provider === 'custom' ? [] : providerPreset(model).keyEnvAliases ?? [])] : [];
+};
 export const modelKeyRequired = (model: Pick<Connection, 'provider'>): boolean => providerPreset(model).keyRequired;
 /** The key a connection uses, as shown in `credentialStatus`: one per preset provider, one per custom connection. */
 export const credentialId = (connection: Pick<Connection, 'id' | 'provider'>): string => connection.provider === 'custom' ? `connection:${connection.id}` : `provider:${connection.provider}`;
@@ -311,8 +346,13 @@ function llmOf(config: Pick<ProjectConfig, 'connections'>, choice: AnalysisChoic
 export const comboPlanner = (config: Pick<ProjectConfig, 'connections'>, combo: Pick<Combo, 'planner'>): Model | undefined => !isFilePlanner(combo.planner) ? llmOf(config, combo.planner) : undefined;
 /** The LLM the project analyses runs with by default. */
 export const projectAnalysisModel = (config: Pick<ProjectConfig, 'connections' | 'project'>): Model | undefined => llmOf(config, config.project.analysis.model);
-/** The LLM that suggests completion checks: its own setting, otherwise the analysis model. */
-export const suggestionModel = (config: Pick<ProjectConfig, 'connections' | 'project'>): Model | undefined => llmOf(config, config.project.suggestions.model) ?? projectAnalysisModel(config);
+/**
+ * The LLM that suggests completion checks: its own setting, otherwise the analysis model, otherwise the planner of the first profile that
+ * has one (a project that can run already has a model it trusts with the page).
+ */
+export const suggestionModel = (config: Pick<ProjectConfig, 'connections' | 'project' | 'profiles'>): Model | undefined =>
+  llmOf(config, config.project.suggestions.model) ?? projectAnalysisModel(config)
+  ?? config.profiles.map(profile => comboPlanner(config, profile)).find(model => model);
 /** What a person picks to look up models: a provider and, for custom, the address. */
 export const discoverRequestSchema = z.object({ provider: providerSchema, baseURL: z.url().optional(), apiKey: z.string().max(16384).optional() }).strict();
 export type DiscoverRequest = z.infer<typeof discoverRequestSchema>;
@@ -325,6 +365,49 @@ export function defaultConfig(): ProjectConfig {
   return configSchema.parse({ version: 7, connections: [], tasks: [], profiles: [defaultProfile()], machine: {} });
 }
 export function parseConfig(raw: unknown): ProjectConfig { return configSchema.parse(raw); }
+
+/** The parts of a zod issue that `configProblems` reads; zod's own message is JSON, not something to show a person. */
+type Issue = { code: string; path: PropertyKey[]; message: string; keys?: string[]; values?: unknown[]; expected?: string; origin?: string; minimum?: number | bigint; maximum?: number | bigint; inclusive?: boolean; format?: string; errors?: Issue[][] };
+const EXPECTED: Record<string, string> = { string: 'a string', number: 'a number', int: 'a whole number', boolean: 'true or false', object: 'an object', array: 'a list' };
+const SIZED: Record<string, string> = { string: 'characters', array: 'items', set: 'items', file: 'bytes' };
+const pathText = (path: readonly PropertyKey[]) => path.reduce<string>((text, part) => typeof part === 'number' ? `${text}[${part}]` : text ? `${text}.${String(part)}` : String(part), '');
+const valueAt = (raw: unknown, path: readonly PropertyKey[]) => path.reduce<unknown>((value, part) => value !== null && typeof value === 'object' ? (value as Record<PropertyKey, unknown>)[part] : undefined, raw);
+const shown = (value: unknown): string => { const json = JSON.stringify(value) ?? ''; return json.length > 60 ? json.slice(0, 57) + '...' : json; };
+/** A union reports every branch's issues; the branch closest to what was written (fewest issues) says what is wrong. */
+function flatten(issue: Issue, base: readonly PropertyKey[] = []): Issue[] {
+  const path = [...base, ...issue.path];
+  if (issue.code !== 'invalid_union') return [{ ...issue, path }];
+  const branches = (issue.errors ?? []).filter(branch => branch.length);
+  if (!branches.length) return [{ ...issue, path, message: 'does not match any allowed form' }];
+  return branches.reduce((best, branch) => branch.length < best.length ? branch : best).flatMap(inner => flatten(inner, path));
+}
+function say(issue: Issue, value: unknown): string {
+  switch (issue.code) {
+    case 'invalid_type': return value === undefined ? 'is required' : `must be ${EXPECTED[issue.expected ?? ''] ?? issue.expected ?? 'another type'}`;
+    case 'invalid_value': return issue.values?.length === 1 ? `must be ${shown(issue.values[0])}` : `must be one of ${(issue.values ?? []).map(v => shown(v)).join(', ')}`;
+    case 'too_small': case 'too_big': {
+      const small = issue.code === 'too_small', limit = String(small ? issue.minimum : issue.maximum), unit = SIZED[issue.origin ?? ''];
+      return unit ? `must have ${small ? 'at least' : 'at most'} ${limit} ${unit}` : `must be ${small ? (issue.inclusive ? 'at least' : 'more than') : (issue.inclusive ? 'at most' : 'less than')} ${limit}`;
+    }
+    case 'invalid_format': return issue.format === 'url' ? 'must be a full URL such as https://example.com' : issue.message;
+    default: return issue.message;
+  }
+}
+/**
+ * What is wrong with a config zod rejected, as one readable line per problem (the first `limit`, then "and N more"):
+ * `rawstep.config.json · profiles[1].runRules.failureLimit: must be at most 100 (now: 500)`. `raw` is the parsed JSON, to show the value found there.
+ */
+export function configProblems(error: { issues: readonly unknown[] }, raw: unknown, limit = 5): string[] {
+  const lines: string[] = [];
+  for (const issue of (error.issues as Issue[]).flatMap(item => flatten(item))) {
+    const entries = issue.code === 'unrecognized_keys' ? (issue.keys ?? []).map(key => ({ path: [...issue.path, key], text: `unknown field ${JSON.stringify(key)}` })) : [{ path: issue.path, text: say(issue, valueAt(raw, issue.path)) }];
+    for (const { path, text } of entries) {
+      const value = valueAt(raw, path);
+      lines.push(`${CONFIG_FILE} · ${pathText(path) || '(top level)'}: ${text}${value === undefined ? '' : ` (now: ${shown(value)})`}`);
+    }
+  }
+  return lines.length > limit ? [...lines.slice(0, limit), `${CONFIG_FILE} · and ${lines.length - limit} more`] : lines;
+}
 /** The profile a run uses when none is named: the project's first. */
 export function firstProfile(config: Pick<ProjectConfig, 'profiles'>): Profile {
   return config.profiles[0]!;

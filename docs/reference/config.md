@@ -6,7 +6,7 @@ One file in the project folder holds the whole setup. The dashboard (`npx rawste
 
 ## Rules for the whole file
 
-- Unknown fields are rejected, at every level.
+- Unknown fields are rejected, at every level. A file that does not load is reported one problem per line, with the path and the value found, for example `rawstep.config.json · profiles[1].runRules.failureLimit: must be at most 100 (now: 500)` or `rawstep.config.json · machine.proxy: unknown field "proxy"`. After five lines it says how many more there are.
 - Every `id` matches `^[A-Za-z0-9._-]{1,100}$`. Ids are unique within `connections`, `profiles` and `tasks`.
 - `name` and other required text is trimmed, 1 to 16384 characters.
 - A file with `version` 1 to 6 does not load (error code `old-config`). Start a new project with `npx rawstep init` and copy your task files over.
@@ -43,10 +43,10 @@ Nothing is connected by default. A connection sends what the simulated user hear
 
 | `provider` | Kind | Address or command | Key variable | Key needed |
 |---|---|---|---|---|
-| `openai` | HTTP API | `https://api.openai.com/v1` | `RAWSTEP_OPENAI_API_KEY` | yes |
-| `anthropic` | HTTP API | `https://api.anthropic.com/v1` (OpenAI-compatible endpoint) | `RAWSTEP_ANTHROPIC_API_KEY` | yes |
-| `google` | HTTP API | `https://generativelanguage.googleapis.com/v1beta/openai` | `RAWSTEP_GOOGLE_API_KEY` | yes |
-| `openrouter` | HTTP API | `https://openrouter.ai/api/v1` | `RAWSTEP_OPENROUTER_API_KEY` | yes |
+| `openai` | HTTP API | `https://api.openai.com/v1` | `RAWSTEP_OPENAI_API_KEY` (or `OPENAI_API_KEY`) | yes |
+| `anthropic` | HTTP API | `https://api.anthropic.com/v1` (OpenAI-compatible endpoint) | `RAWSTEP_ANTHROPIC_API_KEY` (or `ANTHROPIC_API_KEY`) | yes |
+| `google` | HTTP API | `https://generativelanguage.googleapis.com/v1beta/openai` | `RAWSTEP_GOOGLE_API_KEY` (or `GEMINI_API_KEY`, `GOOGLE_GENERATIVE_AI_API_KEY`) | yes |
+| `openrouter` | HTTP API | `https://openrouter.ai/api/v1` | `RAWSTEP_OPENROUTER_API_KEY` (or `OPENROUTER_API_KEY`) | yes |
 | `claudeCode` | coding-agent CLI | `npx -y @agentclientprotocol/claude-agent-acp@0.89.1` | none | no (the CLI's own sign-in) |
 | `codex` | coding-agent CLI | `npx -y @agentclientprotocol/codex-acp@2.2.2` | none | no |
 | `opencode` | coding-agent CLI | `opencode acp` | none | no |
@@ -55,17 +55,17 @@ Nothing is connected by default. A connection sends what the simulated user hear
 | `custom` | HTTP API | your `baseURL` (any OpenAI-compatible chat endpoint) | your `apiKeyEnv` | no |
 
 - A coding-agent CLI is started by Rawstep over the Agent Client Protocol. The command is fixed in Rawstep; it is never read from the config, because it runs a program. The `npx` adapters download on first use.
-- Being installed is not being signed in. Sign in with the agent's own tool first.
+- Being installed is not being signed in. Sign in with the agent's own tool first (`claude` then `/login`, `codex login`, `opencode auth login`, or run `grok` once). Antigravity keeps its own sign-in apart from the `agy` CLI: sign in from the dashboard's connection check. `agy` alone is not enough for it; the ACP server binary `agy_acp_server.par` must be on `PATH`.
 
 ### Where keys live
 
 | What | Where |
 |---|---|
-| Key value | The variable named in the table above, read first from `.env.local` in the project folder, then from the process environment. |
+| Key value | The variable named in the table above. `RAWSTEP_*` is read first, then the provider's standard variable shown in brackets, so a key you already export for other tools works. Each variable is read first from `.env.local` in the project folder, then from the process environment. An empty value counts as not set. The dashboard writes the `RAWSTEP_*` one. |
 | `.env.local` format | `NAME=value` lines. The dashboard writes `NAME="value"` (JSON-quoted) with file mode `0600`. |
 | AT Driver start command | `RAWSTEP_AT_DRIVER_COMMAND` in `.env.local` or the process environment. Rawstep starts it only when nothing answers at the AT Driver address. See [screen-readers.md](../screen-readers.md). |
 
-`npx rawstep doctor` reports for each connection whether its variable is set.
+`npx rawstep doctor` tries each key against the provider's model list and says which variable it used. A variable that is set is not necessarily a key that works.
 
 ## Profiles
 
@@ -231,7 +231,7 @@ A task file that is not registered can still run by path: `npx rawstep run path/
 |---|---|---|---|
 | `analysis.model` | `{ connectionId, modelId, reasoningEffort? }` | none | The model that explains finished runs. Without one only the built-in rule-based analysis runs. It never changes how a run ends. A missing key does not block a run; the run gets the rule-based analysis only. |
 | `analysis.instructions` | text, up to 16384 characters | `""` | Extra instructions for the analysis model. |
-| `suggestions.model` | `{ connectionId, modelId, reasoningEffort? }` | the analysis model | The model that suggests completion checks (`verify` rules) while you write a task in the dashboard. |
+| `suggestions.model` | `{ connectionId, modelId, reasoningEffort? }` | the analysis model, otherwise the planner model of the first profile that has one | The model that suggests completion checks (`verify` rules) while you write a task in the dashboard. |
 
 ## Machine
 
@@ -245,6 +245,8 @@ Settings that belong to the computer, not to an experiment.
 | `headless` | boolean | `true` | Run the simulation without a visible browser window. Native screen reader runs always use a visible window. |
 | `browserEndpoint` | text | `""` | A Chrome you started yourself with `--remote-debugging-port`, for example `http://localhost:9222`. Runs connect to it instead of launching one, and each run gets its own isolated context there. |
 | `personCheck` | boolean | `false` | For real sites with a human check. Runs use a visible Chrome (with a profile kept in `.rawstep/browser-profile`, or your `browserEndpoint`) and pause while you pass the check in that window. Rawstep never answers a check itself. |
+| `copySignIn` | boolean | `false` | Only with `browserEndpoint` (otherwise the file is rejected: "copySignIn needs browserEndpoint"). Each run's fresh context starts with a copy of that Chrome's cookies and site storage, so a page behind a sign-in opens signed in. Your own windows are not touched. |
+| `proxyServer` | text | `""` | A credential-free HTTP(S) or SOCKS proxy URL, such as `http://localhost:8080`, for the browsers Rawstep launches. No path, query or fragment. Not allowed together with `browserEndpoint`: a proxy belongs to the browser you started. |
 
 Native screen reader addresses must be a `ws:` or `wss:` URL on a loopback host without credentials, otherwise the run is refused (`endpoint-not-loopback`).
 
@@ -314,7 +316,9 @@ All fields in use. It assumes `rawstep/demo/plan.json` exists, as after `rawstep
     "browserExecutablePath": "",
     "headless": true,
     "browserEndpoint": "",
-    "personCheck": false
+    "personCheck": false,
+    "copySignIn": false,
+    "proxyServer": ""
   }
 }
 ```

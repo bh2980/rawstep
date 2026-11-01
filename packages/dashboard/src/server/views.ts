@@ -1,7 +1,7 @@
 import { aggregateHints, extractHints, HINTS_SCHEMA_VERSION, selectReference, type Hint, type HintFinding, type HintTarget } from '@rawstep/reports/hints';
 import { readTrace, type RunTrace, type TraceEvent } from '@rawstep/core/trace';
 import type { AnalysisReport } from '@rawstep/reports';
-import type { HintReport, ProfileFacts, RunExplanation, RunHintsView, RunResult, RunStepsView, StuckPlace, TaskBatch, TaskFindings, TaskSummary } from '../shared/api.js';
+import type { ComparedRun, HintReport, ProfileFacts, RunComparison, RunExplanation, RunHintsView, RunResult, RunStepsView, StuckPlace, TaskBatch, TaskFindings, TaskSummary } from '../shared/api.js';
 import { isStuck, isWrongGuess, runEnding } from '@rawstep/reports/endings';
 import type { RunRecord } from '../shared/config.js';
 import { readOptional, type ProjectStore } from '@rawstep/project/store';
@@ -234,6 +234,23 @@ export class RunViews {
     if (experimentId && !batches.some(batch => batch.experimentId === experimentId)) throw new HttpError(404, 'batch-not-for-task');
     const { facts, findings, results, stuck, startPage } = await this.taskData(taskId, experimentId);
     return { taskId, ...(experimentId ? { batch: experimentId } : {}), batches, facts, findings, results, stuck, ...(startPage ? { startPage } : {}) };
+  }
+  /**
+   * Results of runs picked from anywhere, side by side. Each run is measured in its own batch (the page may have changed between
+   * batches), exactly as the task page measures it; a run that has no result there is returned without one.
+   */
+  async compare(refs: readonly { experiment: string; run: string }[]): Promise<RunComparison> {
+    const wanted = refs.map(ref => ({ experimentId: ref.experiment, record: this.queue.find(ref.experiment, ref.run) }));
+    const data = new Map<string, { results: RunResult[]; stuck: StuckPlace[] }>();
+    for (const { experimentId, record } of wanted) {
+      const key = `${record.taskId}\u0000${experimentId}`;
+      if (!data.has(key)) data.set(key, await this.taskData(record.taskId, experimentId));
+    }
+    return { runs: wanted.map(({ experimentId, record }): ComparedRun => {
+      const found = data.get(`${record.taskId}\u0000${experimentId}`)!, result = found.results.find(item => item.runId === record.id) ?? null;
+      return { experimentId, runId: record.id, taskId: record.taskId, profileId: record.profileId, result,
+        stuck: result?.stuck.flatMap(item => found.stuck[item.place] ? [{ target: found.stuck[item.place]!.target, step: item.step }] : []) ?? [] };
+    }) };
   }
   /** One row per task that has runs, for the task table. */
   async taskSummaries(): Promise<TaskSummary[]> {
