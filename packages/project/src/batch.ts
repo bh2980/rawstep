@@ -322,7 +322,8 @@ export class BatchQueue {
         outcome: trace?.outcome ?? { status: 'failure', reason: 'error' }, hints });
     }
     const summary = buildBatchSummary({ id: experiment.id, createdAt: experiment.createdAt, ...(experiment.request.note ? { note: experiment.request.note } : {}) }, runs);
-    await atomicJson(await this.store.file(BATCHES_DIR + '/' + experiment.id + '/summary.json'), summary, 0o644);
+    // After the batch's other file work, and not for a batch deleted meanwhile: writing would bring its folder back.
+    await this.serialize(async () => { if (this.experiments.includes(experiment)) await atomicJson(await this.store.file(BATCHES_DIR + '/' + experiment.id + '/summary.json'), summary, 0o644); });
     return summary;
   }
   /** Refuses to act on a batch another process is running: only that process can stop or change it. */

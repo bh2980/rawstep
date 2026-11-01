@@ -9,7 +9,7 @@ export const batchUi = {
     notFound: '이 묶음을 찾을 수 없습니다. 삭제되었을 수 있습니다.',
     failed: '묶음 요약을 불러오지 못했습니다.',
     empty: '요약할 실행이 없습니다.',
-    columns: { task: '작업', profile: '실행 프로필', result: '결과', cost: '대가 (해낸 실행)', stuck: '막힌 곳', findings: '살펴볼 지점', change: '기준과 달라진 점', runs: '실행' },
+    columns: { task: '작업', profile: '실행 프로필', result: '결과', cost: '비용 (해낸 실행)', stuck: '막힌 곳', findings: '살펴볼 지점', change: '기준과 달라진 점', runs: '실행' },
     reached: '{{n}}번 중 {{reached}}번 해냄',
     nothingMeasured: '측정된 실행 없음',
     others: { 'gave-up': '포기함 {{count}}번', mistaken: '잘못 끝냄 {{count}}번', unmeasured: '측정 못 함 {{count}}번', error: '오류로 끝남 {{count}}번' },

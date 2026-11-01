@@ -154,7 +154,7 @@ export const core = {
       replan: '다시 계획',
       'task-limit': '작업의 행동 한도 도달',
       'wanted-to-give-up': '포기하고 싶어 함',
-      'goal-word-stretch': '목표 낱말 없이 넘긴 가장 긴 구간',
+      'goal-word-stretch': '목표 낱말 없이 이어진 가장 긴 행동 구간',
       'expectation-broken': '예상이 깨짐',
     } satisfies Record<HintKind, string>,
   },
