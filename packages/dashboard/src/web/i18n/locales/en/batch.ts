@@ -1,0 +1,61 @@
+import type { LocaleShape } from '../../shape.js';
+import type { batchUi as ko } from '../ko/batch.js';
+
+/** Strings for a batch's summary page (per task and run profile, against another batch) and for downloading summaries and runs. */
+export const batchUi: LocaleShape<typeof ko> = {
+  batchSummary: {
+    title: 'Batch summary',
+    caption: 'This batch by task and run profile',
+    runs: '{{count}} runs',
+    runs_one: '{{count}} run',
+    opener: { label: 'Batch summary', action: 'Open summary' },
+    ofThisBatch: 'Summary of this batch',
+    notFound: 'This batch cannot be found. It may have been deleted.',
+    failed: 'Could not load the batch summary.',
+    empty: 'There are no runs to sum up.',
+    columns: { task: 'Task', profile: 'Run profile', result: 'Result', cost: 'Cost (runs that reached the goal)', stuck: 'Stuck places', findings: 'Places worth a look', change: 'Changes from the baseline', runs: 'Runs' },
+    reached: 'Reached the goal in {{reached}} of {{n}}',
+    nothingMeasured: 'No run measured',
+    others: { 'gave-up': 'Gave up {{count}}', mistaken: 'Said it was done, but the goal was not reached {{count}}', unmeasured: 'Not measured {{count}}', error: 'Ended on an error {{count}}' },
+    costMedian: 'Median {{n}} moves',
+    costMedian_one: 'Median {{n}} move',
+    stuckPlace: '{{place}} · {{runs}} of {{total}}',
+    stuckInfo: 'A stuck place is an element that did not respond as the user expected when pressed. The numbers after it say how many of the measured runs it came up in.',
+    findingsCount: '{{count}}',
+    runsLink: 'Open {{count}} runs',
+    runsLink_one: 'Open {{count}} run',
+    runsLinkLabel: '{{task}} · {{profile}}: open {{count}} runs',
+    runsLinkLabel_one: '{{task}} · {{profile}}: open {{count}} run',
+    compare: {
+      pick: 'Compare with a baseline batch',
+      none: 'No comparison',
+      loading: 'Loading the baseline batch summary.',
+      failed: 'Could not load the baseline batch summary.',
+      noise: 'Within noise',
+      few: 'Too few repeats to tell',
+      note: 'A difference within the spread between repeats is noise. Only what goes beyond that spread is listed as a change, and with few repeats Rawstep does not judge. It does not say which side is better.',
+      onlyBase: 'Only in the baseline',
+      onlyBaseItem: '{{task}} · {{profile}}',
+    },
+    changes: {
+      reach: 'Reached the goal in {{reached}} of {{head}} runs, against {{baseReached}} of {{base}} in the baseline.',
+      moves: 'Reaching the goal took a median of {{median}} moves, outside the baseline\'s {{low}}–{{high}} (its runs: {{min}}–{{max}}).',
+      stuckNew: 'New stuck place: {{place}}, in {{runs}} of {{total}} runs.',
+      stuckGone: 'No longer a stuck place: {{place}} (in the baseline: {{runs}} of {{total}} runs).',
+      cellNew: 'Not in the baseline.',
+      cellGone: 'Not run in this batch.',
+    },
+    export: {
+      label: 'Export summary',
+      json: 'Download JSON',
+      csv: 'Download CSV',
+      done: 'Downloaded {{name}}.',
+    },
+  },
+  runExport: {
+    action: 'Export',
+    working: 'Exporting',
+    done: 'Downloaded {{count}} runs as {{name}}.',
+    done_one: 'Downloaded {{count}} run as {{name}}.',
+  },
+};

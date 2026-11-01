@@ -40,6 +40,11 @@
       "default": "./dist/report/summary.js"
     },
     "./package.json": "./package.json",
+    "./compare": {
+      "types": "./dist/compare/index.d.ts",
+      "import": "./dist/compare/index.js",
+      "default": "./dist/compare/index.js"
+    },
     "./endings": {
       "types": "./dist/endings/index.d.ts",
       "import": "./dist/endings/index.js",

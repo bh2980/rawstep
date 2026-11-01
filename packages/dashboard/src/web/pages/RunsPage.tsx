@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Columns2, Play, Trash2 } from 'lucide-react';
+import { Columns2, Download, Play, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { api } from '../api';
 import { DeleteRunsDialog } from '../components/DeleteRunsDialog';
@@ -9,10 +9,14 @@ import { PageHeader } from '../components/layout/PageHeader';
 import { Link } from '../components/Link';
 import { RunsTable } from '../components/RunsTable';
 import { Button } from '../components/ui/button';
+import { pageFindingCounts } from '../hooks/useHintSummaries';
+import { batchesNewestFirst, experimentBatch, exportName, runEndingCode, runFolder, runsCsv, type RunExportRow } from '../lib/batchSummary';
+import { batchLabel } from '../components/BatchCompare';
+import { downloadText } from '../lib/download';
 import { MAX_COMPARE } from '../lib/compare';
 import { displayState } from '../lib/runStrip';
 import { activeTag, hasTag, projectTags } from '../lib/tags';
-import { isFinished, isLive, runConditions, taskNameOf, runModelsName, taskRunNumbers, type RunRef } from '../lib/runs';
+import { isFinished, isLive, runConditions, runStartedAt, runStepCount, taskNameOf, runModelsName, taskRunNumbers, type RunRef } from '../lib/runs';
 import type { ListProps } from './types';
 
 const PAGE = 50;
@@ -29,7 +33,8 @@ export function RunsPage({ pageProps, runs, navigate, onRun }: ListProps & { onR
   const { t } = useTranslation();
   const [query, setQuery] = useState(''), [task, setTask] = useState(ALL), [model, setModel] = useState(ALL), [outcome, setOutcome] = useState<Outcome>('all'), [shown, setShown] = useState(PAGE);
   const [profile, setProfile] = useState(ALL), [chosenTag, setTag] = useState(ALL);
-  const [picked, setPicked] = useState<ReadonlySet<string>>(new Set()), [deleting, setDeleting] = useState(false);
+  const [picked, setPicked] = useState<ReadonlySet<string>>(new Set()), [deleting, setDeleting] = useState(false), [exporting, setExporting] = useState(false), [batch, setBatch] = useState<string>();
+  const batches = useMemo(() => batchesNewestFirst([...new Map(runs.map(ref => [ref.experiment.id, ref.experiment])).values()]), [runs]);
   const { config } = pageProps.view;
   // Profiles are named as each run recorded them, so a filter groups runs by what they ran with, not by today's names.
   const named = useMemo(() => new Map(runs.map(ref => [ref.run.id, runConditions(ref.run, config)])), [runs, config]);
@@ -56,6 +61,20 @@ export function RunsPage({ pageProps, runs, navigate, onRun }: ListProps & { onR
   const canCompare = chosen.length >= 2 && chosen.length <= MAX_COMPARE;
   const toggle = (id: string, on: boolean) => setPicked(current => { const next = new Set(current); if (on) next.add(id); else next.delete(id); return next; });
   const toggleAll = (on: boolean) => setPicked(current => { const next = new Set(current); for (const { run } of matching.slice(0, shown)) if (!isLive(run)) { if (on) next.add(run.id); else next.delete(run.id); } return next; });
+  // The CSV of the picked runs: one row each, with the page findings counted from each run's hints (read now, a few at a time).
+  const exportRuns = async () => {
+    setExporting(true);
+    try {
+      const counts = await pageFindingCounts(chosen.map(ref => ({ experimentId: ref.experiment.id, runId: ref.run.id })));
+      const rows: RunExportRow[] = chosen.map(ref => ({
+        task: taskNameOf(ref.run, config.tasks), profile: of(ref).profile, run: numbers.get(ref.run.id), date: new Date(runStartedAt(ref)).toISOString(),
+        ending: runEndingCode(ref.run), moves: runStepCount(ref.run), pageFindings: counts.get(ref.run.id), folder: runFolder(ref.experiment.id, ref.run.id),
+      }));
+      const name = exportName('rawstep-runs', undefined, 'csv');
+      downloadText(name, runsCsv(rows), 'text/csv');
+      pageProps.notify(t('runExport.done', { count: rows.length, name }));
+    } finally { setExporting(false); }
+  };
   const remove = () => { setDeleting(false); void pageProps.act(async () => {
     await api('/runs/delete', { method: 'POST', body: { runs: chosen.map(ref => ({ experiment: ref.experiment.id, run: ref.run.id })) } });
     setPicked(new Set()); pageProps.notify(t('runDelete.done', { count: chosen.length }));
@@ -73,6 +92,11 @@ export function RunsPage({ pageProps, runs, navigate, onRun }: ListProps & { onR
         <FilterSelect label={t('runList.filters.model')} value={model} onChange={value => narrow(() => setModel(value))} options={options(models)} className="max-w-44" />
       </FilterMore>
     </FilterBar>}
+    {batches.length > 0 && <div role="group" aria-label={t('batchSummary.opener.label')} className="flex flex-wrap items-center gap-x-3 gap-y-2">
+      <FilterSelect label={t('batchSummary.opener.label')} value={batch && batches.some(item => item.id === batch) ? batch : batches[0]!.id} onChange={setBatch} className="max-w-md"
+        options={batches.map(item => ({ id: item.id, name: batchLabel(experimentBatch(item), t) }))} />
+      <Button variant="outline" onClick={() => navigate({ view: 'runs', batch: batch && batches.some(item => item.id === batch) ? batch : batches[0]!.id })}>{t('batchSummary.opener.action')}</Button>
+    </div>}
     {runs.length === 0
       ? <EmptyState title={t('empty.runs.title')} action={<Button asChild variant="outline"><Link to={{ view: 'tasks' }} navigate={navigate}>{t('empty.runs.action')}</Link></Button>} />
       : matching.length === 0
@@ -81,6 +105,7 @@ export function RunsPage({ pageProps, runs, navigate, onRun }: ListProps & { onR
           {chosen.length > 0 && <div role="region" aria-label={t('runList.select.count', { count: chosen.length })} className="flex flex-wrap items-center gap-2 border-y border-edge-strong py-1.5 text-[13px]">
             <span className="mr-1 font-medium">{t('runList.select.count', { count: chosen.length })}</span>
             <Button disabled={!canCompare} onClick={() => navigate({ view: 'runs', compare: chosen.map(ref => ref.run.id) })}><Columns2 aria-hidden="true" />{t('runCompare.action')}</Button>
+            <Button variant="outline" disabled={exporting} onClick={() => void exportRuns()}><Download aria-hidden="true" />{exporting ? t('runExport.working') : t('runExport.action')}</Button>
             {!canCompare && <span className="text-xs text-muted-foreground">{chosen.length < 2 ? t('runCompare.needMore') : t('runCompare.tooMany', { max: MAX_COMPARE })}</span>}
             <Button variant="ghost" onClick={() => setPicked(new Set())}>{t('runList.select.clear')}</Button>
             <Button variant="outline" className="ml-auto border-destructive/40 text-destructive hover:text-destructive" disabled={pageProps.busy} onClick={() => setDeleting(true)}><Trash2 aria-hidden="true" />{t('runList.select.delete')}</Button>

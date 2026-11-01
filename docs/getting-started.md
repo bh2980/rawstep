@@ -247,7 +247,7 @@ In the dashboard, open the task and press Run…. The dialog picks the tasks, th
 
 Each run calls the planner a few times: for the first plan, and again when a task keeps failing, changes nothing or runs long. `maxPlannerCalls` (default 40) caps it. A run that reaches the cap ends as not measured, not as the user failing.
 
-Exit code 0 means every run gave a measurement: the user reached the goal, gave up, or said it was done when it was not. Rawstep does not fail a run for missing the goal. Exit code 1 means an error, including any run that ended on an error: such a run says nothing about the page. Exit code 3 means no run broke, but at least one was not measured (for example it hit a limit). Exit code 2 is bad usage. See the [CLI reference](./reference/cli.md) for options and exit codes.
+Exit code 0 means every run gave a measurement: the user reached the goal, gave up, or said it was done when it was not. Rawstep does not fail a run for missing the goal. Exit code 1 means an error, including any run that ended on an error: such a run says nothing about the page. Exit code 3 means no run broke, but at least one was not measured (for example it hit a limit). Exit code 2 is bad usage. See the [CLI reference](./reference/cli.md) for options and exit codes. To run in CI and compare each pull request with a baseline, see [Using Rawstep in CI](./ci.md).
 
 ## 6. Read the results
 
@@ -300,4 +300,5 @@ None of these is a verdict. A stuck place says the simulated user expected somet
 - Compare ways of finding things: copy the profile and pick By headings, By form controls or By links under Way of finding things. See [Concepts](./concepts.md#ways-of-finding-things).
 - Write or tune plans: [Planning](./planning.md).
 - Run on a real VoiceOver or NVDA: [Screen readers](./screen-readers.md).
+- Check every pull request against a saved baseline: [Using Rawstep in CI](./ci.md).
 - Call it from tests: [API reference](./reference/api.md).

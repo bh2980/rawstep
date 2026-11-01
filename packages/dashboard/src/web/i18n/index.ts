@@ -1,6 +1,7 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import { isServerMessageCode, type ServerMessage } from '../../shared/messages.js';
+import { batchUi as koBatch } from './locales/ko/batch.js';
 import { compareUi as koCompare } from './locales/ko/compare.js';
 import { core as koCore } from './locales/ko/core.js';
 import { editor as koEditor } from './locales/ko/editor.js';
@@ -11,6 +12,7 @@ import { states as koStates } from './locales/ko/states.js';
 import { suggest as koSuggest } from './locales/ko/suggest.js';
 import { taskUi as koTask } from './locales/ko/task.js';
 import { traceUi as koTrace } from './locales/ko/trace.js';
+import { batchUi as enBatch } from './locales/en/batch.js';
 import { compareUi as enCompare } from './locales/en/compare.js';
 import { core as enCore } from './locales/en/core.js';
 import { editor as enEditor } from './locales/en/editor.js';
@@ -27,8 +29,8 @@ import { traceUi as enTrace } from './locales/en/trace.js';
  * typed as its Korean file (`LocaleShape`), so a key missing in either fails typecheck.
  */
 export const resources = {
-  ko: { translation: { ...koCompare, ...koCore, ...koEditor, ...koServer, ...koSettings, ...koShell, ...koStates, ...koSuggest, ...koTask, ...koTrace } },
-  en: { translation: { ...enCompare, ...enCore, ...enEditor, ...enServer, ...enSettings, ...enShell, ...enStates, ...enSuggest, ...enTask, ...enTrace } },
+  ko: { translation: { ...koBatch, ...koCompare, ...koCore, ...koEditor, ...koServer, ...koSettings, ...koShell, ...koStates, ...koSuggest, ...koTask, ...koTrace } },
+  en: { translation: { ...enBatch, ...enCompare, ...enCore, ...enEditor, ...enServer, ...enSettings, ...enShell, ...enStates, ...enSuggest, ...enTask, ...enTrace } },
 } as const;
 
 export const LANGUAGES = ['ko', 'en'] as const;

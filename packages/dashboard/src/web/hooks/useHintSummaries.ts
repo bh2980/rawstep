@@ -56,3 +56,19 @@ export function useRequestHintSummaries(runs: readonly { experimentId: string; r
   const key = runs.map(run => run.runId).join(',');
   useEffect(() => { for (const run of runs) requestHintSummary(run.experimentId, run.runId); }, [key]);
 }
+
+/**
+ * How many page findings (hints whose source is the page) each run has, read on demand for an export; three requests at a time.
+ * A run whose hints cannot be read is left out of the answer.
+ */
+export async function pageFindingCounts(runs: readonly { experimentId: string; runId: string }[]): Promise<Map<string, number>> {
+  const counts = new Map<string, number>(), rest = [...runs];
+  const worker = async () => {
+    for (let next = rest.shift(); next; next = rest.shift()) {
+      const { experimentId, runId } = next;
+      await api<RunHintsView>(`${runPath(experimentId, runId)}/hints`).then(view => { counts.set(runId, view.hints.filter(hint => hint.source === 'page' && hint.target).length); }, () => undefined);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(MAX_CONCURRENT, rest.length) }, worker));
+  return counts;
+}

@@ -83,6 +83,7 @@ export const server: LocaleShape<typeof ko> = {
     'retry-run-active': 'End the running run first.',
     'task-changed': 'The task changed. Check the differences again.',
     'experiment-not-found': 'The batch of runs cannot be found.',
+    'summary-not-ready': 'This batch is still running, so it has no summary yet. It is written when the last run ends.',
     'run-not-found': 'The run cannot be found.',
     'delete-run-active': 'Runs that are running or queued cannot be deleted. Delete them after they end or are stopped.',
     'batch-running-elsewhere': 'This batch is running in another Rawstep process (the CLI or another dashboard). Stop it there.',

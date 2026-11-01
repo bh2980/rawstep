@@ -9,6 +9,7 @@ Every run is saved inside a batch: one `rawstep run`, `rawstep suite` or `runTas
 ```text
 <project>/.rawstep/experiments/<batch id>/
   experiment.json          the record of the batch
+  summary.json             the batch summed up per task and profile
   <run id>/                one folder per run
     trace.json, hints.json, report.html, ...
 ```
@@ -17,7 +18,32 @@ Every run is saved inside a batch: one `rawstep run`, `rawstep suite` or `runTas
 
 `experiment.json` holds what the batch is for (`request`, including the `note` from `--note`), each run with its task, profile, state and outcome, and the batch's `owner`: the process id, the computer, and whether it came from the CLI, the dashboard or the API. While the owner process is alive, no other process stops the batch or marks it interrupted. When the process is gone, the next listing marks its unfinished runs as interrupted. A task file that is not registered (run by path from the CLI) is kept in the batch under its file name.
 
+`summary.json` is written when the batch's last run ends, whether it came from the CLI, the API or the dashboard. See [The batch summary](#the-batch-summary).
+
 A run folder is never silently replaced: Rawstep refuses to write into a folder that already holds a trace. Keep `.rawstep/` out of git.
+
+## The batch summary
+
+`summary.json` is a `BatchSummary`, schema version `1.0`: what the batch's runs came to, per task and profile, without the traces. `rawstep compare` and `--baseline` read it, and `--save-summary <file>` writes the same content to another file, so it can be committed as a baseline (see [Using Rawstep in CI](../ci.md)). `runTask` and `runSuite` return it as `summary`. Readers refuse other schema versions.
+
+| Field | Meaning |
+| --- | --- |
+| `schemaVersion` | `"1.0"`. |
+| `batch` | `id`, `createdAt` (an ISO timestamp) and the `note` from `--note`, when there is one. |
+| `cells` | One entry per task under a profile, in the order the runs came. |
+
+Each cell:
+
+| Field | Meaning |
+| --- | --- |
+| `taskId`, `taskName`, `profileId`, `profileName` | The task and run profile. Cells of two batches are matched by `taskId` and `profileId`. |
+| `runs` | How many runs the batch made of this task under this profile. |
+| `endings` | A count for each of `reached`, `gave-up`, `mistaken`, `unmeasured` and `error`. They add up to `runs`. `error` counts runs that broke (or were cancelled): they say nothing about the page and are left out when comparing. The other four are the [endings](../concepts.md). |
+| `reachedMoves` | The moves of each run that reached the goal, in run order. |
+| `stuck` | Elements where pressing did not respond as the user expected: `role`, `name` (when the element has one) and `runs`, how many runs it came up in. |
+| `pageFindings` | Hints from the page (focus, announcements, dialogs...) by `kind` and element, with `role`, `name` and `runs`. Shown in the summary; the comparison does not use them. |
+
+Only runs that did not end on an error are read for `stuck` and `pageFindings`.
 
 ## Files in a run folder
 

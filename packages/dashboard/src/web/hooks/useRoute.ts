@@ -17,8 +17,8 @@ export type TaskTab = (typeof taskTabs)[number];
  * `view` is the left-navigation entry the page belongs to: a task, a new task or a run is always under 작업.
  * `tab` belongs to a task page and `step` to an open run.
  */
-export type Route = { view: View; task?: string; run?: string; tab: TaskTab; step?: number; section?: SettingsSection; compare?: string[] };
-export type RouteChange = { view?: View | undefined; task?: string | undefined; run?: string | undefined; tab?: TaskTab | undefined; step?: number | undefined; section?: SettingsSection | undefined; compare?: readonly string[] | undefined };
+export type Route = { view: View; task?: string; run?: string; tab: TaskTab; step?: number; section?: SettingsSection; compare?: string[]; batch?: string; against?: string };
+export type RouteChange = { view?: View | undefined; task?: string | undefined; run?: string | undefined; tab?: TaskTab | undefined; step?: number | undefined; section?: SettingsSection | undefined; compare?: readonly string[] | undefined; batch?: string | undefined; against?: string | undefined };
 
 /** `?task=new` shows the new-task page instead of an existing task. */
 export const NEW_TASK = 'new';
@@ -36,11 +36,15 @@ export function parseRoute(search: string): Route {
   const view: View = named === 'settings' && asked === 'profiles' ? 'profiles' : named;
   const section = view === 'settings' && !task ? settingsSections.find(s => s === asked) ?? legacy?.section : undefined;
   // `?view=runs&compare=<run>,<run>,…` sets runs of any task side by side.
-  const compare = view === 'runs' && !task ? (params.get('compare') ?? '').split(',').filter(Boolean) : [];
+  // `?view=runs&batch=<id>` is the summary of one batch, and `&against=<id>` compares it with another batch.
+  const batch = view === 'runs' && !task ? params.get('batch') || undefined : undefined, against = batch ? params.get('against') || undefined : undefined;
+  const compare = view === 'runs' && !task && !batch ? (params.get('compare') ?? '').split(',').filter(Boolean) : [];
   return {
     view: task ? 'tasks' : view,
     ...(section ? { section } : {}),
     ...(compare.length ? { compare } : {}),
+    ...(batch ? { batch } : {}),
+    ...(against && against !== batch ? { against } : {}),
     ...(task ? { task } : {}),
     ...(task && params.get('run') ? { run: params.get('run')! } : {}),
     tab: taskTabs.find(t => t === params.get('tab')) ?? 'overview',
@@ -48,7 +52,7 @@ export function parseRoute(search: string): Route {
   };
 }
 
-/** The URL query for a route: `?task=&run=` for a task page, `?view=` (and `&section=` in 설정, `&compare=` for runs side by side) otherwise, nothing for the task list. */
+/** The URL query for a route: `?task=&run=` for a task page, `?view=` (and `&section=` in 설정, `&compare=` for runs side by side, `&batch=` (and `&against=`) for a batch's summary) otherwise, nothing for the task list. */
 export function routeSearch(route: RouteChange): string {
   const params = new URLSearchParams();
   if (route.task) {
@@ -59,7 +63,10 @@ export function routeSearch(route: RouteChange): string {
     } else if (route.tab && route.tab !== 'overview') params.set('tab', route.tab);
   } else if (route.view && route.view !== 'tasks') {
     params.set('view', route.view);
-    if (route.view === 'runs' && route.compare?.length) params.set('compare', route.compare.join(','));
+    if (route.view === 'runs' && route.batch) {
+      params.set('batch', route.batch);
+      if (route.against && route.against !== route.batch) params.set('against', route.against);
+    } else if (route.view === 'runs' && route.compare?.length) params.set('compare', route.compare.join(','));
     if (route.view === 'settings' && route.section) params.set('section', route.section);
   }
   const text = params.toString();

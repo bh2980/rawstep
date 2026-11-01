@@ -40,6 +40,7 @@ It resolves when the runs finish, whatever way they ended: reaching the goal is 
 | Field | Type | Meaning |
 | --- | --- | --- |
 | `batch` | `{ id: string; dir: string }` | The batch the runs were saved as: its id and its folder. |
+| `summary` | batch summary | The batch summed up per task and profile: endings, the moves of runs that reached the goal, stuck places. The same content is saved as `summary.json` in the batch folder. Fields: [the batch summary](./results.md#the-batch-summary). |
 | `conditions` | `Record<string, unknown>` | What the runs were made with: profile, planner, action set, page environment, screen reader, run rules. The same record is in each trace. |
 | `warnings` | `string[]` | Things worth knowing that did not stop the runs, for example that the analysis key is not set so the runs get the rule-based analysis only. |
 | `runs` | array | One entry per repeat, in order. |
@@ -130,6 +131,7 @@ With neither `tasks` nor `tags`, it runs every registered task. A tag that no ta
 | Field | Type | Meaning |
 | --- | --- | --- |
 | `batch` | `{ id: string; dir: string }` | The batch the runs were saved as. |
+| `summary` | batch summary | As for `runTask`: the whole batch, one cell per task under a profile. |
 | `warnings` | `string[]` | As for `runTask`. |
 | `runs` | array | Every run of the batch, with the fields listed under [`runTask`](#return-value). |
 | `groups` | array | One entry per task under a profile: `taskId`, `taskName`, `profileId`, `profileName`, its `runs`, and its `findings` (hints gathered across just those runs). |
@@ -141,6 +143,34 @@ for (const group of groups) {
   console.log(`${group.taskName} · ${group.profileName}: ${reached} of ${group.runs.length} reached the goal`);
 }
 ```
+
+### Comparing with a baseline from code
+
+`summary` is plain JSON (`schemaVersion` `"1.0"`), so you can save it, commit it and read it back. The functions that compare two summaries are exported from `rawstep/hints`:
+
+```ts
+import { compareSummaries, gatedChanges, validateBatchSummary } from 'rawstep/hints';
+import { readFile } from 'node:fs/promises';
+import { runSuite } from 'rawstep';
+
+const baseline = validateBatchSummary(JSON.parse(await readFile('rawstep-baseline.json', 'utf8')));
+const { summary } = await runSuite({ tags: ['checkout'], repeat: 3 });
+const comparison = compareSummaries(baseline, summary);
+const caught = gatedChanges(comparison, ['reach']);
+if (caught.length) console.log(caught.map(change => change.text));
+```
+
+| Name | What it does |
+| --- | --- |
+| `compareSummaries(base, head, rules?)` | Compares cell by cell. Returns `{ base, head, cells, changes }`. Each cell says whether `reach` and `moves` are `changed`, `within-noise`, `too-few-runs` or `missing`, and lists its `changes`. `rules` overrides the noise rules (`minRuns`, `movesShare`, `movesSlack`, `stuckShare`); the defaults, `DEFAULT_NOISE`, are what the CLI uses. |
+| `gatedChanges(comparison, gates)` | The changes the gates catch. `gates` are names from `GATES`: `reach`, `moves`, `stuck`, `missing`. An unknown name throws. |
+| `validateBatchSummary(value)` | Checks a parsed file is a summary this version reads, and returns it. Throws otherwise. |
+| `buildBatchSummary(batch, runs)` | Sums up finished runs per task and profile. |
+| `summaryMarkdown(summary, comparison?, gates?)`, `junitXml(summary, comparison?, gates?)` | The job summary table and the JUnit XML the CLI writes. |
+
+A `change` has a `kind` (`reach-drop`, `reach-rise`, `moves-up`, `moves-down`, `stuck-new`, `stuck-gone`, `cell-new` or `cell-gone`), the task and profile, and a `text` for people. The comparison says what changed beyond noise; it does not say which side is better. The rules are in [Using Rawstep in CI](../ci.md#what-is-compared).
+
+The types `BatchSummary`, `SummaryCell`, `SummaryComparison` and `Change` come from `rawstep/hints` too. They are not on the `rawstep` root. `runTask` and `runSuite` do not take a baseline: pass `--baseline` to the CLI, or compare the `summary` you get back as above.
 
 ## Import paths
 
@@ -154,7 +184,7 @@ for (const group of groups) {
 | `rawstep/policy` | Decision policies and the plan document. | `ScriptedPolicy`, `loadPolicy`, `OrchestratedSpeechPolicy`, `FixedPlanner`, `planFileSchema`, `planDraftSchema`, `renderPlanMarkdown`, `speechChoices`, `followPlan` |
 | `rawstep/contracts` | Task and run types and checks. | `resolveTask`, `describeInputs`, `matchesText`, `validateNavigation`, `MAX_SCRIPT_SOURCE`, `STOP_SOURCES`; types `Task`, `DecisionPolicy`, `Decision`, `Backend`, `VerifyRule` and the rest of the contract types |
 | `rawstep/trace` | The saved trace: write, read, validate, redact. | `readTrace`, `traceFilePath`, `validateTrace`, `TraceRecorder`, `FileTraceSink`, `MemoryTraceSink`, `createRedactor`, `REDACTED`, `TRACE_SCHEMA_VERSION`, `writeJsonAtomic` |
-| `rawstep/hints` | Friction hints from a saved trace, and how a run ended. | `extractHints`, `aggregateHints`, `writeHints`, `selectReference`, `summarizeRun`, `runEnding`, `isStuck`, `isWrongGuess`, `HINTS_SCHEMA_VERSION`, `HINT_SOURCES`, `DEFAULT_HINT_THRESHOLDS`; types `RunEnding`, `UnmeasuredBy`, `EndingOf` |
+| `rawstep/hints` | Friction hints from a saved trace, how a run ended, and the comparison of two batches. | `extractHints`, `aggregateHints`, `writeHints`, `selectReference`, `summarizeRun`, `runEnding`, `isStuck`, `isWrongGuess`, `HINTS_SCHEMA_VERSION`, `HINT_SOURCES`, `DEFAULT_HINT_THRESHOLDS`, `compareSummaries`, `gatedChanges`, `validateBatchSummary`, `buildBatchSummary`, `summaryMarkdown`, `junitXml`, `GATES`, `DEFAULT_NOISE`; types `RunEnding`, `UnmeasuredBy`, `EndingOf`, `BatchSummary`, `SummaryComparison` |
 | `rawstep/analyze` | Analysis of a saved trace: the rule-based one, and the model-based one. | `analyzeTrace`, `analyzeSavedTrace`, `deterministicAnalyzer`, `LlmTraceAnalyzer`, `loadAnalyzer`, `readAnalysis`, `validateAnalysisReport`, `ANALYSIS_SCHEMA_VERSION` |
 | `rawstep/report` | The HTML and JSON report. | `writeReport`, `renderReportHtml`, `summarizeTrace`, `escapeHtml` |
 | `rawstep/browser` | Opening the browser a run uses. | `createBrowserSession`, `closeBrowserSession`, `BrowserSetupError`, `BrowserConnectError`, `BrowserAccessBlockedError`, `validateCdpEndpoint`, `validateProxyServer` |

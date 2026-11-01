@@ -12,6 +12,7 @@ import { ErrorState } from './layout/ErrorState';
 import { Fold, TaskResults } from './TaskResults';
 import { BatchCompare, batchLabel } from './BatchCompare';
 import type { TaskBatch } from '../../shared/api';
+import { Link } from './Link';
 import { Button } from './ui/button';
 import { Skeleton } from './ui/skeleton';
 
@@ -48,7 +49,7 @@ export function TaskOverview({ taskId, runs, numbers, findings, navigate, onRun,
     {findings.loading && !data && <div aria-busy="true" className="grid gap-2"><Skeleton className="h-40" /><Skeleton className="h-14" /></div>}
     {findings.error && !data && <ErrorState view={dataFailureView(t('taskPage.findingsFailed'), findings.error)} />}
     {data && <>
-      {data.batches.length > 1 && <BatchBar batches={data.batches} batch={data.batch} onBatch={onBatch} compareTo={compareTo} onCompare={onCompare} />}
+      {data.batches.length > 1 && <BatchBar batches={data.batches} batch={data.batch} onBatch={onBatch} compareTo={compareTo} onCompare={onCompare} navigate={navigate} />}
       {compareTo && compared.data && compared.data.batch !== data.batch && (() => {
         // The earlier batch is "before", whichever of the two was picked first.
         const [before, after] = [compared.data, data].sort((a, b) => (a.batches.find(x => x.experimentId === a.batch)?.createdAt ?? '').localeCompare(b.batches.find(x => x.experimentId === b.batch)?.createdAt ?? ''));
@@ -71,7 +72,7 @@ export function TaskOverview({ taskId, runs, numbers, findings, navigate, onRun,
 }
 
 /** Which batch of runs the results are about, and which other batch to compare it with. Batches are never counted together. */
-function BatchBar({ batches, batch, onBatch, compareTo, onCompare }: { batches: TaskBatch[]; batch: string | undefined; onBatch: (id: string) => void; compareTo: string | undefined; onCompare: (id: string | undefined) => void }) {
+function BatchBar({ batches, batch, onBatch, compareTo, onCompare, navigate }: { batches: TaskBatch[]; batch: string | undefined; onBatch: (id: string) => void; compareTo: string | undefined; onCompare: (id: string | undefined) => void; navigate: (change: RouteChange) => void }) {
   const { t } = useTranslation();
   const select = 'h-8 max-w-full rounded-sm border border-edge-control bg-surface px-2 text-[13px]';
   return <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-md border border-edge bg-surface px-3 py-2">
@@ -84,6 +85,7 @@ function BatchBar({ batches, batch, onBatch, compareTo, onCompare }: { batches: 
         <option value="">{t('taskPage.batch.compareNone')}</option>
         {batches.filter(item => item.experimentId !== batch).map(item => <option key={item.experimentId} value={item.experimentId}>{batchLabel(item, t)}</option>)}
       </select></label>
+    {(batch ?? batches[0]?.experimentId) && <Link to={{ view: 'runs', batch: batch ?? batches[0]!.experimentId }} navigate={navigate} className="text-xs underline underline-offset-2">{t('batchSummary.ofThisBatch')}</Link>}
     <span className="text-xs text-muted-foreground">{t('taskPage.batch.note')}</span>
   </div>;
 }

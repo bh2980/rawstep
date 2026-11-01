@@ -239,6 +239,8 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
       const body = z.object({ runs: z.array(z.object({ experiment: z.string().regex(/^[0-9a-f-]{36}$/), run: z.string().regex(/^[0-9a-f-]{36}$/) }).strict()).min(1).max(50) }).strict().parse(await jsonBody(req));
       return send(res, await views.compare(body.runs));
     }
+    const summary = path.match(/^\/api\/experiments\/([0-9a-f-]{36})\/summary$/);
+    if (summary && method === 'GET') return send(res, await views.summary(summary[1]!));
     const match = path.match(/^\/api\/experiments\/([0-9a-f-]{36})(?:\/runs\/([0-9a-f-]{36}))?(?:\/(cancel|retry|events|steps|hints|trace|analysis|report|png)(?:\/([^/]+))?)?$/);
     if (match) {
       const [, experimentId, runId, operation, eventId] = match;

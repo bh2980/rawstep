@@ -119,6 +119,7 @@ None of this makes Rawstep an accessibility certification. A run tells you how o
 - [Getting started](./getting-started.md): run the demo and your own task.
 - [Planning](./planning.md): the plan document, cues, new plans, give-up rules and planner prompts.
 - [Screen readers](./screen-readers.md): simulation against real VoiceOver and NVDA.
+- [Using Rawstep in CI](./ci.md): a saved baseline, noise between repeats and exit codes.
 - [Config reference](./reference/config.md): run profiles, actions, run rules and page environments.
 - [Task reference](./reference/task.md): goals, context, inputs and completion checks.
 - [Results reference](./reference/results.md): run folder files and every hint kind.

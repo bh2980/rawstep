@@ -6,6 +6,8 @@ import { createRedactor, readTrace, type RunTrace, type TraceEvent } from '@raws
 import { usesKeptProfile, type Task } from '@rawstep/core/contracts';
 import { AT_DRIVER_COMMAND_ENV, modelKeyRequired, profileConditions, type ManagedTask, type Model, type ProjectConfig } from './config.js';
 import { ProjectError } from './errors.js';
+import { buildBatchSummary, type BatchSummary, type SummaryRun } from '@rawstep/reports/compare';
+import type { Hint } from '@rawstep/reports/hints';
 import { compareRepeats, finalizeRun, llmAnalyzer } from './finalize.js';
 import { assertRunnable, checkRun, loadPlanFile, resolvePermissions, runSpecOf, type RunConditions } from './plan.js';
 import { executeRun } from './execution.js';
@@ -305,7 +307,23 @@ export class BatchQueue {
       run.analysisStatus = 'skipped'; run.reportStatus = 'skipped';
     } finally {
       run.endedAt = new Date().toISOString(); this.liveTasks.delete(run.id); await this.persist(experiment);
+      // The batch's last run: sum it up per task and profile, next to its runs, for `rawstep compare` and a saved baseline.
+      if (!experiment.runs.some(r => r.state === 'queued' || r.state === 'running')) await this.writeSummary(experiment).catch(() => {});
     }
+  }
+  /** Writes summary.json for a finished batch from each run's trace outcome and hints; a run with no trace counts as one that broke. */
+  async writeSummary(experiment: Experiment): Promise<BatchSummary> {
+    const profiles = await this.store.read().then(({ config }) => config.profiles, () => []);
+    const runs: SummaryRun[] = [];
+    for (const run of experiment.runs.filter(r => r.state !== 'cancelled' || r.startedAt)) {
+      const dir = await this.runDir(experiment.id, run.id), trace = await readTrace(dir).catch(() => undefined);
+      const hints = await readFile(dir + '/hints.json', 'utf8').then(text => JSON.parse(text) as { steps: number; hints: Hint[] }, () => ({ steps: typeof trace?.outcome?.steps === 'number' ? trace.outcome.steps : 0, hints: [] as Hint[] }));
+      runs.push({ taskId: run.taskId, taskName: run.snapshot.taskName, profileId: run.profileId, profileName: profiles.find(p => p.id === run.profileId)?.name ?? run.profileId,
+        outcome: trace?.outcome ?? { status: 'failure', reason: 'error' }, hints });
+    }
+    const summary = buildBatchSummary({ id: experiment.id, createdAt: experiment.createdAt, ...(experiment.request.note ? { note: experiment.request.note } : {}) }, runs);
+    await atomicJson(await this.store.file(BATCHES_DIR + '/' + experiment.id + '/summary.json'), summary, 0o644);
+    return summary;
   }
   /** Refuses to act on a batch another process is running: only that process can stop or change it. */
   private own(experiment: Experiment) {

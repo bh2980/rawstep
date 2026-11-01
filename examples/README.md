@@ -1,6 +1,6 @@
 # Examples
 
-This folder holds small task files that run against the pages in [`fixtures/`](../fixtures), plus a few files for library use. It answers: what does each file show, and how do I run it. For writing your own task file, see the [task reference](../docs/reference/task.md).
+This folder holds small task files that run against the pages in [`fixtures/`](../fixtures), plus a few files for library use. It answers: what does each file show, and how do I run it. For writing your own task file, see the [task reference](../docs/reference/task.md). To run tasks like these in CI and compare each pull request with a saved baseline, see [Using Rawstep in CI](../docs/ci.md).
 
 Every task here uses a relative `url` such as `../../fixtures/simple-cta.html`. A task's relative URL is resolved against the task file's own folder, so run a file where it is, or copy the `fixtures/` folder with it and keep the same relative path. The `rawstep` package ships `examples/` and `fixtures/` side by side.
 
