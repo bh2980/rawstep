@@ -133,7 +133,13 @@ Before it starts, `run` checks that the profile can run: it has a planner (a mod
 
 ### What `run` prints
 
-While it works, `run` prints `Running <task>...` (or `Running <task>, <n> times...`) on stderr. With `--json` that line is left out. The result goes to stdout.
+While it works, `run` prints `Running <task>...` (or `Running <task>, <n> times...`) on stderr, then one line per run as it ends, in the order the runs end:
+
+```text
+[2/3] Checkout #2: reached the goal · 12 moves (1m40s)
+```
+
+That is how many runs have ended of how many, the task, the repeat number, how the run ended, its moves and how long it took. A run that never started shows `did not start: <message>`, a cancelled one `cancelled`. With `--json` these lines are left out. The result goes to stdout.
 
 The text report has these parts, in this order:
 
@@ -228,7 +234,7 @@ Before anything runs, `suite` checks every task under every profile as `run` doe
 
 ### What `suite` prints
 
-While it works, `suite` prints `Running <tasks>...` on stderr (`the tasks tagged <tags>` or `every task` when you named none). With `--json` that line is left out.
+While it works, `suite` prints `Running <tasks>...` on stderr (`the tasks tagged <tags>` or `every task` when you named none), then one progress line per run as it ends, as `run` does. When the batch uses more than one profile, the line names the profile after the task (`[3/10] Checkout · Default #2: …`). With `--json` these lines are left out.
 
 The text report has one block per task, and per profile when the batch used more than one:
 

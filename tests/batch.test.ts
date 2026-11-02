@@ -7,7 +7,7 @@ import { randomUUID } from 'node:crypto';
 import { TraceRecorder } from '@rawstep/core/trace';
 import { BatchQueue, type Experiment } from '@rawstep/project/batch';
 import { lockBrowserProfile, type RunExecutor } from '@rawstep/project/execution';
-import { runSuite, runTask } from '@rawstep/project/run';
+import { runSuite, runTask, type RunProgress } from '@rawstep/project/run';
 import { resolveTask } from '@rawstep/core/contracts';
 import { ProjectStore, initProject } from '@rawstep/project/store';
 
@@ -71,6 +71,24 @@ describe('batches shared by the CLI and the dashboard', () => {
     expect(result.runs).toHaveLength(4);
     expect(JSON.parse(await readFile(join(result.batch.dir, 'experiment.json'), 'utf8')).owner).toMatchObject({ via: 'cli' });
     await expect(runSuite({ projectDir: dir, tags: ['nope'] }, { execute: recorded })).rejects.toMatchObject({ code: 'no-tasks', message: expect.stringContaining('Tags in this project: shop') });
+  });
+
+  it('reports each run as it ends, counting up to the total with each task and profile numbering its own repeats', async () => {
+    const { dir, store } = await project();
+    const { config, revision } = await store.read();
+    config.profiles[1] = { ...config.profiles[1]!, planner: { planFile: 'rawstep/demo/plan.json' } };
+    await store.save(config, revision);
+    const seen: RunProgress[] = [];
+    const result = await runSuite({ projectDir: dir, profiles: ['written-plan', 'item-by-item'], repeat: 2, parallel: 2, onRunEnd: p => seen.push(p) }, { execute: recorded });
+    expect(seen.map(p => p.done)).toEqual([1, 2, 3, 4]);
+    expect(seen.every(p => p.total === 4 && p.profiles === 2 && p.taskName === result.runs[0]!.taskName && p.outcome?.status === 'success' && typeof p.durationMs === 'number')).toBe(true);
+    expect(seen.map(p => `${p.profileId}#${p.repeat}`).sort()).toEqual(['item-by-item#1', 'item-by-item#2', 'written-plan#1', 'written-plan#2']);
+    expect(result.runs).toHaveLength(4);
+    // A run that never started has no trace: its error says why. A listener that throws does not stop the batch.
+    const broken: RunProgress[] = [];
+    const failed = await runTask('demo', { projectDir: dir, onRunEnd: p => { broken.push(p); throw new Error('listener'); } }, { execute: async () => { throw new Error('no browser'); } });
+    expect(failed.runs).toHaveLength(1);
+    expect(broken).toMatchObject([{ done: 1, total: 1, profiles: 1, repeat: 1, outcome: undefined, error: 'no browser' }]);
   });
 
   it('lets one run at a time keep the browser profile, and takes over a lock whose process is gone', async () => {

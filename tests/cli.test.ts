@@ -9,7 +9,7 @@ import { ProjectError } from "@rawstep/project/errors";
 import { ProjectStore, demoConfig, initProject } from "@rawstep/project/store";
 import type { ProviderId } from "@rawstep/project/config";
 import { defaultConfig } from "@rawstep/project/config";
-import type { RunSuiteResult, RunTaskResult } from "@rawstep/project/run";
+import type { RunSuiteOptions, RunSuiteResult, RunTaskOptions, RunTaskResult } from "@rawstep/project/run";
 import type { RunTrace } from "@rawstep/core/trace";
 import type { CheckKind, ModelInspection } from "@rawstep/project/checks";
 
@@ -234,6 +234,26 @@ describe("run", () => {
     expect(await runCli(["run", "task.json", "--json"], { ...io, runTask: async () => measured })).toBe(0);
     expect(JSON.parse(text(io.stdout))).toEqual(measured);
     expect(text(io.stderr)).not.toContain("Running");
+  });
+  it("prints a line on stderr as each run ends, naming the profile only when the batch has several, and none with --json", async () => {
+    const directory = await temporaryDirectory();
+    const progress = { taskId: "t", taskName: "Checkout", profileId: "default", profileName: "Default", outcome: { status: "success", steps: 12 } as RunTaskResult["runs"][number]["outcome"] };
+    const runTask = vi.fn(async (_task: string, options?: RunTaskOptions) => {
+      options?.onRunEnd?.({ ...progress, done: 1, total: 2, profiles: 1, repeat: 2, durationMs: 100_000 });
+      options?.onRunEnd?.({ ...progress, done: 2, total: 2, profiles: 1, repeat: 1, outcome: undefined, error: "No browser.", durationMs: 2_000 });
+      return measured;
+    });
+    const io = output(directory);
+    await runCli(["run", "task.json", "--repeat", "2"], { ...io, runTask });
+    expect(text(io.stderr)).toContain("[1/2] Checkout #2: reached the goal · 12 moves (1m40s)\n[2/2] Checkout #1: did not start: No browser. (2s)\n");
+    const json = output(directory);
+    await runCli(["run", "task.json", "--repeat", "2", "--json"], { ...json, runTask });
+    expect(runTask.mock.calls[1]![1]).not.toHaveProperty("onRunEnd");
+    expect(text(json.stderr)).toBe("");
+    const runSuite = vi.fn(async (options?: RunSuiteOptions) => { options?.onRunEnd?.({ ...progress, done: 3, total: 10, profiles: 2, repeat: 2, durationMs: 100_000 }); return { batch: result.batch, summary: result.summary, warnings: [], runs: [], groups: [] }; });
+    const several = output(directory);
+    await runCli(["suite"], { ...several, runSuite });
+    expect(text(several.stderr)).toContain("[3/10] Checkout · Default #2: reached the goal · 12 moves (1m40s)\n");
   });
   it("runs a suite by tags and profiles, prints each task under each profile and the batch, and exits like run", async () => {
     const directory = await temporaryDirectory(), io = output(directory);

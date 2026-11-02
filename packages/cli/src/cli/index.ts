@@ -15,7 +15,7 @@ import { ProjectError } from '@rawstep/project/errors';
 import { agentOf, atEndpointOf, CONFIG_FILE, credentialId, credentialRequirements, isFilePlanner, modelKeyEnvNames, modelKeyRequired, PROVIDERS, type ProviderId } from '@rawstep/project/config';
 import { inspectModel, type ModelInspection } from '@rawstep/project/checks';
 import { ProjectStore, findAgentCli, initProject } from '@rawstep/project/store';
-import { projectAnalyzer, runSuite, runTask, type BatchRun, type RunSuiteResult, type RunTaskResult } from '@rawstep/project/run';
+import { projectAnalyzer, runSuite, runTask, type BatchRun, type RunProgress, type RunSuiteResult, type RunTaskResult } from '@rawstep/project/run';
 import { CLI_USAGE, CliUsageError, parseCliArguments, parseRunRules, type CliArguments } from './args.js';
 
 export { CLI_USAGE, CliUsageError, parseCliArguments } from './args.js';
@@ -159,11 +159,19 @@ async function cancellable<T>(dependencies: CliDependencies, stderr: (text: stri
     throw error;
   }
 }
+/** "45s", "1m40s", "1h2m": a duration as the progress lines show it. */
+const shortDuration = (ms: number) => { const s = Math.round(ms / 1000); return s < 60 ? `${s}s` : s < 3600 ? `${Math.floor(s / 60)}m${s % 60 ? `${s % 60}s` : ''}` : `${Math.floor(s / 3600)}h${Math.floor(s % 3600 / 60) ? `${Math.floor(s % 3600 / 60)}m` : ''}`; };
+/** One stderr line per run as it ends, so a long batch shows it is moving: `[3/10] Checkout · Default #2: reached the goal · 12 moves (1m40s)`. */
+function progressLine(p: RunProgress): string {
+  const ending = p.outcome ? (p.outcome.status === 'aborted' ? 'cancelled' : endingText(p.outcome)) : p.error ? `did not start: ${p.error.split('\n')[0]}` : 'cancelled';
+  const moves = p.outcome && typeof p.outcome.steps === 'number' ? ` · ${p.outcome.steps} moves` : '';
+  return `[${p.done}/${p.total}] ${p.taskName}${p.profiles > 1 ? ` · ${p.profileName}` : ''} #${p.repeat}: ${ending}${moves}${p.durationMs !== undefined ? ` (${shortDuration(p.durationMs)})` : ''}\n`;
+}
 async function run(args: CliArguments, projectDir: string, cwd: string, dependencies: CliDependencies, stdout: (text: string) => void, stderr: (text: string) => void): Promise<number> {
   const { options } = args, task = args.positionals[0]!, repeat = options.repeat === undefined ? 1 : Number(options.repeat);
   if (!options.json) stderr(`Running ${task}${repeat > 1 ? `, ${repeat} times` : ''}...\n`);
   const result = await cancellable(dependencies, stderr, signal => (dependencies.runTask ?? runTask)(task, {
-    projectDir, signal, ...batchOptions(options), ...(options.profile ? { profile: String(options.profile) } : {}),
+    projectDir, signal, ...batchOptions(options), ...(options.json ? {} : { onRunEnd: (p: RunProgress) => stderr(progressLine(p)) }), ...(options.profile ? { profile: String(options.profile) } : {}),
   }));
   if (typeof result === 'number') return result;
   const against = await againstBaseline(options, result.summary, cwd, dependencies);
@@ -174,7 +182,7 @@ async function suite(args: CliArguments, projectDir: string, cwd: string, depend
   const { options } = args, tags = (options.tag as string[] | undefined) ?? [], profiles = (options.profile as string[] | undefined) ?? [];
   if (!options.json) stderr(`Running ${args.positionals.length ? args.positionals.join(', ') : tags.length ? `the tasks tagged ${tags.join(', ')}` : 'every task'}...\n`);
   const result = await cancellable(dependencies, stderr, signal => (dependencies.runSuite ?? runSuite)({
-    projectDir, signal, ...batchOptions(options), ...(args.positionals.length ? { tasks: args.positionals } : {}), ...(tags.length ? { tags } : {}), ...(profiles.length ? { profiles } : {}),
+    projectDir, signal, ...batchOptions(options), ...(options.json ? {} : { onRunEnd: (p: RunProgress) => stderr(progressLine(p)) }), ...(args.positionals.length ? { tasks: args.positionals } : {}), ...(tags.length ? { tags } : {}), ...(profiles.length ? { profiles } : {}),
   }));
   if (typeof result === 'number') return result;
   const against = await againstBaseline(options, result.summary, cwd, dependencies);
