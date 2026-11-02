@@ -40,7 +40,7 @@ export const core: LocaleShape<typeof ko> = {
     cancelled: 'Cancelled',
   },
   pageHeader: { crumbs: 'Location' },
-  statusLegend: { label: 'What the shapes mean:', order: 'oldest on the left' },
+  statusLegend: { label: 'What the shapes mean:', order: 'oldest first', short: { reached: 'Reached', 'gave-up': 'Gave up', mistaken: 'Said done', unmeasured: 'Not measured', error: 'Error (tool)' } },
   appShell: {
     project: 'Project {{name}}',
     counts: '{{running}} running · {{queued}} waiting',

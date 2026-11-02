@@ -43,7 +43,7 @@ export const core = {
     cancelled: '취소됨',
   },
   pageHeader: { crumbs: '위치' },
-  statusLegend: { label: '기호 뜻:', order: '왼쪽이 오래된 실행' },
+  statusLegend: { label: '기호 뜻:', order: '왼쪽이 오래된 실행', short: { reached: '해냄', 'gave-up': '포기함', mistaken: '잘못 끝냄', unmeasured: '측정 못 함', error: '오류 (도구)' } },
   appShell: {
     project: '프로젝트 {{name}}',
     counts: '실행 중 {{running}} · 대기 {{queued}}',

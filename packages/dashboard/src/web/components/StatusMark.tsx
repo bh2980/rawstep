@@ -67,7 +67,7 @@ export function StatusLegend({ order, className }: { order?: boolean; className?
   const { t } = useTranslation();
   return <p className={cn('flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-2', className)}>
     <span className="sr-only">{t('statusLegend.label')}</span>
-    {ENDED.map(status => <span key={status} className="inline-flex items-center gap-1 whitespace-nowrap"><StatusShape status={status} />{t(`status.${status}`)}</span>)}
+    {ENDED.map(status => <span key={status} className="inline-flex items-center gap-1 whitespace-nowrap"><StatusShape status={status} />{t(`statusLegend.short.${status as Exclude<RunStatus, 'running' | 'queued' | 'cancelled'>}`)}</span>)}
     {order && <span className="whitespace-nowrap text-ink-3">{t('statusLegend.order')}</span>}
   </p>;
 }
