@@ -22,7 +22,7 @@ export function ElementIdentity({ role, name, fallback, weight = 'strong', class
   const { t } = useTranslation();
   const shownName = name || (role ? t('trace.unnamed') : fallback ?? t('trace.wholePage'));
   return <span className={cn('grid min-w-0 gap-0.5', className)}>
-    {role && <span className="text-xs leading-4 text-muted-foreground">{roleLabel(role)}</span>}
-    <span className={cn('break-words', weight === 'strong' ? 'font-semibold' : 'font-medium', !name && role && 'text-muted-foreground')}>{shownName}</span>
+    {role && <span className="text-sm text-ink-2">{roleLabel(role)}</span>}
+    <span className={cn('break-words', weight === 'strong' ? 'font-semibold' : 'font-medium', !name && role && 'text-ink-2')}>{shownName}</span>
   </span>;
 }

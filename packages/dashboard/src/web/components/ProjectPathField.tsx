@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 import type { ProjectFiles } from '../../shared/api';
 import { api } from '../api';
 import { cn } from '../lib/utils';
-import { InfoTip } from './layout/InfoTip';
 import { Button } from './ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 import { Input } from './ui/input';
@@ -37,7 +36,7 @@ type Props = {
 };
 
 /**
- * A path inside the project, typed or picked: it says what it is relative to (the project folder, shown), lists the project's files
+ * A path inside the project, typed or picked: it says what it is relative to (in its description and tooltip), lists the project's files
  * of the right kind in 찾아보기, and says under the field whether the file is there. A path with `{task}` is checked per task.
  */
 export function ProjectPathField({ label, value, onChange, extensions, allowUrl, tasks, example, info }: Props) {
@@ -53,21 +52,20 @@ export function ProjectPathField({ label, value, onChange, extensions, allowUrl,
     : path.includes('{task}') && tasks?.length ? tasks.map(task => { const file = path.replaceAll('{task}', taskStem(task.file)); return { text: t('pathField.forTask', { task: task.name, file }), ok: known.has(file) }; })
     : path.includes('{task}') ? [{ text: t('pathField.perTask') }]
     : [{ text: known.has(path) ? t('pathField.found') : t('pathField.missing'), ok: known.has(path) }];
+  // What the path is relative to and what `{task}` means are read with the field and shown on hover, not printed as lines of their own.
+  const base = (allowUrl ? t('pathField.baseOrUrl') : t('pathField.base')) + (files ? ` ${files.root}` : '');
   return <div className="grid gap-1.5">
-    <Label htmlFor={id} className="flex items-center gap-1">{label}{info && <InfoTip term={label}>{info}</InfoTip>}</Label>
-    <p id={id + '-base'} className="text-xs leading-5 text-muted-foreground">
-      {allowUrl ? t('pathField.baseOrUrl') : t('pathField.base')}{files && <> <span className="font-mono break-all">{files.root}</span></>}
-    </p>
+    <Label htmlFor={id}>{label}</Label>
+    <span id={id + '-base'} className="sr-only">{base}{info && <> {info}</>}</span>
     <div className="flex gap-2">
-      <Input id={id} value={value} onChange={event => onChange(event.target.value)} aria-describedby={`${id}-base ${id}-status`} className="font-mono text-[13px]" />
+      <Input id={id} value={value} onChange={event => onChange(event.target.value)} title={base} placeholder={example} aria-describedby={`${id}-base ${id}-status`} className="font-mono" />
       <Button type="button" variant="outline" onClick={() => { setPicking(true); void projectFiles(true).then(setFiles, () => setFailed(true)); }}><FolderOpen aria-hidden="true" />{t('pathField.browse')}</Button>
     </div>
-    <div id={id + '-status'} role="status" className="grid gap-0.5 text-xs leading-5">
-      {lines.map(line => <p key={line.text} className={cn('flex items-center gap-1', line.ok === true ? 'text-reach' : line.ok === false ? 'text-inspect' : 'text-muted-foreground')}>
+    <div id={id + '-status'} role="status" className="grid gap-0.5 text-sm empty:hidden">
+      {lines.map(line => <p key={line.text} className={cn('flex items-center gap-1', line.ok === true ? 'text-reach' : line.ok === false ? 'text-gave-up' : 'text-ink-2')}>
         {line.ok === true && <Check aria-hidden="true" className="size-3.5" />}{line.ok === false && <X aria-hidden="true" className="size-3.5" />}{line.text}
       </p>)}
-      {!path && example && <p className="text-muted-foreground">{t('pathField.example', { example })}</p>}
-      {failed && <p className="text-inspect">{t('pathField.listFailed')}</p>}
+      {failed && <p className="text-gave-up">{t('pathField.listFailed')}</p>}
     </div>
     <PickDialog open={picking} onOpenChange={setPicking} title={label} files={files} extensions={extensions} onPick={file => { onChange(file); setPicking(false); }} />
   </div>;
@@ -83,19 +81,19 @@ function PickDialog({ open, onOpenChange, title, files, extensions, onPick }: { 
     <DialogContent className="sm:max-w-xl">
       <DialogHeader>
         <DialogTitle>{title}</DialogTitle>
-        <DialogDescription>{t('pathField.pickDescription', { kinds: extensions.join(', ') })}{files && <> <span className="font-mono break-all">{files.root}</span></>}</DialogDescription>
+        <DialogDescription>{t('pathField.pickDescription', { kinds: extensions.join(', ') })}</DialogDescription>
       </DialogHeader>
       <Input aria-label={t('pathField.search')} placeholder={t('pathField.search')} value={query} onChange={event => setQuery(event.target.value)} />
       <ul aria-label={t('pathField.listLabel')} className="max-h-80 overflow-y-auto rounded-md border border-edge">
         {shown.map(file => <li key={file} className="border-b border-edge last:border-0">
-          <button type="button" onClick={() => onPick(file)} className="w-full px-3 py-1.5 text-left font-mono text-[13px] hover:bg-raised focus-visible:bg-raised">
-            {file.includes('/') && <span className="text-muted-foreground">{file.slice(0, file.lastIndexOf('/') + 1)}</span>}{file.slice(file.lastIndexOf('/') + 1)}
+          <button type="button" onClick={() => onPick(file)} className="w-full px-3 py-1.5 text-left font-mono text-base hover:bg-raised focus-visible:bg-raised">
+            {file.includes('/') && <span className="text-ink-2">{file.slice(0, file.lastIndexOf('/') + 1)}</span>}{file.slice(file.lastIndexOf('/') + 1)}
           </button>
         </li>)}
-        {files && shown.length === 0 && <li className="px-3 py-6 text-center text-sm text-muted-foreground">{t('pathField.none')}</li>}
-        {!files && <li className="px-3 py-6 text-center text-sm text-muted-foreground">{t('pathField.loading')}</li>}
+        {files && shown.length === 0 && <li className="px-3 py-6 text-center text-sm text-ink-2">{t('pathField.none')}</li>}
+        {!files && <li className="px-3 py-6 text-center text-sm text-ink-2">{t('pathField.loading')}</li>}
       </ul>
-      {files?.truncated && <p className="text-xs text-muted-foreground">{t('pathField.truncated')}</p>}
+      {files?.truncated && <p className="text-sm text-ink-2">{t('pathField.truncated')}</p>}
     </DialogContent>
   </Dialog>;
 }

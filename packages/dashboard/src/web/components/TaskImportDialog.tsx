@@ -52,25 +52,25 @@ export function TaskImportDialog({ open, onOpenChange, onImported, ...props }: P
     <DialogContent className="sm:max-w-xl">
       <DialogHeader><DialogTitle>{t('task.importTitle')}</DialogTitle><DialogDescription>{t('task.importDescription')}</DialogDescription></DialogHeader>
       <section aria-labelledby="import-found" className="grid gap-2">
-        <h3 id="import-found" className="text-sm font-semibold">{t('task.importFoundTitle')}</h3>
-        <p className="text-xs leading-5 text-muted-foreground">{t('task.importFoundNote')}</p>
+        <h3 id="import-found" className="text-md font-semibold">{t('task.importFoundTitle')}</h3>
+        <p className="text-sm text-ink-2">{t('task.importFoundNote')}</p>
         {candidates === undefined
-          ? <p role="status" className="py-3 text-sm text-muted-foreground">{t('task.importSearching')}</p>
+          ? <p role="status" className="py-3 text-ink-2">{t('task.importSearching')}</p>
           : candidates.length === 0
-            ? <p className="border-y border-edge py-3 pl-3 text-sm text-muted-foreground">{t('task.importNoneFound')}</p>
+            ? <p className="border-y border-edge px-3 py-3 text-ink-2">{t('task.importNoneFound')}</p>
             : <ul className="grid max-h-72 divide-y divide-edge overflow-y-auto border-y border-edge">
-              {candidates.map(candidate => <li key={candidate.file} className="flex items-center justify-between gap-4 py-2.5 pr-1 pl-3">
+              {candidates.map(candidate => <li key={candidate.file} className="flex min-h-10 items-center justify-between gap-4 py-2 pr-1 pl-3">
                 <span className="grid min-w-0 gap-0.5">
-                  <span className="truncate font-mono text-[13px]">{candidate.file}</span>
-                  <span className="truncate text-xs text-muted-foreground">{candidate.goal}</span>
+                  <span className="truncate font-mono">{candidate.file}</span>
+                  <span className="truncate text-sm text-ink-2">{candidate.goal}</span>
                 </span>
                 <Button type="button" variant="outline" size="sm" disabled={props.busy} aria-label={t('task.importLinkAria', { file: candidate.file })} onClick={() => void props.act(() => link(candidate))}>{t('task.importAction')}</Button>
               </li>)}
             </ul>}
       </section>
       <section aria-labelledby="import-other" className="grid gap-2 border-t border-edge pt-4">
-        <h3 id="import-other" className="text-sm font-semibold">{t('task.importOtherTitle')}</h3>
-        <p className="text-xs leading-5 text-muted-foreground">{t('task.importOtherNote')}</p>
+        <h3 id="import-other" className="text-md font-semibold">{t('task.importOtherTitle')}</h3>
+        <p className="text-sm text-ink-2">{t('task.importOtherNote')}</p>
         <input ref={picker} type="file" accept=".json,application/json" className="hidden" onChange={picked} />
         <Button type="button" variant="outline" className="justify-self-start" disabled={props.busy} onClick={() => picker.current?.click()}><FileUp aria-hidden="true" />{t('task.importPick')}</Button>
       </section>

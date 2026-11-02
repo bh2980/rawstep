@@ -2,7 +2,7 @@ import { isLoopbackHostname } from '@rawstep/core/defaults';
 import { REPORT_CSP } from '@rawstep/reports/report';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
-import { resolve, relative, isAbsolute, sep, extname, join } from 'node:path';
+import { resolve, relative, isAbsolute, sep, extname, join, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { existsSync, watch, type FSWatcher } from 'node:fs';
 import { z } from 'zod';
@@ -82,7 +82,7 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
     const { config, revision } = await store.read();
     const credentialStatus = await store.credentialStatus(config);
     const actions = (backend: AtBackend) => { const c = backendCapabilities(backend); return { keys: [...c.keys], intents: [...c.intents] }; };
-    return { config, revision, credentialStatus, tasks: await store.taskFiles(config), environmentPresets: BUILTIN_PROFILES,
+    return { config, revision, projectName: basename(store.root), credentialStatus, tasks: await store.taskFiles(config), environmentPresets: BUILTIN_PROFILES,
       capabilities: { simulation: actions('simulation'), voiceover: actions('voiceover'), nvda: actions('nvda') } };
   }
   const send = (res: ServerResponse, value: unknown, status = 200) => { res.writeHead(status, { 'content-type': 'application/json', 'cache-control': 'no-store' }); res.end(JSON.stringify(value)); };

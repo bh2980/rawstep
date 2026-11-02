@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next';
 import type { TaskInputOptions } from '@rawstep/core/contracts';
 import { inputFields, inputProblems } from '../lib/taskInputs';
 import { Field, SecretField } from './forms';
-import { InfoTip } from './layout/InfoTip';
 import { Button } from './ui/button';
 import { Checkbox } from './ui/checkbox';
 import { Label } from './ui/label';
@@ -54,15 +53,15 @@ export function TaskInputsField({ input, options, goal, onChange }: Props) {
         </div>
         <div className="flex items-start gap-2">
           <Checkbox id={`input-secret-${i}`} checked={secret} onCheckedChange={on => setOption(name, { sensitive: on === true })} className="mt-0.5" />
-          <div className="grid gap-0.5"><Label htmlFor={`input-secret-${i}`} className="font-normal">{t('taskInputs.secret')}</Label><p className="text-xs leading-5 text-muted-foreground">{secret ? t('taskInputs.secretOn') : t('taskInputs.secretOff')}</p></div>
+          <div className="grid gap-0.5"><Label htmlFor={`input-secret-${i}`} className="font-normal">{t('taskInputs.secret')}</Label><p className="text-sm text-ink-2">{secret ? t('taskInputs.secretOn') : t('taskInputs.secretOff')}</p></div>
         </div>
         <Field label={t('taskInputs.description', { n: i + 1 })} value={options?.[name]?.description ?? ''} onChange={description => setOption(name, { description })} hint={t('taskInputs.descriptionHint')} />
         {problem && <p role="alert" className="text-xs leading-5 text-destructive">{t(problem === 'name' ? 'taskInputs.problemName' : 'taskInputs.problemGoal', { n: i + 1 })}</p>}
       </div>;
     })}
-    <div className="flex items-center gap-1">
+    <div className="flex flex-wrap items-center gap-3">
       <Button type="button" variant="outline" onClick={add}><Plus aria-hidden="true" />{t('taskInputs.add')}</Button>
-      <InfoTip term={t('taskInputs.title')}>{t('taskInputs.note')}</InfoTip>
+      <span className="text-sm text-ink-2">{t('taskInputs.note')}</span>
     </div>
   </div>;
 }

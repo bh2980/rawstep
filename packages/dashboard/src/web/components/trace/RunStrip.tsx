@@ -1,12 +1,14 @@
 import { useTranslation } from 'react-i18next';
-import type { RunState } from '../../../shared/config';
 import type { RouteChange } from '../../hooks/useRoute';
-import { runGlyphKind, runStripLabel, type RunGlyphKind } from '../../lib/runStrip';
+import type { RunGlyphKind, RunStatus } from '../../lib/runStrip';
 import { cn } from '../../lib/utils';
-import { runStateLabel } from '../../i18n/labels';
 import { Link } from '../Link';
+import { StatusShape } from '../StatusMark';
 
-/** One run as a small square: filled when the goal was reached, striped when not, hollow when undecided; a hollow one with a dot is still running. */
+/**
+ * One run as a small square, as the run list, run header and comparison still draw it: filled when the goal was reached, striped
+ * when not, hollow when undecided; a hollow one with a dot is still running. Status shapes (`StatusShape`) replace it screen by screen.
+ */
 export function RunGlyph({ kind, className }: { kind: RunGlyphKind; className?: string }) {
   const base = 'grid size-3 shrink-0 place-items-center rounded-[2px]';
   if (kind === 'reached') return <span aria-hidden="true" className={cn(base, 'bg-reach', className)} />;
@@ -19,42 +21,31 @@ export type RunStripItem = {
   id: string;
   /** "Run #n" in its task. */
   number?: number | undefined;
-  state: RunState;
+  status: RunStatus;
   /** Action count, once the run has one. */
   steps?: number | undefined;
-  /** Makes the glyph a link to the run. */
+  /** Makes the shape a link to the run. */
   to?: RouteChange;
 };
 
 type Props = { runs: RunStripItem[]; navigate?: (change: RouteChange) => void; className?: string };
 
 /**
- * Recent runs as a sequence of glyphs, oldest first. Every glyph has a name (`실행 #12: 목표 도달, 행동 11번`), so
- * the colour only reinforces what the shape and the text already say. Glyphs are links when a run has a `to` and `navigate` is given.
+ * Recent runs as a row of status shapes, oldest first. Every shape has a name (`#12 해냄, 행동 11번`), so the colour only reinforces
+ * what the shape and the text already say. Shapes are links when a run has a `to` and `navigate` is given.
  */
 export function RunStrip({ runs, navigate, className }: Props) {
   const { t } = useTranslation();
   return <ul aria-label={t('runStrip.group', { count: runs.length })} className={cn('inline-flex items-center', className)}>
     {runs.map(run => {
-      const label = runStripLabel(run.number, run.state, run.steps), glyph = <RunGlyph kind={runGlyphKind(run.state)} />;
+      const n = run.number ?? '?', state = t(`status.${run.status}`);
+      const label = run.steps === undefined ? t('runStrip.itemNoSteps', { number: n, state }) : t('runStrip.item', { number: n, state, steps: run.steps, count: run.steps });
+      const shape = <StatusShape status={run.status} />;
       return <li key={run.id} className="flex">
         {run.to && navigate
-          ? <Link to={run.to} navigate={navigate} aria-label={label} title={label} className="grid size-6 place-items-center rounded-sm hover:bg-raised">{glyph}</Link>
-          : <span role="img" aria-label={label} title={label} className="grid size-4 place-items-center">{glyph}</span>}
+          ? <Link to={run.to} navigate={navigate} aria-label={label} title={label} className="grid h-5 w-3.5 place-items-center rounded-xs hover:bg-raised">{shape}</Link>
+          : <span role="img" aria-label={label} title={label} className="grid h-4 w-3.5 place-items-center">{shape}</span>}
       </li>;
     })}
   </ul>;
-}
-
-/** What each glyph means, for an ⓘ beside a column of run strips. Every glyph is drawn by the same component the strips use. */
-export function RunStripLegend() {
-  const { t } = useTranslation();
-  const items: { kind: RunGlyphKind; label: string }[] = [
-    { kind: 'reached', label: runStateLabel('success') }, { kind: 'missed', label: runStateLabel('failure') },
-    { kind: 'inconclusive', label: t('runList.legend.inconclusive') }, { kind: 'live', label: t('runList.legend.live') },
-  ];
-  return <>
-    <ul className="grid gap-1">{items.map(item => <li key={item.kind} className="flex items-center gap-2 text-foreground"><RunGlyph kind={item.kind} />{item.label}</li>)}</ul>
-    <p>{t('runList.legend.order')}</p>
-  </>;
 }

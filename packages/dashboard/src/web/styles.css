@@ -1,63 +1,67 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import "@fontsource-variable/geist";
-@import "@fontsource-variable/geist-mono";
+@import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
+@import "@fontsource/dm-mono/400.css";
+@import "@fontsource/dm-mono/500.css";
 
 @custom-variant dark (&:is(.dark *));
 
 /*
- * Rawstep design language (docs/design-language.ko.md): a calm analysis desk. Light is the default, dark is the "analysis room".
- * Colour only reinforces a state; every semantic colour is always paired with a label, shape or marker.
+ * Rawstep design tokens (시안 v1). Three rules: text never grows to shout, information is cut and aligned rather than boxed,
+ * and emphasis is only two things: the status mark (shape + colour) and the 3px accent bar of a selected row.
  *
- * Neutral (spec §7)              Light      Dark (graphite / deep gray-green, never pure black)
- *   canvas   page background     #F6F7F5    #1A1D1B
- *   surface  panels, inputs      #FFFFFF    #212523
- *   raised   quiet fills         #F0F2EF    #292E2B
- *   ink      text                #202421    #E6E9E6
- *   ink-2    secondary text      #5F6661    #A0A8A2
- *   edge     rules and borders   #D8DDD9    #343A36
- *   edge-strong  separators      #B9C0BA    #4A524D
- *   edge-control (added) the border of an input or checkbox, which must reach 3:1 as a non-text mark: #7B847E / #6F7973
- *
- * Semantic. Contrast is measured against surface / canvas / raised; every value is >= 4.5:1 as text and so >= 3:1 as a mark.
- * The -soft tints are fills behind text of the same hue (>= 4.5:1 with it).
- *                   Light                     Dark
- *   trace   (run, current position, focus)    #2457C5 (6.0 / 6.5 / 5.8)  #7DA2F5 (6.8 / 6.2 / 5.5)
- *   reach   (goal reached)                    #1B7448 (5.4 / 5.8 / 5.1)  #58C28A (7.7 / 7.0 / 6.3)
- *   inspect (look here)                       #8F5A00 (5.4 / 5.8 / 5.1)  #E0A63A (7.8 / 7.2 / 6.4)
- *   missed  (goal not reached, not alarm red) #A3472A (5.6 / 6.0 / 5.3)  #E08A68 (6.5 / 5.9 / 5.3)
- *   model   (model behaviour)                 #6847B8 (6.1 / 6.6 / 5.9)  #A58BE8 (6.0 / 5.5 / 4.9)
- * Text on the neutrals: ink 14.6-15.7:1, ink-2 5.2-5.9:1 (light); 11.3-13.9:1 and 5.7-7.0:1 (dark).
+ *                     Light      Dark
+ *   bg-canvas         #F6F7F5    #121413   sidebar, group rows
+ *   bg-surface        #FFFFFF    #181B19   the page
+ *   bg-raised         #F1F3F0    #222624   hover, selected row, quiet fills
+ *   text-1 / ink      #1D211E    #E6E9E6   names, values
+ *   text-2 / ink-2    #59615B    #A1A8A3   labels, meta lines
+ *   text-3 / ink-3    #8A918C    #6F7671   only `—`, numbers' units, placeholders; never a sentence
+ *   border            #DFE3DF    #2F3431   row rules (visible in both themes)
+ *   border-strong     #C5CBC6    #434A45   control borders
+ *   accent / trace    #2457C5    #7C9EF0   selection and focus only
+ *   primary           ink                 the main button is ink, never blue
+ * Status (StatusMark: every state also has its own shape and words):
+ *   reached ● #1B7448/#4CB782 · gave-up ◆ #C2571A/#EC8A4A (orange, never red) · mistaken ▲ #A86A00/#D9A43A · unmeasured ○ #8A918C/#7E857F · error × #59615B/#B5BBB6
  */
 :root {
     --canvas: #F6F7F5;
     --surface: #FFFFFF;
-    --raised: #F0F2EF;
-    --ink: #202421;
-    --ink-2: #5F6661;
-    --edge: #D8DDD9;
-    --edge-strong: #B9C0BA;
+    --raised: #F1F3F0;
+    --ink: #1D211E;
+    --ink-2: #59615B;
+    --ink-3: #8A918C;
+    --edge: #DFE3DF;
+    --edge-strong: #C5CBC6;
+    /* The border of a checkbox or radio, a non-text mark that must reach 3:1. */
     --edge-control: #7B847E;
+    --overlay: rgb(20 23 21 / .32);
+    --shadow-dialog: 0 12px 32px rgb(20 23 21 / .16), 0 0 0 1px var(--edge);
 
     --trace: #2457C5;
-    --trace-soft: #E8EEFB;
+    --trace-soft: #EAF0FB;
     --reach: #1B7448;
-    --reach-soft: #E4F2EA;
-    --inspect: #8F5A00;
-    --inspect-soft: #FBF0D9;
-    --missed: #A3472A;
-    --missed-soft: #F8E8E2;
-    --model: #6847B8;
-    --model-soft: #EFEAF9;
+    --gave-up: #C2571A;
+    --mistaken: #A86A00;
+    --unmeasured: #8A918C;
+    --errored: #59615B;
+    /* Older names: missed is gave-up's colour, inspect the mistaken colour. Soft tints stay quiet. */
+    --missed: var(--gave-up);
+    --inspect: var(--mistaken);
+    --reach-soft: var(--raised);
+    --missed-soft: var(--raised);
+    --inspect-soft: var(--raised);
+    --model: var(--ink-2);
+    --model-soft: var(--raised);
 
-    --background: var(--canvas);
+    --background: var(--surface);
     --foreground: var(--ink);
     --card: var(--surface);
     --card-foreground: var(--ink);
     --popover: var(--surface);
     --popover-foreground: var(--ink);
-    --primary: var(--trace);
+    --primary: var(--ink);
     --primary-foreground: #FFFFFF;
     --secondary: var(--raised);
     --secondary-foreground: var(--ink);
@@ -65,11 +69,10 @@
     --muted-foreground: var(--ink-2);
     --accent: var(--raised);
     --accent-foreground: var(--ink);
-    --destructive: #B42318;
+    --destructive: var(--gave-up);
     --border: var(--edge);
-    --input: var(--edge-control);
+    --input: var(--edge-strong);
     --ring: var(--trace);
-    /* Older names, kept so the pages that have not moved to the new tokens yet stay readable. */
     --positive: var(--reach);
     --warning: var(--inspect);
     --focus: var(--trace);
@@ -81,8 +84,8 @@
     --radius: 0.375rem;
     --sidebar: var(--canvas);
     --sidebar-foreground: var(--ink);
-    --sidebar-primary: var(--trace);
-    --sidebar-primary-foreground: #FFFFFF;
+    --sidebar-primary: var(--ink);
+    --sidebar-primary-foreground: var(--surface);
     --sidebar-accent: var(--raised);
     --sidebar-accent-foreground: var(--ink);
     --sidebar-border: var(--edge);
@@ -91,49 +94,67 @@
 }
 
 .dark {
-    --canvas: #1A1D1B;
-    --surface: #212523;
-    --raised: #292E2B;
+    --canvas: #121413;
+    --surface: #181B19;
+    --raised: #222624;
     --ink: #E6E9E6;
-    --ink-2: #A0A8A2;
-    --edge: #343A36;
-    --edge-strong: #4A524D;
+    --ink-2: #A1A8A3;
+    --ink-3: #6F7671;
+    --edge: #2F3431;
+    --edge-strong: #434A45;
     --edge-control: #6F7973;
+    --overlay: rgb(0 0 0 / .55);
+    --shadow-dialog: 0 12px 32px rgb(0 0 0 / .5), 0 0 0 1px var(--edge-strong);
 
-    --trace: #7DA2F5;
-    --trace-soft: #222C45;
-    --reach: #58C28A;
-    --reach-soft: #1F3A2C;
-    --inspect: #E0A63A;
-    --inspect-soft: #3D3118;
-    --missed: #E08A68;
-    --missed-soft: #432A21;
-    --model: #A58BE8;
-    --model-soft: #32294D;
+    --trace: #7C9EF0;
+    --trace-soft: #1F2A40;
+    --reach: #4CB782;
+    --gave-up: #EC8A4A;
+    --mistaken: #D9A43A;
+    --unmeasured: #7E857F;
+    --errored: #B5BBB6;
 
-    --primary-foreground: #10141F;
-    --destructive: #F08C80;
-    --sidebar-primary-foreground: #10141F;
+    --primary-foreground: #181B19;
     color-scheme: dark;
 }
 
 @theme inline {
     --font-heading: var(--font-sans);
-    --font-sans: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
-    --font-mono: 'Geist Mono Variable', ui-monospace, SFMono-Regular, Menlo, monospace;
+    --font-sans: 'Pretendard Variable', Pretendard, -apple-system, 'Apple SD Gothic Neo', system-ui, sans-serif;
+    --font-mono: 'DM Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+    /* Six text sizes only. text-base is the body and table cell; text-xl is the one page title. */
+    --text-xs: 11px;
+    --text-xs--line-height: 16px;
+    --text-sm: 12px;
+    --text-sm--line-height: 16px;
+    --text-base: 13px;
+    --text-base--line-height: 20px;
+    --text-md: 14px;
+    --text-md--line-height: 20px;
+    --text-lg: 16px;
+    --text-lg--line-height: 24px;
+    --text-xl: 20px;
+    --text-xl--line-height: 28px;
 
     --color-canvas: var(--canvas);
     --color-surface: var(--surface);
     --color-raised: var(--raised);
     --color-ink: var(--ink);
     --color-ink-2: var(--ink-2);
+    --color-ink-3: var(--ink-3);
     --color-edge: var(--edge);
     --color-edge-strong: var(--edge-strong);
     --color-edge-control: var(--edge-control);
+    --color-overlay: var(--overlay);
     --color-trace: var(--trace);
     --color-trace-soft: var(--trace-soft);
     --color-reach: var(--reach);
     --color-reach-soft: var(--reach-soft);
+    --color-gave-up: var(--gave-up);
+    --color-mistaken: var(--mistaken);
+    --color-unmeasured: var(--unmeasured);
+    --color-errored: var(--errored);
     --color-inspect: var(--inspect);
     --color-inspect-soft: var(--inspect-soft);
     --color-missed: var(--missed);
@@ -176,8 +197,8 @@
     --color-foreground: var(--foreground);
     --color-background: var(--background);
 
-    /* Shape (spec §10): 4px small controls, 6px panels, no pills. Borders do the separating, shadows are for floating menus only. */
-    --radius-sm: 3px;
+    /* Two radii: 4px for controls and chips, 6px for dialogs, menus and images. No pills. */
+    --radius-sm: 4px;
     --radius-md: 4px;
     --radius-lg: 6px;
     --radius-xl: 6px;
@@ -186,10 +207,10 @@
     --radius-4xl: 6px;
     --shadow-xs: 0 0 #0000;
     --shadow-sm: 0 0 #0000;
-    --shadow-md: 0 2px 8px rgb(0 0 0 / 0.08);
-    --shadow-lg: 0 2px 8px rgb(0 0 0 / 0.08);
-    --shadow-xl: 0 2px 8px rgb(0 0 0 / 0.08);
-    --shadow-2xl: 0 2px 8px rgb(0 0 0 / 0.08);
+    --shadow-md: 0 4px 16px rgb(0 0 0 / 0.08);
+    --shadow-lg: var(--shadow-dialog);
+    --shadow-xl: var(--shadow-dialog);
+    --shadow-2xl: var(--shadow-dialog);
 }
 
 @layer base {
@@ -197,7 +218,10 @@
     @apply border-border outline-ring/50;
     }
   body {
-    @apply min-h-screen bg-background text-foreground antialiased;
+    @apply min-h-screen bg-background text-base text-foreground antialiased;
+    /* Records are shown as written: no ligatures or contextual alternates turning `->` into an arrow. */
+    font-variant-ligatures: none;
+    font-feature-settings: "calt" 0, "liga" 0, "dlig" 0;
     }
   html {
     @apply font-sans;
@@ -238,6 +262,10 @@
 /* A row with a divider directly under it: the band also covers that 1px rule, so it is exactly as tall as the row and its rule. */
 .row-rail.rail-divider::before { bottom: -1px; }
 .row-rail[data-selected='true']::before { background: var(--trace); }
+/* A pseudo element on a table row would become a cell of its own and push every cell one column right; a row draws the band as an inset shadow on its first cell. */
+tr.row-rail::before { content: none; }
+tr.row-rail[data-selected='true'] > :first-child { box-shadow: inset 3px 0 0 var(--trace); }
+td.row-rail::before, th.row-rail::before { bottom: 0; }
 
 /* An ⓘ note never takes the pointer, wrapper included (Radix wraps the note in a positioning box), so it cannot hide the ⓘ under it. */
 [data-radix-popper-content-wrapper]:has(> [data-info-tip]) { pointer-events: none; }

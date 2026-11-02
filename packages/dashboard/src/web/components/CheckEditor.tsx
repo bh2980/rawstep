@@ -43,7 +43,7 @@ export function CheckEditor({ rules, onChange, url, keepOne }: Props) {
   };
   return <div className="grid gap-3">
     {rules.length > 0 && <div className="grid gap-1">
-      {rules.length > 1 && <p className="text-[13px] leading-5 text-muted-foreground">{t('ruleEditor.boundaryLead')}</p>}
+      {rules.length > 1 && <p className="text-ink-2">{t('ruleEditor.boundaryLead')}</p>}
       <ul aria-label={t('ruleEditor.listLabel')} className="grid border-t border-edge">
         {rules.map((rule, index) => {
           const loaded = draftFromRule(rule);
@@ -59,7 +59,7 @@ export function CheckEditor({ rules, onChange, url, keepOne }: Props) {
       <div className="flex flex-wrap items-center gap-2">
         <Button type="submit" variant="outline" disabled={!!missing} aria-describedby="check-editor-missing">{editing === undefined ? <><Plus aria-hidden="true" />{t('ruleEditor.add')}</> : t('ruleEditor.applyEdit')}</Button>
         {(editing !== undefined || rules.length > 0) && <Button type="button" variant="ghost" onClick={reset}>{t('ruleEditor.cancelEdit')}</Button>}
-        <p id="check-editor-missing" className="text-xs text-muted-foreground">{missing ? t(`ruleEditor.missing.${missing}`) : ''}</p>
+        <p id="check-editor-missing" className="text-xs text-ink-2">{missing ? t(`ruleEditor.missing.${missing}`) : ''}</p>
       </div>
     </form>}
     <ElementPicker open={picking !== undefined} onOpenChange={open => { if (!open) setPicking(undefined); }} url={url} roles={picking?.roles}

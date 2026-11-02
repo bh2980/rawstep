@@ -4,7 +4,7 @@ import { i18n } from '../packages/dashboard/src/web/i18n/index.js';
 import { evidenceRefs, splitEvidence } from '../packages/dashboard/src/web/lib/findings.js';
 import { formatClock } from '../packages/dashboard/src/web/lib/format.js';
 import { runGlyphKind, runStripLabel } from '../packages/dashboard/src/web/lib/runStrip.js';
-import { liveCurrentLine, railKeyTarget, railWindow, stepGlyph } from '../packages/dashboard/src/web/lib/stepDots.js';
+import { goalWordHeardAt, liveCurrentLine, planSegments, railKeyTarget, railSpans, sameSpeech, stackRows, stepGlyph, stepRows, type StepItem } from '../packages/dashboard/src/web/lib/stepDots.js';
 import { nextThemePreference, parseThemePreference, readThemePreference, resolveTheme, THEME_KEY, writeThemePreference } from '../packages/dashboard/src/web/lib/theme.js';
 
 // These tests read the Korean wording, so the language is pinned whatever the machine's own language is.
@@ -12,33 +12,6 @@ await i18n.changeLanguage('ko');
 
 const step = (n: number, action?: StepView['action'], extra: Partial<StepView> = {}): StepView => ({ step: n, ...(action ? { action } : {}), observed: [], hints: [], redacted: false, ...extra });
 const tab = { kind: 'key', key: 'Tab' } as const;
-
-describe('detail rail window', () => {
-  it('shows everything when the run is short', () => {
-    expect(railWindow(8, 3)).toEqual({ start: 0, end: 8 });
-    expect(railWindow(15, 14)).toEqual({ start: 0, end: 15 });
-    expect(railWindow(0, 0)).toEqual({ start: 0, end: 0 });
-  });
-
-  it('centres a window of 15 on the current step and keeps it inside the run', () => {
-    expect(railWindow(100, 50)).toEqual({ start: 43, end: 58 });
-    expect(railWindow(100, 0)).toEqual({ start: 0, end: 15 });
-    expect(railWindow(100, 3)).toEqual({ start: 0, end: 15 });
-    expect(railWindow(100, 99)).toEqual({ start: 85, end: 100 });
-    expect(railWindow(100, 97)).toEqual({ start: 85, end: 100 });
-    expect(railWindow(100, 500)).toEqual({ start: 85, end: 100 });
-    expect(railWindow(100, -4)).toEqual({ start: 0, end: 15 });
-    expect(railWindow(43, 17, 9)).toEqual({ start: 13, end: 22 });
-  });
-
-  it('always contains the current step and never exceeds the size', () => {
-    for (let current = 0; current < 60; current++) {
-      const { start, end } = railWindow(60, current);
-      expect(current >= start && current < end).toBe(true);
-      expect(end - start).toBe(15);
-    }
-  });
-});
 
 describe('rail keys', () => {
   it('moves across all steps with the arrows and to the ends with Home and End', () => {
@@ -151,5 +124,78 @@ describe('theme preference', () => {
     const blocked = { getItem: () => { throw new Error('blocked'); }, setItem: () => { throw new Error('blocked'); }, removeItem: () => { throw new Error('blocked'); } };
     expect(readThemePreference(blocked)).toBe('system');
     expect(() => writeThemePreference('light', blocked)).not.toThrow();
+  });
+});
+
+const heard = (n: number, ...lines: string[]): StepView => step(n, { kind: 'intent', intent: 'next' }, lines.length ? { speech: { lines, provenance: 'simulation' } } : {});
+
+describe('trace rail facts', () => {
+  it('finds the same speech only when both steps recorded it', () => {
+    expect(sameSpeech(heard(2, 'image'), heard(1, 'image'))).toBe(true);
+    expect(sameSpeech(heard(2, 'image'), heard(1, 'link'))).toBe(false);
+    expect(sameSpeech(heard(2), heard(1))).toBe(false);
+    expect(sameSpeech(heard(1, 'image'), undefined)).toBe(false);
+  });
+
+  it('marks the step after the goal-word stretch as where a goal word was heard', () => {
+    const hints = [{ kind: 'goal-word-stretch' as const, detail: { from: 2, to: 4, moves: 3 } }];
+    const steps = [heard(1, 'a'), heard(2, 'b'), heard(3, 'c'), heard(4, 'd'), heard(5, 'book')];
+    expect(goalWordHeardAt(steps, hints)).toBe(5);
+    expect(goalWordHeardAt(steps.slice(0, 4), hints)).toBeUndefined();
+    expect(goalWordHeardAt([...steps.slice(0, 4), heard(5)], hints)).toBeUndefined();
+    expect(goalWordHeardAt(steps, [])).toBeUndefined();
+  });
+
+  it('brackets the goal-word stretch and runs of three or more identical speech', () => {
+    const steps = [heard(0, 'start'), heard(1, 'a'), heard(2, 'image'), heard(3, 'image'), heard(4, 'image'), heard(5, 'b'), heard(6, 'b')];
+    expect(railSpans(steps, [{ kind: 'goal-word-stretch', detail: { from: 1, to: 3, moves: 3 } }])).toEqual([
+      { kind: 'goal-stretch', from: 1, to: 3, count: 3 },
+      { kind: 'same-speech', from: 2, to: 4, count: 3, speech: 'image' },
+    ]);
+  });
+
+  it('gives each plan version the steps up to the next version', () => {
+    expect(planSegments([{ version: 1, step: 0 }, { version: 2, step: 28 }, { version: 3, step: 31 }, { version: 4, step: 33 }], 33)).toEqual([
+      { version: 1, from: 1, to: 27 }, { version: 2, from: 28, to: 30 }, { version: 3, from: 31, to: 32 }, { version: 4, from: 33, to: 33 },
+    ]);
+    expect(planSegments([{ version: 1, step: 1 }, { version: 2, step: 1 }], 5)).toEqual([{ version: 2, from: 1, to: 5 }]);
+  });
+
+  it('stacks overlapping labels on new lines and reuses a line once it is free', () => {
+    expect(stackRows([{ start: 0, end: 10 }, { start: 5, end: 12 }, { start: 11, end: 20 }, { start: 13, end: 14 }])).toEqual([0, 1, 0, 1]);
+    expect(stackRows([{ start: 0, end: 10 }, { start: 10, end: 12 }], 4)).toEqual([0, 1]);
+  });
+});
+
+describe('action list grouping', () => {
+  const item = (n: number, action: string, speech: string, extra: Partial<StepItem> = {}): StepItem => ({ step: n, action, speech, same: false, marks: [], notable: false, ...extra });
+  // 1–6 uneventful moves, 7 marked, 8–10 the same move hearing the same thing, 11 a press.
+  const items = [
+    item(0, 'start', 'home'),
+    ...[1, 2, 3, 4, 5, 6].map(n => item(n, 'next', `line ${n}`)),
+    item(7, 'next', 'book', { marks: ['goal word'], notable: true }),
+    item(8, 'next', 'image', { notable: true }), item(9, 'next', 'image', { same: true, notable: true }), item(10, 'next', 'image', { same: true, notable: true }),
+    item(11, 'press', ''),
+  ];
+  const shape = (rows: ReturnType<typeof stepRows>) => rows.map(row => row.kind === 'step' ? `${row.step}${row.collapse ? '^' : ''}` : `${row.mode}:${row.steps[0]}-${row.steps.at(-1)}`);
+
+  it('folds uneventful moves and repeated moves when grouping is on', () => {
+    expect(shape(stepRows(items, { grouped: true, expanded: new Set() }))).toEqual(['0', 'quiet:1-6', '7', 'same:8-10', '11']);
+  });
+
+  it('shows every step when grouping is off', () => {
+    expect(shape(stepRows(items, { grouped: false, expanded: new Set() }))).toHaveLength(items.length);
+  });
+
+  it('opens the group that holds the selected step, and a group the person opened offers to fold', () => {
+    expect(shape(stepRows(items, { grouped: true, selected: 9, expanded: new Set() }))).toEqual(['0', 'quiet:1-6', '7', '8', '9', '10', '11']);
+    expect(shape(stepRows(items, { grouped: true, expanded: new Set(['quiet:1']) }))).toEqual(['0', '1^', '2', '3', '4', '5', '6', '7', 'same:8-10', '11']);
+  });
+
+  it('leaves short runs of uneventful moves and different marks alone', () => {
+    const short = [1, 2, 3].map(n => item(n, 'next', `line ${n}`));
+    expect(shape(stepRows(short, { grouped: true, expanded: new Set() }))).toEqual(['1', '2', '3']);
+    const marked = [item(1, 'press', '', { marks: ['failed', 'v3'] }), item(2, 'press', '', { marks: ['failed'] })];
+    expect(shape(stepRows(marked, { grouped: true, expanded: new Set() }))).toEqual(['1', '2']);
   });
 });

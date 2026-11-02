@@ -16,7 +16,7 @@ This file is for anyone changing `packages/dashboard`, people and coding agents 
 
 ## Components
 
-- Use shadcn/ui for controls and product components. The local sources are in `src/web/components/ui`. Compose these primitives for domain components. Keep the existing theme tokens in `styles.css`, the spacing scale, the Geist font and Lucide icons.
+- Use shadcn/ui for controls and product components. The local sources are in `src/web/components/ui`. Compose these primitives for domain components. Keep the theme tokens in `styles.css` (six text sizes, semantic colours, the status colours), the spacing scale, Pretendard and DM Mono, and Lucide icons. Use `PageHeader`, `SectionHead`, `StatusMark`, `StatusLegend`, `Time` and `Dash` instead of styling those again. Wherever status shapes stand without their names, keep a legend line on screen.
 - Add a component with the pinned CLI in this workspace: `corepack pnpm --filter @rawstep/dashboard exec shadcn add <component>`. Do not run `shadcn init --monorepo` or regenerate the setup.
 - Where things go: pages in `src/web/pages` (one per route), domain components in `src/web/components`, pure logic in `src/web/lib` with a unit test, hooks in `src/web/hooks`.
 - The route lives in the URL (`?view=`, `?task=&tab=`, `?task=&run=&step=`, `?task=new`). A new screen gets a URL, and reload and the back button must restore it.

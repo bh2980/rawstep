@@ -12,6 +12,8 @@ import type { RunRef } from '../lib/runs';
 import { cn } from '../lib/utils';
 import { CompareSummary, ENOUGH_RUNS } from './CompareSummary';
 import { Link } from './Link';
+import { Dash, SectionHead } from './PageHeader';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 
 /** "10월 31일 14:05 · 담기를 button으로 바꿈 · 실행 4번": a batch as the pickers name it, with " · CLI" after a batch started from the command line. */
 export function batchLabel(batch: TaskBatch, t: TFunction): string {
@@ -56,57 +58,58 @@ export function BatchCompare({ before, after, profiles, runs, minimalSteps, navi
   const openRuns = (list: readonly RunResult[]): Go | undefined => list.length === 1 ? openRun(list[0], t('runCompare.open'))
     : list.length >= 2 && list.length <= MAX_COMPARE ? { to: { view: 'runs', compare: list.map(result => result.runId) }, title: t('runCompare.sideRuns', { count: list.length }) } : undefined;
   const lines = describeChange(sideOfFindings(before), sideOfFindings(after), { first: t('compareSummary.before'), second: t('compareSummary.after') });
-  return <section aria-labelledby="compare-title" className="rounded-md border border-edge bg-surface">
-    <h2 id="compare-title" className="border-b border-edge px-4 pt-3.5 pb-2.5 text-[15px] font-semibold">{t('taskPage.batch.compareTitle')}</h2>
-    <CompareSummary lines={lines} few={Math.min(before.results.length, after.results.length) < ENOUGH_RUNS} className="border-b border-edge px-4 py-3" />
-    <div className="grid md:grid-cols-2">
-      {[{ label: t('taskPage.batch.before'), findings: before }, { label: t('taskPage.batch.after'), findings: after }].map(({ label, findings }, index) => { const batch = batchOf(findings);
-        return <div key={label} className={cn('grid content-start gap-1 px-4 py-3', index === 0 && 'border-edge md:border-r')}>
-          <div className="text-xs text-muted-foreground">{label}</div>
-          <div className="text-sm">{batch ? batchLabel(batch, t) : '—'}</div>
-        </div>; })}
+  return <section aria-labelledby="compare-title">
+    <SectionHead id="compare-title" title={t('taskPage.batch.compareTitle')} />
+    <div className="border-t border-edge py-3">
+      <CompareSummary lines={lines} few={Math.min(before.results.length, after.results.length) < ENOUGH_RUNS} />
+      <dl className="mt-2 grid gap-1 text-sm">
+        {[{ label: t('taskPage.batch.before'), findings: before }, { label: t('taskPage.batch.after'), findings: after }].map(({ label, findings }) => { const batch = batchOf(findings);
+          return <div key={label} className="flex min-w-0 gap-3">
+            <dt className="w-12 shrink-0 text-ink-2">{label}</dt>
+            <dd className="min-w-0 truncate">{batch ? batchLabel(batch, t) : <Dash />}</dd>
+          </div>; })}
+      </dl>
+      <p className={cn('mt-1 text-sm', differing.length ? 'text-foreground' : 'text-ink-2')}>
+        {differing.length ? t('taskPage.batch.conditionsDiffer', { parts: differing.map(part => t(`taskPage.batch.parts.${part}`)).join(', ') }) : t('taskPage.batch.conditionsSame')}
+      </p>
     </div>
-    <p className={cn('border-t border-edge px-4 py-2 text-xs', differing.length ? 'text-inspect' : 'text-muted-foreground')}>
-      {differing.length ? t('taskPage.batch.conditionsDiffer', { parts: differing.map(part => t(`taskPage.batch.parts.${part}`)).join(', ') }) : t('taskPage.batch.conditionsSame')}
-    </p>
-    <div className="overflow-x-auto border-t border-edge">
-      <table className="w-full min-w-[48rem] text-[13px]">
-        <thead><tr className="bg-raised text-xs text-muted-foreground">
-          {(['profile', 'did', 'cost', 'stretch', 'stuck'] as const).map(column => <th key={column} scope="col" className="px-3 py-2 text-left font-normal whitespace-nowrap first:pl-4">{t(`taskPage.batch.columns.${column}`)}</th>)}
-        </tr></thead>
-        <tbody>{keys.map(key => {
-          const a = before.facts.byProfile.find(group => groupKey(group) === groupKey(key)), b = after.facts.byProfile.find(group => groupKey(group) === groupKey(key));
-          const gone = before.stuck.filter(place => place.byProfile.some(item => groupKey(item) === groupKey(key)) && !after.stuck.some(other => sameTarget(place, other) && other.byProfile.some(item => groupKey(item) === groupKey(key))));
-          const kept = after.stuck.filter(place => place.byProfile.some(item => groupKey(item) === groupKey(key)));
-          const runsAt = (place: StuckPlace) => place.byProfile.find(item => groupKey(item) === groupKey(key))?.runs ?? 0;
-          // The runs of this profile on each side, and where a number leads: to the runs it counts, or to the one run it is drawn from.
-          const rb = before.results.filter(result => result.profileId === key.profileId), ra = after.results.filter(result => result.profileId === key.profileId);
-          const stretchGo = (group: ProfileFacts | undefined): Go | undefined => group?.longestStretch ? { to: { task, run: group.longestStretch.runId }, title: t('runCompare.longestRun') } : undefined;
-          /** The first run of this profile that got stuck at the place, at the step it did. */
-          const seenAt = (findings: TaskFindings, results: readonly RunResult[], place: StuckPlace): Go | undefined => {
-            const index = findings.stuck.indexOf(place);
-            for (const result of results) { const hit = result.stuck.find(item => item.place === index); if (hit) return openRun(result, t('runCompare.openAt', { step: hit.step }), hit.step); }
-            return undefined;
-          };
-          return <tr key={groupKey(key)} className="border-t border-edge align-top">
-            <th scope="row" className="py-3 pr-3 pl-4 text-left font-semibold">{nameOf(key)}</th>
-            <td className="px-3 py-3 whitespace-nowrap"><Change before={a ? `${a.reached} / ${a.runs}` : undefined} after={b ? `${b.reached} / ${b.runs}` : undefined} beforeGo={openRuns(rb)} afterGo={openRuns(ra)} navigate={navigate} /></td>
-            <td className="px-3 py-3 whitespace-nowrap"><Change before={a ? formatSteps(a.medianSteps) : undefined} after={b ? formatSteps(b.medianSteps) : undefined} unit navigate={navigate}
-              beforeGo={openRun(nearestToTypical(rb, a?.medianSteps ?? null), t('runCompare.medianRun'))} afterGo={openRun(nearestToTypical(ra, b?.medianSteps ?? null), t('runCompare.medianRun'))} />
-              {minimalSteps !== undefined && <div className="text-xs text-muted-foreground">{t('taskPage.results.minimal', { n: minimalSteps, count: minimalSteps })}</div>}</td>
-            <td className="px-3 py-3 whitespace-nowrap"><Change before={a?.longestStretch ? String(a.longestStretch.moves) : a ? '—' : undefined} after={b?.longestStretch ? String(b.longestStretch.moves) : b ? '—' : undefined} unit navigate={navigate}
-              beforeGo={stretchGo(a)} afterGo={stretchGo(b)} /></td>
-            <td className="px-3 py-3"><ul className="grid gap-1">
-              {gone.map(place => <li key={`gone:${place.target.role}:${place.target.name}`}><GoLink go={seenAt(before, rb, place)} navigate={navigate}>{target(place)}</GoLink> <span className="font-medium text-reach">{t('taskPage.batch.gone', { runs: runsAt(place), count: runsAt(place) })}</span></li>)}
-              {kept.map(place => { const old = before.stuck.find(other => sameTarget(place, other));
-                return <li key={`now:${place.target.role}:${place.target.name}`}><GoLink go={seenAt(after, ra, place)} navigate={navigate}>{target(place)}</GoLink> <span className={cn('font-medium', old ? 'text-foreground' : 'text-inspect')}>
-                  {old ? t('taskPage.batch.still', { before: t('taskPage.batch.runCount', { count: runsAt(old) }), after: t('taskPage.batch.runCount', { count: runsAt(place) }) }) : t('taskPage.batch.new', { runs: runsAt(place), count: runsAt(place) })}</span></li>; })}
-              {!gone.length && !kept.length && <li className="text-muted-foreground">{t('taskPage.results.none')}</li>}
-            </ul></td>
-          </tr>;
-        })}</tbody>
-      </table>
-    </div>
+    <Table className="min-w-3xl table-fixed">
+      <colgroup><col className="w-48" /><col className="w-36" /><col className="w-40" /><col className="w-40" /><col /></colgroup>
+      <TableHeader><TableRow className="hover:bg-transparent">
+        {(['profile', 'did', 'cost', 'stretch', 'stuck'] as const).map(column => <TableHead key={column} scope="col">{t(`taskPage.batch.columns.${column}`)}</TableHead>)}
+      </TableRow></TableHeader>
+      <TableBody>{keys.map(key => {
+        const a = before.facts.byProfile.find(group => groupKey(group) === groupKey(key)), b = after.facts.byProfile.find(group => groupKey(group) === groupKey(key));
+        const gone = before.stuck.filter(place => place.byProfile.some(item => groupKey(item) === groupKey(key)) && !after.stuck.some(other => sameTarget(place, other) && other.byProfile.some(item => groupKey(item) === groupKey(key))));
+        const kept = after.stuck.filter(place => place.byProfile.some(item => groupKey(item) === groupKey(key)));
+        const runsAt = (place: StuckPlace) => place.byProfile.find(item => groupKey(item) === groupKey(key))?.runs ?? 0;
+        // The runs of this profile on each side, and where a number leads: to the runs it counts, or to the one run it is drawn from.
+        const rb = before.results.filter(result => result.profileId === key.profileId), ra = after.results.filter(result => result.profileId === key.profileId);
+        const stretchGo = (group: ProfileFacts | undefined): Go | undefined => group?.longestStretch ? { to: { task, run: group.longestStretch.runId }, title: t('runCompare.longestRun') } : undefined;
+        /** The first run of this profile that got stuck at the place, at the step it did. */
+        const seenAt = (findings: TaskFindings, results: readonly RunResult[], place: StuckPlace): Go | undefined => {
+          const index = findings.stuck.indexOf(place);
+          for (const result of results) { const hit = result.stuck.find(item => item.place === index); if (hit) return openRun(result, t('runCompare.openAt', { step: hit.step }), hit.step); }
+          return undefined;
+        };
+        return <TableRow key={groupKey(key)} className="align-top hover:bg-transparent">
+          <TableHead scope="row" className="h-auto truncate py-2.5 text-base font-medium text-foreground">{nameOf(key)}</TableHead>
+          <TableCell className="h-auto py-2.5 tabular-nums"><Change before={a ? `${a.reached} / ${a.runs}` : undefined} after={b ? `${b.reached} / ${b.runs}` : undefined} beforeGo={openRuns(rb)} afterGo={openRuns(ra)} navigate={navigate} /></TableCell>
+          <TableCell className="h-auto py-2.5 tabular-nums"><Change before={a ? formatSteps(a.medianSteps) : undefined} after={b ? formatSteps(b.medianSteps) : undefined} unit navigate={navigate}
+            beforeGo={openRun(nearestToTypical(rb, a?.medianSteps ?? null), t('runCompare.medianRun'))} afterGo={openRun(nearestToTypical(ra, b?.medianSteps ?? null), t('runCompare.medianRun'))} />
+            {minimalSteps !== undefined && <div className="text-sm text-ink-2">{t('taskPage.results.minimal', { n: minimalSteps, count: minimalSteps })}</div>}</TableCell>
+          <TableCell className="h-auto py-2.5 tabular-nums"><Change before={a?.longestStretch ? String(a.longestStretch.moves) : a ? '—' : undefined} after={b?.longestStretch ? String(b.longestStretch.moves) : b ? '—' : undefined} unit navigate={navigate}
+            beforeGo={stretchGo(a)} afterGo={stretchGo(b)} /></TableCell>
+          <TableCell className="h-auto py-2.5 whitespace-normal"><ul className="grid gap-1">
+            {gone.map(place => <li key={`gone:${place.target.role}:${place.target.name}`}><GoLink go={seenAt(before, rb, place)} navigate={navigate}>{target(place)}</GoLink> <span className="text-ink-2">{t('taskPage.batch.gone', { runs: runsAt(place), count: runsAt(place) })}</span></li>)}
+            {kept.map(place => { const old = before.stuck.find(other => sameTarget(place, other));
+              return <li key={`now:${place.target.role}:${place.target.name}`}><GoLink go={seenAt(after, ra, place)} navigate={navigate}>{target(place)}</GoLink> <span className={old ? 'text-ink-2' : 'font-medium'}>
+                {old ? t('taskPage.batch.still', { before: t('taskPage.batch.runCount', { count: runsAt(old) }), after: t('taskPage.batch.runCount', { count: runsAt(place) }) }) : t('taskPage.batch.new', { runs: runsAt(place), count: runsAt(place) })}</span></li>; })}
+            {!gone.length && !kept.length && <li><Dash /></li>}
+          </ul></TableCell>
+        </TableRow>;
+      })}</TableBody>
+    </Table>
   </section>;
 }
 
@@ -116,12 +119,12 @@ function target(place: StuckPlace): string {
 
 /** A value that leads somewhere is a link to it (a run, or the runs it counts); one that leads nowhere is plain text. */
 function GoLink({ go, navigate, children }: { go: Go | undefined; navigate: (change: RouteChange) => void; children: ReactNode }) {
-  return go ? <Link to={go.to} navigate={navigate} title={go.title} className="underline decoration-dotted underline-offset-2 hover:decoration-solid">{children}</Link> : <>{children}</>;
+  return go ? <Link to={go.to} navigate={navigate} title={go.title} className="underline decoration-edge-strong underline-offset-4 hover:decoration-foreground">{children}</Link> : <>{children}</>;
 }
 
 /** "0 / 2 → 2 / 2": the after value stands out; a side the profile did not run in shows a dash. Each side may link to the runs behind it. */
 function Change({ before, after, unit, beforeGo, afterGo, navigate }: { before: string | undefined; after: string | undefined; unit?: boolean; beforeGo?: Go | undefined; afterGo?: Go | undefined; navigate: (change: RouteChange) => void }) {
   const { t } = useTranslation();
   const show = (value: string | undefined) => value === undefined ? t('taskPage.batch.notRun') : unit && value !== '—' ? t('taskPage.results.moves', { n: value, ...countOf(value) }) : value;
-  return <span><span className="text-muted-foreground"><GoLink go={beforeGo} navigate={navigate}>{show(before)}</GoLink></span> → <strong className="font-semibold"><GoLink go={afterGo} navigate={navigate}>{show(after)}</GoLink></strong></span>;
+  return <span><span className="text-ink-2"><GoLink go={beforeGo} navigate={navigate}>{show(before)}</GoLink></span> <span aria-hidden="true" className="text-ink-3">→</span><span className="sr-only">,</span> <span className="font-medium"><GoLink go={afterGo} navigate={navigate}>{show(after)}</GoLink></span></span>;
 }

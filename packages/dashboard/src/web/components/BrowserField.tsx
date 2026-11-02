@@ -30,8 +30,8 @@ export function BrowserField({ value, onChange, endpointSet }: Props) {
           aria-describedby={`${id}-${mode}-hint${note ? ` ${id}-missing` : ''}`} className="mt-1 size-4 shrink-0 accent-trace" />
         <div className="grid min-w-0 gap-0.5">
           <Label htmlFor={`${id}-${mode}`} className="text-sm leading-6 font-medium">{t(`taskBrowser.${mode}`)}</Label>
-          <p id={`${id}-${mode}-hint`} className="text-xs leading-5 text-muted-foreground">{t(`taskBrowser.${mode}Hint`)}</p>
-          {note && <p id={`${id}-missing`} className="text-[13px] leading-5 text-inspect">
+          <p id={`${id}-${mode}-hint`} className="text-sm text-ink-2">{t(`taskBrowser.${mode}Hint`)}</p>
+          {note && <p id={`${id}-missing`} className="text-inspect">
             {t('taskBrowser.noEndpoint')} <NewTabLink to={{ view: 'settings', section: 'machine' }} className="font-medium text-trace underline underline-offset-4">{t('taskBrowser.toMachine')}</NewTabLink>
           </p>}
         </div>
@@ -41,7 +41,7 @@ export function BrowserField({ value, onChange, endpointSet }: Props) {
       <Checkbox id={`${id}-person`} className="mt-1" checked={value.personCheck} aria-describedby={`${id}-person-hint`} onCheckedChange={on => onChange({ ...value, personCheck: on === true })} />
       <div className="grid min-w-0 gap-0.5">
         <Label htmlFor={`${id}-person`} className="text-sm leading-6 font-medium">{t('taskBrowser.personCheck')}</Label>
-        <p id={`${id}-person-hint`} className="text-xs leading-5 text-muted-foreground">{t('taskBrowser.personCheckHint')}</p>
+        <p id={`${id}-person-hint`} className="text-sm text-ink-2">{t('taskBrowser.personCheckHint')}</p>
       </div>
     </div>
   </fieldset>;

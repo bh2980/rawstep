@@ -22,6 +22,7 @@ export const compareUi: LocaleShape<typeof ko> = {
     partsDiffer: 'The runs also ran under different conditions: {{parts}}. The difference may not be the page\'s doing.',
     conditionsSame: 'The runs used the same profile, the same goal and the same conditions.',
     rows: {
+      measure: 'Measure',
       task: 'Task',
       profile: 'Run profile',
       ending: 'How it ended',

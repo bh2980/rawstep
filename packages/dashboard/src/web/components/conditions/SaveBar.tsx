@@ -23,8 +23,8 @@ type Props = {
 export function SaveBar({ dirty, busy, blocked, onSave, onDiscard, changes, behind, className }: Props) {
   const { t } = useTranslation();
   if (!dirty && !blocked) return null;
-  return <div role="region" aria-label={t('saveBar.label')} className={cn('sticky bottom-0 z-10 -mx-1 flex flex-wrap items-center justify-between gap-3 border-t border-edge-strong bg-background/95 px-1 py-3 backdrop-blur', className)}>
-    <p role="status" className={cn('text-sm', blocked ? 'text-inspect' : 'font-medium')}>
+  return <div role="region" aria-label={t('saveBar.label')} className={cn('sticky bottom-0 z-10 -mx-1 flex flex-wrap items-center justify-between gap-3 border-t border-edge bg-surface px-1 py-3', className)}>
+    <p role="status" className={cn(blocked ? 'text-inspect' : 'font-medium')}>
       {blocked ?? (behind ? t('saveBar.behind') : changes ? t('saveBar.unsavedCount', { count: changes }) : t('saveBar.unsaved'))}
     </p>
     <div className="flex flex-wrap gap-2">

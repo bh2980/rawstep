@@ -12,7 +12,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> => !!value &
 /** The source of a script rule as read-only text. It is never executed here. */
 export function ScriptSource({ source }: { source: string }) {
   const { t } = useTranslation();
-  return <pre role="region" aria-label={t('checkSuggest.scriptCode')} tabIndex={0} className="max-h-72 overflow-auto rounded-md border border-edge-strong bg-raised p-3 font-mono text-xs leading-5 whitespace-pre-wrap break-all"><code>{source}</code></pre>;
+  return <pre role="region" aria-label={t('checkSuggest.scriptCode')} tabIndex={0} className="max-h-72 overflow-auto rounded-md border border-edge-strong bg-raised p-3 font-mono text-sm whitespace-pre-wrap break-all"><code>{source}</code></pre>;
 }
 
 /** The script source and description of a rule, when it is a script rule. */
@@ -42,7 +42,7 @@ export function RuleCard({ rule, n, onRemove, removeDisabled, onEdit, editing }:
   const script = scriptOf(rule);
   return <li data-selected={editing} className={cn('row-rail rail-divider grid gap-1 border-b border-edge py-2.5 pr-3 pl-4', editing && 'bg-trace-soft')}>
     <div className="flex items-start justify-between gap-3">
-      <p className="flex min-w-0 items-start gap-2.5 text-[15px] leading-6">
+      <p className="flex min-w-0 items-start gap-2.5 text-md">
         <Check aria-hidden="true" className="mt-1 size-4 shrink-0" />
         <span className="min-w-0">{script && <span className="mr-2 text-xs font-semibold text-inspect">{t('ruleEditor.codeBadge')}</span>}{describeRule(rule)}</span>
       </p>

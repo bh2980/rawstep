@@ -1,158 +1,125 @@
-import { useState } from 'react';
-import { Check, Minus } from 'lucide-react';
+import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Hint, RunPlanView, StepView } from '../../shared/api';
 import type { RunRecord } from '../../shared/config';
-import { describeChange, hintKindLabel } from '../i18n/labels';
+import { describeChange } from '../i18n/labels';
 import { describeHint, describeStep } from '../lib/describe';
 import { describeRule } from '../lib/describeRule';
-import { cn } from '../lib/utils';
-import { InfoTip } from './layout/InfoTip';
-import { Disclosure } from './layout/Disclosure';
+import { servedTask, triggerLabel } from '../lib/plan';
+import { sameSpeech } from '../lib/stepDots';
+import { Dash } from './PageHeader';
 import { RawRecord } from './RawRecord';
-import { StepEvidence } from './StepEvidence';
-import { GlyphMark } from './trace/TraceRail';
+import { StepScreen } from './StepEvidence';
 import { ModelCalls } from './trace/PlanDocumentView';
-import { servedTask, taskName, triggerLabel } from '../lib/plan';
 import { SourceLabel } from './trace/SourceMarker';
-import { Button } from './ui/button';
 import { Collapsible, CollapsibleContent } from './ui/collapsible';
+import { Disclosure } from './layout/Disclosure';
+import { Button } from './ui/button';
 
 type Props = {
-  step: StepView; experimentId: string; run: RunRecord;
-  /** The step just before this one: a stop has no evidence of its own, so it shows the state it stopped on. */
-  before?: StepView | undefined;
-  /** The hints that point at this step, with their details. */
+  step: StepView;
+  /** Every step of the run, for what was heard before and which page the run was on. */
+  steps: StepView[];
+  experimentId: string; run: RunRecord;
+  /** Every hint of the run with its details. */
   hints: Hint[];
   /** Goal rules that were already true before the first action; shown on step 0 only. */
   baselineMet: number | undefined;
   live: boolean;
-  /** The run's plan document, when a planner wrote one. */
   plan?: RunPlanView | undefined;
+  onSelect: (step: number) => void;
 };
 
 const MAX_CANDIDATES = 5;
-const label = 'text-xs leading-4 font-medium';
+/** Hints the rows above already say in their own words (the plan line, the broken expectation) or that are about the whole run. */
+const OWN_ROWS = new Set(['expectation-broken', 'replan', 'task-limit', 'goal-word-stretch', 'early-stop']);
+
+/** `www.example.com/shop/...`: an address without its scheme, as a person reads it. */
+const shortUrl = (url: string) => url.replace(/^[a-z]+:\/\//i, '');
 
 /**
- * One step, in the order a person investigates it: the evidence (what was heard, then the screen), the action, what the page did in
- * response, the places worth a look, and only then the options Rawstep chose between and the raw record, both closed.
- * Wide: evidence 3fr beside analysis 2fr. Narrow: the action first, then evidence, response, inspect.
+ * The selected move, as rows of facts: what was heard, what happened on the page, the plan it followed and what changed in it, the
+ * expectations that broke here, the places worth a look, the completion check and the page; then the screenshot, and the planner
+ * calls, the options Rawstep chose between and the raw record, all folded.
  */
-export function StepDetail({ step, experimentId, run, before, hints, baselineMet, live, plan }: Props) {
+export function StepDetail({ step, steps, experimentId, run, hints, baselineMet, live, plan, onSelect }: Props) {
   const { t } = useTranslation();
-  return <section aria-label={t('runPage.stepLabel')} className="motion-reveal grid items-start gap-x-6 gap-y-5 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-    <Action step={step} baselineMet={baselineMet} />
-    <div className="min-w-0 lg:col-start-1 lg:row-span-6 lg:row-start-1">
-      {step.stop && !step.speech && !step.screenshot && before
-        ? <div className="grid gap-2">
-          <p className="text-xs leading-5 text-muted-foreground">{before.step === 0 ? t('stepDetail.stopEvidenceStart') : t('stepDetail.stopEvidence', { n: before.step })}</p>
-          <StepEvidence step={before} experimentId={experimentId} runId={run.id} live={false} />
-        </div>
-        : <StepEvidence step={step} experimentId={experimentId} runId={run.id} live={live} />}
+  const index = steps.indexOf(step), before = index > 0 ? steps[index - 1] : undefined, after = steps[index + 1];
+  const mine = hints.filter(hint => hint.steps.includes(step.step));
+  const broken = mine.filter(hint => hint.kind === 'expectation-broken');
+  const inspect = mine.filter(hint => !OWN_ROWS.has(hint.kind));
+  const lines = step.speech?.lines.filter(line => line.trim()) ?? [];
+  const title = step.step === 0 ? t('runDetail.startTitle') : t('runDetail.stepTitle', { n: step.step, action: describeStep(step) });
+
+  const happened: ReactNode[] = [
+    step.ok === false && <span className="text-gave-up">{t('runDetail.cellFailed')}</span>,
+    step.stop?.source && t('steps.stopSource', { source: t(`steps.stopSources.${step.stop.source}`, { defaultValue: step.stop.source }) }),
+    ...step.observed.map(change => describeChange(change)),
+    step.step === 0 && baselineMet !== undefined && (baselineMet > 0 ? t('steps.baselineTrue', { n: baselineMet }) : t('steps.baselineNone')),
+    step.redacted && <span className="text-ink-2">{t('steps.redactedBody')}</span>,
+  ].filter(Boolean);
+
+  const served = plan?.stepTasks[step.step], task = plan ? servedTask(plan, step.step) : undefined;
+  const revisions = (plan?.versions ?? []).filter(version => version.step === step.step && version.version > 1);
+  const planLines: ReactNode[] = plan ? [
+    ...revisions.map(version => t('runDetail.planChange', { from: version.version - 1, to: version.version, trigger: triggerLabel(version.trigger) })),
+    task && served && t('runDetail.planTask', { version: served.planVersion, task: `${task.number} ${task.goal}`.trim() }),
+    ...(step.plan?.events ?? []).filter(event => event.kind === 'limit').map(() => t('stepDetail.plan.limit')),
+  ].filter(Boolean) : [];
+
+  const check = step.verification, written = run.snapshot.spec.task.verify.all;
+  const page = [...steps.slice(0, index + 1)].reverse().flatMap(item => item.observed).find(change => change.kind === 'navigation' && change.url)?.url ?? run.snapshot.spec.task.url;
+  // A stop has no evidence of its own; it shows the screen it stopped on.
+  const screenStep = step.stop && !step.screenshot && before?.screenshot ? before : step;
+
+  return <section aria-labelledby="step-detail-title" className="min-w-0">
+    <div className="mb-1 flex h-8 items-center gap-2">
+      <h3 id="step-detail-title" className="min-w-0 truncate text-md font-semibold">{title}</h3>
+      <span className="ml-auto flex shrink-0 gap-2">
+        <Button variant="outline" size="sm" disabled={!before} onClick={() => before && onSelect(before.step)}>{t('pager.previous')}</Button>
+        <Button variant="outline" size="sm" disabled={!after} onClick={() => after && onSelect(after.step)}>{t('pager.next')}</Button>
+      </span>
     </div>
-    <PageResponse step={step} />
-    {hints.length > 0 && <Inspect hints={hints} />}
-    <Verification step={step} run={run} />
-    <PlanNotes step={step} plan={plan} />
-    {step.calls && step.calls.length > 0 && <div className="border-t pt-2.5 lg:col-start-2"><ModelCalls step={step.step} calls={step.calls} /></div>}
-    <Candidates step={step} />
-    <Collapsible className="border-t pt-2.5 lg:col-start-2">
-      <Disclosure label={t('stepDetail.raw')} />
-      <CollapsibleContent className="motion-reveal pt-3"><RawRecord experimentId={experimentId} run={run} step={step.step} /></CollapsibleContent>
-    </Collapsible>
+    <dl className="grid grid-cols-[7.5rem_minmax(0,1fr)] gap-x-4 [&>dd]:border-b [&>dd]:border-edge [&>dd]:py-1.5 [&>dt]:border-b [&>dt]:border-edge [&>dt]:py-1.5 [&>dt]:text-ink-2">
+      <dt>{t('runDetail.kvHeard')}</dt>
+      <dd className="break-words">{lines.length ? <>{lines.map(line => `“${line}”`).join(' ')}{step.step > 0 && sameSpeech(step, before) && <span className="text-ink-2"> · {t('runDetail.sameAsBefore')}</span>}</> : <Dash />}</dd>
+      <dt>{t('runDetail.kvHappened')}</dt>
+      <dd className="grid gap-0.5 break-words">{happened.length ? happened.map((line, i) => <span key={i}>{line}</span>) : <Dash />}</dd>
+      {plan && <><dt>{t('runDetail.kvPlan')}</dt>
+        <dd className="grid gap-0.5 tabular-nums">{planLines.length ? planLines.map((line, i) => <span key={i}>{line}</span>) : <Dash />}</dd></>}
+      {broken.length > 0 && <><dt>{t('runDetail.kvBroken')}</dt>
+        <dd className="grid gap-0.5">{broken.map((hint, i) => { const a = hint.detail.assumption as { id?: string; text?: string } | undefined;
+          return <span key={i}>{[a?.id, a?.text].filter(Boolean).join(' · ') || describeHint(hint)}</span>; })}</dd></>}
+      {inspect.length > 0 && <><dt>{t('runDetail.kvInspect')}</dt>
+        <dd className="grid gap-1">{inspect.map((hint, i) => <span key={i} title={hint.source === 'model' ? t('runPage.modelHintNote') : undefined}>
+          {describeHint(hint)}{hint.certainty === 'suspected' && <span className="text-ink-2"> · {t('taskPage.suspected')}</span>}
+          {hint.source === 'model' && <> <SourceLabel source="model" className="align-middle" /></>}
+        </span>)}</dd></>}
+      {check && check.rules.length > 0 && <><dt>{t('runDetail.kvCheck')}</dt>
+        <dd title={check.rules.map(rule => `${written[rule.ruleIndex] ? describeRule(written[rule.ruleIndex]!) : rule.ruleType} · ${rule.passed ? t('steps.ruleMet') : t('steps.ruleUnmet')}`).join('\n')} className="tabular-nums">
+          {t('steps.verificationCount', { met: check.rules.filter(rule => rule.passed).length, total: check.rules.length })}
+        </dd></>}
+      <dt>{t('runDetail.kvPage')}</dt>
+      <dd className="truncate text-ink-2" title={page}>{page ? shortUrl(page) : <Dash />}</dd>
+    </dl>
+    <StepScreen step={screenStep} experimentId={experimentId} runId={run.id} live={live && screenStep === step}
+      caption={screenStep !== step ? t('runDetail.stopEvidence', { n: screenStep.step }) : undefined} />
+    <div className="mt-3 grid">
+      {step.calls && step.calls.length > 0 && <Fold label={t('runDetail.calls', { count: step.calls.length })}><ModelCalls step={step.step} calls={step.calls} /></Fold>}
+      <Candidates step={step} />
+      <Fold label={t('stepDetail.raw')}><RawRecord experimentId={experimentId} run={run} step={step.step} /></Fold>
+    </div>
   </section>;
 }
 
-/** The action in large mono under its number. The rule on its left continues into the page response: action → response is the basic unit of the trace. */
-function Action({ step, baselineMet }: { step: StepView; baselineMet: number | undefined }) {
-  const { t } = useTranslation();
-  const first = step.step === 0;
-  return <div className="grid min-w-0 gap-1 border-l-2 border-trace pl-4 lg:col-start-2">
-    <h3 className={cn(label, 'text-muted-foreground')}>{first ? t('stepDetail.actionStart') : t('stepDetail.action', { n: step.step })}</h3>
-    <p className="font-mono text-xl leading-7 font-semibold break-words">{describeStep(step)}</p>
-    {step.ok === false && <p className="w-fit rounded-sm border border-edge-strong px-1.5 text-xs">{t('steps.actionFailed')}</p>}
-    {step.stop?.source && <p className="text-xs text-muted-foreground">{t('steps.stopSource', { source: t(`steps.stopSources.${step.stop.source}`, { defaultValue: step.stop.source }) })}</p>}
-    {first && baselineMet !== undefined && <p className="text-sm text-muted-foreground">{baselineMet > 0 ? t('steps.baselineTrue', { n: baselineMet }) : t('steps.baselineNone')}</p>}
-    {step.redacted && <p className="text-xs text-muted-foreground">{t('steps.redactedBody')}</p>}
-  </div>;
+function Fold({ label, children }: { label: string; children: ReactNode }) {
+  return <Collapsible className="border-b border-edge py-0.5">
+    <Disclosure label={label} />
+    <CollapsibleContent className="motion-reveal pt-1 pb-3">{children}</CollapsibleContent>
+  </Collapsible>;
 }
 
-/** What the page did right after the action: the changes the observer recorded, most often where focus went. */
-function PageResponse({ step }: { step: StepView }) {
-  const { t } = useTranslation();
-  if (step.step === 0 && step.observed.length === 0) return null;
-  return <div className="grid min-w-0 gap-1 border-l-2 border-trace pl-4 lg:col-start-2 lg:-mt-5 lg:pt-1">
-    <h3 className={cn(label, 'text-muted-foreground')}>{t('stepDetail.pageResponse')}</h3>
-    {step.observed.length > 0
-      ? <ul className="grid gap-0.5 text-[15px] leading-6 font-medium">{step.observed.map((change, index) => <li key={index}>{describeChange(change)}</li>)}</ul>
-      : <p className="text-sm text-muted-foreground">{t('stepDetail.pageResponseNone')}</p>}
-  </div>;
-}
-
-/** The places worth a look at this step, in amber. A suspected one says so in words; a hint about the model's own choice names its source. */
-function Inspect({ hints }: { hints: Hint[] }) {
-  const { t } = useTranslation();
-  return <section aria-label={t('stepDetail.inspect')} className="grid gap-2.5 rounded-md border border-inspect bg-inspect-soft p-3 lg:col-start-2">
-    <h3 className="flex items-center gap-2 text-sm font-semibold text-inspect"><GlyphMark kind="inspect" className="scale-90" />{t('stepDetail.inspect')}<InfoTip term={t('stepDetail.inspect')}>{t('help.inspect')}</InfoTip></h3>
-    <ul className="grid gap-2.5">{hints.map((hint, index) => <li key={index} className="grid gap-1">
-      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5">
-        <span className="text-sm font-semibold">{hintKindLabel(hint.kind)}</span>
-        {hint.source === 'model' && <SourceLabel source="model" />}
-        {hint.certainty === 'suspected' && <span className="text-xs font-medium">{t('taskPage.suspected')}</span>}
-      </div>
-      <p className="text-sm leading-6">{describeHint(hint)}</p>
-      {hint.source === 'model' && <p className="text-xs leading-5 text-muted-foreground">{t('runPage.modelHintNote')}</p>}
-    </li>)}</ul>
-  </section>;
-}
-
-/**
- * The completion check as it stood right after this action. It is re-run after every action and may still be unmet while the run
- * goes on; the run's own result comes from the check after its last action, which is a different thing from this line.
- */
-function Verification({ step, run }: { step: StepView; run: RunRecord }) {
-  const { t } = useTranslation();
-  const check = step.verification;
-  if (!check || !check.rules.length) return null;
-  const met = check.rules.filter(rule => rule.passed).length, written = run.snapshot.spec.task.verify.all;
-  return <div className="grid gap-1.5 lg:col-start-2">
-    <h3 className="flex flex-wrap items-center gap-x-2 text-sm font-semibold">{t('stepDetail.verification')}
-      <span className="text-[13px] font-normal text-muted-foreground">{t('steps.verificationCount', { met, total: check.rules.length })}</span>
-      <InfoTip term={t('stepDetail.verification')}>{t('stepDetail.verificationInfo')}</InfoTip>
-    </h3>
-    <ul className="grid gap-1 text-[13px]">
-      {check.rules.map(rule => <li key={rule.ruleIndex} className="flex items-start gap-1.5">
-        {rule.passed ? <Check aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" /> : <Minus aria-hidden="true" className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />}
-        <span className={rule.passed ? undefined : 'text-muted-foreground'}>{written[rule.ruleIndex] ? describeRule(written[rule.ruleIndex]) : rule.ruleType} · {rule.passed ? t('steps.ruleMet') : t('steps.ruleUnmet')}</span>
-      </li>)}
-    </ul>
-  </div>;
-}
-
-/**
- * With a planner: the task of the plan document this action served, and what happened to the plan in this step — a new version and
- * why, a task finished, the replanning limit. A new version marks where the run needed help: the page may have made that point
- * hard, or the plan may have been wrong.
- */
-function PlanNotes({ step, plan }: { step: StepView; plan: RunPlanView | undefined }) {
-  const { t } = useTranslation();
-  const events = step.plan?.events ?? [], task = plan ? servedTask(plan, step.step) : undefined, served = plan?.stepTasks[step.step];
-  if (!task && !events.length) return null;
-  return <div className="grid gap-2 border-t pt-2.5 lg:col-start-2">
-    <h3 className={cn(label, 'text-model')}>{t('stepDetail.plan.title')}</h3>
-    {task && served && <p className="text-sm"><span className="text-muted-foreground">{t('stepDetail.plan.task')}:</span> <span className="font-mono text-xs">{task.number}</span> {task.goal} <span className="text-xs text-muted-foreground">(v{served.planVersion})</span></p>}
-    {events.length > 0 && <ul className="grid gap-1 text-sm">
-      {events.map((event, i) => <li key={i}>
-        {event.kind === 'step-done' && <span><span className="text-muted-foreground">{t('stepDetail.plan.taskDone')}:</span> {plan ? taskName(plan, event.goal) : event.goal}</span>}
-        {event.kind === 'limit' && <span className="text-inspect">{t('stepDetail.plan.limit')}</span>}
-        {event.kind === 'plan' && <span className="font-medium">{event.reason === 'start' ? t('stepDetail.plan.first') : t('stepDetail.plan.revised', { trigger: triggerLabel(event.reason) })}</span>}
-      </li>)}
-    </ul>}
-  </div>;
-}
-
-/** The actions the page allowed when Rawstep followed the plan, in the order it saw them, closed by default; the one it took is marked. */
+/** The actions the page allowed when Rawstep followed the plan, in the order it saw them; the one it took is marked. */
 function Candidates({ step }: { step: StepView }) {
   const { t } = useTranslation();
   const [all, setAll] = useState(false);
@@ -160,19 +127,18 @@ function Candidates({ step }: { step: StepView }) {
   if (!follow) return null;
   const candidates = follow.candidates ?? [];
   const shown = all ? candidates : candidates.slice(0, MAX_CANDIDATES);
-  return <Collapsible className="border-t pt-2.5 lg:col-start-2">
-    <Disclosure label={t('stepDetail.candidates')} />
-    <CollapsibleContent className="motion-reveal grid gap-2 pt-2">
-      {candidates.length === 0 && <p className="text-sm"><span className="text-muted-foreground">{t('stepDetail.chosen')}:</span> <span className="font-mono">{follow.choiceId}</span></p>}
-      <ul className="grid gap-1.5">
-        {shown.map(candidate => {
-          const pick = candidate.id === follow.choiceId, name = candidate.label ?? candidate.id;
-          return <li key={candidate.id} className="text-xs"><span className={cn('block truncate font-mono', pick && 'font-semibold')} title={name}>{pick && <span className="mr-1 font-sans">[{t('stepDetail.chosenMark')}]</span>}{name}</span></li>;
-        })}
-      </ul>
-      {candidates.length > MAX_CANDIDATES && <Button variant="ghost" size="xs" className="justify-self-start" aria-expanded={all} onClick={() => setAll(!all)}>
-        {all ? t('steps.candidateCount', { n: MAX_CANDIDATES, count: MAX_CANDIDATES }) : t('steps.showAllCandidates', { n: candidates.length, count: candidates.length })}
-      </Button>}
-    </CollapsibleContent>
-  </Collapsible>;
+  return <Fold label={t('stepDetail.candidates')}>
+    {candidates.length === 0 && <p><span className="text-ink-2">{t('stepDetail.chosen')}:</span> <span className="font-mono">{follow.choiceId}</span></p>}
+    <ul className="grid gap-1">
+      {shown.map(candidate => {
+        const pick = candidate.id === follow.choiceId, name = candidate.label ?? candidate.id;
+        return <li key={candidate.id} className="truncate text-sm" title={name}>
+          {pick && <span className="mr-1 text-ink-2">[{t('stepDetail.chosenMark')}]</span>}<span className={pick ? 'font-semibold' : undefined}>{name}</span>
+        </li>;
+      })}
+    </ul>
+    {candidates.length > MAX_CANDIDATES && <Button variant="ghost" size="sm" className="mt-1 -ml-2" aria-expanded={all} onClick={() => setAll(!all)}>
+      {all ? t('steps.candidateCount', { n: MAX_CANDIDATES, count: MAX_CANDIDATES }) : t('steps.showAllCandidates', { n: candidates.length, count: candidates.length })}
+    </Button>}
+  </Fold>;
 }

@@ -13,13 +13,11 @@ type Props = {
   className?: string;
 };
 
-/** Spec §36: what is missing and the one thing to do next, on a line, with no picture. It is drawn as a ruled note, not a panel. */
+/** What is missing and the one thing to do next, with no picture: a title, one line, the action. No box, no stripe. */
 export function EmptyState({ title, why, action, compact, className }: Props) {
-  return <section aria-label={title} className={cn('flex flex-wrap items-center gap-x-5 gap-y-2 border-l-2 border-edge-strong pl-4', compact ? 'py-0.5' : 'py-2', className)}>
-    <div className="grid min-w-0 gap-1">
-      <h2 className={cn('font-semibold', compact ? 'text-sm' : 'text-base')}>{title}</h2>
-      {why && <p className="max-w-2xl text-[13px] leading-5 text-muted-foreground">{why}</p>}
-    </div>
-    {action && <div className="flex flex-wrap items-center gap-2">{action}</div>}
+  return <section aria-label={title} className={cn('grid justify-items-start gap-1 border-y border-edge', compact ? 'py-2' : 'py-4', className)}>
+    <h2 className="font-medium">{title}</h2>
+    {why && <p className="max-w-2xl text-ink-2">{why}</p>}
+    {action && <div className="mt-1 flex flex-wrap items-center gap-2">{action}</div>}
   </section>;
 }

@@ -19,7 +19,7 @@ export function EvidenceLink({ taskId, runId, number, step, navigate, className 
   const { t } = useTranslation();
   const text = number === undefined ? t('trace.evidencePlain') : step === undefined ? t('trace.evidenceRunOnly', { number }) : t('trace.evidenceRun', { number, step });
   return <Link to={{ task: taskId, run: runId, ...(step !== undefined ? { step } : {}) }} navigate={navigate}
-    className={cn('inline-flex items-center gap-1 rounded-sm text-[13px] tabular-nums text-trace underline-offset-2 hover:underline', className)}>
+    className={cn('inline-flex items-center gap-1 border-b border-edge-strong tabular-nums hover:border-foreground', className)}>
     {text}<ArrowRight className="size-3" aria-hidden="true" />
   </Link>;
 }

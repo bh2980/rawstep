@@ -11,7 +11,7 @@ export const ENOUGH_RUNS = 10;
 export function CompareSummary({ lines, few, className }: { lines: readonly string[]; few: boolean; className?: string }) {
   const { t } = useTranslation();
   return <div className={cn('grid gap-1', className)}>
-    <p className="max-w-3xl text-[15px] leading-6">{lines.join(' ')}</p>
-    {few && <p className="text-xs text-muted-foreground">{t('compareSummary.fewRuns')}</p>}
+    <p className="max-w-3xl text-md leading-6">{lines.join(' ')}</p>
+    {few && <p className="text-sm text-ink-2">{t('compareSummary.fewRuns')}</p>}
   </div>;
 }

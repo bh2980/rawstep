@@ -1,24 +1,16 @@
-import { useId } from 'react';
+import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { RotateCcw } from 'lucide-react';
 import { runRulesSchema, type RunRules } from '@rawstep/project/config';
 import { t } from '../../i18n';
 import { cn } from '../../lib/utils';
-import { InfoTip } from '../layout/InfoTip';
 import { Input } from '../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Switch } from '../ui/switch';
-import { Button } from '../ui/button';
+import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 
-type Props = {
-  value: Partial<RunRules>; onChange: (v: Partial<RunRules>) => void; inherited: RunRules; compact?: boolean;
-};
 type Key = keyof RunRules;
-type Group = { id: 'guard' | 'planning'; keys: Key[] };
-const GROUPS: Group[] = [
-  { id: 'guard', keys: ['repetitionGuard', 'maxUnchangedTransitions', 'confirmationGrace'] },
-  { id: 'planning', keys: ['survey', 'reviewEvery', 'stepActionLimit', 'failureLimit', 'noChangeLimit', 'plannerHistoryLimit', 'maxPlannerCalls'] },
-];
+/** Every rule, in the order a person reads them: when a run stops as stuck, then when a planned run asks for a new plan. */
+export const RULE_KEYS: Key[] = ['repetitionGuard', 'maxUnchangedTransitions', 'confirmationGrace', 'survey', 'reviewEvery', 'stepActionLimit', 'failureLimit', 'noChangeLimit', 'plannerHistoryLimit', 'maxPlannerCalls'];
 const SURVEY = ['none', 'headings'] as const;
 
 /** A run rule's value as words: the choice's label, 켬/끔, or the number. */
@@ -30,59 +22,89 @@ export function ruleValueLabel(key: Key, v: RunRules[Key]): string {
 /** Whether one field's value is allowed, by the schema's own bounds. */
 const fieldValid = (key: Key, value: unknown) => runRulesSchema.partial().safeParse({ [key]: value }).success;
 
+type Props = {
+  /** The rules this profile changes; a field left out is the default in `inherited`. */
+  value: Partial<RunRules>;
+  onChange?: (v: Partial<RunRules>) => void;
+  inherited: RunRules;
+  /** Only the defaults, every rule, nothing to edit (설정 › 기본 실행 규칙). */
+  readOnly?: boolean;
+};
+
 /**
- * When a run stops early and when a planned run asks for a new plan, each field's name right next to its value. A field changed from
- * Rawstep's default is tinted and says the default beside it; 되돌리기 puts the default back.
+ * When a run stops, as one table: 항목 · 이 프로필 · 기본값 · 되돌리기. Only the rules changed from the defaults are listed; the rest
+ * open with "기본값 그대로인 n개 보기". A rule edited here stays listed until the page is left, so it does not vanish while typed back
+ * to its default.
  */
-export function RunRulesEditor({ value, onChange, inherited, compact }: Props) {
+export function RunRulesEditor({ value, onChange, inherited, readOnly }: Props) {
   const { t } = useTranslation();
+  const captionId = useId();
+  const [all, setAll] = useState(false);
+  const [touched, setTouched] = useState<ReadonlySet<Key>>(new Set());
+  const overridden = (key: Key) => value[key] !== undefined;
   const set = <K extends Key>(key: K, next: RunRules[K] | undefined) => {
+    setTouched(current => new Set(current).add(key));
     const { [key]: _old, ...rest } = value;
-    onChange(next === undefined ? rest : { ...rest, [key]: next });
+    onChange?.(next === undefined ? rest : { ...rest, [key]: next });
   };
-  const shown = (key: Key) => ruleValueLabel(key, inherited[key]);
-  return <div className={cn('grid min-w-0 max-w-2xl', compact ? 'gap-5' : 'gap-8')}>
-    {GROUPS.map(group => <section key={group.id} aria-labelledby={`rules-${group.id}`} className="grid gap-0.5">
-      <h3 id={`rules-${group.id}`} className="pb-1 text-[13px] font-semibold text-muted-foreground">{t(`conditions.runRules.groups.${group.id}.title`)}</h3>
-      {group.keys.map(key => <Row key={key} field={key} value={value} inherited={inherited} set={set} compact={compact} inheritedValue={shown(key)} />)}
-    </section>)}
+  const listed = RULE_KEYS.filter(key => readOnly || all || overridden(key) || touched.has(key));
+  const rest = RULE_KEYS.length - RULE_KEYS.filter(key => overridden(key) || touched.has(key)).length;
+  return <div className="grid min-w-0 justify-items-start gap-2">
+    {listed.length > 0 && <Table className="table-fixed">
+      <TableCaption id={captionId} className="sr-only">{t(readOnly ? 'rulesTable.captionDefaults' : 'rulesTable.caption')}</TableCaption>
+      <colgroup><col /><col className={readOnly ? 'w-40' : 'w-36'} />{!readOnly && <><col className="w-20" /><col className="w-24" /></>}</colgroup>
+      <TableHeader><TableRow>
+        <TableHead scope="col">{t('rulesTable.item')}</TableHead>
+        {!readOnly && <TableHead scope="col" className="text-right">{t('rulesTable.profile')}</TableHead>}
+        <TableHead scope="col" className="text-right">{t('rulesTable.default')}</TableHead>
+        {!readOnly && <TableHead scope="col"><span className="sr-only">{t('rulesTable.reset')}</span></TableHead>}
+      </TableRow></TableHeader>
+      <TableBody>{listed.map(key => readOnly
+        ? <TableRow key={key}>
+          <TableCell className="whitespace-normal"><span title={t(`conditions.runRules.fields.${key}.hint`)}>{t(`conditions.runRules.fields.${key}.label`)}</span></TableCell>
+          <TableCell className="text-right tabular-nums">{ruleValueLabel(key, inherited[key])}</TableCell>
+        </TableRow>
+        : <RuleRow key={key} field={key} value={value} inherited={inherited} set={set} />)}</TableBody>
+    </Table>}
+    {!readOnly && (all
+      ? <button type="button" className="text-foreground underline decoration-edge-strong underline-offset-4 hover:decoration-foreground" onClick={() => setAll(false)}>{t('rulesTable.showChanged')}</button>
+      : rest > 0 && <button type="button" className="text-foreground underline decoration-edge-strong underline-offset-4 hover:decoration-foreground" onClick={() => setAll(true)}>
+        {listed.length ? t('rulesTable.showDefaults', { count: rest }) : t('rulesTable.allDefaults', { count: rest })}
+      </button>)}
   </div>;
 }
 
-type RowProps = {
-  field: Key; value: Partial<RunRules>; inherited: RunRules; compact?: boolean | undefined; inheritedValue: string;
-  set: <K extends Key>(key: K, next: RunRules[K] | undefined) => void;
-};
+type RowProps = { field: Key; value: Partial<RunRules>; inherited: RunRules; set: <K extends Key>(key: K, next: RunRules[K] | undefined) => void };
 
-function Row({ field, value, inherited, set, compact, inheritedValue }: RowProps) {
+/** One rule: its name, this profile's value as a control, the default, and 되돌리기 while it differs. */
+function RuleRow({ field, value, inherited, set }: RowProps) {
   const { t } = useTranslation();
   const id = useId(), overridden = value[field] !== undefined, current = value[field] ?? inherited[field];
   const invalid = overridden && !fieldValid(field, value[field]);
+  const label = t(`conditions.runRules.fields.${field}.label`);
   const control = field === 'survey'
     ? <Select value={current as string} onValueChange={next => set('survey', next as RunRules['survey'])}>
-      <SelectTrigger id={id} className="w-full"><SelectValue /></SelectTrigger>
+      <SelectTrigger id={id} size="sm" className="ml-auto w-full" aria-describedby={`${id}-hint`}><SelectValue /></SelectTrigger>
       <SelectContent>{SURVEY.map(c => <SelectItem key={c} value={c}>{t(`conditions.runRules.survey.${c}`)}</SelectItem>)}</SelectContent>
     </Select>
     : field === 'repetitionGuard'
-      ? <Switch id={id} checked={current as boolean} onCheckedChange={on => set('repetitionGuard', on)} />
-      : <Input id={id} type="number" inputMode="numeric" step={1} className="w-24" value={String(current)} aria-invalid={invalid || undefined} aria-describedby={invalid ? `${id}-range` : undefined}
+      ? <Switch id={id} className="ml-auto" checked={current as boolean} aria-describedby={`${id}-hint`} onCheckedChange={on => set('repetitionGuard', on)} />
+      : <Input id={id} type="number" inputMode="numeric" step={1} className="ml-auto h-7 w-20 text-right tabular-nums" value={String(current)} aria-invalid={invalid || undefined}
+        aria-describedby={invalid ? `${id}-range ${id}-hint` : `${id}-hint`}
         onChange={e => set(field, e.target.value.trim() === '' ? undefined : Number(e.target.value) as never)} />;
-  const label = t(`conditions.runRules.fields.${field}.label`);
-  return <div className={cn('grid items-center gap-x-4 gap-y-1 rounded-md px-2 sm:grid-cols-[minmax(0,1fr)_16rem]', compact ? 'py-1.5' : 'py-2', overridden && 'bg-trace-soft')}>
-    <div className="flex min-w-0 items-center gap-1">
-      <label htmlFor={id} className={cn('text-sm', overridden && 'font-medium')}>{label}</label>
-      <InfoTip term={label}>{t(`conditions.runRules.fields.${field}.hint`)}</InfoTip>
-    </div>
-    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-      {control}
-      {overridden && <span className="flex items-center gap-0.5 text-xs text-trace">{t('conditions.runRules.baseValue', { value: inheritedValue })}
-        <Button type="button" variant="ghost" size="sm" className="h-6 px-1.5 text-xs" onClick={() => set(field, undefined)} aria-label={t('conditions.runRules.resetAria', { field: label })}>
-          <RotateCcw aria-hidden="true" />{t('conditions.runRules.reset')}
-        </Button>
-      </span>}
-    </div>
-    {invalid && <p id={`${id}-range`} className="text-xs leading-5 text-missed sm:col-span-2">{t(`conditions.runRules.fields.${field}.range`)}</p>}
-  </div>;
+  return <TableRow>
+    <TableCell className="whitespace-normal">
+      <label htmlFor={id} title={t(`conditions.runRules.fields.${field}.hint`)}>{label}</label>
+      <span id={`${id}-hint`} className="sr-only">{t(`conditions.runRules.fields.${field}.hint`)}</span>
+      {invalid && <p id={`${id}-range`} className="text-sm text-missed">{t(`conditions.runRules.fields.${field}.range`)}</p>}
+    </TableCell>
+    <TableCell className="text-right"><div className="flex justify-end">{control}</div></TableCell>
+    <TableCell className="text-right text-ink-2 tabular-nums">{ruleValueLabel(field, inherited[field])}</TableCell>
+    <TableCell className={cn('text-right')}>
+      {overridden && <button type="button" className="text-foreground underline decoration-edge-strong underline-offset-4 hover:decoration-foreground"
+        aria-label={t('conditions.runRules.resetAria', { field: label })} onClick={() => set(field, undefined)}>{t('conditions.runRules.reset')}</button>}
+    </TableCell>
+  </TableRow>;
 }
 
 /** Whether a set of overrides can be saved: every field within its bounds. */

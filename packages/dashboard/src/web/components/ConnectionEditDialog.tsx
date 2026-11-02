@@ -50,7 +50,7 @@ function EditFlow({ initial, pageProps: props, close }: { initial: Connection; p
     </DialogHeader>
     {error && <ErrorState alert view={error} />}
     <div className="grid gap-4">
-      <p className="text-[13px] text-muted-foreground">{t('connections.typeLine', { kind: t(`connections.kinds.${kindLabelKey(connection)}.name`), provider: providerName })}</p>
+      <p className="text-base text-ink-2">{t('connections.typeLine', { kind: t(`connections.kinds.${kindLabelKey(connection)}.name`), provider: providerName })}</p>
       <Field label={t('connections.name')} value={connection.name} onChange={name => patch({ name })} />
       {custom
         ? <Field label={t('connections.baseUrl')} value={connection.baseURL ?? ''} onChange={baseURL => patch({ baseURL })} />

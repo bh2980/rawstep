@@ -73,9 +73,9 @@ describe('step dots', () => {
     expect(dotKind(step(5, undefined, { stop: { stop: 'success' } }))).toBe('press');
   });
 
-  it('opens a finished run at its first hint, otherwise the end, and a live run at its newest step', () => {
+  it('opens a run at its newest step, finished or live', () => {
     const steps = [step(0), step(1, { kind: 'key', key: 'Tab' }, { hints: ['excess-keystrokes'] }), step(2), step(3, { kind: 'key', key: 'Enter' }, { hints: ['missing-announcement'] })];
-    expect(defaultStep({ steps, live: false })).toBe(1);
+    expect(defaultStep({ steps, live: false })).toBe(3);
     expect(defaultStep({ steps: [step(0), step(1)], live: false })).toBe(1);
     expect(defaultStep({ steps, live: true })).toBe(3);
     expect(defaultStep({ steps: [], live: true })).toBeUndefined();
@@ -114,40 +114,32 @@ describe('run numbers and the fastest run', () => {
   });
 });
 
-describe('moves per profile on the task list', () => {
+describe('cost cell on the task list', () => {
+  // A task with no measured run shows `—`; when it has run and every run ended on an error, the `—` says so.
   const say = (byProfile: readonly unknown[], lastRunAt: string | null, listed: boolean) => {
     const key = profileMovesPlaceholder({ byProfile, lastRunAt, listed });
-    return key ? i18n.t(`taskList.${key}`) : undefined;
+    return key === 'noMeasured' ? i18n.t('taskList.noMeasured') : key;
   };
 
-  it('says not run yet only when the task has no runs', async () => {
+  it('tells a task that never ran from one whose runs all ended on an error', async () => {
     await i18n.changeLanguage('en');
     try {
-      expect(say([], null, false)).toBe('Not run yet');
-      // A latest batch whose only run ended on an error: lastRunAt is set, byProfile is empty.
+      expect(say([], null, false)).toBe('neverRun');
+      // A latest batch whose only run ended on an error: lastRunAt is set, or the run list has the finished run.
       expect(say([], '2026-04-02T00:00:00.000Z', false)).toBe('No measured run in the latest batch');
-      // A finished run can already be in the list before the summary row arrives.
       expect(say([], null, true)).toBe('No measured run in the latest batch');
       expect(say([{ profileId: 'default' }], '2026-04-02T00:00:00.000Z', true)).toBeUndefined();
       expect(i18n.t('taskList.noMeasuredWhy')).toBe('Runs that ended on an error are not counted.');
     } finally {
       await i18n.changeLanguage('ko');
     }
-    expect(say([], null, false)).toBe('아직 실행 안 함');
     expect(say([], '2026-04-02T00:00:00.000Z', true)).toBe('최근 묶음에 측정된 실행 없음');
     expect(i18n.t('taskList.noMeasuredWhy')).toBe('오류로 끝난 실행은 세지 않습니다.');
   });
 
-  it('says not run yet when the only run is still live or queued', async () => {
-    // The task list sets listed from finished runs only, so a first run that is queued or running stays neverRun.
-    await i18n.changeLanguage('en');
-    try {
-      expect(profileMovesPlaceholder({ byProfile: [], lastRunAt: null, listed: false })).toBe('neverRun');
-      expect(say([], null, false)).toBe('Not run yet');
-    } finally {
-      await i18n.changeLanguage('ko');
-    }
-    expect(say([], null, false)).toBe('아직 실행 안 함');
+  it('counts a task whose only run is still live or queued as never run', () => {
+    // The task list sets listed from finished runs only.
+    expect(profileMovesPlaceholder({ byProfile: [], lastRunAt: null, listed: false })).toBe('neverRun');
   });
 });
 

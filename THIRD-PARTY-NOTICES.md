@@ -25,6 +25,10 @@ Changes made by this project: VoiceOver and NVDA command records were selected; 
 
 ARIA-AT data and copied reference material remain attributed to W3C and ARIA-AT contributors under the [W3C Document License](https://www.w3.org/copyright/document-license-2023/), with report status kept in the evidence archive. The compact catalog includes source-derived coverage metadata; it does not embed the full reference pages.
 
+## Fonts
+
+The dashboard's built files include two fonts under the [SIL Open Font License 1.1](https://openfontlicense.org): [Pretendard](https://github.com/orioncactus/pretendard) (© 2021 Kil Hyung-jin, with Reserved Font Name Pretendard) through the `pretendard` package, and [DM Mono](https://github.com/googlefonts/dm-mono) (© 2020 The DM Mono Project Authors) through `@fontsource/dm-mono`. The license text ships in each package.
+
 ## No endorsement
 
 No endorsement by Apple, NV Access, Accessibility Supported, its maintainers or W3C is claimed. Current VoiceOver and NVDA behaviour and the accuracy of the reported results are not warranted.

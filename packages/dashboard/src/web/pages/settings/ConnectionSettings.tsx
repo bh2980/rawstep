@@ -10,17 +10,13 @@ import { ConnectionSetupDialog } from '../../components/ConnectionSetupDialog';
 import { CheckStatus, type CheckState } from '../../components/CheckStatus';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
 import { EmptyState } from '../../components/layout/EmptyState';
-import { PageHeader } from '../../components/layout/PageHeader';
-import { Link } from '../../components/Link';
+import { SectionHead } from '../../components/PageHeader';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../../components/ui/alert-dialog';
 import { Button } from '../../components/ui/button';
-import { Popover, PopoverContent, PopoverTrigger } from '../../components/ui/popover';
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { keyStatus, kindLabelKey } from '../../lib/connections';
 import { cn } from '../../lib/utils';
 import type { PageProps } from '../types';
-
-const head = 'h-8 px-3 text-xs font-medium text-muted-foreground';
 
 type Role = 'planner' | 'analysis' | 'suggestions';
 const ROLES: readonly Role[] = ['planner', 'analysis', 'suggestions'];
@@ -53,9 +49,9 @@ function projectWithout(project: ProjectSettings, id: string): ProjectSettings {
 
 /**
  * 설정 · 연결: where models are reached (a provider with its key, or a custom server). A connection holds no model; a run profile (or the
- * project's analysis and suggestion settings) picks the model ID on one. 쓰는 곳 lists those uses by role. The status is what is known without asking until a person presses 확인, which asks the provider once.
+ * project's analysis and suggestion settings) picks the model ID on one. 인증 is what is known without asking until a person picks 연결 확인 in ⋯, which asks the provider once.
  */
-export function ConnectionSettings({ navigate, ...props }: PageProps & { navigate: (change: RouteChange) => void }) {
+export function ConnectionSettings(props: PageProps) {
   const { t } = useTranslation();
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<Connection>();
@@ -85,50 +81,45 @@ export function ConnectionSettings({ navigate, ...props }: PageProps & { navigat
   const uses = (id: string) => usesOf(config, id, t('connections.projectUser'));
   const deletingUses = deleting ? uses(deleting.id) : [];
   const deletingNames = [...new Set(deletingUses.flatMap(use => use.names.map(n => n.label)))];
-  return <div className="grid max-w-6xl gap-5">
-    <PageHeader title={t('settingsNav.sections.connections')} info={t('settingsNav.info.connections')}
-      actions={config.connections.length > 0 && <Button onClick={() => setAdding(true)}><Plus aria-hidden="true" />{t('connections.add')}</Button>} />
+  return <section aria-labelledby="settings-connections" className="grid min-w-0">
+    <SectionHead id="settings-connections" title={t('connections.heading')} count={config.connections.length}>
+      {config.connections.length > 0 && <Button variant="outline" onClick={() => setAdding(true)}><Plus aria-hidden="true" />{t('connections.add')}</Button>}
+    </SectionHead>
     {config.connections.length === 0
       ? <EmptyState title={t('empty.connections.title')} why={t('empty.connections.why')} action={<Button onClick={() => setAdding(true)}><Plus aria-hidden="true" />{t('empty.connections.action')}</Button>} />
-      : <div className="overflow-x-auto rounded-md border border-edge-strong bg-surface">
-        <Table className="min-w-[48rem]">
+      : <div className="overflow-x-auto">
+        <Table className="min-w-[44rem] table-fixed">
           <TableCaption className="sr-only">{t('connections.listLabel')}</TableCaption>
-          <TableHeader><TableRow className="bg-raised hover:bg-raised">
-            <TableHead scope="col" className={head}>{t('connections.columns.name')}</TableHead>
-            <TableHead scope="col" className={head}>{t('connections.columns.kind')}</TableHead>
-            <TableHead scope="col" className={head}>{t('connections.columns.usedBy')}</TableHead>
-            <TableHead scope="col" className={head}>{t('connections.columns.status')}</TableHead>
-            <TableHead scope="col" className={head}><span className="sr-only">{t('connections.columns.actions')}</span></TableHead>
+          <colgroup><col /><col className="w-52" /><col className="w-32" /><col className="w-48" /><col className="w-14" /></colgroup>
+          <TableHeader><TableRow>
+            <TableHead scope="col">{t('connections.columns.name')}</TableHead>
+            <TableHead scope="col">{t('connections.columns.kind')}</TableHead>
+            <TableHead scope="col" className="text-right">{t('connections.columns.timeout')}</TableHead>
+            <TableHead scope="col">{t('connections.columns.auth')}</TableHead>
+            <TableHead scope="col"><span className="sr-only">{t('connections.columns.actions')}</span></TableHead>
           </TableRow></TableHeader>
           <TableBody>{config.connections.map(connection => {
-            const status = keyStatus(connection, credentialStatus), result = checks[connection.id], users = uses(connection.id);
-            return <TableRow key={connection.id} className="h-12 align-top">
-              <TableCell className="px-3 py-2.5 whitespace-normal">
-                <span className="block min-w-32 font-medium break-words">{connection.name}</span>
-                <span className="block text-xs text-muted-foreground">{t(`connections.providers.${connection.provider}.name`)}{connection.baseURL && <> · <span className="font-mono break-all">{connection.baseURL}</span></>}{agentOf(connection) && <> · <span className="font-mono break-all">{agentOf(connection)!.command}</span></>}</span>
-              </TableCell>
-              <TableCell className="px-3 py-2.5 text-[13px] whitespace-nowrap">{t(`connections.kinds.${kindLabelKey(connection)}.name`)}</TableCell>
-              <TableCell className="px-3 py-2.5 text-[13px] whitespace-normal">
-                {users.length
-                  ? <ul className="flex flex-wrap gap-1.5">{users.map(use => <li key={use.role}><UsePopover use={use} navigate={navigate} /></li>)}</ul>
-                  : <span className="text-muted-foreground">{t('connections.unused')}</span>}
-              </TableCell>
-              <TableCell className="min-w-36 px-3 py-2.5 text-[13px] whitespace-normal">
+            const status = keyStatus(connection, credentialStatus), result = checks[connection.id], agent = agentOf(connection);
+            return <TableRow key={connection.id}>
+              <TableCell className="truncate font-medium" title={connection.baseURL ?? agent?.command}>{connection.name}</TableCell>
+              <TableCell className="truncate text-ink-2">{t('connections.typeLine', { kind: t(`connections.kinds.${kindLabelKey(connection)}.name`), provider: t(`connections.providers.${connection.provider}.name`) })}</TableCell>
+              <TableCell className="text-right tabular-nums">{t('connections.seconds', { n: Math.round(connection.timeoutMs / 100) / 10 })}</TableCell>
+              <TableCell className="whitespace-normal">
                 {result
-                  ? <CheckStatus check={result} signIn={agentOf(connection) ? { available: !!agentOf(connection)!.signIn, onClick: () => void signIn(connection) } : undefined} />
-                  : <span className="grid gap-0.5"><span className={cn('font-medium', status === 'missing' && 'text-inspect')}>{t(`connections.status.${status}`)}</span><span className="text-xs text-muted-foreground">{t('connections.status.notChecked')}</span></span>}
+                  ? <CheckStatus check={result} signIn={agent ? { available: !!agent.signIn, onClick: () => void signIn(connection) } : undefined} />
+                  : <span className={cn(status === 'missing' ? 'text-inspect' : 'text-ink-2')}>{agent ? t('connections.status.cli') : t(`connections.status.${status}`)}</span>}
               </TableCell>
-              <TableCell className="px-3 py-2.5 text-right whitespace-nowrap"><span className="inline-flex items-center gap-1">
-                <Button variant="outline" size="sm" className="h-7" disabled={result?.state === 'running'} aria-label={t('connections.checkAria', { name: connection.name })} onClick={() => void check(connection)}><Zap aria-hidden="true" />{t('connections.check')}</Button>
+              <TableCell className="text-right">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild><Button variant="ghost" size="icon-sm" aria-label={t('connections.moreAria', { name: connection.name })}><MoreHorizontal aria-hidden="true" /></Button></DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
+                    <DropdownMenuItem disabled={result?.state === 'running'} onSelect={() => void check(connection)}><Zap aria-hidden="true" />{t('connections.checkMenu')}</DropdownMenuItem>
                     <DropdownMenuItem onSelect={() => setEditing(connection)}><Pencil aria-hidden="true" />{t('connections.edit')}</DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem variant="destructive" disabled={props.busy} onSelect={() => setDeleting(connection)}><Trash2 aria-hidden="true" />{t('connections.delete')}</DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
-              </span></TableCell>
+              </TableCell>
             </TableRow>;
           })}</TableBody>
         </Table>
@@ -144,20 +135,5 @@ export function ConnectionSettings({ navigate, ...props }: PageProps & { navigat
         <AlertDialogFooter><AlertDialogCancel>{t('connections.cancel')}</AlertDialogCancel><AlertDialogAction variant="destructive" onClick={() => deleting && remove(deleting)}>{t('connections.delete')}</AlertDialogAction></AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
-  </div>;
-}
-
-/** One role a connection plays, as a count ("계획 5개"); opening it lists the profiles (or project settings) that use it. */
-function UsePopover({ use, navigate }: { use: Use; navigate: (change: RouteChange) => void }) {
-  const { t } = useTranslation();
-  const label = t('connections.useCount', { role: t(`connections.roles.${use.role}`), count: use.names.length });
-  return <Popover>
-    <PopoverTrigger asChild><button type="button" className="rounded-md border border-edge px-2 py-0.5 text-[13px] whitespace-nowrap hover:bg-raised">{label}</button></PopoverTrigger>
-    <PopoverContent align="start" className="w-72 p-2">
-      <p className="px-1 pb-1 text-xs font-medium text-muted-foreground">{label}</p>
-      <ul className="grid max-h-64 overflow-y-auto text-[13px]">{use.names.map((name, index) => <li key={index}>
-        <Link to={name.to} navigate={navigate} className="block rounded-sm px-1 py-1 hover:bg-raised hover:underline">{name.label}</Link>
-      </li>)}</ul>
-    </PopoverContent>
-  </Popover>;
+  </section>;
 }
