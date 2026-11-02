@@ -396,6 +396,11 @@ function say(issue: Issue, value: unknown): string {
     default: return issue.message;
   }
 }
+/** Removed config fields, and the task-file setting to use instead. Shown in place of "(now: value)", which would trail the sentence. */
+const MOVED: Record<string, string> = {
+  'machine.personCheck': '"browser": { "personCheck": true }',
+  'machine.copySignIn': '"browser": { "mode": "connect", "copySignIn": true }',
+};
 /**
  * What is wrong with a config zod rejected, as one readable line per problem (the first `limit`, then "and N more"):
  * `rawstep.config.json · profiles[1].runRules.failureLimit: must be at most 100 (now: 500)`. `raw` is the parsed JSON, to show the value found there.
@@ -405,8 +410,8 @@ export function configProblems(error: { issues: readonly unknown[] }, raw: unkno
   for (const issue of (error.issues as Issue[]).flatMap(item => flatten(item))) {
     const entries = issue.code === 'unrecognized_keys' ? (issue.keys ?? []).map(key => ({ path: [...issue.path, key], text: `unknown field ${JSON.stringify(key)}` })) : [{ path: issue.path, text: say(issue, valueAt(raw, issue.path)) }];
     for (const { path, text } of entries) {
-      const value = valueAt(raw, path);
-      lines.push(`${CONFIG_FILE} · ${pathText(path) || '(top level)'}: ${text}${value === undefined ? '' : ` (now: ${shown(value)})`}`);
+      const where = pathText(path), moved = MOVED[where], value = valueAt(raw, path);
+      lines.push(`${CONFIG_FILE} · ${where || '(top level)'}: ${text}${moved ? `. It moved to each task file: ${moved} (docs/reference/task.md)` : value === undefined ? '' : ` (now: ${shown(value)})`}`);
     }
   }
   return lines.length > limit ? [...lines.slice(0, limit), `${CONFIG_FILE} · and ${lines.length - limit} more`] : lines;

@@ -606,7 +606,10 @@ describe("doctor", () => {
     expect(text(failing.stdout)).toMatch(/Browser: no chromium\. Install one/); expect(text(failing.stdout)).not.toContain("..");
     const old = output(await project(config => { (config.machine as Record<string, unknown>).personCheck = true; }));
     expect(await runCli(["doctor"], { ...old, launchBrowser: async () => {} })).toBe(1);
-    expect(text(old.stdout)).toContain('rawstep.config.json · machine.personCheck: unknown field "personCheck"');
+    expect(text(old.stdout)).toMatch(/rawstep\.config\.json · machine\.personCheck: unknown field "personCheck"\. It moved to each task file: "browser": \{ "personCheck": true \} \(docs\/reference\/task\.md\)\n/);
+    const oldSignIn = output(await project(config => { (config.machine as Record<string, unknown>).copySignIn = true; }));
+    expect(await runCli(["doctor"], { ...oldSignIn, launchBrowser: async () => {} })).toBe(1);
+    expect(text(oldSignIn.stdout)).toMatch(/machine\.copySignIn: unknown field "copySignIn"\. It moved to each task file: "browser": \{ "mode": "connect", "copySignIn": true \} \(docs\/reference\/task\.md\)\n/);
     const proxy = output(await project(config => { config.machine.proxyServer = "ftp://localhost:8080"; }));
     expect(await runCli(["doctor"], { ...proxy, launchBrowser: async () => {} })).toBe(1);
     expect(text(proxy.stdout)).toContain("machine.proxyServer: proxyServer must be a credential-free HTTP(S) or SOCKS URL");

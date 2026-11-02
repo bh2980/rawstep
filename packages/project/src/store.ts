@@ -81,8 +81,13 @@ export class ProjectStore {
   }
   validateReferences(config: ProjectConfig) {
     for (const connection of config.connections) if (connection.baseURL) modelBaseURL(connection.baseURL);
-    for (const group of [config.connections, config.tasks, config.profiles]) {
-      if (new Set(group.map(x => x.id)).size !== group.length) throw new ProjectError('duplicate-id', 'IDs must be unique.');
+    for (const [kind, ids] of [
+      ['connections', config.connections.map(item => item.id)],
+      ['tasks', config.tasks.map(item => item.id)],
+      ['profiles', config.profiles.map(item => item.id)],
+    ] as const) {
+      const twice = ids.find((id, index) => ids.indexOf(id) !== index);
+      if (twice !== undefined) throw new ProjectError('duplicate-id', `IDs must be unique: ${kind} has the ID ${JSON.stringify(twice)} more than once.`);
     }
     const known = (connectionId: string) => config.connections.some(c => c.id === connectionId);
     for (const profile of config.profiles) {
@@ -90,7 +95,8 @@ export class ProjectStore {
       resolveEnvironmentProfile(profile.page);
     }
     if (config.project.analysis.model && !known(config.project.analysis.model.connectionId)) throw new ProjectError('analysis-connection-missing', 'Post-run analysis uses a connection that does not exist.');
-    if (new Set(config.tasks.map(t => t.file)).size !== config.tasks.length) throw new ProjectError('duplicate-task-file', 'Task file paths must be unique.');
+    const fileTwice = config.tasks.map(t => t.file).find((file, i, files) => files.indexOf(file) !== i);
+    if (fileTwice !== undefined) throw new ProjectError('duplicate-task-file', `Task file paths must be unique: ${JSON.stringify(fileTwice)} is used by more than one task.`);
     const byId = new Map(config.tasks.map(t => [t.id, t]));
     for (const task of config.tasks) if (task.variantOf !== undefined) {
       const base = byId.get(task.variantOf);
