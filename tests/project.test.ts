@@ -308,6 +308,18 @@ describe('connection schema', () => {
     expect(credentialId(preset)).toBe('provider:anthropic'); expect(credentialId(custom)).toBe('connection:c');
     expect(parse({ provider: 'google' }).connections[0]).toMatchObject({ timeoutMs: expect.any(Number) });
   });
+  it('gives a coding-agent CLI connection without timeoutMs a longer call limit than an API, and keeps an explicit one', () => {
+    for (const provider of ['openai', 'anthropic', 'google', 'openrouter'] as const) expect(parse({ provider }).connections[0]!.timeoutMs).toBe(60_000);
+    expect(parse({ provider: 'custom', baseURL: 'http://127.0.0.1:9/v1' }).connections[0]!.timeoutMs).toBe(60_000);
+    for (const provider of ['claudeCode', 'codex', 'opencode', 'grok', 'antigravity'] as const) expect(parse({ provider }).connections[0]!.timeoutMs).toBe(180_000);
+    expect(parse({ provider: 'grok', timeoutMs: 30_000 }).connections[0]!.timeoutMs).toBe(30_000);
+    expect(parse({ provider: 'google', timeoutMs: 180_000 }).connections[0]!.timeoutMs).toBe(180_000);
+    expect(parse({ provider: 'grok', timeoutMs: 100 }).connections[0]!.timeoutMs).toBe(100);
+    expect(parse({ provider: 'grok', timeoutMs: 600_000 }).connections[0]!.timeoutMs).toBe(600_000);
+    expect(() => parse({ provider: 'grok', timeoutMs: 50 })).toThrow();
+    expect(() => parse({ provider: 'openai', timeoutMs: 600_001 })).toThrow();
+    expect(() => parse({ provider: 'grok', timeoutMs: 1.5 })).toThrow();
+  });
   it('keeps the address and key variable with custom connections, and knows only LLM providers', () => {
     expect(() => parse({ provider: 'openai' })).not.toThrow();
     for (const provider of ['typesafe', 'gateway']) expect(() => parse({ provider })).toThrow();

@@ -589,6 +589,30 @@ describe("doctor", () => {
     expect(out).toContain("FAIL  Claude Code: Claude Code needs a sign-in. Run `claude` once and sign in there");
     expect(out).not.toContain("dashboard connection check");
   });
+  it("fails a model ID that a coding-agent CLI does not offer, and lists what it does offer", async () => {
+    const ids = Array.from({ length: 13 }, (_, i) => `m${i}`);
+    const directory = await project(config => {
+      config.connections.push({ id: "gk", name: "Grok Build", provider: "grok", timeoutMs: 180000 });
+      config.profiles.push(
+        { ...config.profiles[0]!, id: "good", name: "Good", planner: { connectionId: "gk", modelId: "m12", instructions: "" } },
+        { ...config.profiles[0]!, id: "typo", name: "Typo", planner: { connectionId: "gk", modelId: "grok-nonexistent-9", instructions: "" } },
+        { ...config.profiles[0]!, id: "own", name: "Own", planner: { connectionId: "gk", modelId: "default", instructions: "" } },
+      );
+      config.project.analysis.model = { connectionId: "gk", modelId: "also-missing" };
+      config.project.suggestions.model = { connectionId: "gk", modelId: "m0" };
+    });
+    const io = output(directory);
+    // `default` is not in the agent's list: it still must not fail, because it keeps the agent's own choice.
+    const checkAgent = async () => ids.map(modelId => ({ modelId, name: modelId }));
+    expect(await runCli(["doctor"], { ...io, launchBrowser: async () => {}, checkAgent })).toBe(1);
+    const out = text(io.stdout);
+    const offered = `${ids.slice(0, 12).join(", ")}, and 1 more`;
+    expect(out).toContain("ok    Grok Build: starts and lists its models");
+    expect(out).toContain(`FAIL  Model grok-nonexistent-9: Grok Build does not offer this model for your sign-in. It offers: ${offered}`);
+    expect(out).toContain(`FAIL  Model also-missing: Grok Build does not offer this model for your sign-in. It offers: ${offered}`);
+    expect(out).toContain("(`default` keeps the agent's own choice)");
+    expect(out).not.toContain("Model m12:"); expect(out).not.toContain("Model m0:"); expect(out).not.toContain("Model default:");
+  });
   it("says which tasks need a Chrome you started yourself, ends a browser failure with exactly one period, and explains an invalid machine setting", async () => {
     const connecting = async (endpoint: string) => {
       const directory = await project(config => { config.machine.browserEndpoint = endpoint; config.tasks.push({ id: "shop", name: "Shop", file: "shop.json" }); });

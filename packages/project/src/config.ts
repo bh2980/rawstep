@@ -78,6 +78,8 @@ export const providerKeyEnv = (provider: ProviderId): string | undefined => (PRO
 /** Preset providers with a key. */
 export const KEYED_PROVIDERS: readonly { provider: ProviderId; label: string; keyEnv: string; keyEnvAliases: readonly string[] }[] =
   providersOf().filter(p => p.preset.keyEnv).map(p => ({ provider: p.id, label: p.preset.label, keyEnv: p.preset.keyEnv!, keyEnvAliases: p.preset.keyEnvAliases ?? [] }));
+/** The call time limit a connection gets when it names none: a coding-agent CLI answers slower than an API. */
+const connectionTimeoutMs = (provider: ProviderId): number => providerPreset({ provider }).agent ? RAWSTEP_DEFAULTS.agentModelTimeoutMs : RAWSTEP_DEFAULTS.modelTimeoutMs;
 /**
  * Where language models are reached: a provider preset (fixed address and key variable), a coding-agent CLI or a custom
  * OpenAI-compatible server. A connection holds no model: the planner, analysis and suggestions pick the model ID on a connection.
@@ -88,12 +90,13 @@ export const connectionSchema = z.object({
   baseURL: z.url().optional(),
   /** Only for `custom`: the environment variable that holds its key, if it needs one. */
   apiKeyEnv: envName.optional(),
-  timeoutMs: z.number().int().min(100).max(600000).default(RAWSTEP_DEFAULTS.modelTimeoutMs),
+  /** Time limit for one model call. Left out: 60 s, or 180 s for a coding-agent CLI, whose turns are slower (`connectionTimeoutMs`). */
+  timeoutMs: z.number().int().min(100).max(600000).optional(),
 }).strict().superRefine((connection, ctx) => {
   const issue = (path: string, message: string) => ctx.addIssue({ code: 'custom', path: [path], message });
   if (connection.provider === 'custom' ? !connection.baseURL : connection.baseURL !== undefined) issue('baseURL', 'Only custom connections have a baseURL, and they need one.');
   if (connection.provider !== 'custom' && connection.apiKeyEnv !== undefined) issue('apiKeyEnv', 'Only custom connections name their own key variable.');
-});
+}).transform(connection => ({ ...connection, timeoutMs: connection.timeoutMs ?? connectionTimeoutMs(connection.provider) }));
 export type Connection = z.infer<typeof connectionSchema>;
 /** An LLM on a connection (planner, analysis or check suggestions). */
 export const analysisChoiceSchema = z.object({ connectionId: id, modelId: text, reasoningEffort }).strict();
