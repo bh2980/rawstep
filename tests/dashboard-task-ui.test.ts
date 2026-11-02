@@ -5,6 +5,7 @@ import { i18n } from '../packages/dashboard/src/web/i18n/index.js';
 import { describeFinding, firstOccurrence, stepRange } from '../packages/dashboard/src/web/lib/findings.js';
 import { eventsByStep } from '../packages/dashboard/src/web/lib/rawEvents.js';
 import { taskRunNumbers, type RunRef } from '../packages/dashboard/src/web/lib/runs.js';
+import { profileMovesPlaceholder } from '../packages/dashboard/src/web/lib/taskList.js';
 import { inputFields, inputProblems, taskInputOptions, taskInputs } from '../packages/dashboard/src/web/lib/taskInputs.js';
 import { defaultStep, dotKind, dotLabel } from '../packages/dashboard/src/web/lib/stepDots.js';
 
@@ -110,6 +111,43 @@ describe('run numbers and the fastest run', () => {
   ];
   it('numbers one task\'s runs from the oldest', () => {
     expect([...taskRunNumbers(runs, 't')]).toEqual([['a', 1], ['b', 2], ['c', 3], ['d', 4]]);
+  });
+});
+
+describe('moves per profile on the task list', () => {
+  const say = (byProfile: readonly unknown[], lastRunAt: string | null, listed: boolean) => {
+    const key = profileMovesPlaceholder({ byProfile, lastRunAt, listed });
+    return key ? i18n.t(`taskList.${key}`) : undefined;
+  };
+
+  it('says not run yet only when the task has no runs', async () => {
+    await i18n.changeLanguage('en');
+    try {
+      expect(say([], null, false)).toBe('Not run yet');
+      // A latest batch whose only run ended on an error: lastRunAt is set, byProfile is empty.
+      expect(say([], '2026-04-02T00:00:00.000Z', false)).toBe('No measured run in the latest batch');
+      // A finished run can already be in the list before the summary row arrives.
+      expect(say([], null, true)).toBe('No measured run in the latest batch');
+      expect(say([{ profileId: 'default' }], '2026-04-02T00:00:00.000Z', true)).toBeUndefined();
+      expect(i18n.t('taskList.noMeasuredWhy')).toBe('Runs that ended on an error are not counted.');
+    } finally {
+      await i18n.changeLanguage('ko');
+    }
+    expect(say([], null, false)).toBe('아직 실행 안 함');
+    expect(say([], '2026-04-02T00:00:00.000Z', true)).toBe('최근 묶음에 측정된 실행 없음');
+    expect(i18n.t('taskList.noMeasuredWhy')).toBe('오류로 끝난 실행은 세지 않습니다.');
+  });
+
+  it('says not run yet when the only run is still live or queued', async () => {
+    // The task list sets listed from finished runs only, so a first run that is queued or running stays neverRun.
+    await i18n.changeLanguage('en');
+    try {
+      expect(profileMovesPlaceholder({ byProfile: [], lastRunAt: null, listed: false })).toBe('neverRun');
+      expect(say([], null, false)).toBe('Not run yet');
+    } finally {
+      await i18n.changeLanguage('ko');
+    }
+    expect(say([], null, false)).toBe('아직 실행 안 함');
   });
 });
 

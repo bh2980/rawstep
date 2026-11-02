@@ -51,6 +51,8 @@ export const shell = {
     runNone: '실행할 작업을 고르세요',
     clearPicked: '고르기 해제',
     neverRun: '아직 실행 안 함',
+    noMeasured: '최근 묶음에 측정된 실행 없음',
+    noMeasuredWhy: '오류로 끝난 실행은 세지 않습니다.',
     noFinding: '없음',
     findingCount: '{{count}}곳',
     noMatch: '조건에 맞는 작업이 없습니다.',
