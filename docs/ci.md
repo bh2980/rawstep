@@ -14,7 +14,7 @@ So compare repeats with repeats:
 - Run the pull request with the same `--repeat`.
 - Rawstep calls a difference **noise** when the spread between repeats explains it (the rules are [below](#what-noise-means)). It reports and gates only what changed beyond noise.
 
-With a single run on either side, Rawstep cannot judge reach or moves and says `too few runs on a side to tell`. Use at least `--repeat 2`; `--repeat 3` is a good start.
+With a single run on either side, Rawstep cannot judge reach or moves and says so for that cell, for example `reach and moves not compared: the baseline has 1 measured run of 1 and the new batch has 1 measured run of 1; repeat at least 2`. Use at least `--repeat 2`; `--repeat 3` is a good start.
 
 More repeats mean more planner calls and more time. Keep the suite to the tasks you care about (`--tag`).
 
@@ -71,7 +71,7 @@ Each task under each profile is a **cell**. For each cell Rawstep compares three
 | Moves | Both sides have at least 2 runs that reached the goal | The median moves of the pull request is outside the baseline's range, widened by a margin (below). |
 | Stuck places | Always | A place where pressing did not respond as the user expected appears in at least half of the runs now and in none of the baseline's runs (or the reverse). |
 
-The reached share counts only runs that said something about the user: they reached the goal, gave up, or said they were done when they were not. A run that ended on an error says nothing about the page, and a run that was not measured says nothing about the user, so both are left out. A side with fewer than two such runs is "too few runs to tell".
+The reached share counts only runs that said something about the user: they reached the goal, gave up, or said they were done when they were not. A run that ended on an error says nothing about the page, and a run that was not measured says nothing about the user, so both are left out. A side with fewer than two such runs is not compared, and the cell says which side and how many of its runs were measured, even when the cell also has changes. When a gate in `--fail-on` could not check a cell, the output ends with `Not compared for <n> task·profile pair(s): the gate could not check them.` This does not fail the job: check those cells before you trust a green run.
 
 A cell that is only in the pull request's batch is `new` and one that is only in the baseline is `missing`. A rise in reach, fewer moves and a stuck place that is gone are reported but are never caught by a gate.
 
@@ -123,7 +123,7 @@ These are the exit codes of `run`, `suite` and `compare` (the full list is in th
 
 When both a gate and a run that broke apply, the code is 1. When a gate and a not-measured run apply, it is 4.
 
-**Treating 3.** A run that was not measured says nothing about the user, so it is left out of the comparison. Many of them leave few runs to compare, and the comparison then says "too few runs to tell" instead of hiding or inventing a change. You can:
+**Treating 3.** A run that was not measured says nothing about the user, so it is left out of the comparison. Many of them leave few runs to compare, and the comparison then says those cells were not compared (`the baseline has 0 measured runs of 2 (2 not measured)`) instead of hiding or inventing a change. You can:
 
 - Accept it with a warning (the workflow below does this). The job passes and the summary still shows the numbers.
 - Fail on it, so that nobody merges on a batch that was partly unmeasured. Raise the limits or switch the model if it keeps happening.
@@ -237,7 +237,7 @@ Until Rawstep is on npm, `npm ci` needs it installed from the tarball described 
 
 ## The JUnit file
 
-`--junit <file>` writes one test case per task and profile, in one test suite named `rawstep`. The case name is `<task> · <profile>`, and its output is the result in a few words, for example `reached 2 of 3 · median 14 moves (12–16)`.
+`--junit <file>` writes one test case per task and profile, in one test suite named `rawstep`. The case name is `<task> · <profile>`, and its output is the result in a few words, for example `reached 2 of 3 · median 14 moves (12–16)`, followed by the not-compared line when reach or moves could not be compared against the baseline.
 
 | Case is | When |
 | --- | --- |

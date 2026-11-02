@@ -166,6 +166,39 @@ export function gatedChanges(comparison: SummaryComparison, gates: readonly stri
   return comparison.changes.filter(change => kinds.has(change.kind));
 }
 
+/**
+ * Why a cell's reach or moves was not compared, or nothing when both were: "reach and moves not compared: the baseline has 0 measured
+ * runs of 2 (2 not measured)". Measured runs are the ones `compareSummaries` counts; few repeats add the hint to repeat more.
+ */
+export function notComparedText(cell: CellComparison, rules: Partial<NoiseRules> = {}): string | undefined {
+  const { minRuns } = { ...DEFAULT_NOISE, ...rules }, reach = cell.reach === 'too-few-runs', moves = cell.moves === 'too-few-runs';
+  if (!cell.base || !cell.head || (!reach && !moves)) return undefined;
+  const sides = [['the baseline', cell.base], ['the new batch', cell.head]] as const;
+  if (reach) {
+    const short = sides.filter(([, c]) => counted(c) < minRuns);
+    const why = short.map(([side, c]) => {
+      const left = [c.endings.unmeasured ? `${c.endings.unmeasured} not measured` : '', c.endings.error ? `${c.endings.error} ended on an error` : ''].filter(Boolean);
+      return `${side} has ${counted(c)} measured run${counted(c) === 1 ? '' : 's'} of ${c.runs}${left.length ? ` (${left.join(', ')})` : ''}`;
+    });
+    return `reach${moves ? ' and moves' : ''} not compared: ${why.join(' and ')}${short.some(([, c]) => c.runs < minRuns) ? `; repeat at least ${minRuns}` : ''}`;
+  }
+  const short = sides.filter(([, c]) => c.reachedMoves.length < 2);
+  return `moves not compared: ${short.map(([side, c]) => `${side} reached the goal in ${c.reachedMoves.length} of ${counted(c)} measured runs`).join(' and ')} (2 needed)`;
+}
+/** The cells a gate in `gates` could not check: too few measured runs for the reach or moves it looks at. Never a failure by itself. */
+export function uncheckedCells(comparison: SummaryComparison, gates: readonly string[]): CellComparison[] {
+  return comparison.cells.filter(cell => (gates.includes('reach') && cell.reach === 'too-few-runs') || (gates.includes('moves') && cell.moves === 'too-few-runs'));
+}
+/** "Not compared for 2 task·profile pairs: the gate could not check them.", or nothing when every gated cell was compared. */
+export function uncheckedText(comparison: SummaryComparison, gates: readonly string[]): string | undefined {
+  const n = uncheckedCells(comparison, gates).length;
+  return n ? `Not compared for ${n} task·profile pair${n > 1 ? 's' : ''}: the gate could not check them.` : undefined;
+}
+/** What a compared cell says besides its changes: "no change beyond noise" when nothing changed and reach was judged, and what was not compared. */
+export function cellNotes(cell: CellComparison): string[] {
+  return [!cell.changes.length && cell.reach !== 'too-few-runs' ? 'no change beyond noise' : undefined, notComparedText(cell)].filter((note): note is string => !!note);
+}
+
 const xml = (text: string) => text.replace(/[<>&"']/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&apos;' })[c]!);
 const md = (text: string) => text.replace(/[|\\]/g, c => `\\${c}`).replace(/\n/g, ' ');
 /** "2 of 3 reached · median 14 moves (12–16)": a cell in a few words. */
@@ -184,13 +217,14 @@ export function summaryMarkdown(summary: BatchSummary, comparison?: SummaryCompa
   lines.push('| Task | Profile | Result | Against the baseline |', '| --- | --- | --- | --- |');
   for (const cell of summary.cells) {
     const compared = comparison?.cells.find(c => c.taskId === cell.taskId && c.profileId === cell.profileId);
-    const against = !comparison ? '' : !compared ? '' : compared.changes.length ? compared.changes.map(change => `${caught.has(change) ? '**' : ''}${md(change.text)}${caught.has(change) ? '**' : ''}`).join('<br>')
-      : compared.reach === 'too-few-runs' ? 'too few runs to tell' : 'no change beyond noise';
+    const against = !comparison || !compared ? '' : [...compared.changes.map(change => `${caught.has(change) ? '**' : ''}${md(change.text)}${caught.has(change) ? '**' : ''}`), ...cellNotes(compared).map(md)].join('<br>');
     lines.push(`| ${md(cell.taskName)} | ${md(cell.profileName)} | ${md(cellText(cell))} | ${against} |`);
   }
   for (const gone of comparison?.cells.filter(c => !c.head) ?? []) lines.push(`| ${md(gone.taskName)} | ${md(gone.profileName)} | not run | ${caught.size && gone.changes.some(c => caught.has(c)) ? '**in the baseline, not run now**' : 'in the baseline, not run now'} |`);
   lines.push('');
   if (comparison) lines.push(caught.size ? `${caught.size} change${caught.size > 1 ? 's' : ''} caught by --fail-on ${gates.join(',')} (in bold).` : `Nothing caught by --fail-on ${gates.join(',') || '(none)'}.`);
+  const unchecked = comparison && uncheckedText(comparison, gates);
+  if (unchecked) lines.push(unchecked);
   lines.push('Rawstep reports friction, not pass or fail: differences within the spread between repeats are noise.');
   return lines.join('\n') + '\n';
 }
@@ -202,7 +236,8 @@ export function junitXml(summary: BatchSummary, comparison?: SummaryComparison, 
   const caught = comparison ? gatedChanges(comparison, gates) : [];
   const cases = summary.cells.map(cell => {
     const mine = caught.filter(change => change.taskId === cell.taskId && change.profileId === cell.profileId);
-    const name = `${xml(cell.taskName)} · ${xml(cell.profileName)}`, out = `<system-out>${xml(cellText(cell))}</system-out>`;
+    const compared = comparison?.cells.find(c => c.taskId === cell.taskId && c.profileId === cell.profileId), skipped = compared && notComparedText(compared);
+    const name = `${xml(cell.taskName)} · ${xml(cell.profileName)}`, out = `<system-out>${xml(cellText(cell) + (skipped ? ` · ${skipped}` : ''))}</system-out>`;
     if (mine.length) return `    <testcase classname="rawstep" name="${name}"><failure message="${xml(mine.map(c => c.text).join(' '))}"/>${out}</testcase>`;
     if (cell.endings.error) return `    <testcase classname="rawstep" name="${name}"><error message="${cell.endings.error} run(s) ended on an error (says nothing about the page)"/>${out}</testcase>`;
     if (!counted(cell)) return `    <testcase classname="rawstep" name="${name}"><skipped message="not measured"/>${out}</testcase>`;

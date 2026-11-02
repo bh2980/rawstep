@@ -295,11 +295,11 @@ Against the baseline (baseline):
 1 change caught by --fail-on reach (marked !).
 ```
 
-A line with `!` was caught by a gate and one with `·` was not. A cell with fewer than 2 runs on a side says `too few runs on a side to tell (repeat at least 2)`. The profile name follows the task name when the batch used more than one profile. What counts as noise, with worked numbers, is in [Using Rawstep in CI](../ci.md#what-is-compared).
+A line with `!` was caught by a gate and one with `·` was not. When a cell's reach or moves could not be compared, the cell gets a line that says so and why, also next to its changes: for example `Signup: reach and moves not compared: the baseline has 0 measured runs of 2 (2 not measured)`. Reach needs 2 measured runs a side (reached, gave up or said done; not measured and broken runs do not count) and moves needs 2 runs a side that reached the goal. When the side simply ran fewer than 2 times, the line ends with `; repeat at least 2`. If a gate in `--fail-on` could not check some cells this way, a last line says `Not compared for <n> task·profile pair(s): the gate could not check them.` The exit code does not change: a gate fails only on a change it caught. The profile name follows the task name when the batch used more than one profile. What counts as noise, with worked numbers, is in [Using Rawstep in CI](../ci.md#what-is-compared).
 
 With `--json`, the object has the result plus `comparison`. `--save-summary`, `--junit` and the job summary below work with or without `--baseline`.
 
-On GitHub Actions, when `GITHUB_STEP_SUMMARY` is set, Rawstep appends a Markdown table to it: one row per task and profile with the result and the change against the baseline, with caught changes in bold. Nothing needs to be turned on.
+On GitHub Actions, when `GITHUB_STEP_SUMMARY` is set, Rawstep appends a Markdown table to it: one row per task and profile with the result and the change against the baseline, with caught changes in bold, and the same not-compared line and gate line as the text. Nothing needs to be turned on.
 
 The JUnit file has one test case per task and profile, in a suite named `rawstep`. A case fails when a gate caught a change in it, errors when a run in it ended on an error, and is skipped when nothing was measured. See [the JUnit file](../ci.md#the-junit-file).
 
