@@ -347,6 +347,8 @@ observed: recorded directly · suspected: inferred from indirect signals, may be
 Wrote <path>/hints.json
 ```
 
+When a run was not measured (ended unmeasured, on an error, or aborted), a line right after the header warns that its hints say nothing about the page (for example, `This run was not measured (the planner did not answer in time), so its hints say nothing about the page.`). `--reference` warns similarly if the reference run was not measured.
+
 With `--reference`, the hint lines are sorted into what the other run differs in: `Against the reference run: <a> new, <b> gone, <c> in both`, then `New in this run:`, `Only in the reference run:` (steps are the reference run's) and `In both:` (with how many times each run had it). Hints are matched by kind and element. This says what differs, not which run is better.
 
 Hint kinds and sources are in the [results reference](./results.md#hint-kinds). Exit code 0.
