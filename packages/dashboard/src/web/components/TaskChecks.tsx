@@ -3,7 +3,7 @@ import type { VerifyRule } from '@rawstep/core/contracts';
 import type { ConfigView } from '../../shared/config';
 import { CheckEditor } from './CheckEditor';
 import { CheckSuggestions } from './CheckSuggestions';
-import { SectionHead } from './layout/PageHeader';
+import { SectionHead } from './PageHeader';
 
 type Props = { rules: VerifyRule[]; onRules: (rules: VerifyRule[]) => void; url: string; goal: string; view: ConfigView };
 
@@ -11,7 +11,7 @@ type Props = { rules: VerifyRule[]; onRules: (rules: VerifyRule[]) => void; url:
 export function TaskChecks({ rules, onRules, url, goal, view }: Props) {
   const { t } = useTranslation();
   return <section aria-labelledby="task-checks" className="grid max-w-3xl min-w-0 gap-3">
-    <SectionHead id="task-checks" title={t('taskPage.checksTitle')} info={t('help.check')} />
+    <SectionHead id="task-checks" title={t('taskPage.checksTitle')} /><p className="-mt-1 mb-1 text-sm text-ink-2">{t('help.check')}</p>
     <CheckEditor rules={rules} onChange={onRules} url={url} keepOne />
     <CheckSuggestions view={view} url={url} goal={goal} onAdd={rule => onRules([...rules, rule])} />
   </section>;

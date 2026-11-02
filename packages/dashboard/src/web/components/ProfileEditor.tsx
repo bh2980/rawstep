@@ -1,26 +1,23 @@
-import { useId, useState, type ReactNode } from 'react';
+import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { isFilePlanner, runRulesSchema, type Combo, type Profile, type RunRules } from '@rawstep/project/config';
+import { defaultProfile, isFilePlanner, runRulesSchema, type Combo, type Profile, type RunRules } from '@rawstep/project/config';
 import type { ConfigView } from '../../shared/config';
 import { t as translate } from '../i18n';
-import { environmentViewport } from '../lib/conditions';
-import { personaName, personaOf, PRESETS, withPreset } from '../lib/persona';
-import { cn } from '../lib/utils';
+import { sameValue } from '../lib/conditions';
+import { personaOf, PRESETS, withPreset } from '../lib/persona';
 import { ActionSetEditor } from './conditions/ActionSetEditor';
-import { AtEnvironmentEditor } from './conditions/AtEnvironmentEditor';
+import { AtEnvironmentDetails, BackendSelect } from './conditions/AtEnvironmentEditor';
 import { ComboEditor } from './conditions/ComboEditor';
-import { PageEnvironmentEditor } from './conditions/PageEnvironmentEditor';
-import { RunRulesEditor, ruleValueLabel } from './conditions/RunRulesEditor';
+import { PageEnvironmentSelect } from './conditions/PageEnvironmentEditor';
+import { RunRulesEditor } from './conditions/RunRulesEditor';
+import { Fold, RadioList, Sheet, SheetRow } from './conditions/Sheet';
+import { EnvironmentFields } from './EnvironmentFields';
 
 /** The fields of a full set of rules that differ from Rawstep's defaults, so a field never changed reads as inherited. */
 export function changedRules(rules: RunRules): Partial<RunRules> {
   const defaults = runRulesSchema.parse({});
   return Object.fromEntries(Object.entries(rules).filter(([key, value]) => defaults[key as keyof RunRules] !== value)) as Partial<RunRules>;
 }
-
-/** The four questions a profile answers, in the order a person thinks of them. */
-export type Question = 'who' | 'ai' | 'where' | 'stop';
-const QUESTIONS: Question[] = ['who', 'ai', 'where', 'stop'];
 
 /** Who thinks in a run, in one sentence: the planner plans, Rawstep carries the plan out. */
 export function aiSummary(profile: Pick<Combo, 'planner'>): string {
@@ -29,99 +26,64 @@ export function aiSummary(profile: Pick<Combo, 'planner'>): string {
   return translate('profile.questions.aiPlanned', { planner });
 }
 
-/** The stop rules worth a glance: whether headings are surveyed first, the grace after an unheard success, and every rule changed from Rawstep's defaults. */
-export function stopSummary(profile: Pick<Profile, 'runRules' | 'actions'>): { text: string; changed: boolean }[] {
-  const rules = profile.runRules, defaults = runRulesSchema.parse({});
-  const surveys = rules.survey === 'headings' && profile.actions.intents.includes('headings.list');
-  const parts: { text: string; changed: boolean }[] = [];
-  if (surveys) parts.push({ text: translate('profile.questions.stopSurvey'), changed: false });
-  if (rules.confirmationGrace > 0) parts.push({ text: translate('profile.questions.stopGrace', { n: rules.confirmationGrace, count: rules.confirmationGrace }), changed: rules.confirmationGrace !== defaults.confirmationGrace });
-  for (const [key, value] of Object.entries(changedRules(rules)) as [keyof RunRules, RunRules[keyof RunRules]][]) {
-    if (key === 'confirmationGrace' || key === 'survey') continue;
-    parts.push({ text: translate('profile.questions.stopChanged', { label: translate(`conditions.runRules.fields.${key}.label`), value: ruleValueLabel(key, value), base: ruleValueLabel(key, defaults[key]) }), changed: true });
-  }
-  return parts.length ? parts : [{ text: translate('profile.questions.stopDefaults'), changed: false }];
+/** How many of a profile's settings differ from a new profile's: each changed run rule, the page, the screen reader, the actions. */
+export function changedSettingCount(profile: Profile): number {
+  const base = defaultProfile(profile.id, profile.name);
+  return Object.keys(changedRules(profile.runRules)).length + [
+    !sameValue(profile.page, base.page), profile.screenReader !== base.screenReader, personaOf(profile) !== personaOf(base) || profile.actions.typeText !== base.actions.typeText || profile.actions.replaceText !== base.actions.replaceText,
+  ].filter(Boolean).length;
 }
 
 type Props = {
   profile: Profile; onChange: (profile: Profile) => void; view: ConfigView;
   /** Input names of the task the profile is edited for, so typing into them can be allowed. */
   inputNames?: readonly string[];
-  /** The question open at first: the first one when unset. */
-  open?: Question;
 };
 
 /**
- * A run profile as four questions — who is using the page, which AI thinks, where it is heard, when a run stops. The four sit side by
- * side as tabs that each say the current answer; the chosen one opens below in a box of its own. Nothing is hidden: every setting of
- * the profile is under one of the four.
+ * A run profile as four sheet rows, the questions a person asks about a screen reader user: 어떻게 찾나요 (radio rows), 어떤 AI가
+ * 생각하나요 (the planner on one line), 어디서 듣나요 (screen reader and page), 언제 멈추나요 (only the rules changed from the
+ * defaults). What is rarely changed folds under its row, so every setting of the profile stays reachable.
  */
-export function ProfileEditor({ profile, onChange, view, inputNames, open: initiallyOpen = 'who' }: Props) {
+export function ProfileEditor({ profile, onChange, view, inputNames }: Props) {
   const { t } = useTranslation();
   const id = useId();
-  const [open, setOpen] = useState<Question>(initiallyOpen);
   // "직접 고름" stays picked after a person chooses it, even while the actions still equal a starting point; a new profile starts over.
   const [customFor, setCustomFor] = useState<string>();
   const persona = customFor === profile.id ? 'custom' : personaOf(profile);
   const combo: Combo = { id: profile.id, name: profile.name, ...(profile.planner ? { planner: profile.planner } : {}) };
   const setCombo = ({ planner }: Combo) => { const { planner: _planner, ...rest } = profile; onChange({ ...rest, ...(planner ? { planner } : {}) }); };
-  const { width, height } = environmentViewport(profile.page, view.environmentPresets);
-  const stops = stopSummary(profile);
-  const summaries: Record<Question, ReactNode> = {
-    who: personaName(persona),
-    ai: aiSummary(profile),
-    where: t('profile.questions.whereScreenReader', { backend: t(`conditions.backends.${profile.screenReader}`), width, height }),
-    stop: stops.map((part, index) => <span key={part.text}>{index > 0 && ' · '}<span className={part.changed ? 'text-trace' : undefined}>{part.text}</span></span>),
-  };
-  const bodies: Record<Question, ReactNode> = {
-    who: <div className="grid gap-4">
-      <div className="grid gap-1.5">
-        <Segments label={t('persona.presetLabel')} value={persona}
-          onChange={preset => { if (preset === 'custom') { setCustomFor(profile.id); return; } setCustomFor(undefined); onChange(withPreset(profile, preset)); }}
-          items={[...PRESETS.map(preset => ({ id: preset, name: t(`persona.${preset}.preset`) })), { id: 'custom' as const, name: t('persona.custom.preset') }]} />
-        <p className="text-[13px] leading-5 text-muted-foreground">{t(`persona.${persona}.hint`)}</p>
+  const label = (question: string) => `${id}-${question}`;
+  return <Sheet>
+    <SheetRow label={t('profile.questions.who')} labelId={label('who')}>
+      <RadioList labelledBy={label('who')} value={persona}
+        onChange={preset => { if (preset === 'custom') { setCustomFor(profile.id); return; } setCustomFor(undefined); onChange(withPreset(profile, preset)); }}
+        rows={[...PRESETS, 'custom' as const].map(preset => ({ id: preset, label: t(`persona.${preset}.preset`), hint: t(`persona.${preset}.hint`) }))} />
+      <Fold key={persona === 'custom' ? 'custom' : 'preset'} defaultOpen={persona === 'custom'} label={t('profile.questions.whoActions')} className="mt-1">
+        <ActionSetEditor value={profile.actions} onChange={actions => onChange({ ...profile, actions })}
+          capabilities={view.capabilities} {...(inputNames ? { inputNames } : {})} backend={profile.screenReader} />
+      </Fold>
+    </SheetRow>
+    <SheetRow label={t('profile.questions.ai')} labelId={label('ai')}>
+      <ComboEditor combo={combo} onChange={setCombo} connections={view.config.connections} tasks={view.config.tasks} labelledBy={label('ai')} />
+    </SheetRow>
+    <SheetRow label={t('profile.questions.where')} labelId={label('where')}>
+      <div role="group" aria-labelledby={label('where')} className="grid gap-1">
+        <div className="flex flex-wrap gap-2">
+          <BackendSelect value={profile.screenReader} onChange={screenReader => onChange({ ...profile, screenReader })} />
+          <PageEnvironmentSelect id={profile.id} value={profile.page} presets={view.environmentPresets} onChange={page => onChange({ ...profile, page })} />
+        </div>
+        <Fold label={t('profile.questions.whereMore')}>
+          <AtEnvironmentDetails backend={profile.screenReader} capabilities={view.capabilities} />
+          <EnvironmentFields hidePreset key={profile.id} value={profile.page} onChange={page => onChange({ ...profile, page })} presets={view.environmentPresets} id={profile.id} />
+        </Fold>
       </div>
-      <ActionSetEditor value={profile.actions} onChange={actions => onChange({ ...profile, actions })}
-        capabilities={view.capabilities} {...(inputNames ? { inputNames } : {})} backend={profile.screenReader} compact />
-    </div>,
-    ai: <ComboEditor combo={combo} onChange={setCombo} connections={view.config.connections} compact tasks={view.config.tasks} />,
-    where: <div className="grid gap-6">
-      <AtEnvironmentEditor environment={{ id: profile.id, name: profile.name, backend: profile.screenReader }} onChange={environment => onChange({ ...profile, screenReader: environment.backend })} capabilities={view.capabilities} compact />
-      <PageEnvironmentEditor environment={{ id: profile.id, name: profile.name, profile: profile.page }} onChange={environment => onChange({ ...profile, page: environment.profile })} presets={view.environmentPresets} compact />
-    </div>,
-    stop: <RunRulesEditor compact value={changedRules(profile.runRules)} inherited={runRulesSchema.parse({})}
-      onChange={rules => onChange({ ...profile, runRules: { ...runRulesSchema.parse({}), ...rules } })} />,
-  };
-  return <div className="grid min-w-0 gap-3">
-    <div role="tablist" aria-label={t('profile.questions.label')} className="grid gap-2 sm:grid-cols-2"
-      onKeyDown={event => {
-        const step = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
-        if (!step) return;
-        const next = QUESTIONS[(QUESTIONS.indexOf(open) + step + QUESTIONS.length) % QUESTIONS.length]!;
-        setOpen(next); document.getElementById(`${id}-tab-${next}`)?.focus();
-      }}>
-      {QUESTIONS.map(question => <button key={question} id={`${id}-tab-${question}`} type="button" role="tab" aria-selected={open === question} aria-controls={`${id}-panel`}
-        tabIndex={open === question ? 0 : -1} onClick={() => setOpen(question)}
-        className={cn('grid content-start gap-1 rounded-md border px-3 py-2.5 text-left', open === question ? 'border-trace bg-trace-soft' : 'border-edge hover:border-edge-strong hover:bg-raised')}>
-        <span className={cn('text-[13px] font-semibold', open === question && 'text-trace')}>{t(`profile.questions.${question}`)}</span>
-        <span className="text-xs leading-5 text-muted-foreground">{summaries[question]}</span>
-      </button>)}
-    </div>
-    <section id={`${id}-panel`} role="tabpanel" aria-labelledby={`${id}-tab-${open}`} className="min-w-0 rounded-md border border-edge-strong px-4 py-4">
-      {bodies[open]}
-    </section>
-  </div>;
-}
-
-/** A row of choices, the picked one marked, as small chips after a visible label; a radio group for screen readers. */
-function Segments<T extends string>({ label, value, onChange, items }: { label: string; value: T; onChange: (value: T) => void; items: { id: T; name: string }[] }) {
-  return <div className="flex flex-wrap items-center gap-2">
-    <span aria-hidden="true" className="text-[13px] text-muted-foreground">{label}</span>
-    <div role="radiogroup" aria-label={label} className="flex flex-wrap gap-1.5">
-      {items.map(item => <button key={item.id} type="button" role="radio" aria-checked={value === item.id} onClick={() => onChange(item.id)}
-        className={cn('rounded-full border px-2.5 py-0.5 text-[13px]', value === item.id ? 'border-trace bg-trace-soft font-medium text-trace' : 'border-edge-strong hover:bg-raised')}>
-        {item.name}
-      </button>)}
-    </div>
-  </div>;
+    </SheetRow>
+    <SheetRow label={t('profile.questions.stop')} labelId={label('stop')}>
+      <div role="group" aria-labelledby={label('stop')}>
+        <RunRulesEditor value={changedRules(profile.runRules)} inherited={runRulesSchema.parse({})}
+          onChange={rules => onChange({ ...profile, runRules: { ...runRulesSchema.parse({}), ...rules } })} />
+      </div>
+    </SheetRow>
+  </Sheet>;
 }

@@ -9,7 +9,7 @@ import { asObject, parseTaskJson, updateTaskJson, type Json } from '../lib/taskJ
 import { Choice, Field } from './forms';
 import { Disclosure } from './layout/Disclosure';
 import { ErrorState } from './layout/ErrorState';
-import { SectionHead } from './layout/PageHeader';
+import { Dash, SectionHead } from './PageHeader';
 import { TagList } from './TagList';
 import { TaskInputsField } from './TaskInputsField';
 import { Button } from './ui/button';
@@ -45,29 +45,29 @@ export function TaskSettings({ task, onTask, json, onJson, view, onEdit }: Props
   const users = (task.profiles ?? []).flatMap(id => view.config.profiles.find(profile => profile.id === id)?.name ?? []);
   return <div className="grid max-w-3xl gap-8">
     <section aria-labelledby="task-basics" className="grid gap-3">
-      <SectionHead id="task-basics" title={t('taskSettings.basicsTitle')} aside={<Button variant="outline" size="sm" onClick={onEdit}>{t('taskPage.edit')}</Button>} />
-      <dl className="grid gap-x-4 gap-y-1.5 text-sm sm:grid-cols-[9rem_minmax(0,1fr)]">
-        <dt className="text-muted-foreground">{t('taskSettings.name')}</dt><dd className="break-words">{task.name}</dd>
-        <dt className="text-muted-foreground">{t('tags.label')}</dt>
-        <dd>{task.tags?.length ? <TagList tags={task.tags} /> : <span className="text-muted-foreground">{t('tags.none')}</span>}</dd>
-        <dt className="text-muted-foreground">{t('taskSettings.url')}</dt><dd className="font-mono text-[13px] break-all">{String(parsed.url ?? '')}</dd>
-        <dt className="text-muted-foreground">{t('taskSettings.goal')}</dt><dd className="leading-6">{String(parsed.goal ?? '')}</dd>
-        <dt className="text-muted-foreground">{t('taskSettings.users')}</dt>
-        <dd>{users.length ? users.join(', ') : <span className="text-muted-foreground">{t('taskSettings.usersNone')}</span>}</dd>
-        <dt className="text-muted-foreground">{t('taskSettings.browser')}</dt>
-        <dd>{t(`taskBrowser.summary.${browser.mode}`)}{browser.personCheck && <span className="text-muted-foreground"> · {t('taskBrowser.personCheckName')}</span>}</dd>
+      <SectionHead id="task-basics" title={t('taskSettings.basicsTitle')}><Button variant="outline" size="sm" onClick={onEdit}>{t('taskPage.edit')}</Button></SectionHead>
+      <dl className="grid gap-x-6 border-t border-edge sm:grid-cols-[12rem_minmax(0,1fr)] [&>dd]:border-b [&>dd]:border-edge [&>dd]:py-2 [&>dt]:border-b [&>dt]:border-edge [&>dt]:py-2">
+        <dt className="text-ink-2">{t('taskSettings.name')}</dt><dd className="break-words">{task.name}</dd>
+        <dt className="text-ink-2">{t('tags.label')}</dt>
+        <dd>{task.tags?.length ? <TagList tags={task.tags} /> : <Dash />}</dd>
+        <dt className="text-ink-2">{t('taskSettings.url')}</dt><dd className="break-all">{String(parsed.url ?? '')}</dd>
+        <dt className="text-ink-2">{t('taskSettings.goal')}</dt><dd>{String(parsed.goal ?? '')}</dd>
+        <dt className="text-ink-2">{t('taskSettings.users')}</dt>
+        <dd>{users.length ? users.join(', ') : <Dash />}</dd>
+        <dt className="text-ink-2">{t('taskSettings.browser')}</dt>
+        <dd>{t(`taskBrowser.summary.${browser.mode}`)}{browser.personCheck && <span className="text-ink-2"> · {t('taskBrowser.personCheckName')}</span>}</dd>
       </dl>
     </section>
 
-    <section aria-labelledby="task-limits" className="grid gap-4">
-      <SectionHead id="task-limits" title={t('taskSettings.limitsTitle')} info={t('taskSettings.limitsHint')} />
+    <section aria-labelledby="task-limits" className="grid gap-3">
+      <div><SectionHead id="task-limits" title={t('taskSettings.limitsTitle')} /><p className="text-sm text-ink-2">{t('taskSettings.limitsHint')}</p></div>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label={t('taskSettings.maxSteps')} type="number" value={String(parsed.maxSteps ?? RAWSTEP_DEFAULTS.task.maxSteps)} onChange={value => update({ maxSteps: Number(value) })} />
         <Field label={t('taskSettings.timeoutMs')} type="number" value={String(parsed.timeoutMs ?? RAWSTEP_DEFAULTS.task.timeoutMs)} onChange={value => update({ timeoutMs: Number(value) })} />
       </div>
     </section>
 
-    <section aria-labelledby="task-navigation" className="grid gap-4">
+    <section aria-labelledby="task-navigation" className="grid gap-3">
       <SectionHead id="task-navigation" title={t('taskSettings.navigationTitle')} />
       <Choice label={t('taskSettings.navScope')} value={String(navigation.strategy ?? 'same-origin')}
         options={[{ id: 'same-origin', name: t('taskSettings.navSameOrigin') }, { id: 'start-url-prefix', name: t('taskSettings.navStartUrlPrefix') }, { id: 'allow-url-list', name: t('taskSettings.navAllowUrlList') }]}
@@ -76,22 +76,22 @@ export function TaskSettings({ task, onTask, json, onJson, view, onEdit }: Props
       <div className="flex items-center gap-3"><Switch id={uid} checked={navigation.readOnly === true} onCheckedChange={readOnly => update({ navigation: { ...navigation, readOnly } })} /><Label htmlFor={uid}>{t('taskSettings.readOnly')}</Label></div>
     </section>
 
-    <section aria-labelledby="task-inputs" className="grid gap-4">
-      <SectionHead id="task-inputs" title={t('taskSettings.inputsTitle')} info={t('taskSettings.inputsSummary')} />
+    <section aria-labelledby="task-inputs" className="grid gap-3">
+      <div><SectionHead id="task-inputs" title={t('taskSettings.inputsTitle')} /><p className="text-sm text-ink-2">{t('taskSettings.inputsSummary')}</p></div>
       <TaskInputsField input={taskInputs(parsed)} options={taskInputOptions(parsed)} goal={String(parsed.goal ?? '')} onChange={update} />
     </section>
 
-    <section aria-labelledby="task-analysis" className="grid gap-4">
-      <SectionHead id="task-analysis" title={t('taskSettings.analysisTitle')} info={t('taskSettings.analysisHint')} />
+    <section aria-labelledby="task-analysis" className="grid gap-3">
+      <div><SectionHead id="task-analysis" title={t('taskSettings.analysisTitle')} /><p className="text-sm text-ink-2">{t('taskSettings.analysisHint')}</p></div>
       <Field label={t('taskSettings.analysisLabel')} multiline plain value={task.analysisInstructions ?? ''}
         onChange={analysisInstructions => { const copy = { ...task }; if (analysisInstructions.trim()) copy.analysisInstructions = analysisInstructions; else delete copy.analysisInstructions; onTask(copy); }} />
     </section>
 
-    <Collapsible open={rawOpen} onOpenChange={setRawOpen} className="grid gap-3 border-t border-edge-strong pt-3">
+    <Collapsible open={rawOpen} onOpenChange={setRawOpen} className="grid gap-3 border-t border-edge pt-3">
       <Disclosure label={t('taskSettings.fileTitle')} />
       <CollapsibleContent className="grid gap-4">
-        <p className="text-sm leading-6">{t('taskSettings.fileHint', { file: task.file })} {t('taskSettings.cliHint')} <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">rawstep run {task.id}</code></p>
-        <Field label={t('taskSettings.jsonTitle')} multiline value={json} onChange={onJson} info={t('taskSettings.jsonHint')} />
+        <p>{t('taskSettings.fileHint', { file: task.file })} {t('taskSettings.cliHint')} <code lang="en" className="font-mono">rawstep run {task.id}</code></p>
+        <Field label={t('taskSettings.jsonTitle')} multiline value={json} onChange={onJson} hint={t('taskSettings.jsonHint')} />
       </CollapsibleContent>
     </Collapsible>
   </div>;

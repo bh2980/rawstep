@@ -1,4 +1,4 @@
-import { RefreshCw } from 'lucide-react';
+import { Check, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { RouteChange } from '../hooks/useRoute';
 import type { ErrorView } from '../lib/errors';
@@ -16,6 +16,6 @@ export function StatusBanner({ error, notice, busy, onReload, navigate }: Props)
   return <>
     {error && <ErrorState alert view={error} navigate={navigate} actions={error.kind === 'connection' ? undefined
       : <Button size="sm" variant="outline" disabled={busy} onClick={onReload}><RefreshCw aria-hidden="true" />{t('app.reload')}</Button>} />}
-    {notice && <p role="status" className="border-l-2 border-reach pl-3 text-sm">{notice}</p>}
+    {notice && <p role="status" className="flex items-center gap-1.5 text-sm text-ink-2"><Check aria-hidden="true" className="size-3.5 text-reach" />{notice}</p>}
   </>;
 }

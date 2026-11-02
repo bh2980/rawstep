@@ -43,3 +43,14 @@ export function resultLabel(run: Pick<RunRecord, 'state' | 'outcome'>): string {
 export function recentRuns<T extends { run: Pick<RunRecord, 'taskId' | 'state'> }>(runs: readonly T[], taskId: string, limit = 10): T[] {
   return runs.filter(ref => ref.run.taskId === taskId && ['success', 'failure', 'inconclusive'].includes(ref.run.state)).slice(0, limit).reverse();
 }
+
+/** What a status mark shows: how a finished run ended, `error` for one that stopped on the tool's side, or where an unfinished run is. */
+export type RunStatus = RunEnding | 'error' | 'running' | 'queued' | 'cancelled';
+
+/** The status of a run, and for a run that was not measured, what ended it first. */
+export function runStatus(run: Pick<RunRecord, 'state' | 'outcome'>): { status: RunStatus; by?: string } {
+  if (run.state === 'queued' || run.state === 'running' || run.state === 'cancelled') return { status: run.state };
+  const ended = finishedEnding(run);
+  if (ended) return { status: ended.ending, ...(ended.by ? { by: ended.by } : {}) };
+  return { status: 'error' };
+}

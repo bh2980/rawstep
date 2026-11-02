@@ -6,7 +6,7 @@ export function AgentNote({ preset }: { preset: ProviderPreset }) {
   const { t } = useTranslation();
   const agent = preset.agent;
   if (!agent) return null;
-  return <div className="grid gap-1 text-[13px] leading-5 text-muted-foreground">
+  return <div className="grid gap-1 text-ink-2">
     <p>{t('connections.agentLogin')}</p>
     {agent.command === 'npx' && <p>{t('connections.agentNpx')}</p>}
   </div>;

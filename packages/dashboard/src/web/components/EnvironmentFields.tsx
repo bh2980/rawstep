@@ -15,10 +15,12 @@ type Props = {
   presets: Record<string, unknown>;
   /** Id written into a custom environment object. */
   id: string;
+  /** The preset is picked elsewhere (a select in the profile's row): only the values are shown. */
+  hidePreset?: boolean;
 };
 
 /** Edits one page environment: a preset, screen size, text scale and color settings, plus raw JSON. */
-export function EnvironmentFields({ value, onChange, presets, id }: Props) {
+export function EnvironmentFields({ value, onChange, presets, id, hidePreset }: Props) {
   const { t } = useTranslation();
   const preset = typeof value === 'string' ? value : 'custom';
   const resolved = typeof value === 'string' ? { ...object(presets[value]), id: value } : object(value);
@@ -35,25 +37,25 @@ export function EnvironmentFields({ value, onChange, presets, id }: Props) {
     setText(next);
     try { const parsed: unknown = JSON.parse(next); setInvalid(false); onChange(parsed); } catch { setInvalid(true); }
   };
-  return <div className="grid gap-5">
-    <div className="grid gap-1.5">
-      <Choice label={t('environmentFields.preset')} info={t(preset !== 'custom' ? 'environmentFields.editNote' : 'environmentFields.customNote')} value={preset} options={[...Object.keys(presets).map(name => ({ id: name, name: t(`environmentFields.presets.${name}.name`, { defaultValue: name }) })), { id: 'custom', name: t('environmentFields.custom') }]}
+  return <div className="grid gap-4">
+    {hidePreset ? <p className="text-ink-2">{preset !== 'custom' ? t(`environmentFields.presets.${preset}.hint`, { defaultValue: '' }) + ' ' + t('environmentFields.editNote') : t('environmentFields.customShort')}</p> : <div className="grid gap-1.5">
+      <Choice label={t('environmentFields.preset')} value={preset} options={[...Object.keys(presets).map(name => ({ id: name, name: t(`environmentFields.presets.${name}.name`, { defaultValue: name }) })), { id: 'custom', name: t('environmentFields.custom') }]}
         onChange={next => onChange(next === 'custom' ? { ...resolved, id } : next)} />
-      {preset !== 'custom' && <p className="text-[13px] leading-5 text-muted-foreground">{t(`environmentFields.presets.${preset}.hint`, { defaultValue: '' })}</p>}
-    </div>
-    <div className="grid items-end gap-4 sm:grid-cols-3">
+      <p className="text-ink-2">{preset !== 'custom' ? t(`environmentFields.presets.${preset}.hint`, { defaultValue: '' }) : t('environmentFields.customShort')}</p>
+    </div>}
+    <div className="grid max-w-xl items-end gap-4 sm:grid-cols-3">
       <Field label={t('environmentFields.viewportWidth')} type="number" value={String(viewport.width)} onChange={width => custom({ viewport: { ...viewport, width: Number(width) } })} />
       <Field label={t('environmentFields.viewportHeight')} type="number" value={String(viewport.height)} onChange={height => custom({ viewport: { ...viewport, height: Number(height) } })} />
       <Field label={t('environmentFields.textScale')} type="number" value={String(resolved.textScale ?? 1)} onChange={textScale => custom({ textScale: Number(textScale) })} />
     </div>
-    <div className="grid items-end gap-4 sm:grid-cols-2">
+    <div className="grid max-w-xl items-end gap-4 sm:grid-cols-2">
       <Choice label={t('environmentFields.colorScheme')} value={String(resolved.colorScheme ?? 'light')} onChange={colorScheme => custom({ colorScheme })}
         options={[{ id: 'light', name: t('environmentFields.schemeLight') }, { id: 'dark', name: t('environmentFields.schemeDark') }, { id: 'no-preference', name: t('environmentFields.noPreference') }]} />
       <Choice label={t('environmentFields.reducedMotion')} value={String(resolved.reducedMotion ?? 'no-preference')} onChange={reducedMotion => custom({ reducedMotion })}
         options={[{ id: 'no-preference', name: t('environmentFields.noPreference') }, { id: 'reduce', name: t('environmentFields.motionReduce') }]} />
     </div>
     <Advanced>
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid max-w-xl gap-4 sm:grid-cols-2">
         <Choice label={t('environmentFields.forcedColors')} value={String(resolved.forcedColors ?? 'none')} onChange={forcedColors => custom({ forcedColors })}
           options={[{ id: 'none', name: t('environmentFields.forcedNone') }, { id: 'active', name: t('environmentFields.forcedActive') }]} />
         <Choice label={t('environmentFields.contrast')} value={String(resolved.contrast ?? 'no-preference')} onChange={contrast => custom({ contrast })}

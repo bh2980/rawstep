@@ -6,7 +6,6 @@ import { roleLabel } from '../i18n/labels';
 import { shell } from '../i18n/locales/ko/shell';
 import { ADVANCED_KINDS, BASIC_KINDS, STATE_ATTRIBUTES, blankDraft, type RuleDraft, type RuleDraftKind } from '../lib/ruleEditor';
 import { Choice, Field, Toggle } from './forms';
-import { InfoTip } from './layout/InfoTip';
 import { Button } from './ui/button';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from './ui/select';
@@ -37,14 +36,15 @@ function KindSelect({ draft, onChange, suffix, nested }: Pick<Props, 'draft' | '
   const advanced = ADVANCED_KINDS.filter(kind => !nested || (kind !== 'any' && kind !== 'not'));
   const label = (kind: RuleDraftKind) => t(`ruleEditor.kinds.${kind}`);
   return <div className="grid max-w-sm gap-2">
-    <div className="flex items-center gap-1"><Label htmlFor={id}>{t('ruleEditor.kind')}{suffix ? ` ${suffix}` : ''}</Label><InfoTip term={label(draft.kind)}>{t(`ruleEditor.kindHints.${draft.kind}`)}</InfoTip></div>
+    <Label htmlFor={id}>{t('ruleEditor.kind')}{suffix ? ` ${suffix}` : ''}</Label>
     <Select value={draft.kind} onValueChange={kind => onChange(blankDraft(kind as RuleDraftKind))}>
-      <SelectTrigger id={id} className="w-full"><SelectValue /></SelectTrigger>
+      <SelectTrigger id={id} aria-describedby={id + '-hint'} className="w-full"><SelectValue /></SelectTrigger>
       <SelectContent>
         <SelectGroup>{BASIC_KINDS.map(kind => <SelectItem key={kind} value={kind}>{label(kind)}</SelectItem>)}</SelectGroup>
         <SelectGroup><SelectLabel>{t('ruleEditor.advanced')}</SelectLabel>{advanced.map(kind => <SelectItem key={kind} value={kind}>{label(kind)}</SelectItem>)}</SelectGroup>
       </SelectContent>
     </Select>
+    <p id={id + '-hint'} className="text-sm text-ink-2">{t(`ruleEditor.kindHints.${draft.kind}`)}</p>
   </div>;
 }
 
@@ -131,7 +131,7 @@ export function RuleDraftFields({ draft, onChange, depth = 0, onPick, suffix }: 
       break;
     case 'script':
       body = <>
-        <p className="text-xs leading-5 text-muted-foreground">{t('ruleEditor.scriptNotice')}</p>
+        <p className="text-sm text-ink-2">{t('ruleEditor.scriptNotice')}</p>
         <Field label={label(t('ruleEditor.scriptSource'))} multiline value={draft.source} onChange={source => onChange({ ...draft, source })} placeholder="(context) => document.querySelector('#done') !== null" />
         <Field label={label(t('ruleEditor.scriptDescription'))} value={draft.description} onChange={description => onChange({ ...draft, description })} hint={t('ruleEditor.scriptDescriptionHint')} />
       </>;

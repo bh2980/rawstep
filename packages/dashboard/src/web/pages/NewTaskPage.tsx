@@ -7,7 +7,8 @@ import { CheckEditor } from '../components/CheckEditor';
 import { CheckSuggestions } from '../components/CheckSuggestions';
 import { TaskInputsField } from '../components/TaskInputsField';
 import { Field, Panel } from '../components/forms';
-import { PageHeader, SectionHead } from '../components/layout/PageHeader';
+import { SectionHead } from '../components/PageHeader';
+import { PageHeader } from '../components/PageHeader';
 import { ProjectPathField } from '../components/ProjectPathField';
 import { TagsField } from '../components/TagsField';
 import { Button } from '../components/ui/button';
@@ -46,22 +47,23 @@ export function NewTaskPage({ navigate, ...props }: Props) {
   const inputCount = Object.keys(input).length;
   const reason = missing.length ? t('newTask.missingLine', { items: missing.map(key => t(`newTask.missing.${key}`)).join(', ') }) : !inputsOk ? t('newTask.inputInvalid') : '';
   return <div className="grid max-w-3xl gap-6">
-    <PageHeader title={t('newTask.title')} />
+    <PageHeader className="mb-0" title={t('newTask.title')} crumbs={[{ label: t('nav.tasks'), to: { view: 'tasks' } }]} navigate={navigate} />
     <ProjectPathField label={t('newTask.url')} value={url} onChange={setUrl} extensions={['.html', '.htm']} allowUrl example="https://example.com/product/1" />
     <section className="grid gap-2">
       <SectionHead id={id + '-goal-title'} title={t('newTask.goal')} />
-      <Textarea aria-labelledby={id + '-goal-title'} aria-describedby={id + '-goal-note'} rows={3} className="min-h-20 text-sm leading-6 md:text-sm" value={goal} onChange={event => setGoal(event.target.value)} />
-      <p id={id + '-goal-note'} className="text-xs leading-5 text-muted-foreground">{t('newTask.goalNote')}</p>
+      <Textarea aria-labelledby={id + '-goal-title'} aria-describedby={id + '-goal-note'} rows={3} className="min-h-20 text-base" value={goal} onChange={event => setGoal(event.target.value)} />
+      <p id={id + '-goal-note'} className="text-sm text-ink-2">{t('newTask.goalNote')}</p>
     </section>
     <Field label={t('newTask.name')} value={name} placeholder={fromGoal || host || t('newTask.fallbackName')} hint={t('newTask.nameHint')} onChange={setName} />
     <TagsField label={t('tags.label')} tags={tags} onChange={setTags} hint={t('tags.hint')} />
     <section className="grid gap-2">
       <SectionHead id={id + '-context-title'} title={t('taskEdit.context')} />
-      <Textarea aria-labelledby={id + '-context-title'} aria-describedby={id + '-context-note'} rows={2} className="min-h-14 text-sm leading-6 md:text-sm" placeholder={t('taskEdit.contextPlaceholder')} value={context} onChange={event => setContext(event.target.value)} />
-      <p id={id + '-context-note'} className="text-xs leading-5 text-muted-foreground">{t('taskEdit.contextHint')}</p>
+      <Textarea aria-labelledby={id + '-context-title'} aria-describedby={id + '-context-note'} rows={2} className="min-h-14 text-base" placeholder={t('taskEdit.contextPlaceholder')} value={context} onChange={event => setContext(event.target.value)} />
+      <p id={id + '-context-note'} className="text-sm text-ink-2">{t('taskEdit.contextHint')}</p>
     </section>
     <section aria-labelledby={id + '-check-title'} className="grid gap-3">
-      <SectionHead id={id + '-check-title'} title={t('newTask.verifyTitle')} info={t('help.check')} />
+      <SectionHead id={id + '-check-title'} title={t('newTask.verifyTitle')} />
+      <p className="-mt-1 mb-1 text-sm text-ink-2">{t('help.check')}</p>
       <CheckEditor rules={rules} onChange={setRules} url={url} />
       <CheckSuggestions view={props.view} url={url} goal={goal} onAdd={rule => setRules(current => [...current, rule])} />
     </section>
@@ -76,7 +78,7 @@ export function NewTaskPage({ navigate, ...props }: Props) {
         <Button disabled={props.busy || !ready} onClick={submit}>{t('newTask.create')}</Button>
         <Button variant="ghost" onClick={() => navigate({ view: 'tasks' })}>{t('newTask.cancel')}</Button>
       </div>
-      {reason && <p role="status" className="text-xs leading-5 text-muted-foreground">{reason}</p>}
+      {reason && <p role="status" className="text-sm text-ink-2">{reason}</p>}
     </footer>
   </div>;
 }

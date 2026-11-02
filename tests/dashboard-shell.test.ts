@@ -43,7 +43,7 @@ describe('routes', () => {
     expect(parseRoute('?task=abc&tab=nonsense')).toMatchObject({ tab: 'overview' });
     expect(parseRoute('?task=abc&step=2')).not.toHaveProperty('step');
     expect(parseRoute('?view=runs&run=r1')).not.toHaveProperty('run');
-    for (const search of ['?view=runs', '?view=settings', '?view=profiles', '?view=settings&section=connections', '?view=settings&section=machine', '?task=new', '?task=a&tab=check', '?task=a&tab=runs', '?task=a&run=b&step=0']) expect(routeSearch(parseRoute(search))).toBe(search);
+    for (const search of ['?view=runs', '?view=settings', '?view=profiles', '?view=settings&section=connections', '?view=settings&section=machine', '?view=settings&section=rules', '?task=new', '?task=a&tab=check', '?task=a&tab=runs', '?task=a&run=b&step=0']) expect(routeSearch(parseRoute(search))).toBe(search);
     expect(routeSearch(parseRoute('?view=settings&section=profiles'))).toBe('?view=profiles');
   });
 });
@@ -71,7 +71,7 @@ describe('list formatting', () => {
     expect(relativeTime('2026-05-10T09:00:00+09:00', now)).toBe('3시간 전');
     expect(relativeTime('2026-05-09T11:00:00+09:00', now)).toBe('어제');
     expect(relativeTime('2026-05-07T12:00:00+09:00', now)).toBe('3일 전');
-    expect(relativeTime('2026-04-01T12:00:00+09:00', now)).toMatch(/^\d\d-\d\d \d\d:\d\d$/);
+    expect(relativeTime('2026-04-01T12:00:00+09:00', now)).toMatch(/^\d{1,2}월 \d{1,2}일 \d\d:\d\d$/);
   });
   it('writes action counts without noise', () => {
     expect([formatSteps(null), formatSteps(6), formatSteps(5.5), formatSteps(undefined)]).toEqual(['—', '6', '5.5', '—']);

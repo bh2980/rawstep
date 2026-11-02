@@ -22,7 +22,7 @@ import { TasksPage } from './pages/TasksPage';
 import { AppNav } from './components/AppNav';
 import { RunDialog } from './components/RunDialog';
 import { StatusBanner } from './components/StatusBanner';
-import { TopBar } from './components/TopBar';
+import { Menu } from 'lucide-react';
 import { Button } from './components/ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from './components/ui/sheet';
 
@@ -73,25 +73,25 @@ function Dashboard() {
   };
   const openRunDialog = (taskIds: string[]) => setRunning({ open: true, taskIds });
 
-  return <div className="flex h-screen flex-col">
+  const nav = pageProps && <AppNav route={route} navigate={go} unsaved={unsaved} projectName={pageProps.view.projectName}
+    counts={{ tasks: pageProps.view.config.tasks.length, runs: runs.length, profiles: pageProps.view.config.profiles.length }}
+    connected={data.connected} running={active} queued={queued} />;
+
+  return <div className="flex h-screen">
     <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:z-50 focus:bg-primary focus:p-3 focus:text-primary-foreground">{t('app.skip')}</a>
-    <TopBar connected={data.connected} running={active} queued={queued} showNavigation={!wide && !!pageProps} onNavigation={() => setNavOpen(true)} />
-    <div className="flex min-h-0 flex-1">
-      {wide && pageProps && <aside className="w-48 shrink-0 border-r bg-sidebar text-sidebar-foreground"><AppNav route={route} navigate={go} unsaved={unsaved} /></aside>}
-      <main id="main" tabIndex={-1} className="min-w-0 flex-1 overflow-y-auto px-4 py-5 outline-none lg:px-6">
-        <div className="grid gap-4">
-          {!running.open && banner}
-          {!pageProps
-            ? <div className="grid gap-4 py-20 text-center"><h1 className="text-xl font-medium">{t('app.loadingTitle')}</h1><p className="text-sm text-muted-foreground">{t('app.loadingBody')}</p></div>
-            : <Page pageProps={pageProps} data={data} runs={runs} route={route} navigate={go} editorKey={editorKey} onRun={openRunDialog} onUnsaved={markUnsaved} />}
-        </div>
-      </main>
-    </div>
+    {wide && nav && <aside className="w-54 shrink-0 overflow-y-auto border-r bg-sidebar text-sidebar-foreground">{nav}</aside>}
+    <main id="main" tabIndex={-1} className="min-w-0 flex-1 overflow-y-auto px-4 pt-4 pb-8 outline-none lg:px-8 lg:pt-6">
+      {!wide && pageProps && <Button variant="ghost" size="icon" className="-ml-2 mb-2" aria-label={t('topBar.openNavigation')} onClick={() => setNavOpen(true)}><Menu aria-hidden="true" /></Button>}
+      {!running.open && <div className="mb-4 empty:hidden">{banner}</div>}
+      {!pageProps
+        ? <div className="grid gap-2 py-20 text-center"><h1 className="text-xl font-semibold">{t('app.loadingTitle')}</h1><p className="text-ink-2">{t('app.loadingBody')}</p></div>
+        : <Page pageProps={pageProps} data={data} runs={runs} route={route} navigate={go} editorKey={editorKey} onRun={openRunDialog} onUnsaved={markUnsaved} />}
+    </main>
     {pageProps && <>
       {!wide && <Sheet open={navOpen} onOpenChange={setNavOpen}>
-        <SheetContent side="left" className="w-56 gap-0 p-0 data-[side=left]:sm:max-w-56">
+        <SheetContent side="left" className="w-56 gap-0 bg-sidebar p-0 data-[side=left]:sm:max-w-56">
           <SheetHeader className="sr-only"><SheetTitle>{t('nav.label')}</SheetTitle><SheetDescription>{t('nav.description')}</SheetDescription></SheetHeader>
-          <div className="pt-10"><AppNav route={route} navigate={go} unsaved={unsaved} /></div>
+          {nav}
         </SheetContent>
       </Sheet>}
       <RunDialog open={running.open} onOpenChange={open => setRunning(current => ({ ...current, open }))} taskIds={running.taskIds} pageProps={pageProps} navigate={go} onStarted={openRun} />

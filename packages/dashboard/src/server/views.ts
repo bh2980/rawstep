@@ -183,7 +183,7 @@ export class RunViews {
       const run = entry.run, early = hintsOf(run.id, 'early-stop')[0];
       const stopSource = run.outcome?.stopSource ?? (typeof early?.detail.stopSource === 'string' ? early.detail.stopSource : undefined);
       const end = runEnding(run.outcome, stopSource)!, give = record(early?.detail.giveUp) ? early.detail.giveUp : undefined;
-      const allBreaks = hintsOf(run.id, 'expectation-broken'), breaks = allBreaks.filter(costly), stretch = hintsOf(run.id, 'goal-word-stretch')[0]?.detail.moves;
+      const allBreaks = hintsOf(run.id, 'expectation-broken'), breaks = allBreaks.filter(costly), stretchHint = hintsOf(run.id, 'goal-word-stretch')[0], stretch = stretchHint?.detail.moves;
       const tried = Array.isArray(give?.tried) ? give.tried.filter((id): id is string => typeof id === 'string') : [];
       return {
         experimentId: entry.experimentId, runId: run.id, profileId: run.profileId, ...end, steps: steps(run) ?? null,
@@ -191,6 +191,7 @@ export class RunViews {
           tried: tried.map(id => { const at = allBreaks.find(hint => record(hint.detail.assumption) && hint.detail.assumption.id === id), text = at && record(at.detail.assumption) ? at.detail.assumption.text : undefined;
             return { id, ...(typeof text === 'string' ? { text } : {}), ...(at?.steps[0] !== undefined ? { step: at.steps[0] } : {}), ...(at?.target ? { target: at.target } : {}) }; }) } } : {}),
         stretch: typeof stretch === 'number' ? stretch : null,
+        ...(typeof stretch === 'number' && stretchHint && stretchHint.steps.length >= 2 ? { stretchSteps: [stretchHint.steps[0]!, stretchHint.steps.at(-1)!] as [number, number] } : {}),
         wrongGuesses: allBreaks.filter(wrongGuess).length,
         unheard: end.ending === 'reached' && facts.get(run.id)!.unheard,
         // Two expectations broken at once on one object are one place passed, not two.
@@ -213,7 +214,7 @@ export class RunViews {
         profileId: group[0]!.run.profileId, runs: group.length, reached: endings.reached, endings, unmeasuredBy,
         medianSteps: median(counts), minSteps: counts.length ? Math.min(...counts) : null, maxSteps: counts.length ? Math.max(...counts) : null,
         unheard: own.filter(result => result.unheard).length,
-        longestStretch: longest ? { moves: longest.stretch!, runId: longest.runId } : null,
+        longestStretch: longest ? { moves: longest.stretch!, runId: longest.runId, ...(longest.stretchSteps ? { steps: longest.stretchSteps } : {}) } : null,
         wrongGuesses: median(own.map(result => result.wrongGuesses)),
         topTarget: top?.finding.target ?? null,
         conditions: { ...(typeof newest.combo?.name === 'string' ? { combo: newest.combo.name } : {}), ...(typeof newest.atEnvironment?.name === 'string' ? { at: newest.atEnvironment.name } : {}) },

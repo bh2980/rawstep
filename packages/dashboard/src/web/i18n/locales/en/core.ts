@@ -23,10 +23,28 @@ export const core: LocaleShape<typeof ko> = {
     openNavigation: 'Open menu',
     theme: 'Screen theme: {{current}}. Press to change.',
     themes: { system: 'Follow system setting', light: 'Light', dark: 'Dark' },
+    themeShort: { system: 'System', light: 'Light', dark: 'Dark' },
     language: 'Language: {{current}}',
   },
   sidebar: {
     repeat: 'Repeat #{{n}}',
+  },
+  status: {
+    reached: 'Reached the goal',
+    'gave-up': 'Gave up',
+    mistaken: 'Said it was done',
+    unmeasured: 'Not measured',
+    error: 'Ended on an error (tool)',
+    running: 'Running',
+    queued: 'Queued',
+    cancelled: 'Cancelled',
+  },
+  pageHeader: { crumbs: 'Location' },
+  statusLegend: { label: 'What the shapes mean:', order: 'oldest on the left' },
+  appShell: {
+    project: 'Project {{name}}',
+    counts: '{{running}} running · {{queued}} waiting',
+    disconnected: 'Server disconnected',
   },
   runStates: {
     queued: 'Queued',

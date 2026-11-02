@@ -9,17 +9,17 @@ import { Switch } from './ui/switch';
 import { Button } from './ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { InfoTip } from './layout/InfoTip';
 
 /** A field label with an optional ⓘ explanation beside it. */
+/** A field's label, and under it the one-line explanation (`info`) when the field has one; the field is described by it. */
 function FieldLabel({ htmlFor, label, info }: { htmlFor: string; label: string; info?: ReactNode }) {
-  return info ? <div className="flex items-center gap-1"><Label htmlFor={htmlFor}>{label}</Label><InfoTip term={label}>{info}</InfoTip></div> : <Label htmlFor={htmlFor}>{label}</Label>;
+  return info ? <div className="grid gap-0.5"><Label htmlFor={htmlFor}>{label}</Label><p id={htmlFor + '-info'} className="text-sm text-ink-2">{info}</p></div> : <Label htmlFor={htmlFor}>{label}</Label>;
 }
 
 /** A labelled text input; `multiline` is a code-style textarea unless `plain` asks for ordinary text. */
 export function Field({ label, value, onChange, multiline, plain, type, hint, info, placeholder, disabled, min, max, invalid, onBlur }: { label: string; value: string; onChange: (s: string) => void; multiline?: boolean; plain?: boolean; type?: string; hint?: string; info?: ReactNode; placeholder?: string; disabled?: boolean; min?: number; max?: number; invalid?: boolean; onBlur?: () => void }) {
   const id = useId();
-  return <div className="grid gap-2"><FieldLabel htmlFor={id} label={label} info={info} />{multiline ? <Textarea id={id} aria-describedby={hint ? id + '-hint' : undefined} value={value} placeholder={placeholder} onChange={e => onChange(e.target.value)} rows={plain ? 3 : 5} className={plain ? 'leading-6' : 'font-mono text-xs leading-6'} /> : <Input id={id} disabled={disabled} min={min} max={max} aria-invalid={invalid || undefined} onBlur={onBlur} aria-describedby={hint ? id + '-hint' : undefined} value={value} placeholder={placeholder} type={type ?? 'text'} onChange={e => onChange(e.target.value)} />}{hint && <p id={id + '-hint'} className="text-xs leading-5 text-muted-foreground">{hint}</p>}</div>;
+  return <div className="grid gap-2"><FieldLabel htmlFor={id} label={label} info={info} />{multiline ? <Textarea id={id} aria-describedby={hint ? id + '-hint' : undefined} value={value} placeholder={placeholder} onChange={e => onChange(e.target.value)} rows={plain ? 3 : 5} className={plain ? 'leading-6' : 'font-mono text-xs leading-6'} /> : <Input id={id} disabled={disabled} min={min} max={max} aria-invalid={invalid || undefined} onBlur={onBlur} aria-describedby={hint ? id + '-hint' : undefined} value={value} placeholder={placeholder} type={type ?? 'text'} onChange={e => onChange(e.target.value)} />}{hint && <p id={id + '-hint'} className="text-sm text-ink-2">{hint}</p>}</div>;
 }
 export function Choice({ label, value, onChange, options, info }: { label: string; value: string; onChange: (s: string) => void; options: { id: string; name: string }[]; info?: ReactNode }) {
   const id = useId();
@@ -33,12 +33,12 @@ export function MultiChoice({ label, items, selected, onChange }: { label: strin
 }
 /** A titled block inside the advanced settings; sections are separated by a rule. */
 export function Section({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
-  return <section className="grid gap-4 border-t pt-6"><div className="grid gap-1"><h3 className="font-medium">{title}</h3>{description && <p className="text-xs leading-5 text-muted-foreground">{description}</p>}</div>{children}</section>;
+  return <section className="grid gap-4 border-t pt-6"><div className="grid gap-1"><h3 className="font-medium">{title}</h3>{description && <p className="text-sm text-ink-2">{description}</p>}</div>{children}</section>;
 }
 /** Switch with a label and a one-line plain explanation. */
 export function Toggle({ label, hint, info, checked, onChange, disabled }: { label: string; hint?: string; info?: ReactNode; checked: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
   const id = useId();
-  return <div className="grid gap-1"><div className="flex items-center gap-3"><Switch id={id} checked={checked} disabled={disabled} onCheckedChange={onChange} aria-describedby={hint ? id + '-hint' : undefined} /><Label htmlFor={id}>{label}</Label>{info && <InfoTip term={label}>{info}</InfoTip>}</div>{hint && <p id={id + '-hint'} className="text-xs leading-5 text-muted-foreground">{hint}</p>}</div>;
+  return <div className="grid gap-1"><div className="flex items-center gap-3"><Switch id={id} checked={checked} disabled={disabled} onCheckedChange={onChange} aria-describedby={hint ? id + '-hint' : undefined} /><Label htmlFor={id}>{label}</Label>{info && <span className="text-sm text-ink-2">· {info}</span>}</div>{hint && <p id={id + '-hint'} className="text-sm text-ink-2">{hint}</p>}</div>;
 }
 /** A collapsed "advanced" block inside one tab or card for the rarely changed settings of that area. */
 export function Advanced({ children, description }: { children: ReactNode; description?: string }) {
@@ -48,7 +48,7 @@ export function Advanced({ children, description }: { children: ReactNode; descr
     <CollapsibleTrigger asChild>
       <Button variant="ghost" size="sm" className="justify-self-start px-2"><ChevronDown aria-hidden="true" className={'transition-transform' + (open ? ' rotate-180' : '')} />{t('forms.advanced')}</Button>
     </CollapsibleTrigger>
-    <CollapsibleContent className="grid gap-5">{description && <p className="text-xs leading-5 text-muted-foreground">{description}</p>}{children}</CollapsibleContent>
+    <CollapsibleContent className="grid gap-5">{description && <p className="text-sm text-ink-2">{description}</p>}{children}</CollapsibleContent>
   </Collapsible>;
 }
 /** A section that opens and closes: a title with a short description on a rule, and its content when open. Sections are divided by rules, not boxed. */
@@ -89,7 +89,7 @@ export function SecretField({ label, value, onChange, hint, info, saved, onRevea
         {shown ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
       </Button>
     </div>
-    {hint && <p id={id + '-hint'} className="text-xs leading-5 text-muted-foreground">{hint}</p>}
+    {hint && <p id={id + '-hint'} className="text-sm text-ink-2">{hint}</p>}
   </div>;
 }
 
@@ -98,6 +98,6 @@ export function ReadonlyField({ label, value, hint, info }: { label: string; val
   const id = useId();
   return <div className="grid gap-2"><FieldLabel htmlFor={id} label={label} info={info} />
     <Input id={id} value={value} readOnly aria-describedby={hint ? id + '-hint' : undefined} className="bg-raised font-mono text-muted-foreground" />
-    {hint && <p id={id + '-hint'} className="text-xs leading-5 text-muted-foreground">{hint}</p>}
+    {hint && <p id={id + '-hint'} className="text-sm text-ink-2">{hint}</p>}
   </div>;
 }

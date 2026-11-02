@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useId, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CircleAlert, CircleCheck, CircleHelp, LoaderCircle } from 'lucide-react';
 import { AT_DRIVER_DEFAULTS, type MachineSettings as Machine } from '@rawstep/project/config';
@@ -7,8 +7,10 @@ import type { ServerMessage } from '../../../shared/messages';
 import { serverText } from '../../i18n';
 import { ApiError, api } from '../../api';
 import { SaveBar } from '../../components/conditions/SaveBar';
-import { Field, Toggle } from '../../components/forms';
-import { PageHeader, SectionHead } from '../../components/layout/PageHeader';
+import { Fold, Sheet, SheetRow } from '../../components/conditions/Sheet';
+import { SectionHead } from '../../components/PageHeader';
+import { Input } from '../../components/ui/input';
+import { Switch } from '../../components/ui/switch';
 import { Button } from '../../components/ui/button';
 import { environmentViewport, sameValue } from '../../lib/conditions';
 import { MAX_PARALLEL_RUNS, MIN_PARALLEL_RUNS, parseParallelRuns } from '../../lib/machine';
@@ -22,27 +24,34 @@ const CHROME_CDP_COMMAND = 'chrome --remote-debugging-port=9222 --user-data-dir=
 const NATIVE = ['voiceover', 'nvda'] as const;
 type Native = (typeof NATIVE)[number];
 
-/** A thing on this computer, whether it works, and the button that checks it. */
-function StatusRow({ label, status, onCheck, busy, children }: { label: string; status: Status; onCheck?: () => void; busy?: boolean; children?: ReactNode }) {
+/** Whether a thing on this computer works, in one line, and the button that checks it. */
+function StatusLine({ status, onCheck, busy, label }: { status: Status; onCheck: () => void; busy?: boolean; label: string }) {
   const { t } = useTranslation();
   const Icon = status.kind === 'running' ? LoaderCircle : status.kind === 'ready' ? CircleCheck : status.kind === 'failed' ? CircleAlert : CircleHelp;
-  return <div className="grid items-start gap-x-4 gap-y-1 rounded-md border border-edge bg-surface px-3 py-2.5 text-sm sm:grid-cols-[minmax(0,1fr)_auto]">
-    <div className="flex min-w-0 items-start gap-2">
-      <Icon aria-hidden="true" className={cn('mt-0.5 size-4 shrink-0', status.kind === 'ready' ? 'text-reach' : status.kind === 'failed' ? 'text-missed' : 'text-muted-foreground', status.kind === 'running' && 'animate-spin')} />
-      <div className="grid min-w-0 gap-0.5">
-        <p><span className="font-medium">{label}</span> <span className="text-muted-foreground">·</span>{' '}
-          {status.kind === 'ready' ? <span>{status.text}</span>
-            : status.kind === 'failed' ? <span className="font-medium text-missed">{t('machine.env.failed')}</span>
-              : status.kind === 'running' ? <span className="text-muted-foreground">{t('machine.env.running')}</span>
-                : <span className="text-muted-foreground">{t('machine.env.unchecked')}</span>}
-        </p>
-        {status.kind === 'ready' && status.note && <p className="text-xs text-muted-foreground">{status.note}</p>}
-        {status.kind === 'failed' && <p className="text-[13px] leading-5">{status.reason}</p>}
-        {children}
-      </div>
+  return <div className="grid gap-1">
+    <div className="flex min-h-8 flex-wrap items-center gap-x-3 gap-y-1">
+      <p role="status" className="flex min-w-0 items-center gap-1.5">
+        <Icon aria-hidden="true" className={cn('size-4 shrink-0', status.kind === 'ready' ? 'text-reach' : status.kind === 'failed' ? 'text-missed' : 'text-ink-2', status.kind === 'running' && 'animate-spin')} />
+        {status.kind === 'ready' ? <span>{status.text}{status.note && <span className="text-ink-2"> · {status.note}</span>}</span>
+          : status.kind === 'failed' ? <span className="font-medium text-missed">{t('machine.env.failed')}</span>
+            : status.kind === 'running' ? <span className="text-ink-2">{t('machine.env.running')}</span>
+              : <span className="text-ink-2">{t('machine.env.unchecked')}</span>}
+      </p>
+      <Button variant="outline" size="sm" aria-label={t('machine.env.checkAria', { name: label })} disabled={status.kind === 'running' || busy} onClick={onCheck}>{t('machine.env.check')}</Button>
     </div>
-    {onCheck && <Button variant="outline" size="sm" disabled={status.kind === 'running' || busy} onClick={onCheck}>{t('machine.env.check')}</Button>}
+    {status.kind === 'failed' && <p>{status.reason}</p>}
   </div>;
+}
+
+/** A one-line text field in a sheet row, with an optional one-line hint under it. */
+function TextRow({ label, value, onChange, placeholder, hint, type, invalid, onBlur, min, max, narrow, mono, children }: { children?: ReactNode; label: string; value: string; onChange: (value: string) => void; placeholder?: string; hint?: ReactNode; type?: string; invalid?: boolean; onBlur?: () => void; min?: number; max?: number; narrow?: boolean; mono?: boolean }) {
+  const id = useId();
+  return <SheetRow label={label} htmlFor={id}>
+    <Input id={id} type={type ?? 'text'} value={value} placeholder={placeholder} min={min} max={max} aria-invalid={invalid || undefined} onBlur={onBlur}
+      aria-describedby={hint ? `${id}-hint` : undefined} onChange={event => onChange(event.target.value)} className={cn(narrow ? 'w-20 tabular-nums' : 'max-w-xl', mono && 'font-mono')} />
+    {hint && <p id={`${id}-hint`} className="mt-1 text-sm text-ink-2">{hint}</p>}
+    {children}
+  </SheetRow>;
 }
 
 /**
@@ -51,6 +60,7 @@ function StatusRow({ label, status, onCheck, busy, children }: { label: string; 
  */
 export function MachineSettings({ onDirty, ...props }: PageProps & { onDirty: (dirty: boolean) => void }) {
   const { t } = useTranslation();
+  const idBase = useId();
   const config = props.view.config;
   const [machine, setMachine] = useState<Machine>(() => structuredClone(config.machine));
   // The command that starts the AT Driver server lives in this computer's .env.local, not in the shared config: it runs a program.
@@ -93,39 +103,50 @@ export function MachineSettings({ onDirty, ...props }: PageProps & { onDirty: (d
   const viewport = environmentViewport(config.profiles[0]!.page, props.view.environmentPresets);
   const connected = !!machine.browserEndpoint.trim(), visible = !machine.headless;
   const parallelOk = parseParallelRuns(parallelText) !== undefined;
-  return <div className="grid max-w-3xl gap-8">
-    <PageHeader title={t('settingsNav.sections.machine')} info={t('machine.intro')} />
-
-    <section aria-labelledby="machine-browser" className="grid gap-4">
+  const showId = `${idBase}-show`;
+  return <div className="grid gap-8">
+    <section aria-labelledby="machine-browser" className="grid">
       <SectionHead id="machine-browser" title={t('machine.browserTitle')} />
-      <StatusRow label={t('machine.env.browser')} status={browser} busy={props.busy} onCheck={() => void checkBrowser()}>
-        {browser.kind === 'unchecked' && <p className="text-xs leading-5 text-muted-foreground">{t(connected ? 'machine.env.browserConnectedHint' : 'machine.env.browserHint')}</p>}
-      </StatusRow>
-      <div className="grid gap-1.5">
-        <Field label={t('machine.browserEndpoint')} value={machine.browserEndpoint} onChange={browserEndpoint => updateMachine({ browserEndpoint })} placeholder="http://localhost:9222" info={t('machine.browserEndpointHint')} hint={t('machine.browserEndpointLaunch')} />
-        <code className="block overflow-x-auto rounded-md border border-edge bg-raised px-2.5 py-1.5 font-mono text-xs leading-5">{CHROME_CDP_COMMAND}</code>
-        <p className="text-xs leading-5 text-muted-foreground">{t('machine.browserEndpointTasks')}</p>
-      </div>
-      <Field label={t('machine.browserPath')} value={machine.browserExecutablePath} onChange={browserExecutablePath => updateMachine({ browserExecutablePath })} placeholder={t('machine.browserPathPlaceholder')} info={t('machine.browserPathHint')} />
-      <Toggle label={t('machine.showBrowser')} info={t('machine.showBrowserHint')} checked={visible} onChange={show => updateMachine({ headless: !show })} />
-      <div className="sm:max-w-md">
-        <Field label={t('machine.parallelRuns')} type="number" min={MIN_PARALLEL_RUNS} max={MAX_PARALLEL_RUNS} info={t('machine.parallelRunsInfo')}
-          value={parallelText} invalid={!parallelOk} hint={t('machine.parallelRunsHint')}
+      <Sheet>
+        <SheetRow label={t('machine.env.browser')}>
+          <StatusLine label={t('machine.env.browser')} status={browser} busy={props.busy} onCheck={() => void checkBrowser()} />
+          {browser.kind === 'unchecked' && <p className="text-sm text-ink-2">{t(connected ? 'machine.env.browserConnectedHint' : 'machine.env.browserHint')}</p>}
+        </SheetRow>
+        <TextRow label={t('machine.browserEndpointShort')} value={machine.browserEndpoint} onChange={browserEndpoint => updateMachine({ browserEndpoint })} placeholder="http://localhost:9222" mono
+          hint={t('machine.browserEndpointHint')}>
+          <Fold label={t('machine.browserEndpointLaunch')} className="mt-1">
+            <code className="block max-w-xl overflow-x-auto rounded-sm border border-edge bg-raised px-2.5 py-1.5 font-mono text-sm">{CHROME_CDP_COMMAND}</code>
+            <p className="text-sm text-ink-2">{t('machine.browserEndpointTasks')}</p>
+          </Fold>
+        </TextRow>
+        <TextRow label={t('machine.browserPath')} value={machine.browserExecutablePath} onChange={browserExecutablePath => updateMachine({ browserExecutablePath })} placeholder={t('machine.browserPathPlaceholder')} mono
+          hint={t('machine.browserPathShort')} />
+        <SheetRow label={t('machine.showBrowser')} htmlFor={showId}>
+          <div className="flex min-h-8 items-center gap-3">
+            <Switch id={showId} checked={visible} onCheckedChange={show => updateMachine({ headless: !show })} aria-describedby={`${showId}-hint`} />
+            <span id={`${showId}-hint`} className="text-ink-2">{t('machine.env.windowValue', { width: viewport.width, height: viewport.height, mode: t(visible ? 'machine.env.windowVisible' : 'machine.env.windowHidden') })}</span>
+          </div>
+        </SheetRow>
+        <TextRow label={t('machine.parallelRuns')} type="number" min={MIN_PARALLEL_RUNS} max={MAX_PARALLEL_RUNS} narrow value={parallelText} invalid={!parallelOk} hint={t('machine.parallelRunsHint')}
           onChange={text => { setParallelText(text); const count = parseParallelRuns(text); if (count !== undefined) updateMachine({ parallelRuns: count }); }}
           onBlur={() => setParallelText(String(machine.parallelRuns))} />
-      </div>
-      <p className="text-xs leading-5 text-muted-foreground">{t('machine.env.windowValue', { width: viewport.width, height: viewport.height, mode: t(visible ? 'machine.env.windowVisible' : 'machine.env.windowHidden') })} · {t('machine.env.windowHint')}</p>
+      </Sheet>
     </section>
 
-    <section aria-labelledby="machine-driver" className="grid gap-4">
-      <SectionHead id="machine-driver" title={t('machine.driverTitle')} info={t('machine.driverIntro')} />
-      {NATIVE.map(backend => <div key={backend} className="grid gap-2">
-        <StatusRow label={t(`conditions.backends.${backend}`)} status={drivers[backend]} busy={props.busy} onCheck={() => void checkDriver(backend)} />
-        <Field label={t(`machine.atEndpoint.${backend}`)} value={machine.atEndpoints[backend]} placeholder={AT_DRIVER_DEFAULTS[backend]} hint={t('machine.atEndpointHint')}
-          onChange={value => updateMachine({ atEndpoints: { ...machine.atEndpoints, [backend]: value } })} />
-      </div>)}
-      <Field label={t('machine.atCommand')} value={command} placeholder={t('machine.atCommandPlaceholder')} info={t('machine.atCommandHint')} hint={savedCommand ? t('machine.atCommandSet') : t('machine.atCommandUnset')}
-        onChange={next => { setCommand(next); setDrivers({ voiceover: { kind: 'unchecked' }, nvda: { kind: 'unchecked' } }); }} />
+    <section aria-labelledby="machine-driver" className="grid">
+      <SectionHead id="machine-driver" title={t('machine.driverTitle')} />
+      <p className="mb-2 text-ink-2">{t('machine.driverShort')}</p>
+      <Sheet>
+        {NATIVE.map(backend => <Fragment key={backend}>
+          <SheetRow label={t(`conditions.backends.${backend}`)}>
+            <StatusLine label={t(`conditions.backends.${backend}`)} status={drivers[backend]} busy={props.busy} onCheck={() => void checkDriver(backend)} />
+          </SheetRow>
+          <TextRow label={t(`machine.atEndpoint.${backend}`)} value={machine.atEndpoints[backend]} placeholder={AT_DRIVER_DEFAULTS[backend]} hint={t('machine.atEndpointHint')} mono
+            onChange={value => updateMachine({ atEndpoints: { ...machine.atEndpoints, [backend]: value } })} />
+        </Fragment>)}
+        <TextRow label={t('machine.atCommand')} value={command} placeholder={t('machine.atCommandPlaceholder')} mono hint={savedCommand ? t('machine.atCommandSet') : t('machine.atCommandUnset')}
+          onChange={next => { setCommand(next); setDrivers({ voiceover: { kind: 'unchecked' }, nvda: { kind: 'unchecked' } }); }} />
+      </Sheet>
     </section>
     <SaveBar dirty={dirty} busy={props.busy} blocked={parallelOk ? undefined : t('machine.parallelRunsInvalid')} onSave={save} onDiscard={discard} />
   </div>;

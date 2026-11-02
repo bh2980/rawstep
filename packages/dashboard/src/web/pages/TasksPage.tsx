@@ -1,46 +1,45 @@
-import { taskUrl } from '../lib/taskJson';
-import { useMemo, useState } from 'react';
-import { CornerDownRight, FileInput, Play, Plus } from 'lucide-react';
+import { useId, useMemo, useState } from 'react';
+import { CornerDownRight, Play, Plus, Search, Upload } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { TaskSummary } from '../../shared/api';
-import { cn } from '../lib/utils';
 import { ErrorState } from '../components/layout/ErrorState';
-import { EmptyState } from '../components/layout/EmptyState';
-import { FilterBar, FilterSearch, FilterSegments, FilterSelect } from '../components/layout/FilterBar';
-import { InfoTip } from '../components/layout/InfoTip';
-import { PageHeader, SectionHead } from '../components/layout/PageHeader';
 import { Link } from '../components/Link';
-import { RunStateLabel } from '../components/RunStateLabel';
+import { Dash, PageHeader, SectionHead } from '../components/PageHeader';
 import { SetupRail, type SetupStep } from '../components/SetupRail';
-import { TagList } from '../components/TagList';
+import { StatusLegend, StatusMark } from '../components/StatusMark';
+import { displayUrl } from '../components/TaskHeader';
 import { TaskImportDialog } from '../components/TaskImportDialog';
-import { RunStrip, RunStripLegend } from '../components/trace/RunStrip';
+import { Time } from '../components/Time';
+import { RunStrip } from '../components/trace/RunStrip';
 import { Button } from '../components/ui/button';
 import { Checkbox } from '../components/ui/checkbox';
-import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
+import { Input } from '../components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { NEW_TASK } from '../hooks/useRoute';
-import { roleLabel } from '../i18n/labels';
-import { dataFailureView } from '../lib/errors';
+import { targetLabel } from '../i18n/labels';
 import { comboSummary, profileReady } from '../lib/conditions';
-import { formatSteps } from '../lib/format';
-import { displayState, recentRuns } from '../lib/runStrip';
+import { dataFailureView } from '../lib/errors';
+import { recentRuns, runStatus } from '../lib/runStrip';
 import { isFinished, isLive, runModelsName, runStepCount, taskNameOf, taskRunNumbers } from '../lib/runs';
 import { activeTag, hasTag, projectTags } from '../lib/tags';
+import { taskUrl } from '../lib/taskJson';
+import { cn } from '../lib/utils';
 import type { ListProps } from './types';
 
 type Filter = 'all' | 'findings' | 'missed';
 const filters: Filter[] = ['all', 'findings', 'missed'];
 const ALL = '__all__';
-const head = 'h-8 px-3 text-xs font-medium text-muted-foreground';
-const cell = 'px-3 py-0 text-[13px]';
+const head = 'h-8 px-3 text-left align-middle text-xs font-medium text-ink-2 whitespace-nowrap';
+const cell = 'h-10 px-3 align-middle';
 
 /**
- * The landing page and route index (spec §14): one 40px line per task, to scan and compare. Above the table, only while there is
- * something to say: the runs going now, and the getting-started steps until the first run is done. Detail is on the task page.
+ * The landing page and route index: one 40px row per task in one table with fixed columns, to scan and compare. Above it, only while
+ * there is something to say: the runs going now and the getting-started steps. Picking tasks swaps the filters for the selection bar.
  */
 export function TasksPage({ pageProps, runs, summaries, summaryError, navigate, onRun }: ListProps & { onRun: (taskIds: string[]) => void }) {
   const { t } = useTranslation();
   const [query, setQuery] = useState(''), [filter, setFilter] = useState<Filter>('all'), [importing, setImporting] = useState(false), [chosenTag, setTag] = useState(ALL);
+  const [picked, setPicked] = useState<string[]>([]);
   const { config, tasks } = pageProps.view, byTask = useMemo(() => new Map(summaries.map(row => [row.taskId, row])), [summaries]);
   const needle = query.trim().toLowerCase(), tags = projectTags(config.tasks), tag = activeTag(chosenTag, ALL, config.tasks);
   const rows = config.tasks.map(task => ({ task, url: taskUrl(tasks[task.id]), row: byTask.get(task.id), base: config.tasks.find(other => other.id === task.variantOf) })).filter(({ task, url, row }) =>
@@ -49,7 +48,6 @@ export function TasksPage({ pageProps, runs, summaries, summaryError, navigate, 
   // Each variant right under its base task; a variant whose base is filtered out keeps its place.
   const shown = new Set(rows.map(item => item.task.id));
   const ordered = rows.filter(item => !item.base || !shown.has(item.base.id)).flatMap(item => [item, ...rows.filter(other => other.base?.id === item.task.id)]);
-  const [picked, setPicked] = useState<string[]>([]);
   const allShown = ordered.length > 0 && ordered.every(item => picked.includes(item.task.id));
   const profileName = (id: string) => config.profiles.find(profile => profile.id === id)?.name ?? id;
   const live = runs.filter(ref => isLive(ref.run)), finished = runs.filter(ref => isFinished(ref.run));
@@ -61,100 +59,130 @@ export function TasksPage({ pageProps, runs, summaries, summaryError, navigate, 
     { id: 'task', done: config.tasks.length > 0, detail: config.tasks.length ? t('taskList.setup.taskDone', { count: config.tasks.length }) : t('taskList.setup.taskTodo'), to: { task: NEW_TASK } },
     { id: 'run', done: finished.length > 0, detail: finished.length ? t('taskList.setup.runDone', { count: finished.length }) : t('taskList.setup.runTodo') },
   ];
-  return <div className="grid gap-4">
-    <PageHeader title={t('taskList.title')} meta={t('taskList.count', { count: config.tasks.length })} actions={<>
-      <Button variant="outline" size="lg" onClick={() => setImporting(true)}><FileInput aria-hidden="true" />{t('taskList.import')}</Button>
-      <Button asChild size="lg"><Link to={{ task: NEW_TASK }} navigate={navigate}><Plus aria-hidden="true" />{t('taskList.new')}</Link></Button>
-    </>} />
+  const empty = config.tasks.length === 0;
+  const newTask = <Button asChild><Link to={{ task: NEW_TASK }} navigate={navigate}><Plus aria-hidden="true" />{t('taskList.new')}</Link></Button>;
 
-    {live.length > 0 && <section aria-labelledby="tasks-live" className="grid gap-2">
-      <SectionHead id="tasks-live" title={t('taskList.live')} aside={t('taskList.liveCount', { count: live.length })} />
-      <ul className="divide-y divide-edge border-b border-edge">{live.map(({ run }) => <li key={run.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 py-2 text-[13px]">
-        <RunStateLabel state={run.state} className="w-24 font-medium" />
-        <Link to={{ task: run.taskId, run: run.id }} navigate={navigate} className="min-w-0 flex-1 rounded-sm font-medium hover:underline">{taskNameOf(run, config.tasks)}<span className="sr-only"> {t('sidebar.repeat', { n: run.repeat })}</span></Link>
-        <span className="text-muted-foreground">{runModelsName(run)}</span>
+  return <div className="grid gap-6">
+    <PageHeader className="mb-0" title={t('taskList.title')} meta={[t('taskList.count', { count: config.tasks.length }), !empty && t('appShell.project', { name: pageProps.view.projectName })]}
+      actions={<>
+        <Button variant="outline" onClick={() => setImporting(true)}><Upload aria-hidden="true" />{t('taskList.import')}</Button>
+        {!empty && newTask}
+      </>} />
+
+    {live.length > 0 && <section aria-labelledby="tasks-live" className="grid">
+      <SectionHead id="tasks-live" title={t('taskList.live')} count={live.length} />
+      <ul className="border-t border-edge">{live.map(({ run }) => <li key={run.id} className="flex h-10 items-center gap-4 border-b border-edge px-3">
+        <StatusMark status={runStatus(run).status} className="w-24" />
+        <Link to={{ task: run.taskId, run: run.id }} navigate={navigate} className="min-w-0 flex-1 truncate rounded-sm font-medium hover:underline">{taskNameOf(run, config.tasks)}<span className="sr-only"> {t('sidebar.repeat', { n: run.repeat })}</span></Link>
+        <span className="truncate text-ink-2">{runModelsName(run)}</span>
       </li>)}</ul>
     </section>}
 
     {/* Getting started is for the first visit only: once every step is done it leaves the page. */}
     {steps.some(step => !step.done) && <SetupRail steps={steps} navigate={navigate} />}
-
-    {config.tasks.length > 0 && <FilterBar label={t('taskList.filterLabel')}>
-      <FilterSearch label={t('taskList.search')} value={query} onChange={setQuery} placeholder={t('taskList.searchPlaceholder')} />
-      {tags.length > 0 && <FilterSelect label={t('taskList.tagFilter')} value={tag ?? ALL} onChange={setTag} options={[{ id: ALL, name: t('taskList.allTags') }, ...tags.map(name => ({ id: name, name }))]} className="max-w-40" />}
-      <FilterSegments label={t('taskList.filterLabel')} value={filter} onChange={value => setFilter(value as Filter)} options={filters.map(id => ({ id, name: t(`taskList.filters.${id}`) }))} />
-    </FilterBar>}
     {summaryError && <ErrorState view={dataFailureView(t('taskList.loadFailed'), summaryError)} />}
 
-    {config.tasks.length === 0
-      ? <EmptyState title={t('empty.tasks.title')} action={<Button asChild variant="outline"><Link to={{ task: NEW_TASK }} navigate={navigate}><Plus aria-hidden="true" />{t('empty.tasks.action')}</Link></Button>} />
-      : <div className="grid gap-2">
-        <div className="flex min-h-9 flex-wrap items-center gap-3">
-          <Button variant="outline" disabled={!picked.length || pageProps.busy} onClick={() => onRun(picked)}><Play aria-hidden="true" />{picked.length ? t('taskList.runPicked', { count: picked.length }) : t('taskList.runNone')}</Button>
-          {picked.length > 0 && <Button variant="ghost" size="sm" onClick={() => setPicked([])}>{t('taskList.clearPicked')}</Button>}
-        </div>
-        <div className="overflow-x-auto rounded-md border border-edge-strong bg-surface">
-        <Table className="min-w-[56rem]">
-          <TableCaption className="sr-only">{t('taskList.caption')}</TableCaption>
-          <TableHeader><TableRow className="bg-raised hover:bg-raised">
-            <TableHead scope="col" className={head + ' w-9'}><Checkbox aria-label={t('taskList.pickAll')} checked={allShown ? true : picked.length ? 'indeterminate' : false}
-              onCheckedChange={on => setPicked(on === true ? ordered.map(item => item.task.id) : [])} /></TableHead>
-            <TableHead scope="col" className={head}>{t('taskList.columns.task')}</TableHead>
-            {tags.length > 0 && <TableHead scope="col" className={head}>{t('taskList.columns.tags')}</TableHead>}
-            <TableHead scope="col" className={head}><span className="inline-flex items-center gap-0.5">{t('taskList.columns.results')}<InfoTip term={t('taskList.columns.results')}>{t('taskList.resultsInfo')}</InfoTip></span></TableHead>
-            <TableHead scope="col" className={head}><span className="inline-flex items-center gap-0.5">{t('taskList.columns.recent')}<InfoTip term={t('taskList.columns.recent')}><RunStripLegend /></InfoTip></span></TableHead>
-            <TableHead scope="col" className={head}>{t('taskList.columns.finding')}</TableHead>
-          </TableRow></TableHeader>
-          <TableBody>{ordered.map(({ task, url, row, base }) => {
-            const numbers = taskRunNumbers(runs, task.id), strip = recentRuns(runs, task.id), groups = row?.facts.byProfile ?? [];
-            const baseGroups = base ? byTask.get(base.id)?.facts.byProfile ?? [] : [];
-            return <TableRow key={task.id} className={base ? 'h-9' : 'h-11'}>
-              <TableCell className={cell + ' w-9'}><Checkbox aria-label={t('taskList.pickOne', { name: task.name })} checked={picked.includes(task.id)}
-                onCheckedChange={on => setPicked(current => on === true ? [...current, task.id] : current.filter(id => id !== task.id))} /></TableCell>
-              <TableCell className={cell + ' max-w-80'}>
-                <Link to={{ task: task.id }} navigate={navigate} className={cn('grid min-w-0 rounded-sm hover:underline', base && 'pl-5')}>
-                  <span className="flex min-w-0 items-baseline gap-1.5">{base && <CornerDownRight aria-hidden="true" className="size-3.5 shrink-0 self-center text-muted-foreground" />}
-                    <span className="truncate font-medium">{task.name}</span>{base && <span className="sr-only">{t('taskList.variantOf', { name: base.name })}</span>}</span>
-                  {!base && <span className="truncate font-mono text-xs text-muted-foreground">{url}</span>}
-                </Link>
-              </TableCell>
-              {tags.length > 0 && <TableCell className={cell + ' max-w-52 py-1.5'}>{task.tags?.length ? <TagList tags={task.tags} limit={3} more={n => t('taskList.moreTags', { n })} /> : <span className="text-muted-foreground">—</span>}</TableCell>}
-              <TableCell className={cell + ' py-1.5'}>{groups.length
-                ? <ul className="grid gap-0.5 text-[13px] tabular-nums">{groups.slice(0, 3).map(group => {
-                  const same = baseGroups.find(other => other.profileId === group.profileId);
-                  const extra = group.medianSteps != null && same?.medianSteps != null ? group.medianSteps - same.medianSteps : undefined;
-                  return <li key={group.profileId} className="flex items-baseline gap-2 whitespace-nowrap">
-                    <span className="max-w-48 truncate text-muted-foreground">{profileName(group.profileId)}</span>
-                    <span className="font-medium">{formatSteps(group.medianSteps)}</span>
-                    {extra !== undefined && <span className={cn('text-xs', extra > 0 ? 'text-inspect' : 'text-muted-foreground')}>{extra > 0 ? `+${formatSteps(extra)}` : formatSteps(extra)}</span>}
-                    {group.unheard > 0 && <span className="text-xs text-inspect">{t('taskList.unheard', { unheard: group.unheard, reached: group.reached })}</span>}
-                  </li>; })}
-                  {groups.length > 3 && <li className="text-xs text-muted-foreground">{t('taskList.moreProfiles', { count: groups.length - 3 })}</li>}</ul>
-                : <span className="text-muted-foreground">{t('taskList.neverRun')}</span>}</TableCell>
-              <TableCell className={cell}>{strip.length > 0
-                ? <RunStrip navigate={navigate} runs={strip.map(ref => ({ id: ref.run.id, number: numbers.get(ref.run.id), state: displayState(ref.run), steps: runStepCount(ref.run), to: { task: task.id, run: ref.run.id } }))} />
-                : <span className="text-muted-foreground">—</span>}</TableCell>
-              <TableCell className={cell + ' max-w-56'}><Finding row={row} ran={groups.length > 0} /></TableCell>
-            </TableRow>;
-          })}</TableBody>
-        </Table>
-        {ordered.length === 0 && <p className="p-6 text-center text-sm text-muted-foreground">{t('taskList.noMatch')}</p>}
+    {empty
+      ? <section aria-labelledby="tasks-empty" className="mx-auto mt-24 grid w-full max-w-md justify-items-start gap-2">
+        <h2 id="tasks-empty" className="text-md font-semibold">{t('taskList.empty.title')}</h2>
+        <p className="text-ink-2">{t('taskList.empty.why')}</p>
+        <div className="mt-2 flex gap-2">{newTask}</div>
+        <p className="mt-4 w-full border-t border-edge pt-3 text-sm text-ink-2">{t('taskList.empty.cli')} <code lang="en" className="font-mono text-foreground">npx rawstep init</code></p>
+      </section>
+      : <div className="grid gap-3">
+        {picked.length > 0
+          ? <div role="toolbar" aria-label={t('taskList.picked', { count: picked.length })} className="flex min-h-8 flex-wrap items-center gap-x-3 gap-y-2">
+            <span className="font-medium tabular-nums">{t('taskList.picked', { count: picked.length })}</span>
+            <Button variant="outline" disabled={pageProps.busy} onClick={() => onRun(picked)}><Play aria-hidden="true" />{t('taskList.runPicked')}</Button>
+            <Button variant="ghost" onClick={() => setPicked([])}>{t('taskList.clearPicked')}</Button>
+            <span className="text-ink-2">{t('taskList.pickedNote')}</span>
+            <StatusLegend order className="ml-auto" />
+          </div>
+          : <div role="search" aria-label={t('taskList.filterLabel')} className="flex min-h-8 flex-wrap items-center gap-2">
+            <SearchField label={t('taskList.search')} value={query} onChange={setQuery} placeholder={t('taskList.searchPlaceholder')} />
+            <FilterChip label={t('taskList.resultFilter')} value={filter} onChange={value => setFilter(value as Filter)} options={filters.map(id => ({ id, name: t(`taskList.filters.${id}`) }))} />
+            {tags.length > 0 && <FilterChip label={t('taskList.tagFilter')} value={tag ?? ALL} onChange={setTag} options={[{ id: ALL, name: t('taskList.allTags') }, ...tags.map(name => ({ id: name, name }))]} />}
+            <StatusLegend order className="ml-auto" />
+          </div>}
+
+        <div className="-mx-3 overflow-x-auto">
+          <table className="w-full min-w-[64rem] table-fixed border-collapse">
+            <caption className="sr-only">{t('taskList.caption')}</caption>
+            <colgroup><col className="w-11" /><col className="w-57" /><col /><col className="w-43" /><col className="w-50" /><col className="w-26" /><col className="w-22" /><col className="w-32" /></colgroup>
+            <thead><tr className="border-b border-edge">
+              <th scope="col" className={head}><Checkbox aria-label={t('taskList.pickAll')} checked={allShown ? true : picked.length ? 'indeterminate' : false}
+                onCheckedChange={on => setPicked(on === true ? ordered.map(item => item.task.id) : [])} /></th>
+              <th scope="col" className={head}>{t('taskList.columns.task')}</th>
+              <th scope="col" className={head}>{t('taskList.columns.url')}</th>
+              <th scope="col" className={head}>{t('taskList.columns.profile')}</th>
+              <th scope="col" className={head}>{t('taskList.columns.recent')}</th>
+              <th scope="col" className={head + ' text-right'}>{t('taskList.columns.cost')}</th>
+              <th scope="col" className={head + ' text-right'}>{t('taskList.columns.finding')}</th>
+              <th scope="col" className={head + ' text-right'}>{t('taskList.columns.last')}</th>
+            </tr></thead>
+            <tbody>
+              {ordered.map(({ task, url, row, base }) => {
+                const numbers = taskRunNumbers(runs, task.id), strip = recentRuns(runs, task.id), on = picked.includes(task.id);
+                const ran = row?.facts.byProfile.map(group => group.profileId) ?? [], profileIds = ran.length ? ran : task.profiles ?? [];
+                return <tr key={task.id} data-state={on ? 'selected' : undefined} className={cn('border-b border-edge hover:bg-raised', on && 'bg-raised')}>
+                  <td data-selected={on} className={cell + ' row-rail rail-divider'}><Checkbox aria-label={t('taskList.pickOne', { name: task.name })} checked={on}
+                    onCheckedChange={next => setPicked(current => next === true ? [...current, task.id] : current.filter(id => id !== task.id))} /></td>
+                  <th scope="row" className={cell + ' text-left font-normal'}>
+                    <span className={cn('flex min-w-0 items-center gap-1.5', base && 'pl-4')}>
+                      {base && <CornerDownRight aria-hidden="true" className="size-3.5 shrink-0 text-ink-3" />}
+                      <Link to={{ task: task.id }} navigate={navigate} className="truncate rounded-sm font-medium hover:underline">{task.name}{base && <span className="sr-only">, {t('taskList.variantOf', { name: base.name })}</span>}</Link>
+                      {task.tags?.length ? <span className="shrink truncate text-sm text-ink-3" title={task.tags.join(', ')}><span className="sr-only">{t('tags.label')}: </span>{task.tags.join(' · ')}</span> : null}
+                    </span>
+                  </th>
+                  <td className={cell + ' truncate text-ink-2'} title={url}>{url ? displayUrl(url) : <Dash />}</td>
+                  <td className={cell + ' truncate'}>{profileIds.length ? <>
+                    {profileName(profileIds[0]!)}
+                    {profileIds.length > 1 && <span className="ml-1 text-ink-3 tabular-nums" title={profileIds.slice(1).map(profileName).join(', ')}><span aria-hidden="true">{t('taskList.moreProfiles', { count: profileIds.length - 1 })}</span><span className="sr-only">{t('taskList.moreProfilesLabel', { count: profileIds.length - 1 })}</span></span>}
+                  </> : <Dash />}</td>
+                  <td className={cell}>{strip.length > 0
+                    ? <span className="flex min-w-0 items-center gap-1.5 whitespace-nowrap">
+                      <RunStrip navigate={navigate} runs={strip.slice(-5).map(ref => ({ id: ref.run.id, number: numbers.get(ref.run.id), status: runStatus(ref.run).status, steps: runStepCount(ref.run), to: { task: task.id, run: ref.run.id } }))} />
+                      {row && row.facts.runs > 0 && <span className="tabular-nums text-ink-2">{t('taskList.reachedOf', { runs: row.facts.runs, reached: row.facts.reached })}</span>}
+                    </span>
+                    : <Dash />}</td>
+                  <td className={cell + ' text-right tabular-nums'}><Cost row={row} /></td>
+                  <td className={cell + ' text-right tabular-nums'}>{row && row.findingCount > 0
+                    ? <span title={row.topFinding ? t('taskList.topFinding', { target: targetLabel(row.topFinding.target) }) : undefined}>{row.findingCount}</span> : <Dash />}</td>
+                  <td className={cell + ' text-right whitespace-nowrap tabular-nums text-ink-2'}><Time value={row?.lastRunAt} /></td>
+                </tr>;
+              })}
+              {ordered.length === 0 && <tr><td colSpan={8} className="h-16 px-3 text-center text-ink-2">{t('taskList.noMatch')}</td></tr>}
+            </tbody>
+          </table>
         </div>
       </div>}
     <TaskImportDialog {...pageProps} open={importing} onOpenChange={setImporting} onImported={id => navigate({ task: id })} />
   </div>;
 }
 
-/** The count of spots to look at, and under it the element that recurs most: its name, then its role in plain Korean. */
-function Finding({ row, ran }: { row: TaskSummary | undefined; ran: boolean }) {
-  const { t } = useTranslation();
-  if (!row || row.findingCount === 0) return <span className="text-muted-foreground">{ran ? t('taskList.noFinding') : '—'}</span>;
-  const target = row.topFinding?.target;
-  return <span className="grid min-w-0 leading-tight">
-    <span className="font-semibold whitespace-nowrap tabular-nums">{t('taskList.findingCount', { count: row.findingCount })}</span>
-    <span className="flex min-w-0 items-baseline gap-1.5 text-xs text-muted-foreground">
-      <span className="truncate">{target?.name || (target ? t('trace.unnamed') : t('trace.wholePage'))}</span>
-      {target?.role && <span className="shrink-0" title={target.role}>{roleLabel(target.role)}</span>}
-    </span>
-  </span>;
+/** What reaching the goal cost, over every run profile of the newest batch: the fewest and the most actions, or one number. */
+function Cost({ row }: { row: TaskSummary | undefined }) {
+  const groups = row?.facts.byProfile.filter(group => group.minSteps !== null && group.maxSteps !== null) ?? [];
+  if (!groups.length) return <Dash />;
+  const low = Math.min(...groups.map(group => group.minSteps!)), high = Math.max(...groups.map(group => group.maxSteps!));
+  return <>{low === high ? low : `${low}–${high}`}</>;
+}
+
+function SearchField({ label, value, onChange, placeholder }: { label: string; value: string; onChange: (value: string) => void; placeholder: string }) {
+  const id = useId();
+  return <div className="relative w-full sm:w-65">
+    <label htmlFor={id} className="sr-only">{label}</label>
+    <Search aria-hidden="true" className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-ink-2" />
+    <Input id={id} type="search" value={value} onChange={event => onChange(event.target.value)} placeholder={placeholder} className="pl-8" />
+  </div>;
+}
+
+/** A filter as one control: its name in the secondary colour and the chosen value after it (`결과 전체`). */
+function FilterChip({ label, value, onChange, options }: { label: string; value: string; onChange: (value: string) => void; options: { id: string; name: string }[] }) {
+  return <Select value={value} onValueChange={onChange}>
+    <SelectTrigger aria-label={`${label}: ${options.find(option => option.id === value)?.name ?? ''}`} className="gap-1.5 text-ink-2">
+      <span aria-hidden="true">{label}</span><span className="font-medium text-foreground"><SelectValue /></span>
+    </SelectTrigger>
+    <SelectContent>{options.map(option => <SelectItem key={option.id} value={option.id}>{option.name}</SelectItem>)}</SelectContent>
+  </Select>;
 }

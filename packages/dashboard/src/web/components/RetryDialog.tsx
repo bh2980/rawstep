@@ -15,10 +15,10 @@ export function RetryDialog({ preview, busy, onConfirm, onClose }: Props) {
         <DialogTitle>{t('run.retryTitle')}</DialogTitle>
         <DialogDescription>{t('runConditions.retryBody')}</DialogDescription>
       </DialogHeader>
-      <p className="text-sm text-muted-foreground">{changed.length ? t('run.retryChanged', { fields: changed.join(', ') }) : t('run.retryUnchanged')}</p>
+      <p className="text-ink-2">{changed.length ? t('run.retryChanged', { fields: changed.join(', ') }) : t('run.retryUnchanged')}</p>
       {preview && changed.length > 0 && <details>
-        <summary className="cursor-pointer text-sm">{t('run.retryDiff')}</summary>
-        <pre className="mt-2 max-h-80 overflow-auto rounded-md bg-muted p-3 text-xs">
+        <summary className="cursor-pointer text-ink-2 hover:text-foreground">{t('run.retryDiff')}</summary>
+        <pre className="mt-2 max-h-80 overflow-auto rounded-sm border border-edge bg-raised p-3 font-mono text-sm">
           {JSON.stringify({ [t('run.retryOriginal')]: preview.original, [t('run.retryCurrent')]: preview.current }, null, 2)}
         </pre>
       </details>}

@@ -13,8 +13,7 @@ import { AgentNote } from './AgentNote';
 import { Field, SecretField } from './forms';
 import { CheckStatus, type CheckState } from './CheckStatus';
 import { ErrorState } from './layout/ErrorState';
-import { InfoTip } from './layout/InfoTip';
-import { RadioRows } from './layout/RadioRows';
+import { RadioList } from './conditions/Sheet';
 import { Checkbox } from './ui/checkbox';
 import { Label } from './ui/label';
 import { Button } from './ui/button';
@@ -40,8 +39,8 @@ export function ConnectionSetupDialog({ open, onOpenChange, pageProps, onAdded }
 function Stepper({ step }: { step: Step }) {
   const { t } = useTranslation();
   const at = STEPS.indexOf(step);
-  return <ol aria-label={t('connections.stepsLabel')} className="flex flex-wrap gap-x-4 gap-y-1 border-b border-edge pb-2.5 text-[13px]">
-    {STEPS.map((id, index) => <li key={id} aria-current={id === step ? 'step' : undefined} className={cn('flex items-center gap-1.5', id === step ? 'font-semibold text-foreground' : 'text-muted-foreground')}>
+  return <ol aria-label={t('connections.stepsLabel')} className="flex flex-wrap gap-x-4 gap-y-1 border-b border-edge pb-2.5 text-base">
+    {STEPS.map((id, index) => <li key={id} aria-current={id === step ? 'step' : undefined} className={cn('flex items-center gap-1.5', id === step ? 'font-semibold text-foreground' : 'text-ink-2')}>
       {index < at ? <Check aria-hidden="true" className="size-3.5" /> : <span aria-hidden="true" className="font-mono tabular-nums">{index + 1}</span>}{t(`connections.steps.${id}.name`)}
     </li>)}
   </ol>;
@@ -127,20 +126,21 @@ function SetupFlow({ pageProps: props, close, onAdded }: { pageProps: PageProps;
     {error && <ErrorState alert view={error} />}
 
     {step === 'kind' && <>
-      <RadioRows legend={t('connections.steps.kind.title')} value={route} onChange={chooseRoute}
+      <span id="connection-route" className="sr-only">{t('connections.steps.kind.title')}</span>
+      <RadioList stacked labelledBy="connection-route" value={route} onChange={chooseRoute}
         rows={ROUTES.map(r => ({ id: r, label: t(`connections.routes.${r}.name`), hint: t(`connections.routes.${r}.description`) }))} />
       <DialogFooter><Button type="button" onClick={() => { setError(undefined); setStep('provider'); }}>{t('connections.next')}</Button></DialogFooter>
     </>}
 
     {step === 'provider' && <>
       <div className="grid gap-4">
-        <RadioRows legend={t('connections.steps.provider.title')} value={provider ?? ('' as ProviderId)} onChange={chooseProvider}
+        <span id="connection-provider" className="sr-only">{t('connections.steps.provider.title')}</span>
+        <RadioList stacked labelledBy="connection-provider" value={provider ?? ('' as ProviderId)} onChange={chooseProvider}
           rows={providers.map(p => ({ id: p.id, label: t(`connections.providers.${p.id}.name`), hint: t(`connections.providers.${p.id}.description`) }))} />
         {custom && <Field label={t('connections.baseUrl')} value={baseURL} onChange={setBaseURL} placeholder="http://127.0.0.1:1234/v1" hint={t('connections.baseUrlHint')} />}
         {preset && agent && <AgentNote preset={preset} />}
         {provider && !agent && <SecretField label={preset?.keyRequired ? t('connections.apiKey') : t('connections.apiKeyOptional')} value={apiKey} onChange={setApiKey} saved={keySet} onReveal={custom ? undefined : async () => (await api<{ value: string | null }>('/credentials/reveal', { method: 'POST', body: { provider } })).value ?? undefined}
-          hint={keySet ? t('connections.keyAlreadySet') : preset?.keyRequired ? t('connections.keyRequiredHint') : undefined}
-          info={[t('connections.keyStoredHint'), !custom ? t('connections.keyShared') : undefined].filter(Boolean).join(' ')} />}
+          hint={[keySet ? t('connections.keyAlreadySet') : preset?.keyRequired ? t('connections.keyRequiredHint') : undefined, t('connections.keyStoredHint'), !custom ? t('connections.keyShared') : undefined].filter(Boolean).join(' ')} />}
       </div>
       <DialogFooter className="sm:justify-between">
         <Button type="button" variant="ghost" onClick={() => { setError(undefined); setStep('kind'); }}><ArrowLeft aria-hidden="true" />{t('connections.back')}</Button>
@@ -150,21 +150,21 @@ function SetupFlow({ pageProps: props, close, onAdded }: { pageProps: PageProps;
 
     {step === 'check' && <>
       <dl className="grid gap-x-4 gap-y-1 text-sm sm:grid-cols-[6rem_minmax(0,1fr)]">
-        <dt className="text-muted-foreground">{t('connections.kind')}</dt><dd>{t(`connections.routes.${route}.name`)}</dd>
-        <dt className="text-muted-foreground">{t('connections.provider')}</dt><dd>{providerName}</dd>
-        {agent && <><dt className="text-muted-foreground">{t('connections.command')}</dt><dd className="font-mono text-[13px] break-all">{[agent.command, ...agent.args].join(' ')}</dd></>}
-        {custom && <><dt className="text-muted-foreground">{t('connections.baseUrl')}</dt><dd className="font-mono text-[13px] break-all">{baseURL.trim()}</dd></>}
+        <dt className="text-ink-2">{t('connections.kind')}</dt><dd>{t(`connections.routes.${route}.name`)}</dd>
+        <dt className="text-ink-2">{t('connections.provider')}</dt><dd>{providerName}</dd>
+        {agent && <><dt className="text-ink-2">{t('connections.command')}</dt><dd className="font-mono text-base break-all">{[agent.command, ...agent.args].join(' ')}</dd></>}
+        {custom && <><dt className="text-ink-2">{t('connections.baseUrl')}</dt><dd className="font-mono text-base break-all">{baseURL.trim()}</dd></>}
       </dl>
-      <div className="flex items-start gap-1.5 border-t pt-4">
+      <div className="flex items-start gap-1.5 border-t border-edge pt-4">
         <div className="min-w-0 flex-1">{check && <CheckStatus check={check} signIn={agent ? { available: !!agent.signIn, busy: false, onClick: () => void signIn() } : undefined} />}</div>
-        <InfoTip term={t('connections.checkTerm')} side="left">{t(agent ? 'connections.checkNoteAgent' : 'connections.checkNoteList')}</InfoTip>
       </div>
-      <Field label={t('connections.name')} value={name} onChange={setName} info={t('connections.nameHint')} />
+      <p className="text-sm text-ink-2">{t(agent ? 'connections.checkNoteAgent' : 'connections.checkNoteList')}</p>
+      <Field label={t('connections.name')} value={name} onChange={setName} hint={t('connections.nameHint')} />
       {agent && <div className="flex items-start gap-2"><Checkbox id="agent-consent" className="mt-0.5" checked={consent} onCheckedChange={v => setConsent(v === true)} /><Label htmlFor="agent-consent" className="font-normal leading-5">{t('connections.agentConsent', { provider: providerName })}</Label></div>}
       <DialogFooter className="sm:justify-between">
         <Button type="button" variant="ghost" onClick={() => { setError(undefined); setStep('provider'); }}><ArrowLeft aria-hidden="true" />{t('connections.back')}</Button>
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
-          {addBlock && <p role="status" className="text-xs leading-5 text-muted-foreground">{t(`connections.addBlock.${addBlock}`)}</p>}
+          {addBlock && <p role="status" className="text-sm text-ink-2">{t(`connections.addBlock.${addBlock}`)}</p>}
           <Button type="button" variant="outline" disabled={check?.state === 'running'} onClick={() => void runCheck()}>{t('connections.checkAgain')}</Button>
           <Button type="button" variant={verdict ? 'default' : 'outline'} disabled={props.busy || !!addBlock} onClick={() => void add()}>{verdict ? t('connections.submit') : t('connections.addAnyway')}</Button>
         </div>

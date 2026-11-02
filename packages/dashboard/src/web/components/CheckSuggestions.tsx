@@ -38,14 +38,14 @@ function Candidate({ suggestion, index, onAdd, added }: { suggestion: CheckSugge
     <div className="flex items-start justify-between gap-3">
       <div className="grid min-w-0 gap-0.5">
         <p className="text-sm leading-6 font-medium">{describeRule(suggestion.rule)}</p>
-        {(suggestion.why || note) && <p className="text-[13px] leading-5 text-muted-foreground">{[suggestion.why, note].filter(Boolean).join(' · ')}</p>}
+        {(suggestion.why || note) && <p className="text-ink-2">{[suggestion.why, note].filter(Boolean).join(' · ')}</p>}
       </div>
       <Button type="button" variant="outline" size="sm" disabled={blocked || added} aria-label={t('checkSuggest.addAria', { n: index + 1 })} onClick={() => onAdd(suggestion.rule)}>
         {added ? t('checkSuggest.added') : <><Plus aria-hidden="true" />{t('checkSuggest.add')}</>}
       </Button>
     </div>
     {script && <div className="grid gap-2 border-l-4 border-inspect bg-inspect-soft p-3">
-      <p className="text-[13px] leading-5">{t('checkSuggest.scriptNotice')}</p>
+      <p className="text-base leading-5">{t('checkSuggest.scriptNotice')}</p>
       {script.description && <p className="text-sm leading-6"><span className="font-semibold">{t('checkSuggest.scriptDescription')}</span> {script.description}</p>}
       <ScriptSource source={script.source} />
       <div className="flex items-start gap-2.5">
@@ -79,27 +79,27 @@ export function CheckSuggestions({ view, url, goal, onAdd }: Props) {
     } finally { setLoading(false); }
   }
   const add = (suggestion: CheckSuggestion, key: string) => { onAdd(suggestion.rule); setAdded(new Set([...added, key])); };
-  if (!model) return <p className="flex flex-wrap items-center gap-x-1 text-[13px] text-muted-foreground">
+  if (!model) return <p className="flex flex-wrap items-center gap-x-1 text-base text-ink-2">
     <Sparkles aria-hidden="true" className="size-3.5" />{t('suggestModel.none')}
     <Button type="button" variant="link" size="sm" className="h-auto p-0" onClick={() => navigate({ view: 'settings', section: 'connections' })}>{t('suggestModel.connect')}</Button>
   </p>;
   return <section aria-label={t('checkSuggest.title')} className="grid min-w-0 gap-2">
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
       <Button type="button" variant="outline" size="sm" disabled={!ready || loading} aria-describedby={id + '-note'} onClick={() => void suggest()}><Sparkles aria-hidden="true" />{loading ? t('checkSuggest.loading') : t('checkSuggest.submit')}</Button>
-      <p id={id + '-note'} role={loading ? 'status' : undefined} className="text-xs leading-5 text-muted-foreground">
+      <p id={id + '-note'} role={loading ? 'status' : undefined} className="text-sm text-ink-2">
         {loading ? t('checkSuggest.loadingNote') : !ready ? t('checkSuggest.needInput') : `${t('suggestModel.line', { model: model.name })} · ${t('checkSuggest.privacy')}`}
       </p>
     </div>
     {error && <ErrorState alert view={error} />}
     {result && <div className="grid gap-1">
-      <p className="text-[13px] text-muted-foreground">{t('checkSuggest.pageTitle', { title: result.page.title || t('checkSuggest.pageUntitled') })}</p>
+      <p className="text-base text-ink-2">{t('checkSuggest.pageTitle', { title: result.page.title || t('checkSuggest.pageUntitled') })}</p>
       {result.suggestions.length === 0
-        ? <p className="text-sm leading-6 text-muted-foreground">{t('checkSuggest.empty')}</p>
+        ? <p className="text-sm leading-6 text-ink-2">{t('checkSuggest.empty')}</p>
         : <ol aria-label={t('checkSuggest.listLabel')} className="grid border-t border-edge">{result.suggestions.map((suggestion, i) => {
           const key = i + JSON.stringify(suggestion.rule);
           return <Candidate key={key} suggestion={suggestion} index={i} added={added.has(key)} onAdd={() => add(suggestion, key)} />;
         })}</ol>}
-      {result.dropped > 0 && <p className="text-xs leading-5 text-muted-foreground">{t('checkSuggest.dropped', { n: result.dropped })}</p>}
+      {result.dropped > 0 && <p className="text-sm text-ink-2">{t('checkSuggest.dropped', { n: result.dropped })}</p>}
     </div>}
   </section>;
 }

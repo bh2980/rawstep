@@ -7,11 +7,11 @@ import { api } from '../api';
 import { describeApiError, type ErrorView } from '../lib/errors';
 import { kindLabelKey } from '../lib/connections';
 import { cn } from '../lib/utils';
-import { Choice } from './forms';
 import { ErrorState } from './layout/ErrorState';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
 const VISIBLE_LIMIT = 100;
 const DEFAULT_EFFORT = '__default__';
@@ -45,14 +45,17 @@ type Props = {
   onNone?: () => void;
   /** The group's own heading already names this picker: the label then stays for screen readers only. */
   hideLabel?: boolean;
+  /** The connection is chosen elsewhere (a radio row): only the model and its effort are shown. */
+  hideConnection?: boolean;
 };
 
 /**
- * A model on a connection: the connection, then one searchable field for the model (an editable combobox with list autocomplete).
+ * A model on a connection, on one line: the connection, then one searchable field for the model (an editable combobox with list
+ * autocomplete), then the reasoning effort when the connection offers levels.
  * The connection's model list is read as soon as a connection is chosen. That asks the provider for its list, which costs nothing, and
  * for a coding-agent CLI connection starts the CLI without prompting it. Whatever is typed is the model ID, listed or not.
  */
-export function ModelPicker({ label, connections, connectionId, modelId, reasoningEffort, onChange, none, onNone, hideLabel }: Props) {
+export function ModelPicker({ label, connections, connectionId, modelId, reasoningEffort, onChange, none, onNone, hideLabel, hideConnection }: Props) {
   const { t } = useTranslation();
   const id = useId(), listId = id + '-list';
   const connection = connections.find(c => c.id === connectionId);
@@ -116,15 +119,20 @@ export function ModelPicker({ label, connections, connectionId, modelId, reasoni
   const emptyText = loading ? t('modelPicker.loadingList') : error ? undefined : list ? (list.length ? t('modelPicker.noMatch') : t('modelPicker.empty')) : undefined;
   const placeholder = t(connection && agentOf(connection) ? 'modelPicker.modelIdPlaceholderAgent' : 'modelPicker.modelIdPlaceholder');
   const name = (c: Connection) => `${c.name} · ${t(`connections.kinds.${kindLabelKey(c)}.name`)}`;
-  return <fieldset className="grid gap-3">
-    <legend className={hideLabel ? 'sr-only' : 'mb-2 text-sm font-semibold'}>{label}</legend>
-    {/* Top-aligned so a hint under one field does not stretch the others. */}
-    <div className={cn('grid items-start gap-3 sm:grid-cols-2 [&>*]:min-w-0', connection && levels && 'lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,11rem)]')}>
-      <Choice label={t('modelPicker.connection')} value={connection?.id ?? (none ? NONE : '')}
-        onChange={next => { if (next === NONE) onNone?.(); else onChange(next === connectionId ? { connectionId: next, modelId, ...effortOf({ reasoningEffort }) } : { connectionId: next, modelId: '' }); setOpen(false); }}
-        options={[...(none ? [{ id: NONE, name: none }] : []), ...connections.map(c => ({ id: c.id, name: name(c) }))]} />
-      {connection && <div className="grid gap-2">
-        <Label htmlFor={id}>{t('modelPicker.modelId')}</Label>
+  return <fieldset className="grid min-w-0 gap-2">
+    <legend className={hideLabel ? 'sr-only' : 'mb-2 font-medium text-ink-2'}>{label}</legend>
+    {/* One line of controls, each named for screen readers; the row they sit in already says what they are for. */}
+    <div className="flex min-w-0 flex-wrap items-start gap-2">
+      {!hideConnection && <Select value={connection?.id ?? (none ? NONE : '')}
+        onValueChange={next => { if (next === NONE) onNone?.(); else onChange(next === connectionId ? { connectionId: next, modelId, ...effortOf({ reasoningEffort }) } : { connectionId: next, modelId: '' }); setOpen(false); }}>
+        <SelectTrigger aria-label={t('modelPicker.connection')} className="w-56 max-w-full"><SelectValue placeholder={t('forms.placeholder')} /></SelectTrigger>
+        <SelectContent>
+          {none && <SelectItem value={NONE}>{none}</SelectItem>}
+          {connections.map(c => <SelectItem key={c.id} value={c.id}>{name(c)}</SelectItem>)}
+        </SelectContent>
+      </Select>}
+      {connection && <div className="grid w-72 max-w-full gap-1">
+        <Label htmlFor={id} className="sr-only">{t('modelPicker.modelId')}</Label>
         <div ref={box} className="relative"
           onBlur={e => { if (!box.current?.contains(e.relatedTarget as Node | null)) { setOpen(false); setTyped(false); setActive(-1); } }}>
           <Input id={id} role="combobox" aria-expanded={popup} aria-controls={listId} aria-autocomplete="list" aria-haspopup="listbox"
@@ -132,27 +140,30 @@ export function ModelPicker({ label, connections, connectionId, modelId, reasoni
             autoComplete="off" spellCheck={false} value={modelId} placeholder={placeholder} className="pr-9"
             onChange={e => { onChange({ connectionId: connection.id, modelId: e.target.value, ...effortOf({ reasoningEffort }) }); setTyped(true); setOpen(true); }}
             onClick={() => setOpen(true)} onKeyDown={onKeyDown} />
-          <Button type="button" variant="ghost" size="icon-sm" className="absolute top-1/2 right-1 -translate-y-1/2 text-muted-foreground" disabled={loading} aria-label={t('modelPicker.reload')} title={t('modelPicker.reload')} onClick={() => load(true)}>
+          <Button type="button" variant="ghost" size="icon-sm" className="absolute top-1/2 right-0.5 -translate-y-1/2 text-ink-2" disabled={loading} aria-label={t('modelPicker.reload')} title={t('modelPicker.reload')} onClick={() => load(true)}>
             <RefreshCw aria-hidden="true" className={cn(loading && 'animate-spin')} />
           </Button>
-          {popup && <div className="absolute top-full right-0 left-0 z-50 mt-1 overflow-hidden rounded-lg border border-edge-strong bg-popover text-popover-foreground shadow-md">
+          {popup && <div className="absolute top-full right-0 left-0 z-50 mt-1 overflow-hidden rounded-md border border-edge-strong bg-popover text-popover-foreground shadow-md">
             <div ref={listRef} id={listId} role="listbox" aria-label={t('modelPicker.modelId')} aria-busy={loading} className="max-h-64 overflow-y-auto p-1">
               {shown.map((m, i) => <div key={m.modelId} id={optionId(i)} role="option" aria-selected={m.modelId === modelId} data-active={i === active}
                 onMouseDown={e => e.preventDefault()} onClick={() => pick(m)} onMouseMove={() => active !== i && setActive(i)}
-                className={cn('grid min-w-0 cursor-pointer gap-0.5 rounded-md px-2 py-1.5 text-sm', m.modelId === modelId && 'bg-trace-soft', i === active ? 'bg-raised' : 'hover:bg-raised')}>
-                <span className="font-medium break-all">{m.name}</span>
-                <span className="font-mono text-xs break-all text-muted-foreground">{m.modelId}</span>
+                className={cn('grid min-w-0 cursor-pointer gap-0.5 rounded-sm px-2 py-1.5', m.modelId === modelId && 'font-medium', i === active ? 'bg-raised' : 'hover:bg-raised')}>
+                <span className="break-all">{m.name}</span>
+                <span className="font-mono text-sm break-all text-ink-2">{m.modelId}</span>
               </div>)}
             </div>
-            {!shown.length && emptyText && <p className="px-3 py-2 text-sm text-muted-foreground" role="status">{emptyText}</p>}
-            {loading && !!shown.length && <p className="border-t border-edge px-3 py-1.5 text-xs text-muted-foreground" role="status">{t('modelPicker.loadingList')}</p>}
-            {matches.length > shown.length && <p className="border-t border-edge px-3 py-1.5 text-xs text-muted-foreground">{t('modelPicker.summary', { total: matches.length, shown: shown.length })}</p>}
+            {!shown.length && emptyText && <p className="px-3 py-2 text-ink-2" role="status">{emptyText}</p>}
+            {loading && !!shown.length && <p className="border-t border-edge px-3 py-1.5 text-sm text-ink-2" role="status">{t('modelPicker.loadingList')}</p>}
+            {matches.length > shown.length && <p className="border-t border-edge px-3 py-1.5 text-sm text-ink-2">{t('modelPicker.summary', { total: matches.length, shown: shown.length })}</p>}
           </div>}
         </div>
-        {current && current.name !== current.modelId && <p className="text-xs leading-5 text-muted-foreground">{t('modelPicker.selectedName', { name: current.name })}</p>}
+        {current && current.name !== current.modelId && <p className="text-sm text-ink-2">{t('modelPicker.selectedName', { name: current.name })}</p>}
       </div>}
-      {connection && levels && <Choice label={t('modelPicker.effort')} info={t('modelPicker.effortHint')} value={reasoningEffort ?? DEFAULT_EFFORT}
-        onChange={next => onChange({ connectionId: connection.id, modelId, ...(next === DEFAULT_EFFORT ? {} : { reasoningEffort: next }) })} options={effortOptions} />}
+      {connection && levels && <Select value={reasoningEffort ?? DEFAULT_EFFORT}
+        onValueChange={next => onChange({ connectionId: connection.id, modelId, ...(next === DEFAULT_EFFORT ? {} : { reasoningEffort: next }) })}>
+        <SelectTrigger aria-label={t('modelPicker.effort')} title={t('modelPicker.effortHint')} className="w-44 max-w-full"><SelectValue /></SelectTrigger>
+        <SelectContent>{effortOptions.map(o => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}</SelectContent>
+      </Select>}
     </div>
     {error && <ErrorState alert view={error} actions={<Button type="button" variant="outline" size="sm" onClick={() => load(true)}><RefreshCw aria-hidden="true" />{t('modelPicker.reload')}</Button>} />}
   </fieldset>;

@@ -1,10 +1,39 @@
-export function formatDate(ms: number): string {
-  if (!ms) return '—';
-  const d = new Date(ms), pad = (n: number) => String(n).padStart(2, '0');
-  return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
 import { currentLanguage } from '../i18n/index.js';
+
+const dateFormats = new Map<string, Intl.DateTimeFormat>();
+function dateFormat(kind: 'day' | 'year' | 'time' | 'full'): Intl.DateTimeFormat {
+  const language = currentLanguage(), key = language + kind;
+  let format = dateFormats.get(key);
+  if (!format) {
+    const time = { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' } as const;
+    format = new Intl.DateTimeFormat(language, kind === 'time' ? time
+      : kind === 'full' ? { year: 'numeric', month: 'long', day: 'numeric', ...time, second: '2-digit', timeZoneName: 'short' }
+      : { ...(kind === 'year' ? { year: 'numeric' } : {}), month: language === 'ko' ? 'long' : 'short', day: 'numeric', ...time });
+    dateFormats.set(key, format);
+  }
+  return format;
+}
+const toTime = (value: number | string | null | undefined): number => typeof value === 'string' ? Date.parse(value) : value ?? NaN;
+
+/** The one date format: `11월 1일 08:21` (`Nov 1, 08:21`), with the year only when it is not this year; a dash when there is no time. */
+export function formatDate(value: number | string | null | undefined, now = Date.now()): string {
+  const time = toTime(value);
+  if (!Number.isFinite(time) || !time) return '—';
+  return dateFormat(new Date(time).getFullYear() === new Date(now).getFullYear() ? 'day' : 'year').format(time);
+}
+/** Only the time, `08:21`, for a column whose rows share a day. */
+export function formatClockTime(value: number | string | null | undefined): string {
+  const time = toTime(value);
+  return Number.isFinite(time) && time ? dateFormat('time').format(time) : '—';
+}
+/** Everything, with seconds and the time zone, for a tooltip under a short date. */
+export function formatFullDate(value: number | string | null | undefined): string {
+  const time = toTime(value);
+  return Number.isFinite(time) && time ? dateFormat('full').format(time) : '';
+}
+/** A duration in seconds with one decimal (`454.8`), also past a minute, so a column compares at a glance. */
+export const formatSeconds = (ms: number | null | undefined): string => ms === null || ms === undefined || !Number.isFinite(ms) ? '—' : (ms / 1000).toFixed(1);
+
 
 const formats = new Map<string, Intl.RelativeTimeFormat>();
 /** The relative-time format of the language shown now, made once per language. */
@@ -24,7 +53,7 @@ export function relativeTime(iso: string | null | undefined, now = Date.now()): 
   if (abs < 3600) return relative.format(Math.round(seconds / 60), 'minute');
   if (abs < 86_400) return relative.format(Math.round(seconds / 3600), 'hour');
   if (abs < 7 * 86_400) return relative.format(Math.round(seconds / 86_400), 'day');
-  return formatDate(time);
+  return formatDate(time, now);
 }
 
 /** A whole number as is, a median of two as one decimal, nothing as a dash. */

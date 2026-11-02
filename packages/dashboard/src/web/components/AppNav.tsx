@@ -1,73 +1,72 @@
-import { useEffect, useState } from 'react';
-import { ChevronRight, History, ListChecks, Settings, UserRound, type LucideIcon } from 'lucide-react';
+import { History, Languages, ListChecks, Monitor, Moon, SlidersHorizontal, Sun, UserRound, type LucideIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { DEFAULT_SETTINGS_SECTION, settingsSections, type Route, type RouteChange, type View } from '../hooks/useRoute';
+import { useTheme } from '../hooks/useTheme';
+import type { Route, RouteChange, View } from '../hooks/useRoute';
+import { LANGUAGES, LANGUAGE_NAMES, currentLanguage, setLanguage } from '../i18n/index.js';
 import { cn } from '../lib/utils';
 import type { Unsaved } from '../pages/types';
 import { Link } from './Link';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
+import { Button } from './ui/button';
 
-type Props = { route: Route; navigate: (change: RouteChange) => void; unsaved?: Unsaved };
+type Props = {
+  route: Route; navigate: (change: RouteChange) => void; unsaved?: Unsaved;
+  projectName: string;
+  /** How many items each page lists, shown beside its name. */
+  counts: Partial<Record<View, number>>;
+  connected: boolean; running: number; queued: number;
+};
 
-/** The pages with a link of their own, in order; 설정 follows them with its sub-menu. */
-const items: { view: Exclude<View, 'settings'>; icon: LucideIcon }[] = [{ view: 'tasks', icon: ListChecks }, { view: 'profiles', icon: UserRound }, { view: 'runs', icon: History }];
-
-const itemClass = (current: boolean) => cn('flex items-center justify-between gap-2 rounded-md px-3 text-sm', current ? 'bg-trace-soft font-medium text-foreground' : 'text-muted-foreground hover:bg-raised hover:text-foreground');
-
-/** A small dot, with words for a screen reader, for a page with edits that are not saved. */
-function UnsavedDot() {
-  const { t } = useTranslation();
-  return <span className="size-1.5 shrink-0 rounded-full bg-trace" role="img" aria-label={t('settingsNav.unsaved')} />;
-}
-
-const OPEN_KEY = 'rawstep.nav.settingsOpen';
-/** Whether 설정 was left unfolded; storage may be blocked, and then it starts folded. */
-function remembered(): boolean { try { return localStorage.getItem(OPEN_KEY) === '1'; } catch { return false; } }
-function remember(open: boolean) { try { localStorage.setItem(OPEN_KEY, open ? '1' : '0'); } catch { /* the choice is only a convenience */ } }
+/** The pages, in order. 설정 holds its parts as tabs on its own page. */
+const items: { view: View; icon: LucideIcon }[] = [
+  { view: 'tasks', icon: ListChecks }, { view: 'runs', icon: History }, { view: 'profiles', icon: UserRound }, { view: 'settings', icon: SlidersHorizontal },
+];
+const themeIcons = { system: Monitor, light: Sun, dark: Moon } as const;
 
 /**
- * Left navigation: 작업 (the landing page), 실행 프로필, 실행 기록 and 설정, a folding button over AI 연결 and 이 컴퓨터. A page with
- * edits that are not saved carries a dot.
+ * The sidebar: the product and project names, the four pages with their counts, and at the foot the live run counts (a polite
+ * live region), the theme and the language. A page with edits that are not saved carries a dot.
  */
-export function AppNav({ route, navigate, unsaved = {} }: Props) {
+export function AppNav({ route, navigate, unsaved = {}, projectName, counts, connected, running, queued }: Props) {
   const { t } = useTranslation();
-  const section = route.view === 'settings' ? route.section ?? DEFAULT_SETTINGS_SECTION : undefined;
-  // Folded unless a settings page is open or it was left open; opening a settings page unfolds it.
-  const [settingsOpen, setSettingsOpen] = useState(() => !!section || remembered());
-  useEffect(() => { if (section) setSettingsOpen(true); }, [section]);
-  return <nav aria-label={t('nav.label')} className="h-full px-2 py-3">
-    <ul className="flex flex-col gap-0.5">
-      {items.map(({ view, icon: Icon }) => {
-        const current = route.view === view;
-        return <li key={view}>
-          <Link to={{ view }} navigate={navigate} aria-current={current ? 'page' : undefined} className={cn(itemClass(current), 'h-9')}>
-            <span className="flex items-center gap-2.5"><Icon className="size-4 shrink-0" aria-hidden="true" />{t(`nav.${view}`)}</span>
-            {view === 'profiles' && unsaved.profiles && <UnsavedDot />}
-          </Link>
-        </li>;
-      })}
-      <li>
-        <Collapsible open={settingsOpen} onOpenChange={open => { setSettingsOpen(open); remember(open); }}>
-          <CollapsibleTrigger className={cn(itemClass(false), 'group h-9 w-full')}>
-            <span className="flex items-center gap-2.5"><Settings className="size-4 shrink-0" aria-hidden="true" />{t('nav.settings')}</span>
-            <span className="flex items-center gap-2">
-              {/* Folded, the menu still says that something under it is not saved. */}
-              {!settingsOpen && settingsSections.some(id => unsaved[id]) && <UnsavedDot />}
-              <ChevronRight className="size-4 shrink-0 transition-transform group-data-[state=open]:rotate-90" aria-hidden="true" />
-            </span>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <ul aria-label={t('settingsNav.label')} className="mt-0.5 flex flex-col gap-0.5">
-              {settingsSections.map(id => <li key={id}>
-                <Link to={{ view: 'settings', section: id }} navigate={navigate} aria-current={id === section ? 'page' : undefined} className={cn(itemClass(id === section), 'h-8 pl-9')}>
-                  {t(`settingsNav.sections.${id}`)}
-                  {unsaved[id] && <UnsavedDot />}
-                </Link>
-              </li>)}
-            </ul>
-          </CollapsibleContent>
-        </Collapsible>
-      </li>
-    </ul>
-  </nav>;
+  const { preference, cycle } = useTheme();
+  const ThemeIcon = themeIcons[preference];
+  const themeLabel = t('topBar.theme', { current: t(`topBar.themes.${preference}`) });
+  const language = currentLanguage(), nextLanguage = LANGUAGES[(LANGUAGES.indexOf(language) + 1) % LANGUAGES.length]!;
+  const dirty = (view: View) => view === 'profiles' ? unsaved.profiles : view === 'settings' ? unsaved.connections || unsaved.machine : false;
+  return <div className="flex h-full flex-col gap-1 px-2 py-3">
+    <div className="mb-2 flex h-8 items-center gap-2 px-2">
+      <span className="text-md font-semibold">{t('app.title')}</span>
+      <span className="ml-auto truncate text-sm text-ink-2" title={t('appShell.project', { name: projectName })}>{projectName}</span>
+    </div>
+    <nav aria-label={t('nav.label')}>
+      <ul className="flex flex-col gap-1">
+        {items.map(({ view, icon: Icon }) => {
+          const current = route.view === view, count = counts[view];
+          return <li key={view}>
+            <Link to={{ view }} navigate={navigate} aria-current={current ? 'page' : undefined}
+              className={cn('flex h-8 items-center gap-2 rounded-sm px-2 font-medium', current ? 'bg-raised text-foreground' : 'text-ink-2 hover:bg-raised hover:text-foreground')}>
+              <Icon className="size-4 shrink-0" aria-hidden="true" />
+              <span className="min-w-0 flex-1 truncate">{t(`nav.${view}`)}</span>
+              {dirty(view) && <span className="size-1.5 shrink-0 rounded-full bg-trace" role="img" aria-label={t('settingsNav.unsaved')} />}
+              {count !== undefined && <span className="text-sm font-normal tabular-nums text-ink-3">{count}</span>}
+            </Link>
+          </li>;
+        })}
+      </ul>
+    </nav>
+    <div className="sticky bottom-3 mt-auto grid gap-1 border-t px-2 pt-3 text-sm text-ink-2">
+      <span role="status" aria-live="polite" className="flex h-7 min-w-0 items-center gap-1.5">
+        <span aria-hidden="true" className={cn('size-1.5 shrink-0 rounded-full', connected ? 'bg-reach' : 'bg-gave-up')} />
+        <span className="truncate">{connected ? t('appShell.counts', { running, queued }) : t('appShell.disconnected')}</span>
+      </span>
+      {/* Both switches say what they are in words: an icon or `KO` alone was not recognised. */}
+      {/* Two halves of the sidebar width, icons in line with the status dot above. */}
+      <span className="-mx-2 grid grid-cols-2 gap-1">
+        <Button variant="ghost" size="sm" className="justify-start" aria-label={themeLabel} title={themeLabel} onClick={cycle}><ThemeIcon aria-hidden="true" />{t(`topBar.themeShort.${preference}`)}</Button>
+        <Button variant="ghost" size="sm" className="justify-start" aria-label={t('topBar.language', { current: LANGUAGE_NAMES[language] })} title={t('topBar.language', { current: LANGUAGE_NAMES[language] })} onClick={() => setLanguage(nextLanguage)}>
+          <Languages aria-hidden="true" /><span lang={language}>{LANGUAGE_NAMES[language]}</span>
+        </Button>
+      </span>
+    </div>
+  </div>;
 }

@@ -72,9 +72,9 @@ describe('step dots', () => {
     expect(dotKind(step(5, undefined, { stop: { stop: 'success' } }))).toBe('press');
   });
 
-  it('opens a finished run at its first hint, otherwise the end, and a live run at its newest step', () => {
+  it('opens a run at its newest step, finished or live', () => {
     const steps = [step(0), step(1, { kind: 'key', key: 'Tab' }, { hints: ['excess-keystrokes'] }), step(2), step(3, { kind: 'key', key: 'Enter' }, { hints: ['missing-announcement'] })];
-    expect(defaultStep({ steps, live: false })).toBe(1);
+    expect(defaultStep({ steps, live: false })).toBe(3);
     expect(defaultStep({ steps: [step(0), step(1)], live: false })).toBe(1);
     expect(defaultStep({ steps, live: true })).toBe(3);
     expect(defaultStep({ steps: [], live: true })).toBeUndefined();

@@ -162,7 +162,7 @@ export type ProfileFacts = {
   /** Runs that reached the goal while nothing the user heard said so (`goal.reached` with `heard: false`). */
   unheard: number;
   /** The longest run of moves without a goal word that still meant something, and the run it was in. */
-  longestStretch: { moves: number; runId: string } | null;
+  longestStretch: { moves: number; runId: string; /** The first and last action of the stretch. */ steps?: [number, number] } | null;
   /** Median, over the runs, of the user's guesses about where something is that turned out wrong; null without runs. */
   wrongGuesses: number | null;
   /** The page element the most runs of this profile got stuck on, if any. */
@@ -182,6 +182,8 @@ export type RunResult = {
   giveUp?: { reason: string; step?: number; tried: { id: string; text?: string; step?: number; target?: HintTarget }[] };
   /** The longest run of moves without a goal word that still meant something. */
   stretch: number | null;
+  /** The first and last action of that stretch. */
+  stretchSteps?: [number, number];
   /** The user's guesses about where something is that turned out wrong (expectations broken while moving, not after a press). */
   wrongGuesses: number;
   /** Reached the goal while nothing the user heard said so. */

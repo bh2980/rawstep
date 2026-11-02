@@ -58,7 +58,7 @@ export function TaskEditSheet({ open, onOpenChange, ...rest }: Props) {
   return <Sheet open={open} onOpenChange={onOpenChange}>
     <SheetContent className="data-[side=right]:sm:max-w-xl" aria-describedby="task-edit-description">
       <SheetHeader className="border-b pr-12">
-        <SheetTitle className="text-lg">{t('taskEdit.title')}</SheetTitle>
+        <SheetTitle>{t('taskEdit.title')}</SheetTitle>
         <SheetDescription id="task-edit-description">{t('taskEdit.description')}</SheetDescription>
       </SheetHeader>
       {open && <EditForm {...rest} close={() => onOpenChange(false)} />}
@@ -90,24 +90,24 @@ function EditForm({ initial, otherChanges, busy, onSave, bases, profiles, endpoi
       <ProjectPathField label={t('taskSettings.url')} value={basics.url} onChange={url => patch({ url })} extensions={['.html', '.htm']} allowUrl example="https://example.com/product/1" />
       <Field label={t('taskSettings.goal')} multiline plain value={basics.goal} onChange={goal => patch({ goal })} hint={t('taskSettings.goalHint')} />
       <Field label={t('taskEdit.context')} multiline plain value={basics.context} onChange={context => patch({ context })} hint={t('taskEdit.contextHint')} placeholder={t('taskEdit.contextPlaceholder')} />
-      <div className="grid gap-2 border-t border-edge-strong pt-4">
+      <div className="grid gap-2 border-t border-edge pt-4">
         <MultiChoice label={t('taskEdit.usersTitle')} items={profiles} selected={basics.profiles} onChange={list => patch({ profiles: list })} />
-        <p className="text-xs leading-5 text-muted-foreground">{t('taskEdit.usersHint')}</p>
-        <NewTabLink to={{ view: 'profiles' }} className="justify-self-start text-[13px] text-trace underline underline-offset-4">{t('taskEdit.newProfile')}</NewTabLink>
+        <p className="text-sm text-ink-2">{t('taskEdit.usersHint')}</p>
+        <NewTabLink to={{ view: 'profiles' }} className="justify-self-start text-sm underline decoration-edge-strong underline-offset-4 hover:decoration-foreground">{t('taskEdit.newProfile')}</NewTabLink>
       </div>
-      <div className="border-t border-edge-strong pt-4">
+      <div className="border-t border-edge pt-4">
         <BrowserField value={basics.browser} onChange={browser => patch({ browser })} endpointSet={endpointSet} />
       </div>
-      <section aria-labelledby="task-edit-compare" className="grid gap-4 border-t border-edge-strong pt-4">
-        <h3 id="task-edit-compare" className="text-sm font-semibold">{t('taskEdit.compareTitle')}</h3>
+      <section aria-labelledby="task-edit-compare" className="grid gap-4 border-t border-edge pt-4">
+        <h3 id="task-edit-compare" className="text-md font-semibold">{t('taskEdit.compareTitle')}</h3>
         {bases.length > 0 || basics.variantOf
-          ? <Choice label={t('taskEdit.variantOf')} info={t('taskEdit.variantOfHint')} value={basics.variantOf || NONE} onChange={value => patch({ variantOf: value === NONE ? '' : value })}
-            options={[{ id: NONE, name: t('taskEdit.notVariant') }, ...bases]} />
-          : <p className="text-[13px] leading-5 text-muted-foreground">{t('taskEdit.hasVariants')}</p>}
+          ? <div className="grid gap-1.5"><Choice label={t('taskEdit.variantOf')} value={basics.variantOf || NONE} onChange={value => patch({ variantOf: value === NONE ? '' : value })}
+            options={[{ id: NONE, name: t('taskEdit.notVariant') }, ...bases]} /><p className="text-sm text-ink-2">{t('taskEdit.variantOfHint')}</p></div>
+          : <p className="text-ink-2">{t('taskEdit.hasVariants')}</p>}
         <Field label={t('taskEdit.minimalSteps')} type="number" value={basics.minimalSteps} onChange={minimalSteps => patch({ minimalSteps })} hint={minimalOk ? t('taskEdit.minimalHint') : t('taskEdit.minimalInvalid')} />
       </section>
-      <section aria-labelledby="task-edit-inputs" className="grid gap-2 border-t border-edge-strong pt-4">
-        <h3 id="task-edit-inputs" className="text-sm font-semibold">{t('taskInputs.title')}</h3>
+      <section aria-labelledby="task-edit-inputs" className="grid gap-2 border-t border-edge pt-4">
+        <h3 id="task-edit-inputs" className="text-md font-semibold">{t('taskInputs.title')}</h3>
         <TaskInputsField input={basics.input} options={basics.inputOptions} goal={basics.goal} onChange={fields => patch({ input: fields.input ?? {}, inputOptions: fields.inputOptions })} />
       </section>
       {problem && <ErrorState alert view={problem.view} actions={problem.conflict ? <>
@@ -116,7 +116,7 @@ function EditForm({ initial, otherChanges, busy, onSave, bases, profiles, endpoi
       </> : undefined} />}
     </form>
     <SheetFooter className="border-t sm:flex-row sm:items-center sm:justify-between">
-      <p role="status" className="text-xs leading-5 text-muted-foreground">{!filled ? t('taskEdit.required') : !inputsOk ? t('taskEdit.inputInvalid') : otherChanges ? t('taskEdit.alsoSaves') : changed ? t('taskEdit.unsaved') : t('taskEdit.unchanged')}</p>
+      <p role="status" className="text-sm text-ink-2">{!filled ? t('taskEdit.required') : !inputsOk ? t('taskEdit.inputInvalid') : otherChanges ? t('taskEdit.alsoSaves') : changed ? t('taskEdit.unsaved') : t('taskEdit.unchanged')}</p>
       <div className="flex gap-2">
         <Button type="button" variant="outline" onClick={close}>{t('taskEdit.cancel')}</Button>
         <Button type="submit" form="task-edit-form" disabled={busy || !filled || !inputsOk || (!changed && !otherChanges)}>{t('taskEdit.save')}</Button>

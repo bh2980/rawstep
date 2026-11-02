@@ -3,8 +3,8 @@ import { useCallback, useSyncExternalStore } from 'react';
 /** The left-navigation pages, in order: 작업, 실행 프로필, 실행 기록, 설정. */
 export const views = ['tasks', 'profiles', 'runs', 'settings'] as const;
 export type View = (typeof views)[number];
-/** The parts of 설정, in the order of its sub-menu: AI 연결, 이 컴퓨터. 실행 프로필 is a page of its own. */
-export const settingsSections = ['connections', 'machine'] as const;
+/** The parts of 설정, in the order of its tabs: AI 연결, 이 컴퓨터, 기본 실행 규칙. 실행 프로필 is a page of its own. */
+export const settingsSections = ['connections', 'machine', 'rules'] as const;
 export type SettingsSection = (typeof settingsSections)[number];
 /** The part 설정 opens with when the address names none. */
 export const DEFAULT_SETTINGS_SECTION: SettingsSection = 'connections';

@@ -5,12 +5,10 @@ import type { ManagedTask } from '@rawstep/project/config';
 import type { DeleteTaskResult } from '../../shared/config';
 import { api, ApiError } from '../api';
 import { DeleteTaskDialog } from '../components/DeleteTaskDialog';
-import { EmptyState } from '../components/layout/EmptyState';
 import { TaskChecks } from '../components/TaskChecks';
 import { TaskEditSheet, type BasicsSave, type TaskBasics } from '../components/TaskEditSheet';
 import { TaskHeader } from '../components/TaskHeader';
 import { TaskOverview } from '../components/TaskOverview';
-import { batchLabel } from '../components/BatchCompare';
 import { TaskSettings } from '../components/TaskSettings';
 import { Button } from '../components/ui/button';
 import { SaveBar } from '../components/conditions/SaveBar';
@@ -55,7 +53,11 @@ export function TaskPage({ taskId, tab, pageProps, runs, navigate, onRun }: Prop
   const [editing, setEditing] = useState(false), [deleting, setDeleting] = useState(false);
   const taskRuns = useMemo(() => runs.filter(ref => ref.run.taskId === taskId), [runs, taskId]);
   const numbers = useMemo(() => taskRunNumbers(runs, taskId), [runs, taskId]);
-  if (!saved || !task) return <EmptyState title={t('task.unknownTitle')} why={t('task.unknown')} action={<Button variant="outline" onClick={() => navigate({ view: 'tasks' })}>{t('task.backToTasks')}</Button>} />;
+  if (!saved || !task) return <section aria-labelledby="task-unknown" className="mx-auto mt-40 grid max-w-md gap-2">
+    <h1 id="task-unknown" className="text-md font-semibold">{t('task.unknownTitle')}</h1>
+    <p className="text-ink-2">{t('task.unknown')}</p>
+    <Button variant="outline" className="mt-2 justify-self-start" onClick={() => navigate({ view: 'tasks' })}>{t('task.backToTasks')}</Button>
+  </section>;
   const parsed = parseTaskJson(json), rules = parsed ? taskRules(parsed) : [];
   const dirty = JSON.stringify(task) !== JSON.stringify(saved) || !sameTaskJson(json, savedJson);
   const savedParsed = parseTaskJson(savedJson) ?? {}, savedRules = taskRules(savedParsed);
@@ -117,15 +119,15 @@ export function TaskPage({ taskId, tab, pageProps, runs, navigate, onRun }: Prop
   }); };
 
   const active = taskRuns.filter(ref => isLive(ref.run));
-  return <div className="grid gap-5">
-    <TaskHeader name={saved.name} url={String(savedParsed.url ?? '')} goal={String(savedParsed.goal ?? '')} {...(typeof savedParsed.context === 'string' && savedParsed.context.trim() ? { context: savedParsed.context } : {})}
+  return <div className="grid gap-6">
+    <TaskHeader name={saved.name} url={String(savedParsed.url ?? '')} goal={String(savedParsed.goal ?? '')} maxSteps={typeof savedParsed.maxSteps === 'number' ? savedParsed.maxSteps : undefined} {...(typeof savedParsed.context === 'string' && savedParsed.context.trim() ? { context: savedParsed.context } : {})}
       pageProps={pageProps} runs={taskRuns} navigate={navigate} onRun={onRun}
       onEdit={() => setEditing(true)} onDuplicate={duplicate} onDelete={() => setDeleting(true)} />
 
-    <Tabs value={tab} onValueChange={value => navigate({ task: taskId, tab: value as TaskTab }, { replace: true })} className="gap-4">
+    <Tabs value={tab} onValueChange={value => navigate({ task: taskId, tab: value as TaskTab }, { replace: true })} className="gap-8">
       <TabsList variant="line" aria-label={t('taskPage.tabsLabel')}>
         {taskTabs.map(id => { const count = id === 'runs' ? taskRuns.length : id === 'check' ? savedRules.length : undefined;
-          return <TabsTrigger key={id} value={id}>{t(`taskPage.tabs.${id}`)}{count !== undefined && <span className="ml-1 text-xs font-normal text-muted-foreground tabular-nums">{count}</span>}</TabsTrigger>; })}
+          return <TabsTrigger key={id} value={id}>{t(`taskPage.tabs.${id}`)}{count !== undefined && <span className="ml-1.5 font-normal text-ink-3 tabular-nums">{count}</span>}</TabsTrigger>; })}
       </TabsList>
       <TabsContent value="overview"><TaskOverview taskId={taskId} runs={taskRuns} numbers={numbers} findings={findings} navigate={navigate} onRun={onRun}
         profiles={config.profiles} minimalSteps={saved.minimalSteps}
@@ -133,11 +135,8 @@ export function TaskPage({ taskId, tab, pageProps, runs, navigate, onRun }: Prop
       <TabsContent value="runs">
         <section aria-label={t('taskPage.tabs.runs')} className="grid gap-2">
           {taskRuns.length > 0
-            ? <div className="grid gap-5">{batchesOf(taskRuns).map(group => <section key={group.experiment.id} aria-label={batchLabel(group.batch, t)} className="grid gap-2">
-              <h3 className="text-sm font-semibold">{batchLabel(group.batch, t)}</h3>
-              <RunsTable runs={group.runs} config={config} navigate={navigate} hideTask hideVia numbers={numbers} showConditions showHints />
-            </section>)}</div>
-            : <EmptyState compact title={t('taskPage.runsTabEmpty')} action={<Button variant="outline" size="sm" onClick={onRun}>{t('empty.taskRuns.action')}</Button>} />}
+            ? <RunsTable runs={taskRuns} config={config} navigate={navigate} hideTask hideVia numbers={numbers} showConditions showHints groupByBatch />
+            : <div className="flex flex-wrap items-center gap-3 border-y border-edge px-3 py-3"><p className="text-ink-2">{t('taskPage.runsTabEmpty')}</p><Button variant="outline" size="sm" onClick={onRun}>{t('taskPage.run')}</Button></div>}
         </section>
       </TabsContent>
       <TabsContent value="check"><TaskChecks rules={rules} onRules={next => setJson(withRules(json, next))} url={String(parsed?.url ?? '')} goal={String(parsed?.goal ?? '')} view={view} /></TabsContent>
@@ -157,12 +156,3 @@ export function TaskPage({ taskId, tab, pageProps, runs, navigate, onRun }: Prop
   </div>;
 }
 
-/** The runs of a task by batch, newest batch first, each named as the batch pickers name it. */
-function batchesOf(runs: readonly RunRef[]) {
-  const groups = new Map<string, RunRef[]>();
-  for (const ref of runs) groups.set(ref.experiment.id, [...groups.get(ref.experiment.id) ?? [], ref]);
-  return [...groups.values()].map(list => {
-    const experiment = list[0]!.experiment;
-    return { experiment, runs: list, batch: { experimentId: experiment.id, createdAt: experiment.createdAt, ...(experiment.request.note ? { note: experiment.request.note } : {}), ...(experiment.owner ? { via: experiment.owner.via } : {}), runs: list.length, finished: 0 } };
-  }).sort((a, b) => b.experiment.createdAt.localeCompare(a.experiment.createdAt));
-}
