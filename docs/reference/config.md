@@ -37,7 +37,7 @@ Nothing is connected by default. A connection sends what the simulated user hear
 | `provider` | one of the [providers](#providers) | required | Preset address and key variable, or a coding-agent CLI, or `custom`. |
 | `baseURL` | URL | none | `custom` only, and required there. Must be HTTPS, or HTTP on a loopback host (`localhost`, `127.0.0.1`, `[::1]`), with no credentials, query or fragment. Setting it on another provider is an error. |
 | `apiKeyEnv` | env variable name | none | `custom` only. Name of the environment variable that holds its key, matching `^[A-Z][A-Z0-9_]{0,100}$`. Setting it on another provider is an error. |
-| `timeoutMs` | integer 100 to 600000 | `60000` | Time limit for one model call. |
+| `timeoutMs` | integer 100 to 600000 | `60000`, or `180000` for a coding-agent CLI | Time limit for one model call. A coding-agent CLI (Claude Code, Codex, opencode, Grok Build, Antigravity) gets more by default because one of its turns is slower than an API call. An explicit value is kept. |
 
 ### Providers
 

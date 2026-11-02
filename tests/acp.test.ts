@@ -130,4 +130,22 @@ describe('agent replies as model output', () => {
     controller.abort();
     await expect(pending).rejects.toMatchObject({ code: 'llm-cancelled' });
   });
+  it('says that the agent does not offer the model or reasoning level, not that it failed to start', async () => {
+    const rejected = (agent: AcpAgent, modelId: string, reasoningEffort?: string) => generateStructured({
+      model: createAgentModel({ agent, modelId, ...(reasoningEffort ? { reasoningEffort } : {}) }), system: 's', user: '{}', schema: choice,
+    }).then(() => { throw new Error('resolved'); }, (error: { code: string; message: string; detail?: unknown }) => error);
+    const error = await rejected(fake().agent, 'huge');
+    expect(error).toMatchObject({ code: 'llm-failed', detail: { modelFailure: { kind: 'agent-model' } } });
+    expect(error.message).toContain('The agent CLI does not offer this model ID or reasoning level for your sign-in. Check the profile\'s model (rawstep doctor lists what the agent offers).');
+    // Unanswered, like the other agent failures: the provider's own error can be printed on this computer.
+    expect(error.message).toContain('Set RAWSTEP_DEBUG=1');
+    expect(error.message).not.toContain('did not start');
+    const level = await rejected(fake({ efforts: ['low', 'high'] }).agent, 'default', 'max');
+    expect(level).toMatchObject({ code: 'llm-failed', detail: { modelFailure: { kind: 'agent-model' } } });
+    expect(level.message).not.toContain('did not start');
+    const broken = await rejected(fake({ error: true }).agent, 'default');
+    expect(broken).toMatchObject({ detail: { modelFailure: { kind: 'agent-failed' } } });
+    expect(broken.message).toContain('did not start');
+    expect(broken.message).toContain('Set RAWSTEP_DEBUG=1');
+  });
 });

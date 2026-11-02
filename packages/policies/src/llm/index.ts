@@ -7,7 +7,7 @@ import { RawstepError } from '@rawstep/core/errors';
 import type { ModelFailure } from '../policy/choice.js';
 import type { CueRequest, CueResult, Planner, PlanRequest, PlanResult } from '../policy/orchestration.js';
 import { plannerDraftSchema } from '../policy/fixed-plan.js';
-import { AcpAgent, parseAgentJson } from '../acp/index.js';
+import { AcpAgent, AcpError, parseAgentJson } from '../acp/index.js';
 import { SPEECH_PLANNER_INSTRUCTIONS } from './rules.js';
 
 export { SPEECH_PLANNER_INSTRUCTIONS } from './rules.js';
@@ -59,6 +59,7 @@ const FAILURE_MESSAGES: Record<ModelFailure['kind'], string> = {
   'provider-error': 'The provider failed on its side, also after retrying. Run again later.',
   'unreachable': 'The provider could not be reached. Check the network and the connection\'s address.',
   'agent-failed': 'The agent CLI did not start or answer. Check that it is installed and signed in (rawstep doctor).',
+  'agent-model': 'The agent CLI does not offer this model ID or reasoning level for your sign-in. Check the profile\'s model (rawstep doctor lists what the agent offers).',
   'no-reply': 'The model gave no usable reply.',
   'not-json': 'The model\'s reply held no JSON object, also after asking again.',
   'schema': 'The model\'s reply did not have the required shape, also after asking again.',
@@ -87,10 +88,10 @@ function providerFailure(error: unknown): ModelFailure {
 }
 function agentFailure(error: unknown): ModelFailure {
   if (process.env.RAWSTEP_DEBUG) console.error('[rawstep debug] agent call failed:', error);
-  return { kind: 'agent-failed' };
+  return { kind: error instanceof AcpError && error.reason === 'unknown-model' ? 'agent-model' : 'agent-failed' };
 }
 /** Failures that come from the provider or the agent, not from a reply: the raw error may say more. */
-const UNANSWERED = new Set<ModelFailure['kind']>(['key-refused', 'model-not-found', 'rate-limited', 'provider-error', 'unreachable', 'agent-failed', 'no-reply']);
+const UNANSWERED = new Set<ModelFailure['kind']>(['key-refused', 'model-not-found', 'rate-limited', 'provider-error', 'unreachable', 'agent-failed', 'agent-model', 'no-reply']);
 /** Retries the SDK makes on its own for a rate limit, a server error or a dropped connection, with growing waits (it honours retry-after). */
 const PROVIDER_RETRIES = 2;
 /** Characters of a rejected reply kept for the run's record. */

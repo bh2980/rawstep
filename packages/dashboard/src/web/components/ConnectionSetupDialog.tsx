@@ -102,9 +102,9 @@ function SetupFlow({ pageProps: props, close, onAdded }: { pageProps: PageProps;
     if (!provider || !name.trim()) return;
     const id = crypto.randomUUID();
     const apiKeyEnv = custom && key ? generateEnvName(config.connections) : undefined;
-    // A coding agent is slow to answer, so it gets more time.
+    // A coding agent is slow to answer, so it gets more time (the same default a connection without timeoutMs gets).
     const connection: Connection = { id, name: name.trim(), provider, ...(custom ? { baseURL: baseURL.trim() } : {}), ...(apiKeyEnv ? { apiKeyEnv } : {}),
-      timeoutMs: agent ? AGENT_TIMEOUT_MS : RAWSTEP_DEFAULTS.modelTimeoutMs };
+      timeoutMs: agent ? RAWSTEP_DEFAULTS.agentModelTimeoutMs : RAWSTEP_DEFAULTS.modelTimeoutMs };
     const ok = await run(async () => {
       // A preset provider keeps one key for all its connections; a custom server's key is stored under the connection's own variable.
       if (key && !custom) await api('/credentials', { method: 'POST', body: { provider, value: key } });
@@ -173,6 +173,4 @@ function SetupFlow({ pageProps: props, close, onAdded }: { pageProps: PageProps;
   </>;
 }
 
-/** Time a CLI call may take: it starts a local agent and reasons before answering. */
-const AGENT_TIMEOUT_MS = 180_000;
 const hostOf = (url: string) => { try { return new URL(url.trim()).host; } catch { return url.trim(); } };

@@ -462,8 +462,16 @@ async function doctor(projectDir: string, dependencies: CliDependencies, stdout:
       const label = `Key ${key.label}`;
       if (agentOf(key.connection)) {
         try {
-          await (dependencies.checkAgent ?? (connection => discover({ provider: connection.provider as never })))({ provider: key.connection.provider });
+          const listed = await (dependencies.checkAgent ?? (connection => discover({ provider: connection.provider as never })))({ provider: key.connection.provider });
           report(true, key.label, 'starts and lists its models (its own sign-in pays for calls)');
+          // A model id the agent does not offer fails the run at its first plan. `default` keeps the agent's own choice, so it is always fine.
+          const offered = Array.isArray(listed) ? (listed as { modelId?: unknown }[]).flatMap(m => typeof m?.modelId === 'string' ? [m.modelId] : []) : [];
+          const missing = offered.length ? modelsOf(key.id).filter(modelId => modelId !== 'default' && !offered.includes(modelId)) : [];
+          if (missing.length) {
+            const shown = offered.slice(0, 12);
+            const list = `${shown.join(', ')}${offered.length > shown.length ? `, and ${offered.length - shown.length} more` : ''}`;
+            for (const modelId of missing) report(false, `Model ${modelId}`, `${key.label} does not offer this model for your sign-in. It offers: ${list} (\`default\` keeps the agent's own choice)`);
+          }
         } catch (error) {
           // Discovery words these itself: not installed, started but silent, or needs a sign-in with the agent's own CLI.
           report(false, key.label, error instanceof ProjectError ? error.message : `could not be started: ${errorDetails(error)}`);
