@@ -57,6 +57,8 @@ export const shell: LocaleShape<typeof ko> = {
     runNone: 'Select tasks to run',
     clearPicked: 'Clear selection',
     neverRun: 'Not run yet',
+    noMeasured: 'No measured run in the latest batch',
+    noMeasuredWhy: 'Runs that ended on an error are not counted.',
     noFinding: 'None',
     findingCount: '{{count}} places',
     findingCount_one: '{{count}} place',

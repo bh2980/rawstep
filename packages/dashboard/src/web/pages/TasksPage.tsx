@@ -25,6 +25,7 @@ import { comboSummary, profileReady } from '../lib/conditions';
 import { formatSteps } from '../lib/format';
 import { displayState, recentRuns } from '../lib/runStrip';
 import { isFinished, isLive, runModelsName, runStepCount, taskNameOf, taskRunNumbers } from '../lib/runs';
+import { profileMovesPlaceholder } from '../lib/taskList';
 import { activeTag, hasTag, projectTags } from '../lib/tags';
 import type { ListProps } from './types';
 
@@ -108,6 +109,8 @@ export function TasksPage({ pageProps, runs, summaries, summaryError, navigate, 
           <TableBody>{ordered.map(({ task, url, row, base }) => {
             const numbers = taskRunNumbers(runs, task.id), strip = recentRuns(runs, task.id), groups = row?.facts.byProfile ?? [];
             const baseGroups = base ? byTask.get(base.id)?.facts.byProfile ?? [] : [];
+            // An empty profile list is "not run yet" until a run of this task has finished. The newest batch can be all error runs.
+            const movesEmpty = profileMovesPlaceholder({ byProfile: groups, lastRunAt: row?.lastRunAt, listed: runs.some(ref => ref.run.taskId === task.id && isFinished(ref.run)) });
             return <TableRow key={task.id} className={base ? 'h-9' : 'h-11'}>
               <TableCell className={cell + ' w-9'}><Checkbox aria-label={t('taskList.pickOne', { name: task.name })} checked={picked.includes(task.id)}
                 onCheckedChange={on => setPicked(current => on === true ? [...current, task.id] : current.filter(id => id !== task.id))} /></TableCell>
@@ -119,8 +122,8 @@ export function TasksPage({ pageProps, runs, summaries, summaryError, navigate, 
                 </Link>
               </TableCell>
               {tags.length > 0 && <TableCell className={cell + ' max-w-52 py-1.5'}>{task.tags?.length ? <TagList tags={task.tags} limit={3} more={n => t('taskList.moreTags', { n })} /> : <span className="text-muted-foreground">—</span>}</TableCell>}
-              <TableCell className={cell + ' py-1.5'}>{groups.length
-                ? <ul className="grid gap-0.5 text-[13px] tabular-nums">{groups.slice(0, 3).map(group => {
+              <TableCell className={cell + ' py-1.5'}>{movesEmpty ? <MovesNote kind={movesEmpty} />
+                : <ul className="grid gap-0.5 text-[13px] tabular-nums">{groups.slice(0, 3).map(group => {
                   const same = baseGroups.find(other => other.profileId === group.profileId);
                   const extra = group.medianSteps != null && same?.medianSteps != null ? group.medianSteps - same.medianSteps : undefined;
                   return <li key={group.profileId} className="flex items-baseline gap-2 whitespace-nowrap">
@@ -129,8 +132,7 @@ export function TasksPage({ pageProps, runs, summaries, summaryError, navigate, 
                     {extra !== undefined && <span className={cn('text-xs', extra > 0 ? 'text-inspect' : 'text-muted-foreground')}>{extra > 0 ? `+${formatSteps(extra)}` : formatSteps(extra)}</span>}
                     {group.unheard > 0 && <span className="text-xs text-inspect">{t('taskList.unheard', { unheard: group.unheard, reached: group.reached })}</span>}
                   </li>; })}
-                  {groups.length > 3 && <li className="text-xs text-muted-foreground">{t('taskList.moreProfiles', { count: groups.length - 3 })}</li>}</ul>
-                : <span className="text-muted-foreground">{t('taskList.neverRun')}</span>}</TableCell>
+                  {groups.length > 3 && <li className="text-xs text-muted-foreground">{t('taskList.moreProfiles', { count: groups.length - 3 })}</li>}</ul>}</TableCell>
               <TableCell className={cell}>{strip.length > 0
                 ? <RunStrip navigate={navigate} runs={strip.map(ref => ({ id: ref.run.id, number: numbers.get(ref.run.id), state: displayState(ref.run), steps: runStepCount(ref.run), to: { task: task.id, run: ref.run.id } }))} />
                 : <span className="text-muted-foreground">—</span>}</TableCell>
@@ -143,6 +145,13 @@ export function TasksPage({ pageProps, runs, summaries, summaryError, navigate, 
       </div>}
     <TaskImportDialog {...pageProps} open={importing} onOpenChange={setImporting} onImported={id => navigate({ task: id })} />
   </div>;
+}
+
+/** The moves column when the latest batch has no measured profile row. Error runs are not counted; say so, and do not call that "not run yet". */
+function MovesNote({ kind }: { kind: 'neverRun' | 'noMeasured' }) {
+  const { t } = useTranslation();
+  if (kind === 'neverRun') return <span className="text-muted-foreground">{t('taskList.neverRun')}</span>;
+  return <span className="text-muted-foreground" title={t('taskList.noMeasuredWhy')}>{t('taskList.noMeasured')}<span className="sr-only"> {t('taskList.noMeasuredWhy')}</span></span>;
 }
 
 /** The count of spots to look at, and under it the element that recurs most: its name, then its role in plain Korean. */
