@@ -70,6 +70,8 @@ export type BatchQueueOptions = {
   via?: BatchOwner['via'];
   /** How many runs go at once; without it the project's `machine.parallelRuns`. */
   parallel?: number;
+  /** Called as each run ends, after its record is saved, in the order the runs end. */
+  onRunEnd?: (experiment: Experiment, run: RunRecord) => void;
 };
 
 const SELF: Pick<BatchOwner, 'pid' | 'host'> = { pid: process.pid, host: hostname() };
@@ -307,6 +309,7 @@ export class BatchQueue {
       run.analysisStatus = 'skipped'; run.reportStatus = 'skipped';
     } finally {
       run.endedAt = new Date().toISOString(); this.liveTasks.delete(run.id); await this.persist(experiment);
+      try { this.options.onRunEnd?.(experiment, run); } catch { /* a listener never breaks the batch */ }
       // The batch's last run: sum it up per task and profile, next to its runs, for `rawstep compare` and a saved baseline.
       if (!experiment.runs.some(r => r.state === 'queued' || r.state === 'running')) await this.writeSummary(experiment).catch(() => {});
     }

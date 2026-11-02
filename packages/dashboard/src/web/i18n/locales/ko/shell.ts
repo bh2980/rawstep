@@ -51,6 +51,8 @@ export const shell = {
     runPicked: '고른 작업 실행…',
     pickedNote: '실행 프로필은 다음 단계에서 고릅니다',
     clearPicked: '고르기 해제',
+    noMeasured: '최근 묶음에 측정된 실행 없음',
+    noMeasuredWhy: '오류로 끝난 실행은 세지 않습니다.',
     noMatch: '조건에 맞는 작업이 없습니다.',
     live: '실행 중',
     empty: { title: '아직 작업이 없습니다', why: '작업은 시작 페이지 하나와 목표 한 문장입니다.', cli: '명령줄에서는' },

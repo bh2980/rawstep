@@ -133,7 +133,13 @@ Before it starts, `run` checks that the profile can run: it has a planner (a mod
 
 ### What `run` prints
 
-While it works, `run` prints `Running <task>...` (or `Running <task>, <n> times...`) on stderr. With `--json` that line is left out. The result goes to stdout.
+While it works, `run` prints `Running <task>...` (or `Running <task>, <n> times...`) on stderr, then one line per run as it ends, in the order the runs end:
+
+```text
+[2/3] Checkout #2: reached the goal · 12 moves (1m40s)
+```
+
+That is how many runs have ended of how many, the task, the repeat number, how the run ended, its moves and how long it took. A run that never started shows `did not start: <message>`, a cancelled one `cancelled`. With `--json` these lines are left out. The result goes to stdout.
 
 The text report has these parts, in this order:
 
@@ -228,7 +234,7 @@ Before anything runs, `suite` checks every task under every profile as `run` doe
 
 ### What `suite` prints
 
-While it works, `suite` prints `Running <tasks>...` on stderr (`the tasks tagged <tags>` or `every task` when you named none). With `--json` that line is left out.
+While it works, `suite` prints `Running <tasks>...` on stderr (`the tasks tagged <tags>` or `every task` when you named none), then one progress line per run as it ends, as `run` does. When the batch uses more than one profile, the line names the profile after the task (`[3/10] Checkout · Default #2: …`). With `--json` these lines are left out.
 
 The text report has one block per task, and per profile when the batch used more than one:
 
@@ -289,11 +295,11 @@ Against the baseline (baseline):
 1 change caught by --fail-on reach (marked !).
 ```
 
-A line with `!` was caught by a gate and one with `·` was not. A cell with fewer than 2 runs on a side says `too few runs on a side to tell (repeat at least 2)`. The profile name follows the task name when the batch used more than one profile. What counts as noise, with worked numbers, is in [Using Rawstep in CI](../ci.md#what-is-compared).
+A line with `!` was caught by a gate and one with `·` was not. When a cell's reach or moves could not be compared, the cell gets a line that says so and why, also next to its changes: for example `Signup: reach and moves not compared: the baseline has 0 measured runs of 2 (2 not measured)`. Reach needs 2 measured runs a side (reached, gave up or said done; not measured and broken runs do not count) and moves needs 2 runs a side that reached the goal. When the side simply ran fewer than 2 times, the line ends with `; repeat at least 2`. If a gate in `--fail-on` could not check some cells this way, a last line says `Not compared for <n> task·profile pair(s): the gate could not check them.` The exit code does not change: a gate fails only on a change it caught. The profile name follows the task name when the batch used more than one profile. What counts as noise, with worked numbers, is in [Using Rawstep in CI](../ci.md#what-is-compared).
 
 With `--json`, the object has the result plus `comparison`. `--save-summary`, `--junit` and the job summary below work with or without `--baseline`.
 
-On GitHub Actions, when `GITHUB_STEP_SUMMARY` is set, Rawstep appends a Markdown table to it: one row per task and profile with the result and the change against the baseline, with caught changes in bold. Nothing needs to be turned on.
+On GitHub Actions, when `GITHUB_STEP_SUMMARY` is set, Rawstep appends a Markdown table to it: one row per task and profile with the result and the change against the baseline, with caught changes in bold, and the same not-compared line and gate line as the text. Nothing needs to be turned on.
 
 The JUnit file has one test case per task and profile, in a suite named `rawstep`. A case fails when a gate caught a change in it, errors when a run in it ended on an error, and is skipped when nothing was measured. See [the JUnit file](../ci.md#the-junit-file).
 
@@ -346,6 +352,8 @@ step <steps> · <kind>[ ×<n>] · <certainty> · <summary>
 observed: recorded directly · suspected: inferred from indirect signals, may be wrong
 Wrote <path>/hints.json
 ```
+
+When a run was not measured (ended unmeasured, on an error, or aborted), a line right after the header warns that its hints say nothing about the page (for example, `This run was not measured (the planner did not answer in time), so its hints say nothing about the page.`). `--reference` warns similarly if the reference run was not measured.
 
 With `--reference`, the hint lines are sorted into what the other run differs in: `Against the reference run: <a> new, <b> gone, <c> in both`, then `New in this run:`, `Only in the reference run:` (steps are the reference run's) and `In both:` (with how many times each run had it). Hints are matched by kind and element. This says what differs, not which run is better.
 
@@ -426,7 +434,7 @@ The checks, in order:
 | `Browser` | A headless Chromium launches, or the CDP address in `machine.browserEndpoint` answers. The detail says how to fix a failure. |
 | `Browser for tasks` | Only when a registered task has `browser.mode` `connect`. `ok` and the task names when `machine.browserEndpoint` is set; `FAIL` when it is empty, because those tasks cannot run. |
 | `Key <label>` | One line per API-key connection and model it is used for. A missing variable is `FAIL` (`ok` when a connection needs no key). A key that is set is tried: `ok  Key OpenRouter: OPENROUTER_API_KEY works · model vendor/model listed (1.8 s)` names the variable used and the time taken. `FAIL` says what failed: the key was refused (HTTP 401 or 403), the model is not in the provider's list, the provider did not answer in time or cannot be reached. A network failure is a `FAIL` line, not a crash. |
-| `<label>` (a coding-agent CLI, for example `Claude Code`) | One line per coding-agent CLI connection: it starts and lists its models (its own sign-in pays for calls); or its program is not found on `PATH`; or it started but did not answer in time; or it needs a sign-in, which you do with that agent's own CLI (for example run `claude` once and sign in). Antigravity needs its ACP server binary `agy_acp_server.par` on `PATH`; the `agy` CLI alone is not enough, and it signs in from the dashboard's connection check. |
+| `<label>` (a coding-agent CLI, for example `Claude Code`) | One line per coding-agent CLI connection: it starts and lists its models (its own sign-in pays for calls); or its program is not found on `PATH`; or it started but did not answer in time; or it needs a sign-in, which you do with that agent's own CLI (for example run `claude` once and sign in). Then one `FAIL  Model <id>` line for each model ID a profile, the analysis or the suggestions name on it that the agent does not offer, listing the IDs it does offer (the first few, then "and N more"). A model ID of `default` is always fine: it keeps the agent's own choice. Antigravity needs its ACP server binary `agy_acp_server.par` on `PATH`; the `agy` CLI alone is not enough, and it signs in from the dashboard's connection check. |
 | `Screen reader` | `skip` if every profile uses the simulation. Otherwise, for each native screen reader (`voiceover`, `nvda`) used by a profile, the AT Driver endpoint answers. This checks the protocol connection only; verify real speech on the target host. |
 
 ## Environment variables and files

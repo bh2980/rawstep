@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildBatchSummary, compareSummaries, gatedChanges, junitXml, summaryMarkdown, validateBatchSummary, type BatchSummary, type SummaryCell, type SummaryRun } from '@rawstep/reports/compare';
+import { buildBatchSummary, compareSummaries, gatedChanges, junitXml, notComparedText, summaryMarkdown, uncheckedCells, validateBatchSummary, type BatchSummary, type SummaryCell, type SummaryRun } from '@rawstep/reports/compare';
 import type { Hint } from '@rawstep/reports/hints';
 
 const batch = (id: string, note?: string) => ({ id, createdAt: '2026-11-01T00:00:00.000Z', ...(note ? { note } : {}) });
@@ -64,13 +64,31 @@ describe('batch summaries compared with the spread between repeats in mind', () 
     const compared = compareSummaries(base, head);
     const markdown = summaryMarkdown(head, compared, ['reach']);
     expect(markdown).toContain('Batch: redesign \\| v2');
-    expect(markdown).toContain('| pay | Item by item | reached 1 of 3 · gave up 2 · median 11 moves | **Reached the goal in 1 of 3 runs, against 3 of 3 in the baseline.** |');
+    expect(markdown).toContain('| pay | Item by item | reached 1 of 3 · gave up 2 · median 11 moves | **Reached the goal in 1 of 3 runs, against 3 of 3 in the baseline.**<br>moves not compared: the new batch reached the goal in 1 of 3 measured runs (2 needed) |');
     // All not measured is nothing to compare, not a drop.
-    expect(markdown).toContain('| search | Item by item | nothing measured · not measured 2 | too few runs to tell |');
-    expect(markdown).toContain('1 change caught by --fail-on reach (in bold).');
+    expect(markdown).toContain('| search | Item by item | nothing measured · not measured 2 | reach and moves not compared: the new batch has 0 measured runs of 2 (2 not measured) |');
+    expect(markdown).toContain('1 change caught by --fail-on reach (in bold).\nNot compared for 1 task·profile pair: the gate could not check them.');
     const junit = junitXml(head, compared, ['reach']);
     expect(junit).toContain('tests="2" failures="1" errors="0" skipped="1"');
     expect(junit).toContain('<testcase classname="rawstep" name="pay · Item by item"><failure message="Reached the goal in 1 of 3 runs, against 3 of 3 in the baseline."/>');
+    expect(junit).toContain('<skipped message="not measured"/><system-out>nothing measured · not measured 2 · reach and moves not compared: the new batch has 0 measured runs of 2 (2 not measured)</system-out>');
     expect(junitXml(head)).toContain('failures="0"');
+  });
+
+  it('says which side had too few measured runs, and hints to repeat only when the repeats were too few', () => {
+    // The usability retest: the baseline's planner timed out on every run, the new batch gave up with a new stuck place.
+    const image = { role: 'image', runs: 2 };
+    const unmeasured = compareSummaries(summary('a', [cell('signup', [], { unmeasured: 2 })]), summary('b', [cell('signup', [], { 'gave-up': 2 }, [image])]));
+    const signup = unmeasured.cells[0]!;
+    expect(signup.changes.map(c => c.kind)).toEqual(['stuck-new']);
+    expect(notComparedText(signup)).toBe('reach and moves not compared: the baseline has 0 measured runs of 2 (2 not measured)');
+    expect(uncheckedCells(unmeasured, ['reach', 'moves'])).toEqual([signup]);
+    expect(uncheckedCells(unmeasured, ['stuck'])).toEqual([]);
+    const once = compareSummaries(summary('a', [cell('t', [10])]), summary('b', [cell('t', [], { 'gave-up': 1 })])).cells[0]!;
+    expect(notComparedText(once)).toBe('reach and moves not compared: the baseline has 1 measured run of 1 and the new batch has 1 measured run of 1; repeat at least 2');
+    const fewReached = compareSummaries(summary('a', [cell('t', [10, 11])]), summary('b', [cell('t', [10], { 'gave-up': 1 })])).cells[0]!;
+    expect(fewReached.reach).toBe('within-noise');
+    expect(notComparedText(fewReached)).toBe('moves not compared: the new batch reached the goal in 1 of 2 measured runs (2 needed)');
+    expect(notComparedText(compareSummaries(summary('a', [cell('t', [10, 11])]), summary('b', [cell('t', [10, 12])])).cells[0]!)).toBeUndefined();
   });
 });

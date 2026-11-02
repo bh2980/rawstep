@@ -21,6 +21,7 @@ import { comboSummary, profileReady } from '../lib/conditions';
 import { dataFailureView } from '../lib/errors';
 import { recentRuns, runStatus } from '../lib/runStrip';
 import { isFinished, isLive, runModelsName, runStepCount, taskNameOf, taskRunNumbers } from '../lib/runs';
+import { profileMovesPlaceholder } from '../lib/taskList';
 import { activeTag, hasTag, projectTags } from '../lib/tags';
 import { taskUrl } from '../lib/taskJson';
 import { cn } from '../lib/utils';
@@ -145,7 +146,7 @@ export function TasksPage({ pageProps, runs, summaries, summaryError, navigate, 
                       {row && row.facts.runs > 0 && <span className="tabular-nums text-ink-2">{t('taskList.reachedOf', { runs: row.facts.runs, reached: row.facts.reached })}</span>}
                     </span>
                     : <Dash />}</td>
-                  <td className={cell + ' text-right tabular-nums'}><Cost row={row} /></td>
+                  <td className={cell + ' text-right tabular-nums'}><Cost row={row} empty={profileMovesPlaceholder({ byProfile: row?.facts.byProfile ?? [], lastRunAt: row?.lastRunAt, listed: runs.some(ref => ref.run.taskId === task.id && isFinished(ref.run)) })} /></td>
                   <td className={cell + ' text-right tabular-nums'}>{row && row.findingCount > 0
                     ? <span title={row.topFinding ? t('taskList.topFinding', { target: targetLabel(row.topFinding.target) }) : undefined}>{row.findingCount}</span> : <Dash />}</td>
                   <td className={cell + ' text-right whitespace-nowrap tabular-nums text-ink-2'}><Time value={row?.lastRunAt} /></td>
@@ -161,8 +162,11 @@ export function TasksPage({ pageProps, runs, summaries, summaryError, navigate, 
 }
 
 /** What reaching the goal cost, over every run profile of the newest batch: the fewest and the most actions, or one number. */
-function Cost({ row }: { row: TaskSummary | undefined }) {
+function Cost({ row, empty }: { row: TaskSummary | undefined; empty: 'neverRun' | 'noMeasured' | undefined }) {
+  const { t } = useTranslation();
   const groups = row?.facts.byProfile.filter(group => group.minSteps !== null && group.maxSteps !== null) ?? [];
+  // Runs that ended on an error are left out of the counts: a task with only those has run, it just has nothing measured.
+  if (empty === 'noMeasured') return <span className="text-ink-3" title={`${t('taskList.noMeasured')}. ${t('taskList.noMeasuredWhy')}`}>—<span className="sr-only">{t('taskList.noMeasured')}. {t('taskList.noMeasuredWhy')}</span></span>;
   if (!groups.length) return <Dash />;
   const low = Math.min(...groups.map(group => group.minSteps!)), high = Math.max(...groups.map(group => group.maxSteps!));
   return <>{low === high ? low : `${low}–${high}`}</>;

@@ -32,6 +32,7 @@ It resolves when the runs finish, whatever way they ended: reaching the goal is 
 | `note` | `string` | none | What this batch is for, up to 200 characters (`made Add to cart a button`). The dashboard shows it. |
 | `signal` | `AbortSignal` | none | Cancels the runs. The traces kept so far still get their hints, rule-based analysis and report (no model analysis), then `runTask` rejects with `cancelled`. |
 | `onEvent` | `(event: TraceEvent) => void` | none | Called with every stored (already redacted) trace event as it is recorded. An error in the listener does not affect the run. |
+| `onRunEnd` | `(progress: RunProgress) => void` | none | Called as each run of the batch ends, in the order they end: `done` and `total` runs, `profiles` (how many the batch uses), `taskId`, `taskName`, `profileId`, `profileName`, `repeat` (the run's number for its task under its profile), `outcome` from its trace (none when it never started; `error` then says why) and `durationMs`. A run cancelled before it started is never called for. |
 
 ### Return value
 
@@ -116,7 +117,7 @@ A run that breaks while it runs (the page does not load, the model fails, the ru
 function runSuite(options?: RunSuiteOptions): Promise<RunSuiteResult>;
 ```
 
-It takes the options of `runTask` (`projectDir`, `runRules`, `repeat`, `parallel`, `note`, `signal`, `onEvent`), except that `profile` is replaced by `profiles`, plus these:
+It takes the options of `runTask` (`projectDir`, `runRules`, `repeat`, `parallel`, `note`, `signal`, `onEvent`, `onRunEnd`), except that `profile` is replaced by `profiles`, plus these:
 
 | Option | Type | Default | Meaning |
 | --- | --- | --- | --- |

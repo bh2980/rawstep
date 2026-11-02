@@ -56,6 +56,8 @@ export const shell: LocaleShape<typeof ko> = {
     runPicked: 'Run selected tasks…',
     pickedNote: 'You pick the run profiles in the next step',
     clearPicked: 'Clear selection',
+    noMeasured: 'No measured run in the latest batch',
+    noMeasuredWhy: 'Runs that ended on an error are not counted.',
     noMatch: 'No tasks match the filters.',
     live: 'Running',
     empty: { title: 'No tasks yet', why: 'A task is one start page and a one-sentence goal.', cli: 'From the command line:' },

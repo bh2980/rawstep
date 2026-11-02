@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { BrowserConnectError, createBrowserSession } from '@rawstep/browser/browser';
 import { AtDriverBackend } from '@rawstep/screenreaders/at-driver';
 import { discover } from '@rawstep/project/discover';
-import { readTrace } from '@rawstep/core/trace';
+import { readTrace, type RunTrace } from '@rawstep/core/trace';
 import { findRawstepError } from '@rawstep/core/errors';
 import { analyzeSavedTrace, readAnalysis } from '@rawstep/reports/analyze';
 import { writeReport } from '@rawstep/reports/report';
@@ -15,12 +15,12 @@ import { ProjectError } from '@rawstep/project/errors';
 import { agentOf, atEndpointOf, CONFIG_FILE, credentialId, credentialRequirements, isFilePlanner, modelKeyEnvNames, modelKeyRequired, PROVIDERS, type ProviderId } from '@rawstep/project/config';
 import { inspectModel, type ModelInspection } from '@rawstep/project/checks';
 import { ProjectStore, findAgentCli, initProject } from '@rawstep/project/store';
-import { projectAnalyzer, runSuite, runTask, type BatchRun, type RunSuiteResult, type RunTaskResult } from '@rawstep/project/run';
+import { projectAnalyzer, runSuite, runTask, type BatchRun, type RunProgress, type RunSuiteResult, type RunTaskResult } from '@rawstep/project/run';
 import { CLI_USAGE, CliUsageError, parseCliArguments, parseRunRules, type CliArguments } from './args.js';
 
 export { CLI_USAGE, CliUsageError, parseCliArguments } from './args.js';
 import { parseGates } from './args.js';
-import { compareSummaries, gatedChanges, junitXml, summaryMarkdown, validateBatchSummary, type BatchSummary, type SummaryComparison } from '@rawstep/reports/compare';
+import { cellNotes, compareSummaries, gatedChanges, junitXml, summaryMarkdown, uncheckedText, validateBatchSummary, type BatchSummary, type SummaryComparison } from '@rawstep/reports/compare';
 
 /** Injectable boundaries let CLI checks run without a browser, a model or a native screen reader. */
 export interface CliDependencies {
@@ -87,8 +87,11 @@ export async function runCli(argv: string[] = process.argv.slice(2), dependencie
       case 'doctor': return await doctor(projectDir, dependencies, stdout);
       case 'hints': {
         const input = resolve(cwd, args.positionals[0]!);
-        const { path, report, comparison } = await writeHints(input, args.options.reference ? { reference: resolve(cwd, String(args.options.reference)) } : {});
-        stdout(hintsText(report, comparison) + `Wrote ${path}\n`);
+        const reference = args.options.reference ? resolve(cwd, String(args.options.reference)) : undefined;
+        const trace = await readRunTrace(input);
+        const refTrace = reference ? await readRunTrace(reference) : undefined;
+        const { path, report, comparison } = await writeHints(input, reference ? { reference } : {});
+        stdout(hintsText(report, comparison, trace.outcome, refTrace?.outcome) + `Wrote ${path}\n`);
         return 0;
       }
       case 'analyze': {
@@ -159,11 +162,19 @@ async function cancellable<T>(dependencies: CliDependencies, stderr: (text: stri
     throw error;
   }
 }
+/** "45s", "1m40s", "1h2m": a duration as the progress lines show it. */
+const shortDuration = (ms: number) => { const s = Math.round(ms / 1000); return s < 60 ? `${s}s` : s < 3600 ? `${Math.floor(s / 60)}m${s % 60 ? `${s % 60}s` : ''}` : `${Math.floor(s / 3600)}h${Math.floor(s % 3600 / 60) ? `${Math.floor(s % 3600 / 60)}m` : ''}`; };
+/** One stderr line per run as it ends, so a long batch shows it is moving: `[3/10] Checkout · Default #2: reached the goal · 12 moves (1m40s)`. */
+function progressLine(p: RunProgress): string {
+  const ending = p.outcome ? (p.outcome.status === 'aborted' ? 'cancelled' : endingText(p.outcome)) : p.error ? `did not start: ${p.error.split('\n')[0]}` : 'cancelled';
+  const moves = p.outcome && typeof p.outcome.steps === 'number' ? ` · ${p.outcome.steps} moves` : '';
+  return `[${p.done}/${p.total}] ${p.taskName}${p.profiles > 1 ? ` · ${p.profileName}` : ''} #${p.repeat}: ${ending}${moves}${p.durationMs !== undefined ? ` (${shortDuration(p.durationMs)})` : ''}\n`;
+}
 async function run(args: CliArguments, projectDir: string, cwd: string, dependencies: CliDependencies, stdout: (text: string) => void, stderr: (text: string) => void): Promise<number> {
   const { options } = args, task = args.positionals[0]!, repeat = options.repeat === undefined ? 1 : Number(options.repeat);
   if (!options.json) stderr(`Running ${task}${repeat > 1 ? `, ${repeat} times` : ''}...\n`);
   const result = await cancellable(dependencies, stderr, signal => (dependencies.runTask ?? runTask)(task, {
-    projectDir, signal, ...batchOptions(options), ...(options.profile ? { profile: String(options.profile) } : {}),
+    projectDir, signal, ...batchOptions(options), ...(options.json ? {} : { onRunEnd: (p: RunProgress) => stderr(progressLine(p)) }), ...(options.profile ? { profile: String(options.profile) } : {}),
   }));
   if (typeof result === 'number') return result;
   const against = await againstBaseline(options, result.summary, cwd, dependencies);
@@ -174,7 +185,7 @@ async function suite(args: CliArguments, projectDir: string, cwd: string, depend
   const { options } = args, tags = (options.tag as string[] | undefined) ?? [], profiles = (options.profile as string[] | undefined) ?? [];
   if (!options.json) stderr(`Running ${args.positionals.length ? args.positionals.join(', ') : tags.length ? `the tasks tagged ${tags.join(', ')}` : 'every task'}...\n`);
   const result = await cancellable(dependencies, stderr, signal => (dependencies.runSuite ?? runSuite)({
-    projectDir, signal, ...batchOptions(options), ...(args.positionals.length ? { tasks: args.positionals } : {}), ...(tags.length ? { tags } : {}), ...(profiles.length ? { profiles } : {}),
+    projectDir, signal, ...batchOptions(options), ...(options.json ? {} : { onRunEnd: (p: RunProgress) => stderr(progressLine(p)) }), ...(args.positionals.length ? { tasks: args.positionals } : {}), ...(tags.length ? { tags } : {}), ...(profiles.length ? { profiles } : {}),
   }));
   if (typeof result === 'number') return result;
   const against = await againstBaseline(options, result.summary, cwd, dependencies);
@@ -214,10 +225,13 @@ export function formatComparison(comparison: SummaryComparison, caught: readonly
   const profiles = new Set(comparison.cells.map(cell => cell.profileId)).size;
   for (const cell of comparison.cells) {
     const name = `${cell.taskName}${profiles > 1 ? ` · ${cell.profileName}` : ''}`;
-    if (!cell.changes.length) lines.push(`  ${name}: ${cell.reach === 'too-few-runs' ? 'too few runs on a side to tell (repeat at least 2)' : 'no change beyond noise'}`);
     for (const change of cell.changes) lines.push(`  ${caught.includes(change) ? '!' : '·'} ${name}: ${change.text}`);
+    // Said even next to changes: a gate cannot catch what it could not compare.
+    for (const note of cellNotes(cell)) lines.push(`  ${name}: ${note}`);
   }
   lines.push(caught.length ? `${caught.length} change${caught.length > 1 ? 's' : ''} caught by --fail-on ${gates.join(',')} (marked !).` : `Nothing caught by --fail-on ${gates.join(',')}.`);
+  const unchecked = uncheckedText(comparison, gates);
+  if (unchecked) lines.push(unchecked);
   return lines.join('\n') + '\n';
 }
 async function compare(args: CliArguments, cwd: string, dependencies: CliDependencies, stdout: (text: string) => void): Promise<number> {
@@ -257,9 +271,29 @@ const stopOf = (outcome: Record<string, unknown>) => typeof outcome.policyStopSo
 /** One line per hint: where, what, how sure, and how many times when the same thing repeated. */
 const hintLine = (hint: Hint, prefix = 'step') => `${hint.steps.length ? `${prefix} ${hint.steps.join(',')}` : 'whole run'} · ${hint.kind}${hint.count ? ` ×${hint.count}` : ''} · ${hint.certainty} · ${hint.summary}\n`;
 const timesOf = (hints: Hint[]) => hints.reduce((total, hint) => total + (hint.count ?? 1), 0);
+function hintsWarning(outcome: RunTrace['outcome'], subject: string): string | undefined {
+  if (!outcome) return `${subject} was not measured, so its hints say nothing about the page.\n`;
+  if (endedOnError(outcome)) {
+    const first = typeof outcome.error === 'string' ? outcome.error.split('\n')[0]?.trim() : undefined;
+    const error = first ? ` (${first})` : '';
+    return `${subject} ended on an error${error}, so its hints say nothing about the page.\n`;
+  }
+  if (outcome.status === 'aborted') return `${subject} was aborted, so its hints say nothing about the page.\n`;
+  const ended = runEnding(outcome, stopOf(outcome));
+  if (!ended || ended.ending === 'unmeasured') {
+    return `${subject} was ${endingText(outcome)}, so its hints say nothing about the page.\n`;
+  }
+  return undefined;
+}
 /** The `hints` command's output. With a reference run: a count of what is new, gone and in both, then those groups, in plain terms. */
-function hintsText(report: HintReport, comparison?: HintComparison): string {
+function hintsText(report: HintReport, comparison?: HintComparison, outcome?: RunTrace['outcome'], referenceOutcome?: RunTrace['outcome']): string {
   const lines = [`Hints: ${report.hints.length} · goal reached: ${report.goalReached ? 'yes' : 'no'} · steps ${report.steps}${report.reference ? ` · reference ${report.reference.steps} steps` : ''}\n`];
+  const warning = hintsWarning(outcome, 'This run');
+  if (warning) lines.push(warning);
+  if (report.reference) {
+    const refWarning = hintsWarning(referenceOutcome, 'The reference run');
+    if (refWarning) lines.push(refWarning);
+  }
   if (!comparison) lines.push(...report.hints.map(hint => hintLine(hint)));
   else {
     lines.push(`Against the reference run: ${comparison.new.length} new, ${comparison.gone.length} gone, ${comparison.both.length} in both\n`);
@@ -462,8 +496,16 @@ async function doctor(projectDir: string, dependencies: CliDependencies, stdout:
       const label = `Key ${key.label}`;
       if (agentOf(key.connection)) {
         try {
-          await (dependencies.checkAgent ?? (connection => discover({ provider: connection.provider as never })))({ provider: key.connection.provider });
+          const listed = await (dependencies.checkAgent ?? (connection => discover({ provider: connection.provider as never })))({ provider: key.connection.provider });
           report(true, key.label, 'starts and lists its models (its own sign-in pays for calls)');
+          // A model id the agent does not offer fails the run at its first plan. `default` keeps the agent's own choice, so it is always fine.
+          const offered = Array.isArray(listed) ? (listed as { modelId?: unknown }[]).flatMap(m => typeof m?.modelId === 'string' ? [m.modelId] : []) : [];
+          const missing = offered.length ? modelsOf(key.id).filter(modelId => modelId !== 'default' && !offered.includes(modelId)) : [];
+          if (missing.length) {
+            const shown = offered.slice(0, 12);
+            const list = `${shown.join(', ')}${offered.length > shown.length ? `, and ${offered.length - shown.length} more` : ''}`;
+            for (const modelId of missing) report(false, `Model ${modelId}`, `${key.label} does not offer this model for your sign-in. It offers: ${list} (\`default\` keeps the agent's own choice)`);
+          }
         } catch (error) {
           // Discovery words these itself: not installed, started but silent, or needs a sign-in with the agent's own CLI.
           report(false, key.label, error instanceof ProjectError ? error.message : `could not be started: ${errorDetails(error)}`);
@@ -531,6 +573,19 @@ function errorDetails(error: unknown): string {
     current = current instanceof Error ? current.cause : undefined;
   }
   return messages.join('; caused by: ');
+}
+
+/** A run folder holds trace.json; absent or unreadable directory gives a friendly ProjectError. */
+async function readRunTrace(path: string): Promise<RunTrace> {
+  const isDirectory = (await stat(path).catch(() => undefined))?.isDirectory() ?? false;
+  try { return await readTrace(isDirectory ? join(path, 'trace.json') : path); }
+  catch (error) {
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
+      if (isDirectory) throw new ProjectError('run-not-found', `No trace.json in ${path}. Give a run folder (it holds trace.json), e.g. .rawstep/experiments/<batch>/<run>.`, 404);
+      throw new ProjectError('run-not-found', `No run folder at ${path}. Give a run folder (it holds trace.json), e.g. .rawstep/experiments/<batch>/<run>.`, 404);
+    }
+    throw error;
+  }
 }
 
 /** A hints.json next to the trace is optional report input; absent or unreadable means no hints section. */

@@ -8,6 +8,8 @@ export const RAWSTEP_DEFAULTS = Object.freeze({
   cleanupTimeoutMs: Object.freeze({ default: 2_000, nativeBackend: 5_000 }),
   /** Per-request budget for planner and analysis model calls. */
   modelTimeoutMs: 60_000,
+  /** Per-request budget for a coding-agent CLI (Grok Build, Codex, Claude Code, ...): one turn is slower than one API call. */
+  agentModelTimeoutMs: 180_000,
   /** The same action producing the same speech this many times in a row stops the run (the repetition guard). */
   policy: Object.freeze({ maxUnchangedTransitions: 4 }),
   /**

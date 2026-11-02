@@ -78,6 +78,8 @@ export const providerKeyEnv = (provider: ProviderId): string | undefined => (PRO
 /** Preset providers with a key. */
 export const KEYED_PROVIDERS: readonly { provider: ProviderId; label: string; keyEnv: string; keyEnvAliases: readonly string[] }[] =
   providersOf().filter(p => p.preset.keyEnv).map(p => ({ provider: p.id, label: p.preset.label, keyEnv: p.preset.keyEnv!, keyEnvAliases: p.preset.keyEnvAliases ?? [] }));
+/** The call time limit a connection gets when it names none: a coding-agent CLI answers slower than an API. */
+const connectionTimeoutMs = (provider: ProviderId): number => providerPreset({ provider }).agent ? RAWSTEP_DEFAULTS.agentModelTimeoutMs : RAWSTEP_DEFAULTS.modelTimeoutMs;
 /**
  * Where language models are reached: a provider preset (fixed address and key variable), a coding-agent CLI or a custom
  * OpenAI-compatible server. A connection holds no model: the planner, analysis and suggestions pick the model ID on a connection.
@@ -88,12 +90,13 @@ export const connectionSchema = z.object({
   baseURL: z.url().optional(),
   /** Only for `custom`: the environment variable that holds its key, if it needs one. */
   apiKeyEnv: envName.optional(),
-  timeoutMs: z.number().int().min(100).max(600000).default(RAWSTEP_DEFAULTS.modelTimeoutMs),
+  /** Time limit for one model call. Left out: 60 s, or 180 s for a coding-agent CLI, whose turns are slower (`connectionTimeoutMs`). */
+  timeoutMs: z.number().int().min(100).max(600000).optional(),
 }).strict().superRefine((connection, ctx) => {
   const issue = (path: string, message: string) => ctx.addIssue({ code: 'custom', path: [path], message });
   if (connection.provider === 'custom' ? !connection.baseURL : connection.baseURL !== undefined) issue('baseURL', 'Only custom connections have a baseURL, and they need one.');
   if (connection.provider !== 'custom' && connection.apiKeyEnv !== undefined) issue('apiKeyEnv', 'Only custom connections name their own key variable.');
-});
+}).transform(connection => ({ ...connection, timeoutMs: connection.timeoutMs ?? connectionTimeoutMs(connection.provider) }));
 export type Connection = z.infer<typeof connectionSchema>;
 /** An LLM on a connection (planner, analysis or check suggestions). */
 export const analysisChoiceSchema = z.object({ connectionId: id, modelId: text, reasoningEffort }).strict();
@@ -396,6 +399,11 @@ function say(issue: Issue, value: unknown): string {
     default: return issue.message;
   }
 }
+/** Removed config fields, and the task-file setting to use instead. Shown in place of "(now: value)", which would trail the sentence. */
+const MOVED: Record<string, string> = {
+  'machine.personCheck': '"browser": { "personCheck": true }',
+  'machine.copySignIn': '"browser": { "mode": "connect", "copySignIn": true }',
+};
 /**
  * What is wrong with a config zod rejected, as one readable line per problem (the first `limit`, then "and N more"):
  * `rawstep.config.json · profiles[1].runRules.failureLimit: must be at most 100 (now: 500)`. `raw` is the parsed JSON, to show the value found there.
@@ -405,8 +413,8 @@ export function configProblems(error: { issues: readonly unknown[] }, raw: unkno
   for (const issue of (error.issues as Issue[]).flatMap(item => flatten(item))) {
     const entries = issue.code === 'unrecognized_keys' ? (issue.keys ?? []).map(key => ({ path: [...issue.path, key], text: `unknown field ${JSON.stringify(key)}` })) : [{ path: issue.path, text: say(issue, valueAt(raw, issue.path)) }];
     for (const { path, text } of entries) {
-      const value = valueAt(raw, path);
-      lines.push(`${CONFIG_FILE} · ${pathText(path) || '(top level)'}: ${text}${value === undefined ? '' : ` (now: ${shown(value)})`}`);
+      const where = pathText(path), moved = MOVED[where], value = valueAt(raw, path);
+      lines.push(`${CONFIG_FILE} · ${where || '(top level)'}: ${text}${moved ? `. It moved to each task file: ${moved} (docs/reference/task.md)` : value === undefined ? '' : ` (now: ${shown(value)})`}`);
     }
   }
   return lines.length > limit ? [...lines.slice(0, limit), `${CONFIG_FILE} · and ${lines.length - limit} more`] : lines;

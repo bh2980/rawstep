@@ -29,7 +29,14 @@ export type RunTaskOptions = {
   note?: string;
   signal?: AbortSignal;
   onEvent?: (event: TraceEvent) => void;
+  /** Called as each run of the batch ends, in the order they end (a run cancelled before it started never ends). */
+  onRunEnd?: (progress: RunProgress) => void;
 };
+/**
+ * A run that just ended: `done` of `total` runs have ended, `repeat` counts the runs of this task under this profile, `outcome` is
+ * read from its trace (none when it never started; `error` then says why). `profiles` is how many profiles the batch uses.
+ */
+export type RunProgress = { done: number; total: number; profiles: number; taskId: string; taskName: string; profileId: string; profileName: string; repeat: number; outcome: RunOutcome | undefined; error?: string; durationMs: number | undefined };
 /** One run of a batch: which task under which profile, where its files are, how it ended and its hints. */
 export type BatchRun = { runId: string; taskId: string; taskName: string; profileId: string; profileName: string; outDir: string; outcome: RunOutcome | undefined; hints: HintReport };
 /** The batch the runs were saved as, in `.rawstep/experiments/<id>/`; the dashboard lists it with its own. */
@@ -163,14 +170,25 @@ async function runBatch(store: ProjectStore, config: ProjectConfig, tasks: { ent
   if (signal.aborted) throw cancelled();
   const execute = internals.execute;
   const executor: Executor | undefined = execute && ((run, task, outDir, runSignal, onEvent, local = {}) => execute({ ...run.snapshot.spec, task }, { outDir, signal: runSignal, ...local, ...(onEvent ? { onEvent } : {}) }));
-  const queue = new BatchQueue(store, { via: 'cli', ...(options.parallel ? { parallel: options.parallel } : {}), ...(executor ? { executor } : {}), ...(options.onEvent ? { onRunEvent: (_batch, _run, event) => options.onEvent!(event) } : {}) });
+  // Each ended run's trace is read in turn, so the progress calls keep the order the runs ended in.
+  let ended = 0, progress = Promise.resolve();
+  const onRunEnd = options.onRunEnd && ((batch: { id: string; runs: RunRecord[] }, record: RunRecord) => {
+    const done = ++ended, total = batch.runs.length, report = options.onRunEnd!;
+    progress = progress.then(async () => {
+      const trace = await queue.runDir(batch.id, record.id).then(readTrace).catch(() => undefined);
+      const started = Date.parse(record.startedAt ?? ''), stopped = Date.parse(record.endedAt ?? '');
+      report({ done, total, profiles: profiles.length, taskId: record.taskId, taskName: record.snapshot.taskName, profileId: record.profileId, profileName: profiles.find(p => p.id === record.profileId)?.name ?? record.profileId,
+        repeat: record.repeat, outcome: trace?.outcome, ...(!trace && record.errorDetail ? { error: record.errorDetail.message } : {}), durationMs: stopped >= started ? stopped - started : undefined });
+    }).catch(() => {});
+  });
+  const queue = new BatchQueue(store, { via: 'cli', ...(options.parallel ? { parallel: options.parallel } : {}), ...(executor ? { executor } : {}), ...(options.onEvent ? { onRunEvent: (_batch, _run, event) => options.onEvent!(event) } : {}), ...(onRunEnd ? { onRunEnd } : {}) });
   const loose: Record<string, LooseTask> = Object.fromEntries(tasks.filter(t => t.loose).map(({ entry, task }) => [entry.id, { entry, task }]));
   const experiment = await queue.create({ taskIds: tasks.map(t => t.entry.id), profileIds: profiles.map(p => p.id), repeats: repeat,
     ...('byTask' in choice ? { profilesByTask: Object.fromEntries(tasks.map(t => [t.entry.id, profilesOf(t.entry.id).map(p => p.id)])) } : {}), ...(options.runRules ? { runRules: options.runRules } : {}), ...(options.note ? { note: options.note } : {}) }, loose);
   // A cancel stops what is waiting and the runs going; what they did is kept and finished (hints, report) before the cancel is reported.
   const stop = () => void queue.cancel(experiment.id).catch(() => {});
   signal.addEventListener('abort', stop, { once: true });
-  try { await queue.whenDone(experiment.id); } finally { signal.removeEventListener('abort', stop); await queue.close(); }
+  try { await queue.whenDone(experiment.id); } finally { signal.removeEventListener('abort', stop); await queue.close(); await progress; }
   if (signal.aborted) throw cancelled();
   const runs: BatchRun[] = [];
   for (const record of experiment.runs) runs.push(await readRun(queue, experiment.id, record, profiles));
