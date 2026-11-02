@@ -303,6 +303,18 @@ describe("run", () => {
     expect(await runCli(["compare", "baseline.json", "batch"], compared)).toBe(4);
     expect(text(compared.stdout)).toMatch(/^Against the baseline \(base\):/);
     expect(await runCli(["compare", "baseline.json", "batch", "--fail-on", "stuck"], output(directory))).toBe(0);
+    // A side with no measured run: said for the cell even next to a change, and the gate says what it could not check, with no change in exit code.
+    const signup = { ...cell([]), endings: { reached: 0, "gave-up": 0, mistaken: 0, unmeasured: 2, error: 0 }, runs: 2 };
+    await writeFile(join(directory, "unmeasured.json"), JSON.stringify(summaryOf("base", signup)));
+    await writeFile(join(directory, "gave-up.json"), JSON.stringify(summaryOf("head", { ...cell([], 2), stuck: [{ role: "image", runs: 2 }] as never[] })));
+    const unchecked = output(directory);
+    expect(await runCli(["compare", "unmeasured.json", "gave-up.json", "--fail-on", "reach,moves"], unchecked)).toBe(0);
+    expect(text(unchecked.stdout)).toContain("  · Pay: New stuck place: image, in 2 of 2 runs.\n  Pay: reach and moves not compared: the baseline has 0 measured runs of 2 (2 not measured)\n"
+      + "Nothing caught by --fail-on reach,moves.\nNot compared for 1 task·profile pair: the gate could not check them.\n");
+    await writeFile(join(directory, "once.json"), JSON.stringify(summaryOf("base", cell([10]))));
+    const once = output(directory);
+    expect(await runCli(["compare", "once.json", "once.json"], once)).toBe(0);
+    expect(text(once.stdout)).toContain("Pay: reach and moves not compared: the baseline has 1 measured run of 1 and the new batch has 1 measured run of 1; repeat at least 2");
     const missing = output(directory);
     expect(await runCli(["compare", "baseline.json", "nowhere"], missing)).toBe(1);
     expect(text(missing.stderr)).toContain("No batch summary at");

@@ -20,7 +20,7 @@ import { CLI_USAGE, CliUsageError, parseCliArguments, parseRunRules, type CliArg
 
 export { CLI_USAGE, CliUsageError, parseCliArguments } from './args.js';
 import { parseGates } from './args.js';
-import { compareSummaries, gatedChanges, junitXml, summaryMarkdown, validateBatchSummary, type BatchSummary, type SummaryComparison } from '@rawstep/reports/compare';
+import { cellNotes, compareSummaries, gatedChanges, junitXml, summaryMarkdown, uncheckedText, validateBatchSummary, type BatchSummary, type SummaryComparison } from '@rawstep/reports/compare';
 
 /** Injectable boundaries let CLI checks run without a browser, a model or a native screen reader. */
 export interface CliDependencies {
@@ -225,10 +225,13 @@ export function formatComparison(comparison: SummaryComparison, caught: readonly
   const profiles = new Set(comparison.cells.map(cell => cell.profileId)).size;
   for (const cell of comparison.cells) {
     const name = `${cell.taskName}${profiles > 1 ? ` · ${cell.profileName}` : ''}`;
-    if (!cell.changes.length) lines.push(`  ${name}: ${cell.reach === 'too-few-runs' ? 'too few runs on a side to tell (repeat at least 2)' : 'no change beyond noise'}`);
     for (const change of cell.changes) lines.push(`  ${caught.includes(change) ? '!' : '·'} ${name}: ${change.text}`);
+    // Said even next to changes: a gate cannot catch what it could not compare.
+    for (const note of cellNotes(cell)) lines.push(`  ${name}: ${note}`);
   }
   lines.push(caught.length ? `${caught.length} change${caught.length > 1 ? 's' : ''} caught by --fail-on ${gates.join(',')} (marked !).` : `Nothing caught by --fail-on ${gates.join(',')}.`);
+  const unchecked = uncheckedText(comparison, gates);
+  if (unchecked) lines.push(unchecked);
   return lines.join('\n') + '\n';
 }
 async function compare(args: CliArguments, cwd: string, dependencies: CliDependencies, stdout: (text: string) => void): Promise<number> {
