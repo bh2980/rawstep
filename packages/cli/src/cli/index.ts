@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { BrowserConnectError, createBrowserSession } from '@rawstep/browser/browser';
 import { AtDriverBackend } from '@rawstep/screenreaders/at-driver';
 import { discover } from '@rawstep/project/discover';
-import { readTrace } from '@rawstep/core/trace';
+import { readTrace, type RunTrace } from '@rawstep/core/trace';
 import { findRawstepError } from '@rawstep/core/errors';
 import { analyzeSavedTrace, readAnalysis } from '@rawstep/reports/analyze';
 import { writeReport } from '@rawstep/reports/report';
@@ -87,8 +87,11 @@ export async function runCli(argv: string[] = process.argv.slice(2), dependencie
       case 'doctor': return await doctor(projectDir, dependencies, stdout);
       case 'hints': {
         const input = resolve(cwd, args.positionals[0]!);
-        const { path, report, comparison } = await writeHints(input, args.options.reference ? { reference: resolve(cwd, String(args.options.reference)) } : {});
-        stdout(hintsText(report, comparison) + `Wrote ${path}\n`);
+        const reference = args.options.reference ? resolve(cwd, String(args.options.reference)) : undefined;
+        const trace = await readRunTrace(input);
+        const refTrace = reference ? await readRunTrace(reference) : undefined;
+        const { path, report, comparison } = await writeHints(input, reference ? { reference } : {});
+        stdout(hintsText(report, comparison, trace.outcome, refTrace?.outcome) + `Wrote ${path}\n`);
         return 0;
       }
       case 'analyze': {
@@ -265,9 +268,29 @@ const stopOf = (outcome: Record<string, unknown>) => typeof outcome.policyStopSo
 /** One line per hint: where, what, how sure, and how many times when the same thing repeated. */
 const hintLine = (hint: Hint, prefix = 'step') => `${hint.steps.length ? `${prefix} ${hint.steps.join(',')}` : 'whole run'} · ${hint.kind}${hint.count ? ` ×${hint.count}` : ''} · ${hint.certainty} · ${hint.summary}\n`;
 const timesOf = (hints: Hint[]) => hints.reduce((total, hint) => total + (hint.count ?? 1), 0);
+function hintsWarning(outcome: RunTrace['outcome'], subject: string): string | undefined {
+  if (!outcome) return `${subject} was not measured, so its hints say nothing about the page.\n`;
+  if (endedOnError(outcome)) {
+    const first = typeof outcome.error === 'string' ? outcome.error.split('\n')[0]?.trim() : undefined;
+    const error = first ? ` (${first})` : '';
+    return `${subject} ended on an error${error}, so its hints say nothing about the page.\n`;
+  }
+  if (outcome.status === 'aborted') return `${subject} was aborted, so its hints say nothing about the page.\n`;
+  const ended = runEnding(outcome, stopOf(outcome));
+  if (!ended || ended.ending === 'unmeasured') {
+    return `${subject} was ${endingText(outcome)}, so its hints say nothing about the page.\n`;
+  }
+  return undefined;
+}
 /** The `hints` command's output. With a reference run: a count of what is new, gone and in both, then those groups, in plain terms. */
-function hintsText(report: HintReport, comparison?: HintComparison): string {
+function hintsText(report: HintReport, comparison?: HintComparison, outcome?: RunTrace['outcome'], referenceOutcome?: RunTrace['outcome']): string {
   const lines = [`Hints: ${report.hints.length} · goal reached: ${report.goalReached ? 'yes' : 'no'} · steps ${report.steps}${report.reference ? ` · reference ${report.reference.steps} steps` : ''}\n`];
+  const warning = hintsWarning(outcome, 'This run');
+  if (warning) lines.push(warning);
+  if (report.reference) {
+    const refWarning = hintsWarning(referenceOutcome, 'The reference run');
+    if (refWarning) lines.push(refWarning);
+  }
   if (!comparison) lines.push(...report.hints.map(hint => hintLine(hint)));
   else {
     lines.push(`Against the reference run: ${comparison.new.length} new, ${comparison.gone.length} gone, ${comparison.both.length} in both\n`);
@@ -547,6 +570,19 @@ function errorDetails(error: unknown): string {
     current = current instanceof Error ? current.cause : undefined;
   }
   return messages.join('; caused by: ');
+}
+
+/** A run folder holds trace.json; absent or unreadable directory gives a friendly ProjectError. */
+async function readRunTrace(path: string): Promise<RunTrace> {
+  const isDirectory = (await stat(path).catch(() => undefined))?.isDirectory() ?? false;
+  try { return await readTrace(isDirectory ? join(path, 'trace.json') : path); }
+  catch (error) {
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
+      if (isDirectory) throw new ProjectError('run-not-found', `No trace.json in ${path}. Give a run folder (it holds trace.json), e.g. .rawstep/experiments/<batch>/<run>.`, 404);
+      throw new ProjectError('run-not-found', `No run folder at ${path}. Give a run folder (it holds trace.json), e.g. .rawstep/experiments/<batch>/<run>.`, 404);
+    }
+    throw error;
+  }
 }
 
 /** A hints.json next to the trace is optional report input; absent or unreadable means no hints section. */

@@ -407,6 +407,7 @@ describe("hints command", () => {
     expect(await runCli(["hints", "trace.json"], io)).toBe(0);
     const text = io.stdout.mock.calls.flat().join("");
     expect(text).toContain("Hints: 1 · goal reached: yes · steps 12\n");
+    expect(text).not.toContain("says nothing about the page");
     expect(text).toContain("step 1,12 · excess-keystrokes · observed · 11 navigation keys");
     expect(text).toContain(`Wrote ${join(directory, "hints.json")}`);
     const written = JSON.parse(await readFile(join(directory, "hints.json"), "utf8"));
@@ -429,10 +430,63 @@ describe("hints command", () => {
     expect(text).toContain("observed: recorded directly · suspected: inferred from indirect signals, may be wrong\n");
     expect(JSON.parse(await readFile(join(directory, "slow", "hints.json"), "utf8")).reference).toMatchObject({ runId: "fast-run", steps: 4 });
   });
-  it("reports a missing trace as a hints-stage failure", async () => {
+  it("warns when a run or reference was not measured or ended on an error", async () => {
+    const directory = await temporaryDirectory();
+
+    const unmeasuredTrace: RunTrace = {
+      ...frictionTrace("unmeasured-run", 0, 0),
+      outcome: { status: "inconclusive", reason: "planner-timeout" },
+      events: [],
+    };
+    await mkdir(join(directory, "unmeasured"));
+    await writeFile(join(directory, "unmeasured", "trace.json"), JSON.stringify(unmeasuredTrace));
+    let io = output(directory);
+    expect(await runCli(["hints", "unmeasured"], io)).toBe(0);
+    let outputText = io.stdout.mock.calls.flat().join("");
+    expect(outputText).toContain(
+      "Hints: 0 · goal reached: no · steps 0\nThis run was not measured (the planner did not answer in time), so its hints say nothing about the page.\n",
+    );
+
+    const errorTrace: RunTrace = {
+      ...frictionTrace("error-run", 0, 0),
+      outcome: { status: "failure", reason: "error", error: "bad model id" },
+      events: [],
+    };
+    await mkdir(join(directory, "error"));
+    await writeFile(join(directory, "error", "trace.json"), JSON.stringify(errorTrace));
+    io = output(directory);
+    expect(await runCli(["hints", "error"], io)).toBe(0);
+    outputText = io.stdout.mock.calls.flat().join("");
+    expect(outputText).toContain(
+      "Hints: 0 · goal reached: no · steps 0\nThis run ended on an error (bad model id), so its hints say nothing about the page.\n",
+    );
+
+    const measuredTrace = frictionTrace("measured-run", 4, 1);
+    await mkdir(join(directory, "measured"));
+    await writeFile(join(directory, "measured", "trace.json"), JSON.stringify(measuredTrace));
+    io = output(directory);
+    expect(await runCli(["hints", "measured"], io)).toBe(0);
+    outputText = io.stdout.mock.calls.flat().join("");
+    expect(outputText).not.toContain("says nothing about the page");
+
+    io = output(directory);
+    expect(await runCli(["hints", "measured", "--reference", "unmeasured"], io)).toBe(0);
+    outputText = io.stdout.mock.calls.flat().join("");
+    expect(outputText).toContain(
+      "The reference run was not measured (the planner did not answer in time), so its hints say nothing about the page.\n",
+    );
+    expect(outputText).not.toContain("This run was not measured");
+  });
+  it("reports a missing run folder with a friendly message", async () => {
     const io = output(await temporaryDirectory());
-    expect(await runCli(["hints", "missing.json"], io)).toBe(1);
-    expect(io.stderr.mock.calls.flat().join("")).toMatch(/missing\.json/);
+    expect(await runCli(["hints", "/nonexistent"], io)).toBe(1);
+    expect(text(io.stderr)).toBe("No run folder at /nonexistent. Give a run folder (it holds trace.json), e.g. .rawstep/experiments/<batch>/<run>.\n");
+  });
+  it("says a folder without trace.json holds no run", async () => {
+    const directory = await temporaryDirectory();
+    const io = output(directory);
+    expect(await runCli(["hints", directory], io)).toBe(1);
+    expect(text(io.stderr)).toBe(`No trace.json in ${directory}. Give a run folder (it holds trace.json), e.g. .rawstep/experiments/<batch>/<run>.\n`);
   });
   it("is written by analyze and rendered by report when present next to the trace", async () => {
     const directory = await temporaryDirectory();
