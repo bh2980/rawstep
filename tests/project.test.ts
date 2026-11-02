@@ -157,6 +157,14 @@ describe('project store', () => {
     expect(lines).toContain('rawstep.config.json · profiles[0].runRules.survey: must be one of "none", "headings" (now: "bogus")');
     expect(lines).toContain('rawstep.config.json · machine.proxy: unknown field "proxy" (now: "x")');
     expect((error as Error).message).not.toMatch(/^\[/);
+    // Removed machine fields say where they went. "(now: ...)" is left off: it would trail the sentence.
+    const moved = JSON.parse(JSON.stringify(defaultConfig()));
+    moved.machine.personCheck = true; moved.machine.copySignIn = false;
+    await writeFile(store.path, JSON.stringify(moved));
+    const movedMessage = (await store.read().catch(e => e as Error) as Error).message;
+    expect(movedMessage).toContain('rawstep.config.json · machine.personCheck: unknown field "personCheck". It moved to each task file: "browser": { "personCheck": true } (docs/reference/task.md)');
+    expect(movedMessage).toContain('rawstep.config.json · machine.copySignIn: unknown field "copySignIn". It moved to each task file: "browser": { "mode": "connect", "copySignIn": true } (docs/reference/task.md)');
+    expect(movedMessage).not.toContain('(now:');
     // Beyond five problems the rest is counted.
     const many = JSON.parse(JSON.stringify(defaultConfig())); for (let i = 0; i < 7; i++) many.machine['extra' + i] = i;
     const counted = configProblems((() => { try { parseConfig(many); } catch (e) { return e as { issues: unknown[] }; } throw new Error('parsed'); })(), many);
@@ -204,6 +212,12 @@ describe('project store', () => {
     config.profiles.push(defaultProfile());
     const error = await store.save(config, initial.revision, { file: 'task.json', task }).catch(e => e as ProjectError);
     expect(error).toBeInstanceOf(ProjectError); expect(error).toMatchObject({ code: 'duplicate-id', status: 400 });
+    // The message names the list and the repeated ID (or the task file), so the person knows which entry to change. The codes stay the same.
+    expect((error as ProjectError).message).toBe('IDs must be unique: profiles has the ID "default" more than once.');
+    const base = setup();
+    expect(() => store.validateReferences({ ...base, tasks: [...base.tasks, { id: base.tasks[0]!.id, name: 'Other', file: 'other.json' }] })).toThrow(expect.objectContaining({ code: 'duplicate-id', message: 'IDs must be unique: tasks has the ID "task" more than once.' }));
+    expect(() => store.validateReferences({ ...base, connections: [...base.connections, { ...base.connections[0]! }] })).toThrow(expect.objectContaining({ code: 'duplicate-id', message: 'IDs must be unique: connections has the ID "a" more than once.' }));
+    expect(() => store.validateReferences({ ...base, tasks: [...base.tasks, { id: 'other', name: 'Other', file: base.tasks[0]!.file }] })).toThrow(expect.objectContaining({ code: 'duplicate-task-file', message: 'Task file paths must be unique: "task.json" is used by more than one task.' }));
     await expect(store.save(setup(), initial.revision, { file: 'rawstep.config.json', task })).rejects.toMatchObject({ code: 'task-file-reserved' });
     expect(() => store.validateReferences({ ...setup(), profiles: [{ ...defaultProfile(), page: 'no-such-environment' }] })).toThrow();
   });
