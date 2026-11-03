@@ -1,319 +1,28 @@
-# rawstep.config.json
+# Configuration Reference (`rawstep.config.json`)
 
-Look-up reference for every field of `rawstep.config.json` (version 7), for people who edit the file by hand or want to know what a dashboard setting writes. For the ideas behind it see [concepts.md](../concepts.md); for a first run see [getting-started.md](../getting-started.md).
+Complete specification for `rawstep.config.json` (`version: 7`, defined in [`packages/project/src/config.ts`](../../packages/project/src/config.ts)) and `.env.local`.
 
-One file in the project folder holds the whole setup. The dashboard (`npx rawstep ui`), the CLI and the library read the same file. Commit it. It never holds API keys.
+---
 
-## Rules for the whole file
-
-- Unknown fields are rejected, at every level. A file that does not load is reported one problem per line, with the path and the value found, for example `rawstep.config.json · profiles[1].runRules.failureLimit: must be at most 100 (now: 500)` or `rawstep.config.json · machine.proxy: unknown field "proxy"`. After five lines it says how many more there are.
-- Every `id` matches `^[A-Za-z0-9._-]{1,100}$`. Ids are unique within `connections`, `profiles` and `tasks`.
-- `name` and other required text is trimmed, 1 to 16384 characters.
-- A file with `version` 1 to 6 does not load (error code `old-config`). Start a new project with `npx rawstep init` and copy your task files over.
-- A profile's `planner.connectionId`, `project.analysis.model.connectionId` and `project.suggestions.model.connectionId` must name a connection that exists. Every id in a task's `profiles` must name a profile that exists.
-- `rawstep init` writes the demo setup: no connections, two profiles, one task. See [the example](#complete-example).
-
-## Top level
-
-| Field | Type | Default | Meaning |
-|---|---|---|---|
-| `version` | `7` | required | Always the number 7. |
-| `connections` | array, up to 100 | required | Where language models are reached. See [connections](#connections). |
-| `profiles` | array, 1 to 500 | required | Run profiles. At least one. See [profiles](#profiles). |
-| `tasks` | array, up to 500 | required | Registered task files. See [tasks](#tasks). |
-| `project` | object | `{ "analysis": { "instructions": "" }, "suggestions": {} }` | Settings shared by the project that never change how a run ends. See [project](#project). |
-| `machine` | object | required (may be `{}`) | Settings of the computer running Rawstep. See [machine](#machine). |
-
-## Connections
-
-A connection says where a model lives. It holds no model name: the profile (or the `project` section) picks the model ID on a connection. In the dashboard: Settings › AI connections.
-
-Nothing is connected by default. A connection sends what the simulated user hears to that provider, so you add one yourself.
-
-| Field | Type | Default | Meaning |
-|---|---|---|---|
-| `id` | id | required | Referenced by `connectionId`. |
-| `name` | text | required | Shown in the dashboard and in run records. |
-| `provider` | one of the [providers](#providers) | required | Preset address and key variable, or a coding-agent CLI, or `custom`. |
-| `baseURL` | URL | none | `custom` only, and required there. Must be HTTPS, or HTTP on a loopback host (`localhost`, `127.0.0.1`, `[::1]`), with no credentials, query or fragment. Setting it on another provider is an error. |
-| `apiKeyEnv` | env variable name | none | `custom` only. Name of the environment variable that holds its key, matching `^[A-Z][A-Z0-9_]{0,100}$`. Setting it on another provider is an error. |
-| `timeoutMs` | integer 100 to 600000 | `60000`, or `180000` for a coding-agent CLI | Time limit for one model call. A coding-agent CLI (Claude Code, Codex, opencode, Grok Build, Antigravity) gets more by default because one of its turns is slower than an API call. An explicit value is kept. |
-
-### Providers
-
-| `provider` | Kind | Address or command | Key variable | Key needed |
-|---|---|---|---|---|
-| `openai` | HTTP API | `https://api.openai.com/v1` | `RAWSTEP_OPENAI_API_KEY` (or `OPENAI_API_KEY`) | yes |
-| `anthropic` | HTTP API | `https://api.anthropic.com/v1` (OpenAI-compatible endpoint) | `RAWSTEP_ANTHROPIC_API_KEY` (or `ANTHROPIC_API_KEY`) | yes |
-| `google` | HTTP API | `https://generativelanguage.googleapis.com/v1beta/openai` | `RAWSTEP_GOOGLE_API_KEY` (or `GEMINI_API_KEY`, `GOOGLE_GENERATIVE_AI_API_KEY`) | yes |
-| `openrouter` | HTTP API | `https://openrouter.ai/api/v1` | `RAWSTEP_OPENROUTER_API_KEY` (or `OPENROUTER_API_KEY`) | yes |
-| `claudeCode` | coding-agent CLI | `npx -y @agentclientprotocol/claude-agent-acp@0.89.1` | none | no (the CLI's own sign-in) |
-| `codex` | coding-agent CLI | `npx -y @agentclientprotocol/codex-acp@2.2.2` | none | no |
-| `opencode` | coding-agent CLI | `opencode acp` | none | no |
-| `grok` | coding-agent CLI | `grok agent stdio` | none | no |
-| `antigravity` | coding-agent CLI | `agy_acp_server.par` (download it from the ACP registry and put it on `PATH`) | none | no (keeps its own sign-in) |
-| `custom` | HTTP API | your `baseURL` (any OpenAI-compatible chat endpoint) | your `apiKeyEnv` | no |
-
-- A coding-agent CLI is started by Rawstep over the Agent Client Protocol. The command is fixed in Rawstep; it is never read from the config, because it runs a program. The `npx` adapters download on first use.
-- Being installed is not being signed in. Sign in with the agent's own tool first (`claude` then `/login`, `codex login`, `opencode auth login`, or run `grok` once). Antigravity keeps its own sign-in apart from the `agy` CLI: sign in from the dashboard's connection check. `agy` alone is not enough for it; the ACP server binary `agy_acp_server.par` must be on `PATH`.
-
-### Where keys live
-
-| What | Where |
-|---|---|
-| Key value | The variable named in the table above. `RAWSTEP_*` is read first, then the provider's standard variable shown in brackets, so a key you already export for other tools works. Each variable is read first from `.env.local` in the project folder, then from the process environment. An empty value counts as not set. The dashboard writes the `RAWSTEP_*` one. |
-| `.env.local` format | `NAME=value` lines. The dashboard writes `NAME="value"` (JSON-quoted) with file mode `0600`. |
-| AT Driver start command | `RAWSTEP_AT_DRIVER_COMMAND` in `.env.local` or the process environment. Rawstep starts it only when nothing answers at the AT Driver address. See [screen-readers.md](../screen-readers.md). |
-
-`npx rawstep doctor` tries each key against the provider's model list and says which variable it used. A variable that is set is not necessarily a key that works.
-
-## Profiles
-
-A run profile says who the simulated user is and how a run goes. A run is a task plus a profile ([concepts.md](../concepts.md)). `rawstep run <task>` uses the task's first usual profile (`profiles` on the [task](#tasks)), or the project's first profile if it has none, unless `--profile <id|name>` is given. A profile is not tied to one task: any task can run with it. In the dashboard: Run profiles.
-
-| Field | Type | Default | Meaning |
-|---|---|---|---|
-| `id` | id | required | |
-| `name` | text | required | Shown in results. `--profile` also accepts it. |
-| `planner` | [LLM planner](#planner) or [plan file](#planner) | none | Who writes the plan. A profile without a planner cannot run (`planner-model-invalid`). |
-| `actions` | [actions](#actions) | required | What the simulated user may do. |
-| `page` | built-in name or object | `"default"` | The page environment. See [page environments](#page-environments). |
-| `screenReader` | `simulation`, `voiceover`, `nvda` | `"simulation"` | Which screen reader the run goes through. `simulation` is Rawstep's simulated VoiceOver and is always labelled as simulation. `voiceover` needs macOS and `nvda` needs Windows; both go through an AT Driver server. |
-| `runRules` | [run rules](#run-rules) | all rule defaults | When a run stops early and when a new plan is requested. |
-
-The planner is the only model a profile names: Rawstep itself carries out the plan ([planning.md](../planning.md)).
-
-### Planner
-
-One of two shapes.
-
-LLM planner (a model on a connection):
-
-| Field | Type | Default | Meaning |
-|---|---|---|---|
-| `connectionId` | id | required | A connection in `connections`. |
-| `modelId` | text | required | The model ID on that connection. |
-| `reasoningEffort` | text, up to 40 characters | none | For coding-agent CLIs only: one of the levels the agent itself offers. Unset keeps the agent's default, which can be slow. An agent that offers no levels ignores it; one that does refuses a level it does not offer. |
-| `instructions` | text, up to 16384 characters | `""` | Added to Rawstep's planner rules, never replacing them. Do not put knowledge about the page here: a real first-time user does not have it, and the run would stop measuring how hard the page is to find one's way around. |
-
-Plan file (a plan written by hand, no model):
-
-| Field | Type | Default | Meaning |
-|---|---|---|---|
-| `planFile` | text, up to 500 characters, ends in `.json` | required | Project-relative path to a plan file ([planning.md](../planning.md) has the format). `{task}` is replaced by the task file's name without `.json`, so one profile can give each task its own plan (`plans/{task}.json`). With `{task}` in the path the task must be registered in `tasks`; a task run by file path stops with `plan-file-task`. The plan never changes during a run; a task that gets stuck is abandoned and the next one starts. |
-
-### Actions
-
-What the simulated user may do. Each entry is checked against the screen reader at run time; an action the screen reader does not offer stops the run before it starts (`unsupported-action`).
-
-| Field | Type | Default (`rawstep init`) | Meaning |
-|---|---|---|---|
-| `intents` | list of names | `["next", "previous", "activate"]` | Screen reader moves allowed. See the [intents](#intents) table. |
-| `keys` | list of key names | `[]` | Keys the user may press. See [keys](#keys). |
-| `typeText` | boolean | `true` | May type a task input into the focused field. |
-| `replaceText` | boolean | `false` | May replace the text already in the focused field with a task input. |
-| `inputKeys` | list of names | all of the task's `input` names | Which of the task's named inputs may be typed. A name the task does not have stops the run (`unknown-input`). Ignored (treated as empty) when neither `typeText` nor `replaceText` is on or the screen reader cannot enter text. |
-
-Each list holds up to 100 names of up to 100 characters. Unknown fields are rejected.
-
-The dashboard groups intents as "ways of finding things". Item by item is the base; each group adds one way:
-
-| Way of finding things | Intents |
-|---|---|
-| Item by item | `next`, `previous`, `activate` |
-| By headings | `heading.next`, `heading.previous`, `headings.list` |
-| By form controls (buttons included) | `form.next`, `form.previous`, `formControls.rotor` |
-| By links | `link.next`, `link.previous`, `links.list` |
-
-A planner can only plan with the ways listed in `intents`.
-
-#### Intents
-
-| Intent | Simulation | VoiceOver (AT Driver) | NVDA (AT Driver) |
-|---|---|---|---|
-| `next`, `previous`, `activate` | yes | yes | yes |
-| `heading.next`, `heading.previous` | yes | yes | yes |
-| `form.next`, `form.previous` | yes | yes | yes |
-| `link.next`, `link.previous` | yes | yes | yes |
-| `headings.list`, `links.list`, `formControls.rotor` | yes | yes | no |
-| `readCurrent`, `readFocused` | yes | no | no |
-| `interact`, `stopInteracting` | no | yes | no |
-
-`headings.list`, `links.list` and `formControls.rotor` open the rotor list. `survey: "headings"` (a run rule) only happens when `headings.list` is allowed. Per-backend behaviour and limits are in [screen-readers.md](../screen-readers.md).
-
-#### Keys
-
-| Backend | Keys |
-|---|---|
-| Simulation | `Tab`, `Shift+Tab`, `Enter`, `Space`, `Escape`, `ArrowUp`, `ArrowDown`, `ArrowLeft`, `ArrowRight`, `Home`, `End` |
-| VoiceOver, NVDA | `Tab`, `Enter`, `Escape`, `Space`, `Backspace`, `Delete`, `ArrowLeft`, `ArrowRight`, `ArrowUp`, `ArrowDown`, `Home`, `End`, `PageUp`, `PageDown`, `Shift+Tab`, `Shift+Enter`, `Mod+A` |
-
-### Run rules
-
-When a run stops early and when Rawstep asks the planner for a new plan. Each profile holds a full set. The CLI can override fields for one set of runs with `--rule <name>=<value>` (repeatable). Every run records the rules it ran with, because they change how runs end.
-
-| Rule | Type | Default | Range | Meaning |
-|---|---|---|---|---|
-| `repetitionGuard` | boolean | `true` | | Stop the run as stuck when the same action keeps producing the same speech (for example `next` answering "End of content"). |
-| `maxUnchangedTransitions` | integer | `4` | 1 to 10000 | How many times in a row the same action may produce the same speech before the guard stops the run. |
-| `confirmationGrace` | integer | `5` | 0 to 100 | After the goal is reached, how many more actions the run continues when the user heard no text saying so (a confirmation that is shown but not announced). `0` stops at once. |
-| `maxPlannerCalls` | integer | `40` | 1 to 1000 | Planner calls one run may make (plans, questions about a heard item, retries after an unusable reply). A cost limit: a run that reaches it ends as not measured, never as the user failing. |
-| `reviewEvery` | integer | `60` | 1 to 10000 | Moves since the planner last looked before it takes stock of the effort spent (keep going, change approach, or give up). |
-| `stepActionLimit` | integer | `12` | 1 to 1000 | Actions on one small task without hearing anything new before a new plan is requested. |
-| `failureLimit` | integer | `2` | 1 to 100 | Failed actions in a row on one small task before a new plan is requested. |
-| `noChangeLimit` | integer | `3` | 1 to 100 | Actions in a row on one small task that changed nothing before a new plan is requested. |
-| `plannerHistoryLimit` | integer | `60` | 1 to 10000 | Past actions given to the planner when it plans, each with what was heard before it. Older ones are forgotten; the plan it wrote stays. Lower it for a user who does not remember the whole page. |
-| `survey` | `none` or `headings` | `headings` | | What the simulated user does before the first plan. `headings` opens the headings list first, as one action counted as a step, and only when `headings.list` is allowed. `none` never does. |
-
-How the rules play out in a run is described in [planning.md](../planning.md).
-
-### Page environments
-
-`page` is one of the built-in names below, or an object that starts from the `default` settings and overrides some. A name is a shortcut for the object with that `id`.
-
-| Built-in name | What differs from `default` |
-|---|---|
-| `default` | Nothing. 1280 x 800 viewport, light colour scheme. |
-| `narrow` | Viewport 320 x 800. |
-| `text-200` | `textScale: 2`. |
-| `spacing` | `textSpacing`: line height 1.5, letter spacing 0.12 em, word spacing 0.16 em, paragraph spacing 2 em. |
-| `reflow-text` | Viewport 320 x 800 and `textScale: 2`. |
-| `forced-colors` | `forcedColors: "active"`. |
-| `contrast` | `contrast: "more"`. |
-| `dark` | `colorScheme: "dark"`. |
-| `reduced-motion` | `reducedMotion: "reduce"`. |
-
-Object fields (an unknown field is an error, for example `Unknown environment profile field browserZoom.`; an unknown name is `Unknown profile <name>.`):
-
-| Field | Type | Default | Range or values | Meaning |
-|---|---|---|---|---|
-| `id` | text | `"default"` | `^[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}$` | Name recorded with the run. |
-| `viewport` | `{ width, height }` integers | `{ 1280, 800 }` | width 240 to 7680, height 200 to 4320 | Browser window size in CSS pixels. |
-| `textScale` | number | `1` | 1 to 4 | Multiplies every computed font size on the page. |
-| `textSpacing` | object | none | see below | Forces text spacing. All four fields required. |
-| `colorScheme` | text | `"light"` | `light`, `dark`, `no-preference` | `prefers-color-scheme`. |
-| `forcedColors` | text | `"none"` | `none`, `active` | `forced-colors` media query. |
-| `contrast` | text | `"no-preference"` | `no-preference`, `more` | `prefers-contrast` media query. |
-| `reducedMotion` | text | `"no-preference"` | `no-preference`, `reduce` | `prefers-reduced-motion` media query. |
-| `at` | `{ name, version?, configuration? }` | none | strings up to 500 characters | The screen reader name, version and configuration you expect. Checked against what the screen reader reports when it connects; a mismatch stops the run while `requireApplied` is on. |
-| `diagnostics` | boolean | `true` | | Collect independent page checks for people reading the run (horizontal overflow, focus hidden or outside the viewport, clipped text, overlapping controls, modal focus). They are recorded on a separate channel and are never given to the planner. |
-| `requireApplied` | boolean | `true` | | Stop the run when a requested setting did not apply or could not be checked. With `false` the run goes ahead but the environment is still recorded as unsupported. |
-
-`textSpacing` fields: `lineHeight` 1 to 4, `letterSpacingEm` 0 to 1, `wordSpacingEm` 0 to 2, `paragraphSpacingEm` 0 to 5.
-
-#### Limits of page environments
-
-- Colour scheme, forced colours, contrast and reduced motion are browser media emulation, checked with `matchMedia`. They are not Windows High Contrast, not macOS settings, and not a native magnifier. Native OS settings are never changed.
-- Text scale and text spacing are page styles Rawstep adds, not the browser's text-only zoom and not OS magnification. Rawstep measures the elements on the page at load; if the page later inserts new elements, the setting is recorded as not applied and (with `requireApplied`) the run stops as not measured (`unsupported-profile`).
-- There is no browser zoom, native magnifier or native high contrast setting. Rawstep does not substitute a viewport change, CSS zoom or pinch for them. A config written for an older Rawstep with `browserZoom`, `nativeMagnifier`, `nativeHighContrast`, `zoom-200` or `zoom-400` does not load; remove those keys and names.
-- The viewport setting is real: layout reflow at 320 pixels is the browser's own behaviour.
-- Page diagnostics are heuristics, not a WCAG verdict.
-- Each run records requested and observed settings and their mechanism (`browser.profile` in the trace); see [results.md](results.md).
-
-## Tasks
-
-Registered tasks. The task file itself is described in [task.md](task.md).
-
-| Field | Type | Default | Meaning |
-|---|---|---|---|
-| `id` | id | required | What `rawstep run <id>` takes. |
-| `name` | text | required | Shown in the dashboard. |
-| `file` | text, 1 to 500 characters | required | Project-relative path to the task JSON. Unique across tasks, must stay inside the project (symlinks that leave it are refused), cannot be `package.json`, `rawstep.config.json` or under `.rawstep/`. Relative `url` values inside it resolve from the project folder. |
-| `variantOf` | task `id` | none | This task is a broken version of another: the same goal on a copy of its page with one accessibility defect. Results compare its moves with that task. One level only; the target cannot itself be a variant or be this task. |
-| `minimalSteps` | integer 1 to 10000 | none | The fewest moves the goal takes, as a person counted or measured it. Results show moves against it. |
-| `analysisInstructions` | text, up to 16384 characters | none | Replaces `project.analysis.instructions` for this task. |
-| `profiles` | list of profile `id`s, up to 20 | none | The run profiles this task usually runs with. The dashboard's run dialog picks them. `npx rawstep run <task>` uses the first one, and `npx rawstep suite` without `--profile` runs the task with each of them. Without this field the project's first profile is used. Every id must be a profile in `profiles`, or the file is rejected. |
-| `tags` | up to 10 tags | none | Labels that group tasks, for example `checkout` or `login`. A tag is 1 to 30 letters, digits, `-` or `_`, starting with a letter or digit, with no spaces. `rawstep suite --tag <tag>` runs the tasks that have it, and the dashboard filters tasks and run history by tag. |
-
-A task file that is not registered can still run by path: `npx rawstep run path/to/task.json` uses the project's first profile unless `--profile` is given. Such a file has no `profiles` of its own.
-
-## Project
-
-| Field | Type | Default | Meaning |
-|---|---|---|---|
-| `analysis.model` | `{ connectionId, modelId, reasoningEffort? }` | none | The model that explains finished runs. Without one only the built-in rule-based analysis runs. It never changes how a run ends. A missing key does not block a run; the run gets the rule-based analysis only. |
-| `analysis.instructions` | text, up to 16384 characters | `""` | Extra instructions for the analysis model. |
-| `suggestions.model` | `{ connectionId, modelId, reasoningEffort? }` | the analysis model, otherwise the planner model of the first profile that has one | The model that suggests completion checks (`verify` rules) while you write a task in the dashboard. |
-
-## Machine
-
-Settings that belong to the computer, not to an experiment. In the dashboard: Settings › This computer.
-
-| Field | Type | Default | Meaning |
-|---|---|---|---|
-| `atEndpoints.voiceover` | text | `""` | AT Driver WebSocket address for VoiceOver. Empty means `ws://localhost:4382/session`. |
-| `atEndpoints.nvda` | text | `""` | AT Driver WebSocket address for NVDA. Empty means `ws://localhost:3031/session`. |
-| `browserExecutablePath` | text | `""` | Path of the Chrome or Chromium to launch. Empty lets Rawstep pick one. |
-| `headless` | boolean | `true` | Run the simulation without a visible browser window. Native screen reader runs always use a visible window. |
-| `browserEndpoint` | text | `""` | The address of a Chrome you started yourself with `--remote-debugging-port`, for example `http://localhost:9222`. Only tasks that [connect](task.md#browser) (`browser.mode: "connect"`) use it: each of their runs gets its own isolated context in that Chrome. Other tasks launch their own browser. A task that connects while this is empty does not run (`browser-endpoint-missing`). It is only the address; what a site needs of the browser (connecting, copying the sign-in, a person passing a bot check) is set on the [task](task.md#browser). |
-| `proxyServer` | text | `""` | A credential-free HTTP(S) or SOCKS proxy URL, such as `http://localhost:8080`, for the browsers Rawstep launches. No path, query or fragment. Does not apply to a Chrome you started yourself (a task that connects): a proxy belongs to that browser. |
-| `parallelRuns` | integer 1 to 8 | `1` | How many runs go at once. `--parallel` on `run` and `suite` overrides it for one command. Each run is its own browser, and a planner model or agent CLI may slow down or refuse many calls at once, so start with 2 to 4. Runs of tasks with `browser.personCheck` in a launched browser share one kept browser profile (`.rawstep/browser-profile`), so those go one at a time whatever this says; other runs keep going in parallel. |
-
-Native screen reader addresses must be a `ws:` or `wss:` URL on a loopback host without credentials, otherwise the run is refused (`endpoint-not-loopback`).
-
-## Complete example
-
-All fields in use. It assumes `rawstep/demo/plan.json` exists, as after `rawstep init`; `RAWSTEP_OPENAI_API_KEY` and `LOCAL_LLM_KEY` go in `.env.local`.
+## 1. Top-Level Structure
 
 ```json
 {
   "version": 7,
-  "connections": [
-    { "id": "openai", "name": "OpenAI", "provider": "openai" },
-    { "id": "local", "name": "Local server", "provider": "custom", "baseURL": "http://localhost:1234/v1", "apiKeyEnv": "LOCAL_LLM_KEY", "timeoutMs": 120000 }
-  ],
-  "profiles": [
-    {
-      "id": "written-plan",
-      "name": "Written plan (no model)",
-      "planner": { "planFile": "rawstep/demo/plan.json" },
-      "actions": { "keys": [], "intents": ["next", "previous", "activate"], "typeText": true, "replaceText": false }
-    },
-    {
-      "id": "headings-and-forms",
-      "name": "Headings and forms, model plans",
-      "planner": { "connectionId": "openai", "modelId": "gpt-5", "reasoningEffort": "low", "instructions": "" },
-      "actions": {
-        "keys": ["Tab", "Enter"],
-        "intents": ["next", "previous", "activate", "heading.next", "heading.previous", "headings.list", "form.next", "form.previous", "formControls.rotor"],
-        "typeText": true,
-        "replaceText": false,
-        "inputKeys": ["email"]
-      },
-      "page": "default",
-      "screenReader": "simulation",
-      "runRules": { "maxPlannerCalls": 20, "survey": "headings" }
-    },
-    {
-      "id": "reflow-text",
-      "name": "Reflow, 200% text",
-      "planner": { "planFile": "rawstep/demo/plan.json" },
-      "actions": { "keys": [], "intents": ["next", "previous", "activate"], "typeText": false, "replaceText": false },
-      "page": "reflow-text"
-    },
-    {
-      "id": "custom-page",
-      "name": "Phone, dark, reduced motion, text spacing",
-      "planner": { "planFile": "rawstep/demo/plan.json" },
-      "actions": { "keys": [], "intents": ["next", "previous", "activate"], "typeText": false, "replaceText": false },
-      "page": {
-        "id": "dark-spacing",
-        "viewport": { "width": 390, "height": 844 },
-        "colorScheme": "dark",
-        "reducedMotion": "reduce",
-        "textSpacing": { "lineHeight": 1.5, "letterSpacingEm": 0.12, "wordSpacingEm": 0.16, "paragraphSpacingEm": 2 }
-      }
-    }
-  ],
-  "tasks": [
-    { "id": "demo", "name": "Demo: add a mug to the cart", "file": "rawstep/demo/task.json", "minimalSteps": 3, "tags": ["demo"], "profiles": ["written-plan"] }
-  ],
+  "connections": [],
+  "profiles": [],
+  "tasks": [],
   "project": {
-    "analysis": { "model": { "connectionId": "openai", "modelId": "gpt-5-mini" }, "instructions": "" },
-    "suggestions": { "model": { "connectionId": "openai", "modelId": "gpt-5-mini" } }
+    "analysis": {
+      "instructions": ""
+    },
+    "suggestions": {}
   },
   "machine": {
-    "atEndpoints": { "voiceover": "", "nvda": "" },
+    "atEndpoints": {
+      "voiceover": "",
+      "nvda": ""
+    },
     "browserExecutablePath": "",
     "headless": true,
     "browserEndpoint": "",
@@ -323,20 +32,177 @@ All fields in use. It assumes `rawstep/demo/plan.json` exists, as after `rawstep
 }
 ```
 
-The file `rawstep init` writes is the same shape with `connections` empty, the profiles `written-plan` (plan file `rawstep/demo/plan.json`) and `item-by-item` (no planner yet), and the `demo` task. Fields you leave out are filled with the defaults above when the file is read.
+`version` (must be `7`), `connections`, `profiles` (at least one), `tasks`, and `machine` are required (`connections` and `tasks` may be empty arrays, and `machine` may be `{}` since every field in it has a default). `project` is optional. Unknown keys are rejected everywhere.
 
-## What to commit
+---
 
-| Path | Commit? | Why |
-|---|---|---|
-| `rawstep.config.json` | yes | Shared setup. No secrets. |
-| `rawstep/` (demo page, task files, plan files) and your own task and plan files | yes | They are the experiment. |
-| `.env.local` | no | Holds API keys and `RAWSTEP_AT_DRIVER_COMMAND`. |
-| `.rawstep/` | no | Run records (`.rawstep/experiments/`) and the kept browser profile (`.rawstep/browser-profile`, which can hold sign-ins). |
+## 2. Connections (`connections[]`)
 
-`rawstep init` does not write a `.gitignore`. Add:
+Each entry in `connections` (max 100) defines where models are reached. Connections hold no model ID of their own—profiles and project settings pick a `modelId` on a connection.
 
+| Field | Type | Default | Constraints & Description |
+| :--- | :--- | :--- | :--- |
+| `id` | `string` | *(Required)* | Unique ID matching `/^[A-Za-z0-9._-]{1,100}$/`. |
+| `name` | `string` | *(Required)* | Display name (`1–16384` chars). |
+| `provider` | `ProviderId` | *(Required)* | One of: `'openai'`, `'anthropic'`, `'google'`, `'openrouter'`, `'claudeCode'`, `'codex'`, `'opencode'`, `'grok'`, `'antigravity'`, `'custom'`. |
+| `baseURL` | `string` (URL) | *(Preset)* | **Required** when `provider === 'custom'`; **forbidden** on all other providers. |
+| `apiKeyEnv` | `string` | *(Preset)* | Environment variable name (`/^[A-Z][A-Z0-9_]{0,100}$/`) holding the API key. **Allowed only** when `provider === 'custom'`. |
+| `timeoutMs` | `number` | `60000` (API)<br>`180000` (Agent CLI) | Per-call model timeout in milliseconds (`100–600000`). |
+
+### Provider Presets & Environment Variables (`PROVIDERS`)
+
+API keys live in `.env.local` (file mode `0600`) or your shell environment—never in `rawstep.config.json`.
+
+| `provider` | Type | Default `baseURL` / Command | Primary Key Env Var | Fallback Env Var Aliases |
+| :--- | :--- | :--- | :--- | :--- |
+| `openai` | Cloud API | `https://api.openai.com/v1` | `RAWSTEP_OPENAI_API_KEY` | `OPENAI_API_KEY` |
+| `anthropic` | Cloud API | `https://api.anthropic.com/v1` | `RAWSTEP_ANTHROPIC_API_KEY` | `ANTHROPIC_API_KEY` |
+| `google` | Cloud API | `https://generativelanguage.googleapis.com/v1beta/openai` | `RAWSTEP_GOOGLE_API_KEY` | `GEMINI_API_KEY`, `GOOGLE_GENERATIVE_AI_API_KEY` |
+| `openrouter` | Cloud API | `https://openrouter.ai/api/v1` | `RAWSTEP_OPENROUTER_API_KEY` | `OPENROUTER_API_KEY` |
+| `claudeCode` | Agent CLI (ACP) | `npx -y @agentclientprotocol/claude-agent-acp@0.89.1` | *(None — uses `claude` login)* | — |
+| `codex` | Agent CLI (ACP) | `npx -y @agentclientprotocol/codex-acp@2.2.2` | *(None — uses `codex login`)* | — |
+| `opencode` | Agent CLI (ACP) | `opencode acp` | *(None — uses `opencode auth login`)* | — |
+| `grok` | Agent CLI (ACP) | `grok agent stdio` | *(None — uses `grok` login)* | — |
+| `antigravity` | Agent CLI (ACP) | `agy_acp_server.par` | *(None — OAuth sign-in in UI)* | — |
+| `custom` | OpenAI-compatible | *(Set via `baseURL`)* | *(Optional `apiKeyEnv`)* | — |
+
+---
+
+## 3. Run Profiles (`profiles[]`)
+
+Each entry in `profiles` (`1–500` entries) defines a complete set of experiment conditions under a single name. `id` (same pattern as connection IDs), `name`, and `actions` are required; `planner`, `page` (`"default"`), `screenReader` (`"simulation"`), and `runRules` (all defaults) are optional. A profile without a `planner` passes validation but cannot run until one is set.
+
+```json
+{
+  "id": "by-headings",
+  "name": "By Headings",
+  "planner": {
+    "connectionId": "openai-main",
+    "modelId": "gpt-4.1",
+    "reasoningEffort": "medium",
+    "instructions": ""
+  },
+  "actions": {
+    "keys": [],
+    "intents": ["next", "previous", "activate", "heading.next", "heading.previous", "headings.list"],
+    "typeText": true,
+    "replaceText": false
+  },
+  "page": "default",
+  "screenReader": "simulation",
+  "runRules": {
+    "repetitionGuard": true,
+    "maxUnchangedTransitions": 4,
+    "confirmationGrace": 5,
+    "maxPlannerCalls": 40,
+    "reviewEvery": 60,
+    "stepActionLimit": 12,
+    "failureLimit": 2,
+    "noChangeLimit": 3,
+    "plannerHistoryLimit": 60,
+    "survey": "headings"
+  }
+}
 ```
-.env.local
-.rawstep/
-```
+
+### 3.1 `planner`
+Either an **LLM planner** or a **file planner**:
+- **LLM Planner:**
+  - `connectionId` (`string`, required): References an entry in `connections`.
+  - `modelId` (`string`, required): Model identifier on that connection.
+  - `reasoningEffort` (`string`, optional): Reasoning/thinking level (e.g., `"low"`, `"medium"`, `"high"`).
+  - `instructions` (`string`, default `""`, up to `16384` chars): Extra instructions appended to Rawstep's planner rules. Must not contain page knowledge a real first-time user wouldn't have (such as where a button is), since that removes the difficulty of finding the way, which is what is being measured.
+- **File Planner:**
+  - `planFile` (`string`, required): Project-relative path ending in `.json` (supports `{task}` placeholder, e.g., `"plans/{task}.json"`).
+
+### 3.2 `actions` (`Permissions`)
+Controls what the simulated user is allowed to do:
+All of `keys`, `intents`, `typeText`, and `replaceText` are required (no defaults); `inputKeys` is optional. `keys` and `intents` each take up to 100 entries.
+- `intents` (`string[]`): Allowed screen-reader intents:
+  - Linear: `'next'`, `'previous'`, `'activate'`, `'readCurrent'`, `'readFocused'`
+  - Headings: `'heading.next'`, `'heading.previous'`, `'headings.list'`
+  - Form controls: `'form.next'`, `'form.previous'`, `'formControls.rotor'`
+  - Links: `'link.next'`, `'link.previous'`, `'links.list'`
+- `keys` (`string[]`): Allowed physical keyboard keys. The simulation (`screenReader: "simulation"`) supports `'Tab'`, `'Shift+Tab'`, `'Enter'`, `'Space'`, `'Escape'`, `'ArrowUp'`, `'ArrowDown'`, `'ArrowLeft'`, `'ArrowRight'`, `'Home'`, and `'End'`. Native AT Driver backends (`voiceover`, `nvda`) also support `'Backspace'`, `'Delete'`, `'PageUp'`, `'PageDown'`, `'Shift+Enter'`, and `'Mod+A'`.
+- `typeText` (`boolean`): Allow typing declared task inputs.
+- `replaceText` (`boolean`): Allow clearing and replacing field text with a declared task input.
+- `inputKeys` (`string[]`, optional): Restricts which named inputs from `task.input` may be typed.
+
+### 3.3 Page Environments (`page`)
+
+`profile.page` can be one of the **9 built-in preset names** or a custom `EnvironmentProfile` object:
+- Built-in presets: `'default'` (`1280×800`, no changes), `'narrow'` (`320×800`), `'text-200'` (text 2×), `'spacing'` (WCAG text spacing: line height 1.5, letter spacing `0.12em`, word spacing `0.16em`, paragraph spacing `2em`), `'reflow-text'` (`320×800` and text 2×), `'forced-colors'`, `'contrast'` (`prefers-contrast: more`), `'dark'`, `'reduced-motion'`.
+- Custom object fields (all optional; omitted ones keep the `default` values; unknown keys throw): `id` (`/^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/`), `viewport` (`{ width, height }`, both required integers: width `240..7680`, height `200..4320`), `textScale` (`1..4`), `colorScheme` (`'light' | 'dark' | 'no-preference'`), `forcedColors` (`'none' | 'active'`), `contrast` (`'no-preference' | 'more'`), `reducedMotion` (`'no-preference' | 'reduce'`), `textSpacing` (all four keys required: `lineHeight` `1..4`, `letterSpacingEm` `0..1`, `wordSpacingEm` `0..2`, `paragraphSpacingEm` `0..5`), `at` (`{ name, version?, configuration? }`, strings up to 500 chars with a non-empty `name`: the screen reader the run expects, checked against what the backend reports), `diagnostics` (`boolean`, default `true`), `requireApplied` (`boolean`, default `true`: the run stops if a requested setting is not applied or `at` does not match).
+
+### 3.4 `screenReader`
+- `'simulation'` *(default)*: Built-in Chromium accessibility-tree simulator (`MockVoiceOverBackend`).
+- `'voiceover'`: Native macOS VoiceOver via W3C AT Driver.
+- `'nvda'`: Native Windows NVDA via W3C AT Driver.
+
+### 3.5 Run Rules (`runRules`)
+Can be set per profile in `rawstep.config.json` and overridden per CLI invocation via `--rule <name>=<value>`:
+
+| Rule Name | Type & Range | Default | Description |
+| :--- | :--- | :---: | :--- |
+| `repetitionGuard` | `boolean` | `true` | Stops the run as stuck when the same action produces the exact same speech `maxUnchangedTransitions` times in a row. |
+| `maxUnchangedTransitions` | Integer `1–10000` | `4` | Consecutive identical action+speech transitions before `repetitionGuard` stops the run. |
+| `confirmationGrace` | Integer `0–100` | `5` | Extra moves the run continues after `verify.all` passes when nothing heard on that step announced the change (`0` stops immediately). |
+| `maxPlannerCalls` | Integer `1–1000` | `40` | Maximum calls to the planner model during a run (cost limit; hitting it ends the run as `unmeasured`). |
+| `reviewEvery` | Integer `1–10000` | `60` | Moves since the planner last looked before triggering an `effort-review` replan. |
+| `stepActionLimit` | Integer `1–1000` | `12` | Maximum actions on a single plan subtask without hearing anything new before requesting a replan (`task-limit`). |
+| `failureLimit` | Integer `1–100` | `2` | Consecutive failed actions on a single plan subtask before requesting a replan (`failures`). |
+| `noChangeLimit` | Integer `1–100` | `3` | Consecutive actions on a single plan subtask that changed nothing before requesting a replan (`no-change`). |
+| `plannerHistoryLimit` | Integer `1–10000` | `60` | Number of recent actions (with what was heard before each) passed to the planner on replans. |
+| `survey` | `'none' \| 'headings'` | `'headings'` | When `'headings'` and `headings.list` is in `profile.actions.intents`, lists page headings on step 1 before the first plan. |
+
+---
+
+## 4. Managed Tasks (`tasks[]`)
+
+Registers task files in `rawstep.config.json` (max 500 entries):
+
+| Field | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `id` | `string` | *(Required)* | Unique task ID (`/^[A-Za-z0-9._-]{1,100}$/`). |
+| `name` | `string` | *(Required)* | Display name. |
+| `file` | `string` | *(Required)* | Project-relative path to the task JSON file (e.g., `"tasks/checkout.json"`). |
+| `profiles` | `string[]` *(optional)* | *(First profile)* | Default profile IDs (`max 20`) used when running this task without `--profile`. |
+| `tags` | `string[]` *(optional)* | `[]` | Up to 10 tags for filtering with `rawstep suite --tag`. Each starts with a letter or digit, then letters, digits, `-`, or `_` (up to 30 chars in all, so no spaces). |
+| `minimalSteps` | `number` *(optional)* | *(None)* | Minimum moves a human needs to complete the goal (`1–10000`), shown as a benchmark in reports. |
+| `variantOf` | `string` *(optional)* | *(None)* | ID of a baseline task that this task is a broken/variant copy of (one level deep: the baseline must be another task that is not itself a variant). Reports compare move counts against that baseline task. |
+| `analysisInstructions` | `string` *(optional)* | *(Project's)* | Overrides `project.analysis.instructions` for this task. |
+
+### Validation
+
+Loading the config fails when:
+- two connections, two tasks, or two profiles share an `id`, or two tasks share a `file`;
+- a task's `profiles` names a profile that does not exist;
+- a task's `variantOf` points at itself, at a missing task, or at a task that is itself a variant;
+- a profile's `planner`, `project.analysis.model`, or `project.suggestions.model` names a `connectionId` that is not in `connections`.
+
+---
+
+## 5. Project Settings (`project`)
+
+Shared project-level LLM helpers that never alter how a run itself behaves:
+
+- **`project.analysis`:**
+  - `model` (`{ connectionId, modelId, reasoningEffort? }`, optional): Default LLM used for post-run trace analysis (`LlmTraceAnalyzer`). When omitted, only the local rule-based analyzer runs.
+  - `instructions` (`string`, default `""`): Custom focus instructions passed to the post-run analysis LLM.
+- **`project.suggestions`:**
+  - `model` (`{ connectionId, modelId, reasoningEffort? }`, optional): LLM used by the Dashboard's **Get AI suggestions** feature when authoring tasks (falls back to `project.analysis.model`, or the first profile's LLM planner).
+
+---
+
+## 6. Machine Settings (`machine`)
+
+Settings specific to the computer executing Rawstep:
+
+| Field | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `atEndpoints` | `{ voiceover: string, nvda: string }` | `{ voiceover: "", nvda: "" }` | Loopback WebSocket URLs for native AT Driver servers. Empty strings use defaults (`ws://localhost:4382/session` for VoiceOver, `ws://localhost:3031/session` for NVDA). |
+| `browserExecutablePath` | `string` | `""` | Custom Chrome/Chromium binary path. Empty uses Playwright Chromium or installed Google Chrome. |
+| `headless` | `boolean` | `true` | Launches browsers in headless mode (always `false` for the native `voiceover` and `nvda` screen readers, and for `personCheck`). |
+| `browserEndpoint` | `string` | `""` | Local Chrome DevTools HTTP endpoint (e.g., `"http://localhost:9222"`) used by tasks with `"browser": { "mode": "connect" }`. |
+| `proxyServer` | `string` | `""` | Credential-free `http://`, `https://`, `socks4://`, or `socks5://` proxy URL for launched browsers. |
+| `parallelRuns` | Integer `1–8` | `1` | Default number of concurrent browser runs for `run` and `suite`. |

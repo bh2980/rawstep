@@ -1,278 +1,157 @@
-# Task file
+# Task File Reference
 
-Look-up reference for the task JSON file: what a task may contain, how its goal is checked, how named inputs are hidden, where the simulated user may navigate, and what the site needs of the browser. For how a task fits into a run see [concepts.md](../concepts.md); to write your first one see [getting-started.md](../getting-started.md). Registering a task in the config is in [config.md](config.md#tasks).
+Complete specification for task JSON files (`tasks/*.json`), validated by `resolveTask()` in [`packages/core/src/contracts/index.ts`](../../packages/core/src/contracts/index.ts).
 
-A task says what to do and what the site needs: the start page, the goal, how Rawstep recognises that the goal is reached, and what the site needs of the browser. Who the user is and how they move is the run profile's job.
+---
 
-## Fields
-
-| Field | Type | Default | Meaning |
-|---|---|---|---|
-| `url` | text | required | Start page. See [how URLs resolve](#how-urls-resolve). |
-| `goal` | text | required | What the user wants, in plain words. The planner reads it as written. |
-| `verify` | `{ "all": [rule, ...] }` | required, at least one rule | How Rawstep recognises the goal is reached. See [completion checks](#completion-checks-verify). |
-| `context` | text, up to 1000 characters | none | What the user knows before starting, as the person who sets up the task: the kind of site and page ("an online store; a product page"), or what a search result said. Not this page's structure, which a user only learns by moving through it. The planner reads it. |
-| `id` | text | none | Free-form label. A registered task is identified by its `id` in `rawstep.config.json`, not by this one. |
-| `maxSteps` | integer, at least 1 | `40` | Most steps the run takes. One step is one action. |
-| `timeoutMs` | integer 1 to 3600000 | `120000` | Time limit for the run's page time, in milliseconds. Time spent waiting for the planner does not count (each planner call has its own limit, the connection's `timeoutMs`), nor does time a person spends passing a bot check. |
-| `input` | `{ name: value }`, strings | none | Named values the user may type. See [named inputs](#named-inputs). |
-| `inputOptions` | `{ name: { sensitive?, description? } }` | none | Per-input handling. Each key must be a name in `input`. |
-| `navigation` | object | `{ "strategy": "same-origin" }` | Where the user may go. See [navigation](#navigation). |
-| `browser` | object | `{ "mode": "launch" }` | What the site needs of the browser. See [browser](#browser). |
-| `profile` | page environment object or built-in name | none | Accepted in the file but ignored by `rawstep run` and the dashboard: a run uses the run profile's `page` ([config.md](config.md#page-environments)). It is still checked like a `page`, so an unknown field or name is an error. |
-
-Unknown fields are rejected. The file is read as JSON; there are no comments.
-
-A run that has not reached the goal when `maxSteps` or `timeoutMs` runs out ends as not measured. A goal that was reached on the very last step counts as reached.
-
-### How URLs resolve
-
-| `url` | Becomes |
-|---|---|
-| `http://`, `https://` or `file://` URL | Used as it is. Other schemes are an error. |
-| Relative or absolute file path (`rawstep/demo/page.html`, `/home/me/page.html`, `C:\pages\a.html`) | A `file://` URL of that file. |
-
-A relative path is resolved from:
-
-| How the task runs | Relative paths resolve from |
-|---|---|
-| Registered in `tasks` of `rawstep.config.json` (`npx rawstep run demo`, the dashboard) | The project folder (where the config is). |
-| Run by file path (`npx rawstep run examples/tasks/simple-cta.json`) | The folder of the task file. |
-
-So the demo task's `"url": "rawstep/demo/page.html"` works because the task is registered. The files in `examples/tasks/` use `../../fixtures/...` because they are run by path from a checkout.
-
-## Completion checks (`verify`)
-
-`verify.all` lists rules that must all hold at once. Rawstep checks them after every action, from the page itself: the planner never sees them, and they do not steer the run. When they hold, the goal is reached.
-
-A rule is an object with exactly one rule key (except `event`, which may add `after`). Text arguments are 1 to 200 characters unless noted. Rules nest at most four levels deep.
-
-### Page rules
-
-| Rule | Holds when |
-|---|---|
-| `{ "titleIncludes": "text" }` | The page title contains the text (case-sensitive). |
-| `{ "urlIncludes": "text" }` | The current URL contains the text. |
-| `{ "textVisible": "text" }` | Some visible element contains the text. Matched like Playwright's `getByText`: case-insensitive, whitespace-normalised, substring. An input button counts by its value. |
-| `{ "textVisibleExact": "text" }` | Some visible element's whole text equals the text (Playwright `getByText` with `exact`: case-sensitive). |
-| `{ "activatedAnnouncementIncludes": "text" }` | The speech heard in the window of the latest activation contains the text. Fails if nothing was activated yet. |
-| `{ "domEventSeen": { "selector": "css", "event": "click" } }` | The DOM event happened on an element matching the selector. |
-| `{ "requestSeen": { "urlIncludes": "text", "method"? } }` | A network request whose URL contains the text was made (optionally with that HTTP method). |
-| `{ "responseSeen": { "urlIncludes": "text", "method"?, "status"? } }` | A response matched likewise (optionally with that status, 100 to 599). |
-
-### Page observer rules
-
-These read what the page observer recorded during the run. Initial focus and changes before the first action are included only where noted.
-
-| Rule | Holds when |
-|---|---|
-| `{ "event": { "kind": ..., "role"?, "name"?, "text"?, "attr"?, "value"?, "url"? }, "after"?: "start" \| "lastActivation" }` | A change of that `kind` was recorded and every other field you list matches. |
-| `{ "focused": { "role"?, "name"? } }` | Keyboard focus is now on an element with that role and/or name. At least one of the two is required. A focus recorded at page load counts. |
-
-`event.kind`:
-
-| Kind | A change of this sort was recorded |
-|---|---|
-| `focus`, `focus-lost` | Focus moved onto an element; focus left it. |
-| `appeared`, `disappeared` | A dialog, alert, status or log region (`dialog`, `[role=dialog]`, `[role=alertdialog]`, `[role=alert]`, `[role=status]`, `[role=log]`) was added or removed, or a `<dialog>` opened or closed. |
-| `live-region` | A live region (alert, status, log) got new content. |
-| `state` | A checkbox or radio changed `checked`, or an observed attribute changed (`attr`, `value`). |
-| `submit` | A form was submitted. |
-| `navigation` | The page navigated (`url`). |
-| `page-blur`, `page-focus` | Keyboard focus left the page for browser UI or another window; it came back. |
-
-`event.name`, `event.text` and `event.url` take a [text matcher](#text-matchers). `event.role`, `event.attr` and `event.value` are exact strings. `after` defaults to `start`: the initial page load never counts, only changes from the first action on. `lastActivation` counts only changes since the latest activation (it fails if there was none yet).
-
-`event` and `focused` need the page observer, which the browser runs record by default. Without its data they fail.
-
-### Combining rules
-
-| Rule | Holds when |
-|---|---|
-| `{ "not": rule }` | The inner rule does not hold. Fails when the inner rule could not be checked, so absence is never assumed. |
-| `{ "any": [rule, ...] }` | At least one of 1 to 20 inner rules holds. |
-
-`verify.all` is the "and"; use `any` for "or".
-
-### Text matchers
-
-Used by `event.name`, `event.text`, `event.url` and `focused.name`.
-
-| Form | Matches |
-|---|---|
-| `"text"` | Includes the text. |
-| `{ "includes": "text" }` | Includes the text. |
-| `{ "equals": "text" }` | The whole text equals it. |
-| `{ "regex": "pattern", "flags"?: "i" }` | The pattern matches anywhere. Pattern up to 200 characters; flags only from `i`, `m`, `s`, `u`. |
-
-### Script rule
-
-For goals the rules above cannot express.
-
-| Rule | Holds when |
-|---|---|
-| `{ "script": { "source": "...", "description": "..." } }` | The function in `source` returns `true`. |
-
-- `source` is a JavaScript function expression, `(context) => boolean` (may be `async`), up to 4000 characters. `description` says in plain words what it checks, up to 300 characters.
-- It runs in an isolated world of the page: it reads the DOM but cannot see or change the page's own JavaScript. `context.timeline` lists observer events (`kind`, `step`, `role`, `name`, `text`, `attr`, `value`, `url`, `sameDocument`).
-- It has 2 seconds. Timing out, throwing or returning a non-boolean fails the rule.
-- Network APIs are removed there, but that is a guard, not a sandbox. Only add code a person has read.
-- A script may not contain the value of a sensitive input of 4 or more characters.
-
-```json
-{ "script": { "description": "The cart badge shows 1", "source": "() => document.querySelector('[data-cart-count]')?.textContent.trim() === '1'" } }
-```
-
-### Choosing checks
-
-- Reaching the goal is one signal among others, not a verdict. A check should say what a person would look for to know it worked.
-- Text rules (`textVisible`, `textVisibleExact`, `activatedAnnouncementIncludes`, `titleIncludes`, also inside `any`) double as the words a user could hear when the goal is reached. If none of them is heard after the goal is reached, the run continues for `confirmationGrace` more actions ([config.md](config.md#run-rules)) before it stops. Rules on URLs, requests or scripts give no such words.
-- A goal that already holds at page load gives weak evidence about the steps taken.
-
-## Named inputs
-
-`input` maps names to the values the user may type, for example a login. The task author decides what is typed; the plan decides when and where. The planner and its history only ever see the name.
+## 1. Example Task File
 
 ```json
 {
-  "input": { "email": "traveler@example.com", "password": "super-secret", "query": "red shoes" },
+  "id": "account-login",
+  "url": "https://example.com/login",
+  "goal": "Sign in to the customer portal using the provided email and password.",
+  "context": "ExampleShop customer portal login page.",
+  "maxSteps": 40,
+  "timeoutMs": 120000,
+  "input": {
+    "email": "reader@example.com",
+    "password": "correct-horse-battery-staple"
+  },
   "inputOptions": {
-    "email": { "description": "Account email address" },
-    "query": { "sensitive": false, "description": "Product search term" }
-  }
-}
-```
-
-| `inputOptions` field | Type | Default | Meaning |
-|---|---|---|---|
-| `sensitive` | boolean | `true` | Keep the value away from the planner and out of saved records. Set `false` for harmless values (a search term, a quantity): the planner then sees the value. |
-| `description` | text, 1 to 200 characters | none | Shown to the planner next to the name, so it knows what the input is for. |
-
-An input is typed only when the profile's `actions` allow it: `typeText` or `replaceText` on, and the name in `inputKeys` if that is set ([config.md](config.md#actions)).
-
-### How sensitive values are hidden
-
-| Where | What happens |
-|---|---|
-| Task `goal` and `context` | The file is rejected if either contains the value of a sensitive input of 4 or more characters. Refer to the input by name. |
-| Speech given to the planner | The value (also URL-encoded, form-encoded and JSON-escaped) is replaced by `[REDACTED]` when it is 4 or more characters. |
-| The speech right after typing a sensitive value | Withheld from the planner: it hears `[typed input withheld]`. |
-| Saved run records after the first sensitive typing | Speech, planner evidence, page diagnostics, screenshots and the details of failed checks are replaced by `[REDACTED]` or left out. |
-| Non-sensitive inputs | Typed values stay readable in the record. |
-
-Limits:
-
-- Values shorter than 4 characters are not masked in later speech (that would damage unrelated text). Only the withheld speech after typing covers them.
-- Text the page copies into other elements is masked only when it contains the whole value.
-- A planner can still infer a value from page behaviour, such as validation messages or where a form leads.
-- Do not put a real password in a task file you commit. Use a test account.
-
-## Navigation
-
-`navigation` limits where the user may go. A blocked navigation is not followed and is recorded in the run. Default: `{ "strategy": "same-origin" }`.
-
-| Field | Type | Default | Meaning |
-|---|---|---|---|
-| `strategy` | `same-origin`, `start-url-prefix`, `allow-url-list` | `same-origin` | Which URLs top-level navigation may reach. |
-| `allowUrlList` | list of `http(s)` URL prefixes | required for `allow-url-list` | Not allowed with the other strategies. No credentials in the URLs. |
-| `readOnly` | boolean | `false` | Browse without changing anything. See below. |
-| `denyUrlIncludes` | list of text, up to 100, each up to 200 characters | none | Never go to (or request) a URL containing any of these, compared case-insensitively. |
-
-| Strategy | Allowed |
-|---|---|
-| `same-origin` | URLs with the same origin as the start page. For a `file://` start page: files in the same folder. |
-| `start-url-prefix` | URLs on the same origin that start with the start URL (without its `#` part). |
-| `allow-url-list` | URLs on the same origin as, and starting with, one of the listed prefixes. |
-
-In every case only `http`, `https` and `file` URLs without credentials are allowed.
-
-`readOnly: true`:
-
-- Blocks requests other than GET, HEAD and OPTIONS before they are sent, and blocks form submissions other than GET.
-- Stops the run when the first response is 401, 403, 407 or 429, or the page looks like a bot check or access-denied page. It does not log in or work around the block.
-- Does not protect against a site that changes data through GET.
-
-## Browser
-
-`browser` says what the site needs of the browser. It belongs to the task, like the start page, because it depends on the site and not on who tries it. Leave it out and Rawstep launches its own browser.
-
-| Field | Type | Default | Meaning |
-|---|---|---|---|
-| `mode` | `launch` or `connect` | required inside `browser` | `launch`: Rawstep starts a browser for each run. `connect`: the run uses a Chrome you started yourself with `--remote-debugging-port`, at the address in `machine.browserEndpoint` ([config.md](config.md#machine)). A site sees that Chrome as an ordinary browser. Each run gets its own isolated context in it, and your own windows are not touched. |
-| `copySignIn` | boolean | `false` | Only with `mode: "connect"` (otherwise the task is rejected). Each run's fresh context starts with a copy of that Chrome's cookies and site storage, so a page behind a sign-in opens signed in. |
-| `personCheck` | boolean | `false` | For a site with a human check (a bot check). The run uses a visible window and pauses while you pass the check in it. Rawstep never answers a check itself. With `mode: "launch"` the browser keeps its profile in `.rawstep/browser-profile`, so those runs go one at a time. |
-
-Unknown fields are rejected. The address of your Chrome is not in the task: it belongs to the computer, so it is set once in `machine.browserEndpoint`. A run of a `connect` task while that address is empty does not start (`browser-endpoint-missing`), and `npx rawstep doctor` says so. `machine.proxyServer` does not apply to a Chrome you started yourself, which has its own proxy settings; Rawstep warns when both are set.
-
-A site behind a sign-in, using the Chrome you are already signed in with:
-
-```json
-{
-  "url": "https://shop.example.com/account",
-  "goal": "Open the order history.",
-  "verify": { "all": [{ "textVisible": "Your orders" }] },
-  "browser": { "mode": "connect", "copySignIn": true }
-}
-```
-
-A site with a human check, in a browser Rawstep launches:
-
-```json
-{
-  "url": "https://shop.example.com/",
-  "goal": "Open the first product.",
-  "verify": { "all": [{ "urlIncludes": "/product/" }] },
-  "browser": { "mode": "launch", "personCheck": true }
-}
-```
-
-In the dashboard this is the Browser choice in the task editor.
-
-## Examples
-
-The demo task `rawstep init` writes (`rawstep/demo/task.json`):
-
-```json
-{
-  "url": "rawstep/demo/page.html",
-  "goal": "Add the Demo mug to the cart.",
-  "maxSteps": 20,
-  "verify": { "all": [{ "textVisible": "Added to cart" }] }
-}
-```
-
-A login with named inputs (`examples/tasks/login.json`; `password` has no `inputOptions` entry, so it is sensitive):
-
-```json
-{
-  "id": "login",
-  "url": "../../fixtures/credential-login.html",
-  "goal": "Enter the email and password input values into their respective fields, press the Sign in button, and leave the page in a state where the login success message is visible.",
-  "maxSteps": 24,
-  "timeoutMs": 180000,
-  "input": { "email": "traveler@example.com", "password": "super-secret" },
-  "verify": { "all": [{ "textVisible": "Signed in." }, { "titleIncludes": "Credential Login Completed" }] }
-}
-```
-
-Several checks, a non-sensitive input and a navigation limit:
-
-```json
-{
-  "url": "https://shop.example.com/search",
-  "goal": "Search for a mug and open the first result.",
-  "context": "An online store; the search page.",
-  "input": { "query": "mug" },
-  "inputOptions": { "query": { "sensitive": false, "description": "Search term" } },
-  "navigation": { "strategy": "start-url-prefix", "readOnly": true, "denyUrlIncludes": ["/checkout"] },
+    "email": {
+      "sensitive": false,
+      "description": "Account email address"
+    },
+    "password": {
+      "sensitive": true,
+      "description": "Account password"
+    }
+  },
+  "navigation": {
+    "strategy": "same-origin",
+    "readOnly": false,
+    "denyUrlIncludes": ["/logout", "/delete-account"]
+  },
+  "browser": {
+    "mode": "launch",
+    "personCheck": false
+  },
   "verify": {
     "all": [
-      { "urlIncludes": "/product/" },
-      { "any": [{ "textVisible": "Add to cart" }, { "focused": { "role": "button", "name": { "includes": "cart" } } }] },
-      { "not": { "event": { "kind": "navigation", "url": { "includes": "/checkout" } } } }
+      { "urlIncludes": "/dashboard" },
+      {
+        "event": {
+          "kind": "appeared",
+          "role": "heading",
+          "name": { "includes": "Welcome" }
+        },
+        "after": "lastActivation"
+      }
     ]
   }
 }
 ```
 
-More task files are in [examples/](../../examples/README.md).
+---
+
+## 2. Top-Level Fields
+
+| Field | Type | Default | Constraints & Description |
+| :--- | :--- | :--- | :--- |
+| `id` | `string` *(optional)* | *(Omitted)* | Non-empty task identifier recorded in trace metadata. |
+| `url` | `string` | *(Required)* | Starting URL (`http://`, `https://`, `file://`, or a local HTML file path). A relative path resolves against the task file's directory when run as `rawstep run <file>`, and against the project root for tasks registered in `rawstep.config.json`. |
+| `goal` | `string` | *(Required)* | Plain-language goal given to the planner. **Must not contain the value of any sensitive input ($\ge 4$ chars).** |
+| `context` | `string` *(optional)* | *(Omitted)* | Up to `1000` characters describing what a real user already knows before starting (e.g., site type or prior search query). Must not contain sensitive input values or hidden page structure hints. |
+| `profile` | `string \| EnvironmentProfile` *(optional)* | *(Unset)* | Page environment profile override (a built-in preset such as `narrow`, `text-200`, or `forced-colors`, or a custom object; see [Page Environments](config.md#33-page-environments-page)) when running the task directly outside a Run Profile. |
+| `maxSteps` | `number` *(optional)* | `40` | Maximum actions in a run before stopping as `unmeasured` (`max-steps`). Integer `≥ 1`. |
+| `timeoutMs` | `number` *(optional)* | `120000` | Run time budget in milliseconds (integer `1–3600000`). Time spent waiting for a human in `personCheck` does not count against this budget. |
+| `input` | `Record<string, string>` *(optional)* | `{}` | Map of named string values the simulated user can type into form fields (`typeText` / `replaceText`). |
+| `inputOptions` | `Record<string, { sensitive?: boolean, description?: string }>` *(optional)* | `sensitive: true` | Per-input privacy and description settings. Every key must also exist in `input`; `description` is a non-empty string of up to 200 chars. Every input in `task.input` is **sensitive by default** unless `"sensitive": false` is set. |
+| `navigation` | `NavigationPolicy` *(optional)* | `{ "strategy": "same-origin" }` | Origin boundary and HTTP method safety rules. |
+| `browser` | `TaskBrowser` *(optional)* | `{ "mode": "launch" }` | Controls whether Rawstep launches a fresh browser or connects to an existing Chrome instance, and whether a human solves bot checks (`personCheck`). |
+| `verify` | `{ all: VerifyRule[] }` | *(Required, non-empty)* | Independent completion rules. All rules in `verify.all` must pass simultaneously for the run to end as `reached`. |
+
+---
+
+## 3. Browser Settings (`browser`)
+
+Some sites require an existing signed-in browser session or present human bot challenges (Cloudflare Turnstile, hCaptcha, reCAPTCHA):
+
+```json
+"browser": {
+  "mode": "connect",
+  "copySignIn": true,
+  "personCheck": true
+}
+```
+
+- **`mode` (`'launch' | 'connect'`, default `'launch'`):**
+  - `'launch'`: Rawstep starts its own Chromium browser instance.
+  - `'connect'`: Connects to a Chrome browser you started yourself with `--remote-debugging-port` (at the address configured in `machine.browserEndpoint` in `rawstep.config.json`, e.g., `http://localhost:9222`). Each run opens an isolated browser context inside that Chrome instance.
+- **`copySignIn` (`boolean`, optional, only when `mode === 'connect'`):**
+  - Starts the run's isolated browser context with a copy of the connected Chrome's cookies and `localStorage` so the simulated user starts already signed in.
+- **`personCheck` (`boolean`, optional):**
+  - Opens a visible browser window (`headless: false`). When Rawstep detects a bot challenge page, it pauses the run and waits for a person to pass the challenge in that window, crediting the wait time back to `timeoutMs`. In `launch` mode, `personCheck` keeps a persistent browser profile in `.rawstep/browser-profile` and runs one at a time.
+
+---
+
+## 4. Navigation Policy (`navigation`)
+
+```json
+"navigation": {
+  "strategy": "same-origin",
+  "readOnly": true,
+  "denyUrlIncludes": ["/logout", "/billing"]
+}
+```
+
+- **`strategy`:**
+  - `'same-origin'` *(default)*: Only allows URLs matching the exact protocol, hostname, and port of the starting `url`.
+  - `'start-url-prefix'`: Only allows URLs beginning with the starting `url`'s path prefix.
+  - `'allow-url-list'`: Requires a non-empty `allowUrlList: string[]` of allowed HTTP(S) URL prefixes (without embedded credentials). `allowUrlList` is rejected with the other two strategies.
+- **`readOnly` (`boolean`, optional):** When `true`, blocks all state-mutating HTTP requests, allowing only `GET`, `HEAD`, and `OPTIONS`.
+- **`denyUrlIncludes` (`string[]`, optional):** Blocks any navigation whose URL contains any listed substring (up to 100 non-empty strings, max 200 chars each).
+- **Redirect & Popup Enforcement:** Enforced hop-by-hop across HTTP redirects (up to 10 hops) via CDP `Fetch.requestPaused`. New popup windows (`target="_blank"`, `window.open`) are closed before loading.
+
+---
+
+## 5. Input Privacy (`input` & `inputOptions`)
+
+1. **Sensitive by default:** Every key in `task.input` defaults to `sensitive: true`.
+   - For `"sensitive": true` inputs, the planner only sees the input's key name and `description` (never its value).
+   - For `"sensitive": false` inputs (such as a product search term), the planner sees the value so it knows what it is typing.
+2. **Load-time leak check:** If a sensitive input value has 4 or more characters and appears inside `goal`, `context`, or any `script.source` rule, `resolveTask()` throws an error before the run starts.
+3. **Trace & speech redaction:** Once a sensitive input is typed during a run:
+   - The speech output for the typing step is withheld (`"[typed input withheld]"`).
+   - Any occurrence of the sensitive value ($\ge 4$ chars)—including its `encodeURIComponent`, form-encoded, and JSON-escaped variants—is replaced with `"[REDACTED]"` across all subsequent speech observations, trace events, and reports.
+   - Post-input diagnostic screenshots are omitted so unmasked field text is never saved to disk.
+
+---
+
+## 6. Independent Verification Rules (`verify.all`)
+
+Every rule in `verify.all` is evaluated independently in the browser after each step (`not` and `any` may be nested inside each other up to 4 levels deep). Each rule other than `event` has exactly one key; the `event` rule may add `after`. String values must be non-empty.
+
+| Rule Key | Shape | Passes When |
+| :--- | :--- | :--- |
+| **`urlIncludes`** | `{ "urlIncludes": "/success" }` | Current page URL contains the substring. |
+| **`titleIncludes`** | `{ "titleIncludes": "Receipt" }` | `document.title` contains the substring. |
+| **`textVisible`** | `{ "textVisible": "Order confirmed" }` | Any visible element on the page contains the substring. |
+| **`textVisibleExact`** | `{ "textVisibleExact": "Paid" }` | Any visible element on the page matches the exact string. |
+| **`focused`** | `{ "focused": { "role"?: string, "name"?: TextMatcher } }` | Current keyboard focus is on an element matching `role` and/or `name` (at least one is required). |
+| **`event`** | `{ "event": { "kind": ObservedEventKind, "role"?, "name"?, "text"?, "attr"?, "value"?, "url"? }, "after"?: "start" \| "lastActivation" }` | Page observer recorded a matching event (`'focus'`, `'focus-lost'`, `'appeared'`, `'disappeared'`, `'live-region'`, `'state'`, `'submit'`, `'navigation'`, `'page-blur'`, `'page-focus'`) since the run started (`"start"`, default) or since the latest activation (`"lastActivation"`). |
+| **`activatedAnnouncementIncludes`** | `{ "activatedAnnouncementIncludes": "Added" }` | Screen-reader speech collected in the latest activation window contains the substring. |
+| **`domEventSeen`** | `{ "domEventSeen": { "selector": "form#pay", "event": "submit" } }` | Tracked DOM event fired on an element matching `selector`. |
+| **`requestSeen`** | `{ "requestSeen": { "urlIncludes": "/api/cart", "method"?: "POST" } }` | Browser sent an HTTP request matching `urlIncludes` (and optional `method`). |
+| **`responseSeen`** | `{ "responseSeen": { "urlIncludes": "/api/cart", "method"?: "POST", "status"?: 200 } }` | Browser received an HTTP response matching `urlIncludes`, optional `method`, and optional HTTP `status` (integer `100–599`). |
+| **`not`** | `{ "not": VerifyRule }` | Inner `VerifyRule` evaluates to `false` (fails closed if inner evidence is unavailable). |
+| **`any`** | `{ "any": VerifyRule[] }` | At least one rule in the `any` array (`1–20` items) passes. |
+| **`script`** | `{ "script": { "description": string, "source": "(ctx) => boolean" } }` | `description` is required (up to 300 chars). Function expression `source` (`<= 4000` chars; it must start like a function, e.g. `(ctx) =>`, `async (ctx) =>`, or `function`) returns `true` in isolated CDP world `rawstep-verify` (all network APIs disabled, `2000 ms` timeout). `ctx.timeline` contains the observer events recorded so far. |
+
+### `TextMatcher` Formats
+Fields typed as `TextMatcher` (`focused.name`, `event.name`, `event.text`, `event.url`) accept strings up to 200 characters in any of four formats:
+- `"Checkout"` (case-sensitive substring)
+- `{ "includes": "Checkout" }` (case-sensitive substring)
+- `{ "equals": "Checkout" }` (exact match)
+- `{ "regex": "^Checkout \\(\\d+\\)$", "flags": "i" }` (regular expression; allowed flags: `i`, `m`, `s`, `u`)

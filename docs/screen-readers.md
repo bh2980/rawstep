@@ -1,188 +1,77 @@
-# Screen readers
+# Screen Readers & Navigation Modes
 
-This page is for people choosing which screen reader a run goes through, or setting up a real VoiceOver or NVDA. It covers the simulation and the native screen readers, how to connect an AT Driver server, which actions each one supports, and what each cannot do.
+Each run profile configures **how the user moves** (`actions`) and **which screen reader** speaks the page (`screenReader`).
 
-For why a simulated run is not native screen reader evidence, see [Concepts](./concepts.md).
+---
 
-## The three choices
+## 1. Navigation Modes (Search Strategies)
 
-A run profile's `screenReader` picks one:
+Real screen-reader users don't all navigate the same way. Some step through the page item by item; others open the VoiceOver Rotor (`VO+U`) or press single-key shortcuts to jump straight to headings, form controls, or links.
 
-| `screenReader` | What it is | Where it runs |
-| --- | --- | --- |
-| `simulation` (default) | Rawstep's simulated VoiceOver. It reads Chromium's accessibility tree and speaks English VoiceOver-like wording. No screen reader is installed or heard. | Anywhere Chromium runs. Headless unless `machine.headless` is `false`. |
-| `voiceover` | The real VoiceOver, driven through an AT Driver server. | macOS only. |
-| `nvda` | The real NVDA, driven through an AT Driver server. | Windows only. |
+In Rawstep, a profile's `actions` object controls which intents and keys the simulated user can use:
 
-In the dashboard this is the profile's Where do they listen? section, field Screen reader: Simulated VoiceOver, VoiceOver or NVDA.
+| Strategy Preset | Allowed `intents` | What It Tests |
+| :--- | :--- | :--- |
+| **Linear (Item by item)** | `next`, `previous`, `activate` | Reading order, missing skip links, and how many items a user has to step through sequentially from the top of the page. |
+| **By headings** | `next`, `previous`, `activate`, `heading.next`, `heading.previous`, `headings.list` | Whether headings (`<h1>`–`<h6>`, `role="heading"`) are present, properly nested, and named clearly enough to jump to the right section. |
+| **By form controls** | `next`, `previous`, `activate`, `form.next`, `form.previous`, `formControls.rotor` | Whether inputs, selects, checkboxes, and buttons have clear accessible names when browsed via the Form Controls rotor or jumped to directly. |
+| **By links** | `next`, `previous`, `activate`, `link.next`, `link.previous`, `links.list` | Whether link text makes sense out of context in a links list (catching vague *"Click here"* or *"Read more"* links). |
+| **Custom** | Any combination of intents and `keys` | Custom testing scenarios (e.g., adding `Escape`, `Tab`, `Shift+Tab`, `ArrowDown`, `readCurrent`, or `readFocused`). |
 
-Every run says which one it used. The CLI prints `screen reader simulation` (or `voiceover`, `nvda`) with the run's conditions. In the trace, each speech observation carries `provenance: "simulation"` or `"native"`. The dashboard marks simulated runs "Simulated VoiceOver run (not native speech)".
+### How Rotor List Intents Work
+- **`headings.list`:** Announces every heading on the page along with its heading level in a single output window (modeled on the VoiceOver Headings rotor list). When `runRules.survey` is `"headings"` (the default) and `headings.list` is allowed, the simulated user runs this automatically on step 1.
+- **`links.list`:** Announces all links on the page in a single output window.
+- **`formControls.rotor`:** Opens the Form Controls rotor list. While open, `next` and `previous` step through the listed controls, `activate` moves the screen-reader cursor onto the chosen control without pressing it (closing the rotor), and `Escape` closes the rotor without moving.
 
-In every case the completion check (`verify`) reads the page in the browser. That is the oracle, used only to measure; the planner hears only the speech.
+---
 
-## The simulation
+## 2. Screen-Reader Engines (`profile.screenReader`)
 
-The simulation needs no setup. It walks a flat cursor over Chromium's accessibility tree and formats each stop as VoiceOver would say it, for example `Add to cart, button`. Some wording rules are matched to recorded real VoiceOver output; the rest are approximations. It is a composite profile, not any one macOS or Safari version.
+Rawstep supports three screen-reader backends:
 
-How it decides the stops, the speech format, the recorded VoiceOver evidence it was checked against and its full list of assumptions are in the [simulator README](../packages/screenreaders/src/mock-voiceover/README.md). Licenses for the bundled evidence are in [THIRD-PARTY-NOTICES.md](../THIRD-PARTY-NOTICES.md).
+| `screenReader` Value | Platform | Setup Required | Best For |
+| :--- | :--- | :--- | :--- |
+| **`"simulation"`** *(default)* | macOS, Linux, Windows | None (runs in headless or headed Chromium) | Fast local development, multi-run suites, and Linux CI pipelines. |
+| **`"voiceover"`** | macOS (`darwin`) | macOS VoiceOver + AT Driver server (`ws://localhost:4382/session`) | Verifying real Apple VoiceOver behavior on macOS. |
+| **`"nvda"`** | Windows (`win32`) | Windows NVDA + AT Driver server (`ws://localhost:3031/session`) | Verifying real NVDA behavior on Windows. |
 
-## Native VoiceOver and NVDA
+---
 
-A native run opens the page in a visible Chromium or Chrome window (never headless), and Rawstep sends each action to an [AT Driver](https://w3c.github.io/at-driver/) server as key presses. The server presses the keys for the real screen reader and sends back what it said. Rawstep, the browser, the AT Driver server and the screen reader all run on the same computer.
+## 3. Simulated VoiceOver (`"simulation"`)
 
-Rawstep uses these servers:
+`MockVoiceOverBackend` (`@rawstep/screenreaders/mock-voiceover`) is Rawstep's built-in, cross-platform screen-reader simulator:
+- Reads Chromium's live Accessibility Tree via Chrome DevTools Protocol (`Accessibility.getFullAXTree`) and maintains an independent virtual cursor alongside DOM focus.
+- Formats spoken announcements with hand-written English wording rules (`formatSimulatedSpeech`). Some are checked against thirteen cases of VoiceOver output that people reported to [Accessibility Supported (`a11ysupport.io`)](https://github.com/accessibilitysupported/a11ysupport.io); the rest are choices made in Rawstep. A separate evidence module holds 2,914 third-party reported-result records (from Accessibility Supported and published [W3C ARIA-AT](https://github.com/w3c-cg/aria-at) reports; results, not transcripts) to measure how much is covered and where the gaps are. Runs do not use it.
+- Announces roles, accessible names, heading levels, landmarks, dialog boundaries, live regions (`aria-live`, `role="alert"`, `role="status"`), and states (`expanded`, `collapsed`, `checked`, `disabled`, `required`).
+- Stamps every trace with `evidenceProvenance: "simulation"` so simulated runs are never confused with native OS screen-reader runs.
 
-| Screen reader | Server | Default address |
-| --- | --- | --- |
-| VoiceOver | [bocoup/macos-at-driver-server](https://github.com/bocoup/macos-at-driver-server) | `ws://localhost:4382/session` |
-| NVDA | [Prime-Access-Consulting/nvda-at-automation](https://github.com/Prime-Access-Consulting/nvda-at-automation) | `ws://localhost:3031/session` |
+---
 
-Install and configure the server with its own instructions. Rawstep does not install it, does not turn the screen reader on and does not grant OS permissions. Those are yours to set up.
+## 4. Native VoiceOver & NVDA via W3C AT Driver
 
-### Set up a native run
+To run tasks against a real operating-system screen reader, set `"screenReader": "voiceover"` (on macOS) or `"screenReader": "nvda"` (on Windows) in your run profile.
 
-1. Install the AT Driver server for your screen reader and turn the screen reader on.
-2. Set the run profile's `screenReader` to `voiceover` or `nvda`.
-3. If the server listens somewhere other than its default address, set `machine.atEndpoints` in `rawstep.config.json`. Empty means the default address:
+Rawstep communicates with native screen readers over the [W3C AT Driver](https://github.com/w3c/at-driver) WebSocket protocol (`AtDriverBackend`):
+- **Default WebSocket endpoints (`machine.atEndpoints`):**
+  - `voiceover`: `ws://localhost:4382/session` ([Bocoup macOS AT Driver server](https://github.com/bocoup/macos-at-driver-server))
+  - `nvda`: `ws://localhost:3031/session` ([PAC NVDA AT Automation server](https://github.com/Prime-Access-Consulting/nvda-at-automation))
+- **Visible Browser Window:** Native screen readers read visible OS windows, so Rawstep always opens a visible browser for `voiceover` and `nvda` runs, whatever `machine.headless` says.
 
-   ```json
-   "machine": {
-     "atEndpoints": { "voiceover": "ws://localhost:4382/session", "nvda": "" }
-   }
-   ```
+### Auto-Starting the AT Driver Server (`RAWSTEP_AT_DRIVER_COMMAND`)
 
-   The address must be `ws://` or `wss://` on this computer (`localhost`, `127.0.0.1` or `[::1]`), with no user name or password. In the dashboard: Settings › This computer › Screen reader driver (AT Driver).
-4. Optionally, let Rawstep start the server for you (next section).
-5. Check the connection:
+Instead of starting the AT Driver WebSocket server manually before every run, you can set `RAWSTEP_AT_DRIVER_COMMAND` in `.env.local` (or in the Dashboard under **Settings › This computer**):
 
-   ```sh
-   npx rawstep doctor
-   ```
-
-6. Run a task with that profile:
-
-   ```sh
-   npx rawstep run <task> --profile <profile>
-   ```
-
-### Let Rawstep start the server
-
-Without a start command, the server must already be running when a run starts. Otherwise the run fails with "No AT Driver server answers at … Start it yourself, or set the command Rawstep should start it with."
-
-To have Rawstep start it, put the shell command in `.env.local` in the project folder (or in the process environment):
-
-```sh
-RAWSTEP_AT_DRIVER_COMMAND="<the command that starts your AT Driver server>"
+```bash
+# Example in .env.local
+RAWSTEP_AT_DRIVER_COMMAND="npx your-at-driver-server --port 4382"
 ```
 
-The dashboard field AT Driver server start command, under Settings › This computer, writes the same value. The command is never stored in `rawstep.config.json`, because it runs a program on this computer.
+When a run uses `voiceover` or `nvda` and the WebSocket port is not yet listening, Rawstep automatically spawns `RAWSTEP_AT_DRIVER_COMMAND`, waits until the WebSocket accepts connections, and stops the server process group when the run finishes.
 
-Before a native run, Rawstep checks whether anything accepts connections at the address. If something does, Rawstep uses it as it is. If not, it runs the command, waits up to 30 seconds for the address to answer, and stops the command when the run ends. If the command exits first or nothing answers in time, the run fails and the message includes the command's last output.
+### Verifying Native Screen-Reader Connectivity
 
-CLI runs start the command in the folder you ran `rawstep` from, while the dashboard's Check connection button starts it in the project folder. Use absolute paths in the command so both work.
+Run `doctor` to test the WebSocket connection to your configured AT Driver server:
 
-### What doctor checks
-
-`npx rawstep doctor` checks each native screen reader that any profile uses. It opens an AT Driver session at the address, with a 5-second limit, and closes it again:
-
-```text
-ok    Screen reader: voiceover AT Driver answered at ws://localhost:4382/session. This checks the protocol connection only; verify real speech on the target host
+```bash
+npx rawstep doctor
 ```
-
-If no profile uses a native screen reader:
-
-```text
-skip  Screen reader: only the simulation is configured; no native screen reader to check
-```
-
-A failure prints `FAIL  Screen reader: <backend> AT Driver at <address>: <error>. Start the AT Driver server and the screen reader, then run doctor again`, and doctor exits with code 1. Doctor does not start the server with `RAWSTEP_AT_DRIVER_COMMAND`; start it first. The dashboard's Check connection button does use the command.
-
-A passing check means only that the server answered and agreed to drive the requested screen reader. It does not prove that speech comes through.
-
-### Before a native run starts, Rawstep refuses when
-
-- `voiceover` is not on macOS ("Run VoiceOver on macOS.") or `nvda` is not on Windows ("Run NVDA on Windows.");
-- the AT Driver address is not a loopback `ws://` or `wss://` address;
-- the profile allows an action the screen reader does not support (below): "This assistive technology does not support: …";
-- the server answers but does not agree to drive the requested screen reader ("Server did not negotiate the requested VoiceOver profile").
-
-## Supported actions
-
-A run profile lists the actions the simulated user may take. Each screen reader supports a different set. If a profile allows an action the chosen screen reader lacks, the run is refused before it starts. The dashboard shows support per screen reader next to each action.
-
-The sources are `capabilities` in [`mock-voiceover/backend.ts`](../packages/screenreaders/src/mock-voiceover/backend.ts) and `getAtDriverProfile` in [`at-driver/profiles.ts`](../packages/screenreaders/src/at-driver/profiles.ts). Which keys each intent presses is in the [AT Driver README](../packages/screenreaders/src/at-driver/README.md).
-
-### Screen reader actions (intents)
-
-| Intent | What the user does | simulation | voiceover | nvda |
-| --- | --- | :-: | :-: | :-: |
-| `next`, `previous` | Move to the next or previous item | yes | yes | yes (by browse-mode line) |
-| `activate` | Activate the current item | yes | yes | yes |
-| `heading.next`, `heading.previous` | Jump to the next or previous heading | yes | yes | yes |
-| `form.next`, `form.previous` | Jump to the next or previous form control | yes | yes | yes |
-| `link.next`, `link.previous` | Jump to the next or previous link | yes | yes | yes |
-| `headings.list` | List the page's headings (rotor) | yes | yes | no |
-| `links.list` | List the page's links (rotor) | yes | yes | no |
-| `formControls.rotor` | Open the rotor's form controls list, then move through it with `next`/`previous` and go to an item with `activate` | yes | yes | no |
-| `readCurrent` | Read the current item again | yes | no | no |
-| `readFocused` | Read the focused element | yes | no | no |
-| `interact`, `stopInteracting` | Interact with an item, stop interacting | no | yes | no |
-
-### Keys
-
-| Key | simulation | voiceover | nvda |
-| --- | :-: | :-: | :-: |
-| `Tab`, `Shift+Tab`, `Enter`, `Space`, `Escape` | yes | yes | yes |
-| `ArrowUp`, `ArrowDown`, `ArrowLeft`, `ArrowRight`, `Home`, `End` | yes | yes | yes |
-| `Backspace`, `Delete`, `PageUp`, `PageDown`, `Shift+Enter`, `Mod+A` | no | yes | yes |
-
-### Typing inputs
-
-| Action | simulation | voiceover | nvda |
-| --- | :-: | :-: | :-: |
-| Type an input into the focused field (`typeText`) | yes | yes, printable ASCII only | yes, ASCII letters, digits, space, `!@#$%^&*()`, `;`, `:`, `=`, `+` only |
-| Clear the field and type (`replaceText`) | yes | yes, same limits | yes, same limits |
-
-On a native screen reader, text with any other character (accented letters, Korean, emoji, and on NVDA most punctuation) fails that action before any key is pressed.
-
-### What this means for the ways of finding things
-
-The dashboard's Way of finding things presets combine `next`, `previous` and `activate` with one way of jumping. Item by item runs on all three. By headings, By form controls and By links each include a rotor list intent, so they run on the simulation and VoiceOver but are refused on NVDA. For NVDA, use a custom action set without `headings.list`, `links.list` and `formControls.rotor`.
-
-## Known limits
-
-### Simulation
-
-- It is not native VoiceOver. No native speech is captured or checked. A simulated run is not native screen reader evidence and not an accessibility conformance result.
-- The wording is English only. Wording other than the rules matched to recorded VoiceOver output, and most state-change announcements, are approximations.
-- Pressing uses a guarded DOM click (or focus, for a text field). These clicks are untrusted events, and the simulation does not repair missing widget behavior.
-- The cursor is independent of keyboard focus. It moves to a focused element only when focus actually changes.
-- Live regions: new text is spoken once, after the speech of the action that caused it, without its role and without timing or interruption. Empty live regions are not stops.
-- Quick navigation covers next and previous heading, form control and link. The rotor covers only the headings, links and form controls lists. There is no group interaction, no Quick Nav setting, no speech queue and no announcement timing.
-- The rotor's form controls list cannot be filtered by typing, so finding an item can take more moves than in VoiceOver.
-- `headings.list` and `links.list` read the whole list in one announcement; the cursor does not move.
-- A new page is announced by its title only. Real VoiceOver adds its own page-load wording.
-- Only the main document is read: no iframes, no browser window controls, no OS dialogs.
-- Arrow, Home and End keys go to the page as key presses, as in VoiceOver with Quick Nav off.
-
-The full list, with the evidence behind each rule, is in the [simulator README](../packages/screenreaders/src/mock-voiceover/README.md).
-
-### Native VoiceOver and NVDA
-
-- Speech is matched to an action by time only. After each action Rawstep collects whatever the server reports until nothing has been said for 500 ms, or for at most 3 seconds. Speech that comes late is counted with the next action. There is no signal that the screen reader finished speaking.
-- Rawstep assumes a US keyboard layout and the screen reader's default key bindings; VoiceOver's modifier is assumed to be Control+Option. The actual layout, OS version, locale and screen reader settings are recorded as `unknown`.
-- On NVDA, `next` and `previous` move by line in browse mode, not by object as in VoiceOver. Navigation needs NVDA to be in browse mode. There is no `interact`, and no rotor lists.
-- VoiceOver's `headings.list`, `links.list` and `formControls.rotor` find the list by listening for its name in English or Korean speech. These routines are not yet checked against a live VoiceOver.
-- Typing is limited to the characters in the table above.
-- The page opens in Chromium or Chrome, not Safari.
-- Rawstep brings the page to the front when a run starts. It does not check that it stays in front during the run.
-- An action that times out, or a cancelled run, closes the AT Driver session, because a key press already sent cannot be taken back.
-
-The adapter's assumptions, rotor routines and what is not confirmed on real VoiceOver are in the [AT Driver README](../packages/screenreaders/src/at-driver/README.md).
-
-## See also
-
-- [Concepts](./concepts.md): simulation versus real VoiceOver, and what a run measures.
-- [Planning](./planning.md): how Rawstep uses these actions to carry out a plan.
-- [Config reference](./reference/config.md): `profiles[].screenReader`, `profiles[].actions` and `machine`.
-- [CLI reference](./reference/cli.md): `doctor` and `run`.
