@@ -1,85 +1,126 @@
 # Rawstep
 
-[English](./README.md) | 한국어
+**버튼이 있는지만 확인하지 않고, 스크린리더로 그곳까지 찾아가는 과정을 테스트합니다.**
 
-Rawstep은 웹 페이지 하나를 두고 이렇게 묻습니다. **스크린리더를 처음 쓰는 사람이 이 페이지에서 이 작업을 해낼 수 있는가, 그렇다면 얼마나 애를 써야 하는가?**
+Rawstep은 스크린리더 사용자가 웹 페이지에서 목표를 수행하는 과정을 시뮬레이션하고, 매 단계에서 들린 음성과 이동 기록을 바탕으로 어디서 헤맸는지, 몇 번 만에 도달했는지, 어떤 요소가 반응하지 않았는지를 리포트로 정리해 주는 도구입니다.
 
-Rawstep은 그런 사용자가 하듯 작업을 해 봅니다. 시뮬레이션 사용자는 스크린리더가 읽어 주는 말만 듣고, 한 칸씩 움직이거나 제목·폼 컨트롤·링크 단위로 건너뜁니다. Rawstep은 이 실행을 기록하고, 느려지거나 돌아가거나 막힌 곳을 짚어 줍니다. 목표에 닿았는지는 그중 한 가지 신호일 뿐, 합격·불합격 판정이 아닙니다.
+[![Node.js >= 22.12.0](https://img.shields.io/badge/node-%3E%3D22.12.0-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 
-이 README는 Rawstep을 써 볼지 정하려는 분을 위한 문서입니다. 무엇을 재는지, 5분 안에 시작하는 법, 다른 문서가 어디 있는지를 다룹니다.
+[English Documentation](./README.md)
 
-## 설치
+![Rawstep 실행 상세 화면](./assets/run-detail.ko.png)
 
-Rawstep은 아직 npm에 올라가 있지 않습니다. 올라가면 이렇게 설치합니다.
+---
 
-```sh
-npm i -D rawstep
+## 왜 Rawstep을 쓰나요?
+
+정적 접근성 검사 도구(`axe-core`, Lighthouse 등)는 버튼에 이름이 있는지, 속성이 맞는지를 확인합니다. 일반적인 E2E 테스트는 셀렉터로 요소를 바로 집어서 클릭했을 때 동작하는지를 봅니다.
+
+하지만 실제 스크린리더 사용자는 셀렉터로 건너뛰지 못합니다. 설령 목표 버튼에 최종적으로 도달할 수 있더라도, 그곳까지 찾아가는 과정 자체가 험난할 수 있습니다:
+- 페이지에 적절한 제목 구조가 없어서 상단 메뉴부터 스무 번 넘게 항목을 하나씩 넘겨야 하는 경우
+- 장바구니 담기나 토글 버튼을 눌렀을 때 화면은 바뀌었지만 아무런 음성 안내가 나오지 않아 동작 여부를 알 수 없는 경우
+- 모달이나 배너를 닫았더니 초점이 `<body>`로 풀려 페이지 맨 위부터 다시 찾아가야 하는 경우
+- 모달 다이얼로그가 열렸는데 초점이 모달 바깥 배경 페이지에 남아 있는 경우
+- 링크나 입력창 이름이 모호해서 앞뒤로 왔다 갔다 하며 헤매는 경우
+
+Rawstep은 이런 과정을 직접 돌려보고 리포트로 확인하기 위해 만들어졌습니다:
+1. **스크린리더 음성만 듣고 이동:** 모델에게 HTML 소스나 CSS 셀렉터, 화면 캡처를 주지 않습니다. 오직 스크린리더가 읽어주는 텍스트만 듣고 움직입니다. 별도 설정 없이 바로 쓸 수 있는 내장 모의 VoiceOver와, W3C AT Driver를 통한 실제 macOS VoiceOver 및 Windows NVDA를 지원합니다.
+2. **계획 기반 실행:** 매 이동마다 모델을 호출하는 대신, 모델(클라우드 API, 로컬 코딩 에이전트 CLI, 또는 미리 작성한 `plan.json` 파일)이 탐색 계획(`plan.md`)을 세우면 러너가 목표 단서가 들릴 때까지 이동하며 실행하고, 막히면 계획을 고쳐 다시 시도합니다.
+3. **완료 조건 별도 확인 (`verify.all`):** 모델이 스스로 끝났다고 판단하더라도 그대로 믿지 않습니다. 작업 파일에 적어둔 완료 조건(URL·제목 변경, 화면 텍스트, 네트워크 요청, 초점·라이브 리전 이벤트 등)을 브라우저에서 따로 확인합니다.
+4. **과정 중심의 리포트:** 실행이 어떻게 끝났는지(목표 도달, 중도 포기, 완료로 착각, 측정 불가), 몇 번 이동했는지, 어디서 기대와 다르게 동작했는지를 `report.html`과 `hints.json`으로 정리합니다.
+
+> [!NOTE]
+> Rawstep은 개발과 CI 단계에서 탐색 중 겪는 불편을 찾아내는 도구입니다. 힌트는 살펴볼 만한 지점을 알려줄 뿐, WCAG 준수를 인증하거나 실제 스크린리더 사용자와 함께하는 테스트를 대신하지 않습니다.
+
+---
+
+## 시작하기
+
+### 요구 사항
+- **Node.js** `>= 22.12.0`
+- 로컬에 설치된 **Google Chrome** 또는 Playwright Chromium (`npx playwright install chromium`)
+
+### 설치 (npm 배포 전)
+
+Rawstep은 아직 npm에 배포되지 않아서 `npx rawstep`이 레지스트리에서 패키지를 받아 올 수 없습니다. 이 저장소에서 패키지를 만들어 내 프로젝트에 설치하면, 아래의 `npx rawstep` 명령은 모두 그 로컬 설치본을 실행합니다.
+
+```bash
+# 이 저장소를 클론한 폴더에서
+corepack pnpm install --frozen-lockfile
+npm run pack:rawstep
+
+# 내 프로젝트 폴더에서
+npm install /absolute/path/to/rawstep/artifacts/rawstep-<version>.tgz
 ```
 
-그전까지는 소스 체크아웃에서 로컬 tarball을 만들어(`npm run pack:rawstep`을 실행하면 `artifacts/rawstep-<version>.tgz`가 생깁니다) 그 파일을 설치하세요. 정확한 절차는 [시작하기](./docs/getting-started.md#install)와 [CONTRIBUTING.md](./CONTRIBUTING.md)에 있습니다. Node.js 22.12 이상과 Chromium이 필요합니다. Chromium은 Playwright의 것(`npx playwright install chromium`)이나 설치된 Google Chrome을 씁니다.
+### 1. 프로젝트 초기화 및 데모 실행
 
-## 5분 만에 시작하기
+`rawstep init`은 기본 설정 파일(`rawstep.config.json`)과 함께 `rawstep/demo/` 폴더에 데모 페이지, 작업, 미리 작성한 계획(`page.html`, `task.json`, `plan.json`)을 만들고 실행 프로필 두 개(`written-plan`, `item-by-item`)를 추가합니다. API 키 없이 바로 실행해 볼 수 있습니다:
 
-빈 폴더에서:
-
-```sh
-npx rawstep init      # rawstep.config.json과 rawstep/demo/의 데모를 만듭니다
-npx rawstep run demo  # 데모 작업을 실행합니다. 모델도 API 키도 필요 없습니다
-npx rawstep ui        # http://127.0.0.1:4318 에서 대시보드를 엽니다
+```bash
+npx rawstep init
+npx rawstep run demo
 ```
 
-데모는 작은 쇼핑 페이지 하나, 작업 하나("Add the Demo mug to the cart."), 사람이 미리 써 둔 계획 하나로 이루어져 있습니다. 첫 번째 실행 프로필 "Written plan (no model)"이 이 계획을 그대로 따르므로 모델 없이 돌아갑니다. 처음 온 사용자처럼 모델이 직접 계획을 세우게 하려면 대시보드의 설정 › AI 연결에서 모델을 연결하세요. 자세한 과정은 [시작하기](./docs/getting-started.md)에 있습니다.
+### 2. 로컬 대시보드 열기
 
-## 실행하면 나오는 것
-
-`npx rawstep run demo`를 실제로 실행한 출력입니다.
-
-```text
-Running demo...
-Conditions: Written plan (no model) (planner plan file rawstep/demo/plan.json)
-  page default · screen reader simulation
-
-Run 1 of 1: reached the goal · 7 moves
-  longest without a goal word: 2 moves
-  <run folder>
-
-Could a first-time user do it? reached the goal in 1 of 1 runs
-Cost of reaching it: 7 moves
-
-No findings.
-
-Stuck places are the user model's judgement: whether the page or the expectation is wrong is for you to decide.
-Details: npx rawstep hints <run-dir>, npx rawstep report <run-dir>, or the batch in npx rawstep ui
+```bash
+npx rawstep ui
 ```
 
-실행은 네 가지 중 하나로 끝납니다. CLI는 reached the goal, gave up, said it was done but the goal was not reached, not measured라고 쓰고, 대시보드는 같은 네 가지를 해냄, 포기함, 잘못 끝냄, 측정 못 함이라고 씁니다. 대가는 움직인 횟수(moves)로 셉니다. 실제 페이지라면 출력에 사용자가 무언가를 눌렀는데 예상대로 반응하지 않은 곳과, 그 사이 페이지가 한 일(포커스를 잃음, 아무도 알려 주지 않은 변화)도 함께 나옵니다. 하나하나의 뜻은 [개념](./docs/concepts.md)에서 설명합니다.
+브라우저에서 `http://127.0.0.1:4318`이 열립니다. 대시보드에서 AI 연결(OpenAI, Anthropic, Google, OpenRouter 또는 별도 API 키 없이 기존 로그인을 쓰는 **Claude Code**, **Codex**, **opencode**, **Grok Build**, **Antigravity** CLI), 실행 프로필(한 칸씩, 제목으로, 폼 컨트롤로, 링크로 찾기), 작업 생성(**AI 제안 받기**로 실제 페이지를 읽고 완료 확인 조건 제안 받기) 및 실행 결과 비교를 관리할 수 있습니다.
 
-실행 폴더에는 실행 기록(trace), 실행이 따른 계획, 힌트, HTML 보고서가 들어 있습니다. `run`으로 돌린 실행도 대시보드가 쓰는 곳(`.rawstep/experiments/`)에 한 묶음(batch)으로 저장되므로, `npx rawstep ui`에서 CLI 실행과 대시보드 실행을 작업별, 실행별로 함께 볼 수 있습니다.
+### 3. 환경 점검
 
-작업 여러 개를 한 번에 돌리려면 `npx rawstep suite --tag checkout --repeat 3 --parallel 2`를 쓰세요. 그 태그가 붙은 작업을 한 묶음으로 실행하고, 작업마다 결과를 출력합니다. 메인 브랜치에서 저장해 둔 기준선과 풀 리퀘스트를 비교하고, 잡음을 넘는 변화가 있을 때 작업을 실패시키려면 [CI에서 쓰기](./docs/ci.md)를 보세요.
+```bash
+npx rawstep doctor
+```
 
-## Rawstep이 아닌 것
+Node 버전, `rawstep.config.json`, 작업 파일, 브라우저 실행, 모델 연결, 그리고 (설정했다면) 실제 스크린리더용 AT Driver 엔드포인트를 점검합니다.
 
-Rawstep은 접근성 인증도, 적합성 검사도 아닙니다. 목표에 닿은 실행이 있다고 페이지가 접근성을 갖췄다는 뜻은 아니고, 포기한 실행이 있다고 그 작업이 불가능하다는 증명도 아닙니다. 둘 다 시뮬레이션 사용자의 판단이며, 잘못된 쪽이 페이지인지 사용자의 예상인지는 직접 판단해야 합니다. 기본 스크린리더는 Chromium 위에서 돌아가는 VoiceOver 시뮬레이션입니다. 늘 `simulation`이라고 표시되며, 이것이 하는 말은 실제 VoiceOver나 NVDA가 하는 말의 증거가 아닙니다. 실제 스크린리더로 실행하려면 AT Driver 서버를 거칩니다. [스크린리더](./docs/screen-readers.md)를 보세요.
+---
 
-## 문서
+## 자주 쓰는 CLI 명령
 
-| 문서 | 다루는 내용 |
-|---|---|
-| [시작하기](./docs/getting-started.md) | 설치, 데모 실행, 모델 연결, 내 작업 만들기, 결과 읽기 |
-| [개념](./docs/concepts.md) | 작업과 실행 프로필, 찾는 방법, 시뮬레이션 사용자가 알 수 있는 것, 끝나는 방식, 대가, 힌트 |
-| [CI에서 쓰기](./docs/ci.md) | 메인 브랜치에서 기준선 저장하기, 풀 리퀘스트와 비교하기, 무엇을 잡음으로 보는지, GitHub Actions 워크플로 |
-| [계획](./docs/planning.md) | 계획 문서, Rawstep이 계획을 따르는 방식, 새 계획을 요청하는 때, 계획 파일, 계획 모델 프롬프트 |
-| [스크린리더](./docs/screen-readers.md) | VoiceOver 시뮬레이션과 실제 VoiceOver·NVDA 비교, AT Driver 설정, 지원 동작, 알려진 한계 |
-| [설정 레퍼런스](./docs/reference/config.md) | `rawstep.config.json`의 모든 필드와 페이지 환경 |
-| [작업 레퍼런스](./docs/reference/task.md) | 작업 파일: 목표, 완료 확인, 입력값, 이동 범위 |
-| [CLI 레퍼런스](./docs/reference/cli.md) | 명령, 옵션, 출력, 종료 코드 |
-| [API 레퍼런스](./docs/reference/api.md) | `runTask`, `runSuite`, 공개 import 경로, 직접 정책 만들기 |
-| [결과 레퍼런스](./docs/reference/results.md) | 묶음이 저장되는 곳, 실행 폴더의 파일, 모든 힌트 종류 |
-| [CONTRIBUTING.md](./CONTRIBUTING.md) | 소스에서 빌드·테스트하기, 코드 위치, 저장소 규칙 |
-| [예제](./examples/README.md) | 예제 파일마다 무엇을 보여 주는지 |
-| [시뮬레이터 내부](./packages/screenreaders/src/mock-voiceover/README.md) | VoiceOver 시뮬레이션이 말하는 방식, 근거, 가정 |
-| [AT Driver 내부](./packages/screenreaders/src/at-driver/README.md) | 실제 스크린리더용 키 매핑과 로터 동작 |
-| [대시보드](./packages/dashboard/README.md) | 대시보드 서버와 API 구조([개발 규칙](./packages/dashboard/AGENTS.md)) |
+```bash
+# 특정 실행 프로필로 작업 실행 (`by-headings`, `linear`은 설정 파일에 직접 정의한 프로필 id 예시입니다)
+npx rawstep run checkout --profile by-headings
 
-함께 들어 있는 스크린리더 근거 자료의 라이선스는 [THIRD-PARTY-NOTICES.md](./THIRD-PARTY-NOTICES.md)에 있습니다. Rawstep 자체는 [MIT 라이선스](./LICENSE)를 따릅니다.
+# 3번 반복 실행하고 가장 빨리 끝난 실행과 비교
+npx rawstep run checkout --repeat 3
+
+# "smoke" 태그가 붙은 모든 작업을 두 프로필로 실행하고 베이스라인 요약 저장
+npx rawstep suite --tag smoke --profile linear --profile by-headings --save-summary baseline.json
+
+# CI에서 새 실행 결과를 커밋된 베이스라인과 비교 (회귀가 있으면 종료 코드 4)
+npx rawstep suite --tag smoke --baseline baseline.json --fail-on reach,moves,stuck --junit results.xml
+
+# 저장된 실행 폴더에서 마찰 힌트를 보거나 단독 HTML 리포트 만들기
+npx rawstep hints .rawstep/experiments/<batch-id>/<run-id>
+npx rawstep report .rawstep/experiments/<batch-id>/<run-id>
+```
+
+---
+
+## 문서 안내
+
+### 가이드
+- **[시작하기](./docs/getting-started.ko.md)** — 설치, 데모 실행, AI 모델 연결, 첫 태스크 만들기
+- **[핵심 개념](./docs/concepts.ko.md)** — 태스크, 실행 프로필, 4가지 종료 상태, 이동 횟수, 막힌 지점과 마찰 힌트
+- **[계획 수립 및 AI 모델](./docs/planning.ko.md)** — 계획 문서(`plan.json` / `plan.md`)가 동작하는 방식과 모델·CLI·계획 파일 연결
+- **[스크린리더 및 탐색 모드](./docs/screen-readers.ko.md)** — 시뮬레이션된 VoiceOver와 실제 VoiceOver/NVDA 설정, 탐색 모드
+- **[CI 및 베이스라인 회귀 테스트](./docs/ci.ko.md)** — `rawstep suite`, 베이스라인 요약(`summary.json`) 비교, `--fail-on` 설정 및 GitHub Actions 연동
+
+### 레퍼런스
+- **[CLI 레퍼런스](./docs/reference/cli.ko.md)** — CLI 명령어(`init`, `ui`, `run`, `suite`, `compare`, `hints`, `report`, `analyze`, `doctor`), 옵션 및 종료 코드
+- **[설정 파일 레퍼런스](./docs/reference/config.ko.md)** — `rawstep.config.json` 전체 설정 필드와 `runRules`
+- **[태스크 파일 레퍼런스](./docs/reference/task.ko.md)** — 태스크 JSON 형식, `verify.all` 완료 규칙, 입력값 보호 및 브라우저 설정
+- **[결과, 트레이스 및 힌트 레퍼런스](./docs/reference/results.ko.md)** — `.rawstep/` 폴더 구조, `summary.json`, `trace.json`, 16종 마찰 힌트 목록
+- **[TypeScript 프로그래밍 API](./docs/reference/api.ko.md)** — 코드에서 `rawstep/*` 모듈 직접 호출하기
+
+---
+
+## 라이선스
+
+[MIT](./LICENSE). 서드파티 데이터 및 소프트웨어 고지는 [THIRD-PARTY-NOTICES.md](./THIRD-PARTY-NOTICES.md)를 참고하세요.

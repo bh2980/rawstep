@@ -692,19 +692,19 @@ describe('runTask', () => {
   });
   it('resolves the profile by id or by name, and reports an unknown one with the choices', async () => {
     const { dir } = await project(config => {
-      config.profiles.push({ ...profileWith('zoom', 'b', 'plan-b', 'Zoom check'), page: 'narrow' });
+      config.profiles.push({ ...profileWith('small', 'b', 'plan-b', 'Small screen'), page: 'narrow' });
       config.profiles.push({ ...profileWith('wide', 'a', 'plan-a', 'Wide'), actions: tabOnly });
     });
     const { calls, execute } = player(recorded(['Enter'], 'success'), recorded(['Enter'], 'success'), recorded(['Enter'], 'success'), recorded(['Enter'], 'success'));
-    await runTask('task', { projectDir: dir, profile: 'zoom' }, { execute });
-    await runTask('task', { projectDir: dir, profile: 'Zoom check' }, { execute });
+    await runTask('task', { projectDir: dir, profile: 'small' }, { execute });
+    await runTask('task', { projectDir: dir, profile: 'Small screen' }, { execute });
     await runTask('task', { projectDir: dir, profile: 'Default' }, { execute });
     await runTask('task', { projectDir: dir, profile: 'Wide' }, { execute });
     expect(calls.map(c => c.spec.plannerModel!.id)).toEqual(['b', 'b', 'setup-llm', 'a']);
     expect(calls[0]!.spec.plannerModel).toMatchObject({ modelId: 'plan-b', name: 'b · plan-b' });
     expect(calls.map(c => (c.spec.environment as { id: string }).id)).toEqual(['narrow', 'narrow', 'default', 'default']);
     expect(calls[3]!.spec.permissions.keys).toEqual(['Tab']); expect(calls[3]!.spec.conditions).toMatchObject({ profile: { id: 'wide', name: 'Wide' }, actionSet: { id: 'wide' } });
-    await expect(runTask('task', { projectDir: dir, profile: 'nope' }, { execute })).rejects.toMatchObject({ code: 'profile-not-found', message: expect.stringContaining('Zoom check (zoom)') });
+    await expect(runTask('task', { projectDir: dir, profile: 'nope' }, { execute })).rejects.toMatchObject({ code: 'profile-not-found', message: expect.stringContaining('Small screen (small)') });
     expect(calls).toHaveLength(4);
   });
   it('uses the first profile unless one is named, with that profile\'s planner and instructions', async () => {

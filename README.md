@@ -1,85 +1,130 @@
 # Rawstep
 
-English | [한국어](./README.ko.md)
+**Test how a screen-reader user gets to the button, not just whether the button exists.**
 
-Rawstep answers one question about a web page: **can a first-time screen reader user complete this task here, and at what cost?**
+Rawstep simulates a screen-reader user navigating your web page to complete a task, records what was spoken at each step, and points out where the run got slow, lost focus, hit an unresponsive control, or changed the page without announcing it.
 
-It tries the task the way such a user would. The simulated user hears only what the screen reader says and moves item by item, or jumps by headings, form controls or links. Rawstep records the run and points at the places where it got slow, took detours or got stuck. Reaching the goal is one signal among these, not a pass or fail verdict.
+[![Node.js >= 22.12.0](https://img.shields.io/badge/node-%3E%3D22.12.0-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 
-This README is for anyone deciding whether to try Rawstep. It covers what it measures, a five-minute start and where the other docs are.
+[한국어 안내](./README.ko.md)
 
-## Install
+![Rawstep run detail view](./assets/run-detail.png)
 
-Rawstep is not on npm yet. The intended install is:
+---
 
-```sh
-npm i -D rawstep
+## Why Rawstep?
+
+Static accessibility checkers (`axe-core`, Lighthouse) check whether buttons have names and inputs have labels. Standard E2E tests (`page.getByRole('button').click()`) check whether clicking an element works when you jump straight to it.
+
+Neither tells you what it takes for a screen-reader user to find that button on their own. Even when a control is technically reachable, getting there can be rough:
+- Stepping through 30 header and sidebar items because headings are missing or out of order.
+- Pressing a toggle or "Add to Cart" button that updates the screen visually without announcing anything over speech or `aria-live`.
+- Closing a dialog or banner and having focus drop back to `<body>`, forcing the user to start over from the top of the page.
+- Opening a modal dialog while focus stays on the background page behind it.
+- Moving back and forth because link text or form labels are vague.
+
+Rawstep runs through the page under those same conditions and writes a report of what happened:
+1. **Hears only what the screen reader says:** The model never receives your HTML source, CSS selectors, or screenshots. It only hears spoken output from a screen reader—either the built-in **Simulated VoiceOver** or a real **macOS VoiceOver** / **Windows NVDA** over the W3C AT Driver protocol.
+2. **Plans and follows steps:** Instead of calling an LLM on every keystroke, a planner (a cloud API, a local coding-agent CLI like Claude Code / Codex, or a saved `plan.json` file) writes a navigation plan (`plan.md`), and Rawstep's runner follows each step until it hears the expected cue or needs to revise the plan.
+3. **Checks completion independently (`verify.all`):** The simulated user cannot mark its own run as passed. Rawstep checks your completion rules (URL/title changes, visible text, network requests, or focus/live-region events) separately in the browser.
+4. **Reports friction, not just pass/fail:** Every run records how it ended (`reached`, `gave-up`, `mistaken`, or `unmeasured`), how many moves it took, where expectations broke, and a list of friction hints in `report.html` and `hints.json`.
+
+> [!NOTE]
+> Rawstep is a tool for spotting navigation friction during development and CI. Its hints point to places worth reviewing—they do not certify WCAG compliance or replace testing with real screen-reader users.
+
+---
+
+## Quickstart
+
+### Requirements
+- **Node.js** `>= 22.12.0`
+- **Google Chrome** installed locally, or Playwright Chromium (`npx playwright install chromium`)
+
+### Install (before the npm release)
+
+Rawstep is not published to npm yet, so `npx rawstep` cannot fetch it from the registry. Build the package from this repository and install it into your project; after that, every `npx rawstep` command below runs that local copy.
+
+```bash
+# In a clone of this repository
+corepack pnpm install --frozen-lockfile
+npm run pack:rawstep
+
+# In your project
+npm install /absolute/path/to/rawstep/artifacts/rawstep-<version>.tgz
 ```
 
-Until it is published, build a local tarball from a checkout (`npm run pack:rawstep` writes `artifacts/rawstep-<version>.tgz`) and install that file. [Getting started](./docs/getting-started.md#install) and [CONTRIBUTING.md](./CONTRIBUTING.md) have the exact steps. You need Node.js 22.12 or newer and a Chromium: Playwright's (`npx playwright install chromium`) or an installed Google Chrome.
+### 1. Initialize a project and run the demo
 
-## Five-minute start
+`rawstep init` creates `rawstep.config.json` and a demo page, task, and pre-written plan under `rawstep/demo/` (`page.html`, `task.json`, `plan.json`), plus two run profiles (`written-plan` and `item-by-item`), so you can run it right away without an API key:
 
-In an empty folder:
-
-```sh
-npx rawstep init      # writes rawstep.config.json and a demo in rawstep/demo/
-npx rawstep run demo  # runs the demo task; no model, no API key
-npx rawstep ui        # opens the dashboard at http://127.0.0.1:4318
+```bash
+npx rawstep init
+npx rawstep run demo
 ```
 
-The demo is a small shop page, a task ("Add the Demo mug to the cart.") and a plan written by hand. The first run profile, "Written plan (no model)", follows that plan, so the run needs no model. To let a model plan as a first-time user would, connect one under Settings › AI connections in the dashboard. [Getting started](./docs/getting-started.md) walks through it.
+### 2. Open the local dashboard
 
-## What a run prints
-
-This is the real output of `npx rawstep run demo`:
-
-```text
-Running demo...
-Conditions: Written plan (no model) (planner plan file rawstep/demo/plan.json)
-  page default · screen reader simulation
-
-Run 1 of 1: reached the goal · 7 moves
-  longest without a goal word: 2 moves
-  <run folder>
-
-Could a first-time user do it? reached the goal in 1 of 1 runs
-Cost of reaching it: 7 moves
-
-No findings.
-
-Stuck places are the user model's judgement: whether the page or the expectation is wrong is for you to decide.
-Details: npx rawstep hints <run-dir>, npx rawstep report <run-dir>, or the batch in npx rawstep ui
+```bash
+npx rawstep ui
 ```
 
-A run ends in one of four ways: reached the goal, gave up, said it was done but the goal was not reached, or not measured. Its cost is counted in moves. On a real page the output also lists where pressing something did not respond as the user expected, and what the page did along the way (focus lost, a change nobody announced). [Concepts](./docs/concepts.md) explains each of these.
+Opens `http://127.0.0.1:4318`. From the dashboard you can:
+- Connect an AI provider (OpenAI, Anthropic, Google, OpenRouter) or a local coding-agent CLI (**Claude Code**, **Codex**, **opencode**, **Grok Build**, **Antigravity**) using its own login.
+- Create tasks and use **Get AI suggestions** to have an LLM propose completion checks from the live page.
+- Choose how the simulated user navigates (**Item by item**, **By headings**, **By form controls**, or **By links**).
+- Run single tasks or multi-profile batches and inspect the spoken timeline, plan revisions, and friction hints.
 
-The run folder holds the trace, the plan the run followed, the hints and an HTML report. Every `run` is saved as a batch in `.rawstep/experiments/`, the same place the dashboard uses, so `npx rawstep ui` shows CLI runs and dashboard runs side by side, per task and per run.
+### 3. Check your setup
 
-To run many tasks at once, `npx rawstep suite --tag checkout --repeat 3 --parallel 2` runs the tasks with that tag as one batch and prints each task's result. To compare a pull request with a baseline saved from your main branch, and fail the job on a change beyond noise, see [Using Rawstep in CI](./docs/ci.md).
+```bash
+npx rawstep doctor
+```
 
-## What Rawstep is not
+Checks your Node version, `rawstep.config.json`, task files, browser launch, model connections, and native AT Driver endpoints (if configured).
 
-Rawstep is not an accessibility certification or a conformance test. A run that reaches the goal does not make a page accessible, and a run that gives up does not prove the task is impossible: both are the judgement of a simulated user, and you decide whether the page or the user's expectation was wrong. The default screen reader is a simulation of VoiceOver running on Chromium. It is always labelled `simulation`, and what it says is not evidence of what a real VoiceOver or NVDA says. Runs on a real screen reader go through an AT Driver server; see [Screen readers](./docs/screen-readers.md).
+---
+
+## Common CLI Commands
+
+```bash
+# Run a task with a specific run profile (`by-headings` and `linear` below are profile ids you defined yourself)
+npx rawstep run checkout --profile by-headings
+
+# Run 3 repeats and compare against the fastest run
+npx rawstep run checkout --repeat 3
+
+# Run all tasks tagged "smoke" across two profiles and save a baseline summary
+npx rawstep suite --tag smoke --profile linear --profile by-headings --save-summary baseline.json
+
+# Compare a new batch against a committed baseline in CI (exits with code 4 on regressions)
+npx rawstep suite --tag smoke --baseline baseline.json --fail-on reach,moves,stuck --junit results.xml
+
+# List friction hints or build a standalone HTML report from a saved run folder
+npx rawstep hints .rawstep/experiments/<batch-id>/<run-id>
+npx rawstep report .rawstep/experiments/<batch-id>/<run-id>
+```
+
+---
 
 ## Documentation
 
-| Doc | What it answers |
-|---|---|
-| [Getting started](./docs/getting-started.md) | Install, run the demo, connect a model, write your own task and read the results |
-| [Concepts](./docs/concepts.md) | Task and run profile, ways of finding things, what the simulated user may know, endings, cost and hints |
-| [Using Rawstep in CI](./docs/ci.md) | Save a baseline from your main branch, compare each pull request with it, what counts as noise, a GitHub Actions workflow |
-| [Planning](./docs/planning.md) | The plan document, how Rawstep carries it out, when it asks for a new plan, plan files, planner prompts |
-| [Screen readers](./docs/screen-readers.md) | Simulated VoiceOver against real VoiceOver and NVDA, AT Driver setup, supported actions, known limits |
-| [Config reference](./docs/reference/config.md) | Every field of `rawstep.config.json`, including page environments |
-| [Task reference](./docs/reference/task.md) | The task file: goal, completion checks, inputs, navigation scope |
-| [CLI reference](./docs/reference/cli.md) | Commands, options, output and exit codes |
-| [API reference](./docs/reference/api.md) | `runTask`, `runSuite`, the public import paths and writing your own policy |
-| [Results reference](./docs/reference/results.md) | Where batches are saved, the files in a run folder and every hint kind |
-| [CONTRIBUTING.md](./CONTRIBUTING.md) | Building and testing from source, where code lives, repository rules |
-| [Examples](./examples/README.md) | What each example file shows |
-| [Simulator internals](./packages/screenreaders/src/mock-voiceover/README.md) | How the simulated VoiceOver speaks, its evidence and its assumptions |
-| [AT Driver internals](./packages/screenreaders/src/at-driver/README.md) | Key mapping and rotor routines for real screen readers |
-| [Dashboard](./packages/dashboard/README.md) | Dashboard server and API structure ([development rules](./packages/dashboard/AGENTS.md)) |
+### Guides
+- **[Getting Started](./docs/getting-started.md)** — Install Rawstep, run the demo, connect a model or agent CLI, and create your first task.
+- **[Core Concepts](./docs/concepts.md)** — How tasks, run profiles, the 4 run endings (`reached`, `gave-up`, `mistaken`, `unmeasured`), move counts, stuck places, and friction hints work.
+- **[Planning & AI Models](./docs/planning.md)** — How plans (`plan.json` / `plan.md`) are written, followed, and revised, plus using cloud APIs, coding-agent CLIs, or saved plan files.
+- **[Screen Readers & Navigation Modes](./docs/screen-readers.md)** — Simulated VoiceOver vs. native macOS VoiceOver and Windows NVDA, rotor lists, and navigation modes.
+- **[CI & Baseline Regression Testing](./docs/ci.md)** — Running suites, saving `summary.json` baselines, `--fail-on` gates, JUnit XML, and GitHub Actions.
 
-Licenses for bundled screen reader evidence are in [THIRD-PARTY-NOTICES.md](./THIRD-PARTY-NOTICES.md). Rawstep itself is under the [MIT license](./LICENSE).
+### Reference
+- **[CLI Reference](./docs/reference/cli.md)** — All 9 commands (`init`, `ui`, `run`, `suite`, `compare`, `hints`, `report`, `analyze`, `doctor`), flags, `--rule` overrides, and exit codes.
+- **[Configuration Reference (`rawstep.config.json`)](./docs/reference/config.md)** — `connections`, `profiles`, `runRules`, `tasks`, `project`, `machine`, and `.env.local`.
+- **[Task File Reference](./docs/reference/task.md)** — Task JSON fields, all 13 `verify.all` rules, input masking, navigation guards, and browser connection modes.
+- **[Results, Traces & Hints Reference](./docs/reference/results.md)** — `.rawstep/` folder layout, `summary.json`, `trace.json`, and all 16 friction hints.
+- **[Programmatic TypeScript API](./docs/reference/api.md)** — Calling `runTask`, `runSuite`, `extractHints`, and custom policies from code (`rawstep/*`).
+
+---
+
+## License
+
+[MIT](./LICENSE). See [THIRD-PARTY-NOTICES.md](./THIRD-PARTY-NOTICES.md) for third-party attributions.
