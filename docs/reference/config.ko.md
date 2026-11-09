@@ -86,7 +86,7 @@ API 키는 `rawstep.config.json`에 적지 않고 `.env.local`(파일 권한 `06
     "keys": [],
     "intents": ["next", "previous", "activate", "heading.next", "heading.previous", "headings.list"],
     "typeText": true,
-    "replaceText": false
+    "replaceText": true
   },
   "page": "default",
   "screenReader": "simulation",

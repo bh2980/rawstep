@@ -115,7 +115,7 @@
 | :--- | :--- | :--- |
 | **`slow-run`** | `observed` | 목표에 도달한 기준 실행과 비교해 단계 수가 `1.5`배(`slowRunStepRatio`) 이상이면서 `3`단계(`slowRunMinExtraSteps`) 이상 더 걸렸을 때. |
 | **`goal-met-at-start`** | `observed` / `suspected` | 첫 동작을 수행하기 전 초기 로드 상태(`verifier.baseline`)에서 이미 `task.verify.all`의 모든 규칙(`observed`) 또는 일부 규칙(`suspected`)이 충족되어 있었을 때. |
-| **`replan`** | `observed` | 실행 도중 `'failures'`, `'no-change'`, `'task-limit'`, `'oscillation'`, `'effort-review'` 때문에 플래너가 계획을 수정했을 때. |
+| **`replan`** | `observed` | 실행 도중 `'failures'`, `'no-change'`, `'press-unanswered'`, `'task-limit'`, `'oscillation'`, `'effort-review'` 때문에 플래너가 계획을 수정했을 때. |
 | **`task-limit`** | `observed` | 계획의 세부 작업이 허용된 최대 이동 횟수(`stepActionLimit`) 동안 기대한 음성 단서를 듣지 못했을 때. |
 | **`wanted-to-give-up`** | `observed` | 아직 확인해 보지 않은 가정이 남아 있는 상태에서 플래너가 조기 포기를 시도했을 때 (실행기가 남은 가정을 먼저 시도하도록 포기를 보류함). |
 | **`goal-word-stretch`** | `observed` | 목표(`goal`)와 관련된 단어를 전혀 듣지 못한 채 긴 구간 동안 연속으로 이동만 했을 때. |

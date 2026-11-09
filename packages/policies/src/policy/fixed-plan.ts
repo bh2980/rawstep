@@ -57,7 +57,7 @@ function draftOfDocument(value: unknown): unknown {
 /**
  * A plan written beforehand — by a person, or by a planner model and saved — that never changes during the run. It holds the plan
  * still, so a run measures how these tasks fare on the page rather than how well a planner plans. When Rawstep would ask
- * for a new plan because a task is stuck (actions failing, changing nothing, running long), that task is abandoned and the
+ * for a new plan because a task is stuck (actions failing, changing nothing, running long, a press unanswered), that task is abandoned and the
  * next one starts: that abandonment is the finding. When no task is left the plan has no other way to try: the user following it
  * gives up, unless the run's own checks found the goal reached first.
  */

@@ -104,7 +104,7 @@ export function describeHint(hint: Pick<Hint, 'kind' | 'summary' | 'detail'> & P
       // The report marks the hint observed only when every goal rule held; otherwise it is suspected.
       return hint.certainty === 'observed' ? t('hints.text.goalMetAll') : t('hints.text.goalMetSome', { n: d.rules.length });
     }
-    case 'replan': return t(str(d.trigger) === 'failures' ? 'hints.text.replanFailures' : str(d.trigger) === 'oscillation' ? 'hints.text.replanOscillation' : 'hints.text.replanNoChange', { version: String(d.version ?? '') });
+    case 'replan': return t(str(d.trigger) === 'failures' ? 'hints.text.replanFailures' : str(d.trigger) === 'oscillation' ? 'hints.text.replanOscillation' : str(d.trigger) === 'press-unanswered' ? 'hints.text.replanPressUnanswered' : 'hints.text.replanNoChange', { version: String(d.version ?? '') });
     case 'task-limit': return t('hints.text.taskLimit', { version: String(d.version ?? '') });
     case 'wanted-to-give-up': return t('hints.text.wantedToGiveUp', { reason: str(d.reason) ?? '' });
     case 'goal-word-stretch': return t('hints.text.goalWordStretch', { from: String(d.from ?? ''), to: String(d.to ?? ''), moves: String(d.moves ?? '') });

@@ -44,13 +44,14 @@ The planner receives the task's `goal`, optional `context`, the allowed `actions
   - `cue`: The words the user expects to hear when the target item is reached (a guess, written before the item is heard). A planner or plan file writes it as a string, or as `{ "name": "Add to cart", "role": "button", "state": "checked" }` with an optional role (`"button"`, `"link"`, `"heading"`, etc.) and state (`"checked"`, `"unchecked"`, `"expanded"`, `"collapsed"`, `"selected"`); a role or state Rawstep does not know is dropped. The saved `plan.json` stores them as `cue`, `cueRole`, and `cueState`.
   - **What action to take (`followPlan`):**
     - **Movement task (`moves`):** Repeats the first listed movement intent the profile allows (e.g., `["heading.next"]`) until the `cue` is heard; with `moves` omitted, or none of them allowed, it moves item by item (`next`).
-    - **Activation task (`activates: true`):** Presses (`activate`) the item currently under the screen-reader cursor.
-    - **Typing task (`types: "<inputName>"`):** Activates the focused field and types the named task input (`typeText` / `replaceText`).
+    - **Activation task (`activates: true`):** Presses (`activate`) the item currently under the screen-reader cursor, once. If nothing is said and focus did not land in a text field, Rawstep keeps listening for up to 5 seconds without pressing anything. If the `cue` is still not heard, the planner decides what to do next; a task with no `cue` just ends.
+    - **Typing task (`types: "<inputName>"`):** Activates the focused field and types the named task input, adding to what the field holds. `types: "replace:<inputName>"` overwrites it instead, and needs `replaceText` in the profile.
 
 ### Step 3: Cue Matching & Recognition
 After each move, Rawstep compares what the screen reader just announced against the active subtask's `cue`:
 - If the spoken output directly matches the `cue` words, role, and state, the subtask finishes immediately (`verified: "heard"`).
 - If the spoken output shares name words with the `cue` without matching it exactly, Rawstep asks the planner's `recognize()` method whether the heard item is what the subtask was looking for (`verified: "recognized"`). Each heard item is asked about once per subtask.
+- The role in a `cue` is a guess too. If the spoken output has every name word of the `cue` in another role (`"Finish check button"` for a `"check"` checkbox), Rawstep asks the same question, at most twice per subtask.
 
 ### Step 4: Replanning Triggers (`PlanTrigger`)
 Rawstep only calls the planner again when something requires a decision:
@@ -58,10 +59,11 @@ Rawstep only calls the planner again when something requires a decision:
 | `trigger` | When It Fires |
 | :--- | :--- |
 | `'start'` | Initial plan at the beginning of the run. |
-| `'checkpoint'` | All tasks in the current phase finished; the planner checks whether the phase's criteria were met before moving on. |
+| `'checkpoint'` | All tasks in the current phase finished and the phase typed something or left a `cue` unheard; the planner checks whether the phase's criteria were met before moving on. A phase whose every `cue` was heard goes straight on. |
 | `'goal-heard'` | The first time the user hears an item named like the goal while the current subtask was after something else. |
 | `'failures'` | `runRules.failureLimit` (default `2`) actions in a row failed to execute on the current subtask. |
 | `'no-change'` | `runRules.noChangeLimit` (default `3`) actions in a row produced no change in speech on the current subtask. |
+| `'press-unanswered'` | The current subtask pressed its item once and its `cue` was not heard. |
 | `'oscillation'` | The cursor's last `4` stops alternate between the same two items (`A → B → A → B`). |
 | `'task-limit'` | The current subtask took `runRules.stepActionLimit` (default `12`) moves without hearing anything new. |
 | `'effort-review'` | `runRules.reviewEvery` (default `60`) moves have passed since the planner last reviewed progress. |
@@ -91,7 +93,7 @@ Each Run Profile in `rawstep.config.json` configures its `planner` in one of thr
     "keys": [],
     "intents": ["next", "previous", "activate", "heading.next", "heading.previous", "headings.list"],
     "typeText": true,
-    "replaceText": false
+    "replaceText": true
   }
 }
 ```
@@ -127,7 +129,7 @@ For fast, reproducible, zero-cost runs (such as the `demo` task created by `raws
     "keys": [],
     "intents": ["next", "previous", "activate", "heading.next", "heading.previous", "headings.list"],
     "typeText": true,
-    "replaceText": false
+    "replaceText": true
   }
 }
 ```

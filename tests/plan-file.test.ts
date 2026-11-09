@@ -57,6 +57,17 @@ describe('a fixed plan in the orchestrated policy', () => {
     expect(policy.planDocument()!.phases[0]!.tasks.map(t => t.status)).toEqual(['done', 'active']);
     expect(renderPlanMarkdown(policy.planDocument()!)).toContain('Press it');
   });
+  it('moves on after one unanswered press, and gives up when that was the last task, since the plan does not change', async () => {
+    const pressing = (...cues: string[]) => new OrchestratedSpeechPolicy(new FixedPlanner(planFileSchema.parse({ ...written, phases: [{ title: 'Buy', tasks: cues.map(cue => ({ goal: `Press for ${cue}`, done: `Hear ${cue}`, cue, activates: true })) }] }) as PlanDraft, { file: 'plans/a.json', sha256: 'f'.repeat(64) }));
+    const press: HistoryEntry = { step: 1, decision: { action: { kind: 'intent', intent: 'activate' } }, observation: said('Add to cart, button'), execution: { ok: true } };
+    const two = pressing('Added', 'Bought');
+    await two.decide(input());
+    expect(await two.decide(input({ history: [press], observation: said('Something else') }))).toEqual({ action: { kind: 'intent', intent: 'activate' } });
+    expect(two.planDocument()!.retired).toEqual([expect.objectContaining({ goal: 'Press for Added', status: 'abandoned', actions: 1 })]);
+    const one = pressing('Added');
+    await one.decide(input());
+    expect(await one.decide(input({ history: [press], observation: said('Something else') }))).toEqual({ stop: 'stuck', stopSource: 'user-gave-up' });
+  });
   it('keeps every task when nothing is stuck: a goal item heard on the way or taking stock of the effort', async () => {
     const request: PlanRequest = { goal: 'g', trigger: 'start', speech: [], actions: [], attempts: [], effort: { moves: 0, sinceLastLook: 0, withoutGoalWords: 0, longestWithoutGoalWords: 0 } };
     const planner = fixed(), first = await planner.plan(request);

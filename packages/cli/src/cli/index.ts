@@ -293,7 +293,7 @@ function hintsWarning(outcome: RunTrace['outcome'], subject: string): string | u
 }
 /** The `hints` command's output. With a reference run: a count of what is new, gone and in both, then those groups, in plain terms. */
 function hintsText(report: HintReport, comparison?: HintComparison, outcome?: RunTrace['outcome'], referenceOutcome?: RunTrace['outcome']): string {
-  const lines = [`Hints: ${report.hints.length} · goal reached: ${report.goalReached ? 'yes' : 'no'} · steps ${report.steps}${report.reference ? ` · reference ${report.reference.steps} steps` : ''}\n`];
+  const lines = [`Hints: ${report.hints.length} · goal reached: ${report.goalReached ? goalUnconfirmed(outcome) ? 'yes (not confirmed)' : 'yes' : 'no'} · steps ${report.steps}${report.reference ? ` · reference ${report.reference.steps} steps` : ''}\n`];
   const warning = hintsWarning(outcome, 'This run');
   if (warning) lines.push(warning);
   if (report.reference) {
@@ -317,7 +317,7 @@ const median = (values: number[]) => { const s = [...values].sort((a, b) => a - 
 const STRUCTURED: readonly string[] = ['early-stop', 'goal-word-stretch'];
 /** Hints that say the planner wrote a new plan, counted per run by why. */
 const PLAN_KINDS: readonly string[] = ['replan', 'task-limit'];
-const PLAN_REASONS: Record<string, string> = { failures: 'actions kept failing', 'no-change': 'actions changed nothing', oscillation: 'going back and forth' };
+const PLAN_REASONS: Record<string, string> = { failures: 'actions kept failing', 'no-change': 'actions changed nothing', oscillation: 'going back and forth', 'press-unanswered': 'a press did not say what the plan expected' };
 const planReason = (hint: { kind: string; detail: Record<string, unknown> }) => hint.kind === 'task-limit' ? 'a task ran out of actions'
   : PLAN_REASONS[String(hint.detail.trigger)] ?? String(hint.detail.trigger);
 const countBy = (values: string[]) => values.reduce((counts, value) => counts.set(value, (counts.get(value) ?? 0) + 1), new Map<string, number>());

@@ -133,6 +133,7 @@ export const traceUi: LocaleShape<typeof ko> = {
       start: 'First plan',
       failures: 'Moves failed in a row',
       'no-change': 'Moves did not change the speech',
+      'press-unanswered': 'A press did not say what the plan expected',
       'task-limit': 'Task reached its move limit',
       oscillation: 'Went back and forth between the same two items',
       'goal-heard': 'Heard a name from the goal',

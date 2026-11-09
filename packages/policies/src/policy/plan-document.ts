@@ -7,8 +7,11 @@
 export type TaskStatus = 'pending' | 'active' | 'done' | 'abandoned' | 'failed';
 export type CriterionStatus = 'open' | 'met' | 'unmet';
 export type AssumptionStatus = 'open' | 'held' | 'broken';
-/** Why the plan was (re)written. `checkpoint`: a phase finished and the planner reviews its criteria before going on. */
-export type PlanTrigger = 'start' | 'failures' | 'no-change' | 'task-limit' | 'oscillation' | 'goal-heard' | 'effort-review' | 'checkpoint' | 'plan-finished';
+/**
+ * Why the plan was (re)written. `checkpoint`: a phase finished and the planner reviews its criteria before going on.
+ * `press-unanswered`: a task pressed its item once and did not hear its cue.
+ */
+export type PlanTrigger = 'start' | 'failures' | 'no-change' | 'press-unanswered' | 'task-limit' | 'oscillation' | 'goal-heard' | 'effort-review' | 'checkpoint' | 'plan-finished';
 /**
  * How a task ended. `verified` compares the task's cue with what the screen reader said: `recognized` is the planner judging a heard
  * item to be the one the cue meant, `not-heard` a typing task done without its cue, `unchecked` a task with no cue to compare.
@@ -34,7 +37,7 @@ export type PlanTask = {
   cueState?: CueState;
   /**
    * Whether the task ends by activating something (pressing a button, opening a disclosure, checking a box): Rawstep presses the
-   * item the cursor is on. A task that only moves never presses.
+   * item the cursor is on, once. A task that only moves never presses.
    */
   activates?: boolean;
   /**
@@ -44,7 +47,8 @@ export type PlanTask = {
   moves?: string[];
   /**
    * The named input the task types (an input key such as `query`): the user presses the field the cursor is on, which gives it
-   * focus, and types the value into it. The task is done once the value is typed. The planner knows the input's name, never its value.
+   * focus, and types the value into it. The task is done once the value is typed. `replace:query` overwrites what the field holds
+   * instead of adding to it. The planner knows the input's name, never its value.
    */
   types?: string;
   /** Criteria this task works toward and assumptions it relies on. */
@@ -138,7 +142,7 @@ export function applyDraft(doc: PlanDocument | undefined, draft: PlanDraft, at: 
       const old = task.keep !== undefined ? previous.get(task.keep) : undefined;
       if (old && !kept.has(old.id)) { kept.add(old.id); return { ...structuredClone(old), number, serves, relies, status: old.status === 'active' ? 'pending' : old.status }; }
       const id = `t${++next}`; added.push(id);
-      return { id, number, goal: task.goal, done: task.done, ...draftCue(task.cue), ...(task.activates !== undefined ? { activates: task.activates } : {}), ...(task.moves?.length ? { moves: task.moves.map(move => move.replace(/^intent:/, '')) } : {}), ...(task.types ? { types: task.types.replace(/^(?:type|replace):/, '') } : {}), serves, relies, status: 'pending', actions: 0, addedIn: version };
+      return { id, number, goal: task.goal, done: task.done, ...draftCue(task.cue), ...(task.activates !== undefined ? { activates: task.activates } : {}), ...(task.moves?.length ? { moves: task.moves.map(move => move.replace(/^intent:/, '')) } : {}), ...(task.types ? { types: task.types.replace(/^type:/, '') } : {}), serves, relies, status: 'pending', actions: 0, addedIn: version };
     }) })).filter(p => p.tasks.length);
   const retired = [...(doc?.retired ?? [])], abandoned: string[] = [];
   for (const [id, task] of previous) {
@@ -171,6 +175,8 @@ export function finishCurrent(doc: PlanDocument, step: number, verified: TaskEnd
 }
 /** Whether a phase's tasks are all finished and it has not been reviewed yet. */
 export const needsCheckpoint = (phase: PlanPhase | undefined): boolean => !!phase && !phase.checkpoint && phase.tasks.every(t => !open(t));
+/** A phase whose every cue was heard and that typed nothing: nothing in it to review. What typing did only the planner can judge. */
+export const wentAsPlanned = (phase: PlanPhase): boolean => phase.tasks.every(t => !t.types && (t.ending?.verified === 'heard' || t.ending?.verified === 'recognized'));
 /** Records that the planner reviewed a phase. */
 export function markCheckpoint(doc: PlanDocument, phaseTitle: string, step: number): void {
   const phase = doc.phases.find(p => p.title === phaseTitle);
@@ -215,6 +221,11 @@ const tokens = (text: string) => text.toLowerCase().split(/[^\p{L}\p{N}]+/u).fil
 /** Name words: numbers count ("Cart, 1 item"), except a heading's level number. */
 const nameWords = (text: string) => new Set(tokens(text).filter((w, i, all) => (w.length > 1 || /\d/.test(w)) && !NOT_NAME.has(w) && all[i - 1] !== 'level')
   .map(w => w.replace(/(?<=..)s$/, '')));
+/** Whether a spoken item says the role: one of its word groups, or for plain text no role word at all. */
+function saysRole(role: CueRole, said: readonly string[]): boolean {
+  const groups: readonly (readonly string[])[] = ROLE_WORDS[role];
+  return groups.length ? groups.some(group => group.every(w => said.includes(w))) : !said.some(w => ROLE_TOKENS.has(w));
+}
 /** Whether a spoken item shares a name word with the goal: a hint, to a listener, that they are getting somewhere. */
 export function goalRelated(goal: string, item: string): boolean {
   const wanted = nameWords(goal);
@@ -255,15 +266,11 @@ export function goalNamed(goal: string, item: string): boolean {
 }
 export function matchCue(task: Pick<PlanTask, 'cue' | 'cueRole' | 'cueState'>, item: string): 'heard' | 'candidate' | 'no' {
   const said = tokens(item);
-  if (task.cueRole) {
-    const groups: readonly (readonly string[])[] = ROLE_WORDS[task.cueRole];
-    const ok = groups.length ? groups.some(group => group.every(w => said.includes(w))) : !said.some(w => ROLE_TOKENS.has(w));
-    if (!ok) {
-      // Exactly the name in another role: the planner guessed the role ("a heading") but a listener who hears the name stops and
-      // wonders, so the planner is asked. A different role with other words ("Cart (0), link" for the cart button) is not the item.
-      const cue = nameWords(task.cue), named = nameWords(item);
-      return cue.size && cue.size === named.size && [...cue].every(w => named.has(w)) ? 'candidate' : 'no';
-    }
+  if (task.cueRole && !saysRole(task.cueRole, said)) {
+    // Exactly the name in another role: the planner guessed the role ("a heading") but a listener who hears the name stops and
+    // wonders, so the planner is asked. A different role with other words ("Cart (0), link" for the cart button) is not the item.
+    const cue = nameWords(task.cue), named = nameWords(item);
+    return cue.size && cue.size === named.size && [...cue].every(w => named.has(w)) ? 'candidate' : 'no';
   }
   if (task.cueState && !said.includes(task.cueState)) return 'no';
   const cue = nameWords(task.cue), named = nameWords(item);
@@ -279,6 +286,15 @@ export function matchCue(task: Pick<PlanTask, 'cue' | 'cueRole' | 'cueState'>, i
   // Worth asking: the whole name among other words, or part of it with nothing that contradicts it ("Add" for "Add Kimchi Fried
   // Rice"). A name with words the cue lacks ("Add Sikhye to cart") is another item, however many words it shares.
   return all || (some && within) ? 'candidate' : 'no';
+}
+/**
+ * Whether a spoken item has every name word of the cue, among others, in a role the cue did not expect ("Finish check button" for a
+ * "check" checkbox). `matchCue` says no, and most such items are other controls, but the role was a guess too: worth a question.
+ */
+export function namedInOtherRole(task: Pick<PlanTask, 'cue' | 'cueRole' | 'cueState'>, item: string): boolean {
+  const said = tokens(item), cue = nameWords(task.cue), named = nameWords(item);
+  if (!task.cueRole || !cue.size || saysRole(task.cueRole, said) || (task.cueState && !said.includes(task.cueState))) return false;
+  return [...cue].every(w => named.has(w));
 }
 /**
  * Whether a task's completion cue was heard in any spoken line: its `cue`, else words quoted in its "done" (straight or curly

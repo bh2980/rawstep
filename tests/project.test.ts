@@ -446,7 +446,7 @@ describe('project config', () => {
   it('starts a project with one default profile', () => {
     const config = defaultConfig();
     expect(config.profiles.map(p => p.id)).toEqual(['default']); expect(config.profiles[0]).toMatchObject({ page: 'default', screenReader: 'simulation' }); expect(config.profiles[0]).not.toHaveProperty('planner'); expect(config.profiles[0]).not.toHaveProperty('executor');
-    expect(config.profiles[0]!.actions).toEqual({ keys: [], intents: ['next', 'previous', 'activate'], typeText: true, replaceText: false }); expect(config.machine.atEndpoints).toEqual({ voiceover: '', nvda: '' });
+    expect(config.profiles[0]!.actions).toEqual({ keys: [], intents: ['next', 'previous', 'activate'], typeText: true, replaceText: true }); expect(config.machine.atEndpoints).toEqual({ voiceover: '', nvda: '' });
   });
   it('finds connections and profiles by id first, then by name', () => {
     const list = [{ id: 'one', name: 'two' }, { id: 'two', name: 'one' }];

@@ -27,6 +27,11 @@ export type RunOptions = {
    * the user knew, and `goalStep` where the goal check passed when the run went on after it.
    */
   confirmationGrace?: number;
+  /**
+   * How long to keep listening when a press said nothing, in milliseconds (default 0). A person waits a moment before deciding nothing
+   * happened, and the answer can come later than one collection window. No key is pressed, so it costs no move.
+   */
+  silentPressWaitMs?: number;
   /** Explicit opt-in: raw input keystrokes and echoed speech may expose secrets. */
   includeSensitiveInputValues?: boolean;
   headless?: boolean;
@@ -61,6 +66,7 @@ const PERSON_CHECK_TIMEOUT_MS = 5 * 60_000, PERSON_CHECK_POLL_MS = 1000, PERSON_
 const POLICY_TIMEOUT_MS = 30 * 60_000;
 /** Chromium cannot capture taller images reliably, and pins far down a page are found from the step screenshots instead. */
 const START_PAGE_MAX_HEIGHT = 16_000;
+const SILENCE_POLL_MS = 250;
 /** Text entry found no editable focused field; recorded as the `not-editable` failure the model may see. */
 class NotEditableError extends Error { constructor() { super('Text entry requires an editable focused field.'); this.name = 'NotEditableError'; } }
 class BudgetExceeded extends Error { constructor() { super('Run time budget exceeded.'); this.name = 'BudgetExceeded'; } }
@@ -310,7 +316,10 @@ export async function runWithPolicy(source: Task, options: RunOptions): Promise<
     if (browser.observer) append('observer.metadata', { available: browser.observer.available, world: 'isolated', policyVisible: false, ...(browser.observer.unavailableReason ? { reason: browser.observer.unavailableReason } : {}), limitations: ['Accessible names are approximated in the page and truncated; form values are never read.', 'Cross-origin iframes running in another process are not observed.'] }, { source: 'browser-diagnostic' });
     append('browser.metadata', { name: 'chromium', version: browser.browser?.version?.() ?? 'unknown', headless: browser.connected || options.personCheck ? false : options.headless ?? false, ...(browser.connected ? { connected: true } : options.personCheck ? { keptProfile: true } : {}) }, { source: 'browser-diagnostic' });
     append('run.started', { maxSteps: task.maxSteps, timeoutMs: task.timeoutMs, allowedActions, ...(options.conditions ? { conditions: structuredClone(options.conditions) } : {}) });
-    const observe = async (): Promise<Observation> => {
+    /** A page that cannot answer (navigating, closed) has no focused field. */
+    const focusInField = () => withinBudget(() => isEditable(browser!)).catch((error: unknown) => { if (controller.signal.aborted || evidenceFailure || error instanceof BudgetExceeded) throw error; return false; });
+    /** `pressed`: if the press said nothing, keep listening without pressing anything. A press that put focus in a field has no more to say. */
+    const observe = async (pressed = false): Promise<Observation> => {
       stage = 'observation';
       if (task.profile) {
         const settings = await withinBudget(() => verifyLiveProfile(browser!.page, task.profile!));
@@ -321,7 +330,14 @@ export async function runWithPolicy(source: Task, options: RunOptions): Promise<
         const diagnostic = await withinBudget(() => collectBrowserDiagnostics(browser!.page));
         append('browser.accessibility-diagnostic', inputTainted ? { step: activeStep, details: '[REDACTED]' } : { step: activeStep, diagnostic }, { source: 'browser-diagnostic', redacted: inputTainted });
       }
-      const collected = await withinBudget(() => options.backend.observe({ signal: controller.signal }));
+      let collected = await withinBudget(() => options.backend.observe({ signal: controller.signal }));
+      const silent = () => !collected.speech.some(line => line.trim());
+      if (pressed && options.silentPressWaitMs && silent() && !await focusInField()) {
+        for (const until = Date.now() + options.silentPressWaitMs; silent() && Date.now() < until;) {
+          await withinBudget(() => new Promise(resolve => setTimeout(resolve, Math.min(SILENCE_POLL_MS, until - Date.now()))));
+          collected = await withinBudget(() => options.backend.observe({ signal: controller.signal }));
+        }
+      }
       const ids = collected.outputs.map(output => {
         let id = outputEventIds.get(output.sequence);
         if (!id) {
@@ -479,7 +495,7 @@ export async function runWithPolicy(source: Task, options: RunOptions): Promise<
       if (execution.ok) { stage = 'settling'; await withinBudget(() => settlePage(browser!.page, activity)); } else activity?.stop();
       await waitForPerson(step);
       if (execution.ok) await enterPage(step);
-      observation = await observe();
+      observation = await observe(execution.ok && isActivation(action));
       // Character-by-character echoes of a sensitive value cannot be matched; withhold that step's speech from the policy.
       if (execution.ok && (action.kind === 'typeText' || action.kind === 'replaceText') && inputDescriptors[action.input]!.sensitive) withheldObservations.add(observation);
       if (execution.ok && isActivation(action)) latestActivation = { step, action, observation };

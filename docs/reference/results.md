@@ -115,7 +115,7 @@ Repeated occurrences of the same page hint (except `excess-keystrokes`) on the s
 | :--- | :--- | :--- |
 | **`slow-run`** | `observed` | Compared against a successful reference run, `steps >= reference.steps * 1.5` (`slowRunStepRatio`) **and** `steps - reference.steps >= 3` (`slowRunMinExtraSteps`). |
 | **`goal-met-at-start`** | `observed` / `suspected` | Baseline check before step 1 (`verifier.baseline`) found that all (`observed`) or some non-`not` (`suspected`) rules in `task.verify.all` already held on initial load. |
-| **`replan`** | `observed` | The planner had to revise the plan mid-run because of `'failures'`, `'no-change'`, `'task-limit'`, `'oscillation'`, or `'effort-review'`. |
+| **`replan`** | `observed` | The planner had to revise the plan mid-run because of `'failures'`, `'no-change'`, `'press-unanswered'`, `'task-limit'`, `'oscillation'`, or `'effort-review'`. |
 | **`task-limit`** | `observed` | A plan subtask ran out of its allotted actions (`stepActionLimit`) without hearing its expected cue. |
 | **`wanted-to-give-up`** | `observed` | The planner tried to give up while open assumptions remained untried (refused by orchestration so remaining approaches could be tested first). |
 | **`goal-word-stretch`** | `observed` | Long stretch of consecutive moves without hearing any words related to the task's goal. |

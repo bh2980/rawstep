@@ -119,6 +119,7 @@ export const traceUi = {
       start: '처음 계획',
       failures: '행동이 연달아 실패',
       'no-change': '행동해도 발화가 바뀌지 않음',
+      'press-unanswered': '눌렀지만 기대한 말이 들리지 않음',
       'task-limit': '작업의 행동 한도 도달',
       oscillation: '같은 두 항목 사이를 오감',
       'goal-heard': '목표에 있는 이름을 들음',

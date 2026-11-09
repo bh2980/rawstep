@@ -81,7 +81,7 @@ export class AtDriverClient {
     const parsed = new URL(options.url);
     if (!["ws:", "wss:"].includes(parsed.protocol)) throw new Error("AT Driver endpoint must use ws: or wss:");
     if (parsed.username || parsed.password) throw new Error("AT Driver endpoint must not contain credentials");
-    this.commandTimeoutMs = positiveMilliseconds(options.commandTimeoutMs ?? 10_000, "commandTimeoutMs");
+    this.commandTimeoutMs = positiveMilliseconds(options.commandTimeoutMs ?? 30_000, "commandTimeoutMs");
     this.connectTimeoutMs = positiveMilliseconds(options.connectTimeoutMs ?? 10_000, "connectTimeoutMs");
     this.closeTimeoutMs = positiveMilliseconds(options.closeTimeoutMs ?? 1_000, "closeTimeoutMs");
   }

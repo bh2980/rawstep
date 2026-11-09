@@ -151,6 +151,7 @@ export const core: LocaleShape<typeof ko> = {
       replanFailures: 'Moves kept failing, so the planner wrote plan v{{version}}.',
       replanNoChange: 'Moves did not change the speech, so the planner wrote plan v{{version}}.',
       replanOscillation: 'The cursor kept going back and forth between the same two items, so the planner wrote plan v{{version}}.',
+      replanPressUnanswered: 'A press did not say what the plan expected, so the planner wrote plan v{{version}}.',
       taskLimit: 'A task used up its moves, so the planner wrote plan v{{version}}.',
       earlyStopStuck: 'The run stopped because it judged itself stuck.',
       earlyStopUncertain: 'The run stopped because it judged itself unsure.',

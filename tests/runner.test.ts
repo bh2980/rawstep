@@ -490,3 +490,48 @@ describe('a goal reached without the user hearing so', () => {
     expect(trace.outcome).toMatchObject({ status: 'success', steps: 5 });
   });
 });
+
+describe('listening on after a press that said nothing', () => {
+  const noTask: Task = { ...task, maxSteps: 2 };
+  /** A backend that answers each observation with the next line; `''` is silence. */
+  const answering = (...replies: string[]) => {
+    const f = fixture();
+    let sequence = 0;
+    // No focus in a text field, unless a test says so.
+    f.browser.page.evaluate = vi.fn(async () => false) as never;
+    f.backend.observe = vi.fn(async () => {
+      const text = replies.shift() ?? '', stamp = new Date().toISOString();
+      const outputs = text ? [{ sequence: ++sequence, receivedAt: stamp, text, raw: {} }] : [];
+      return { kind: 'screenreader', windowId: `w-${sequence}`, startedAt: stamp, endedAt: stamp, reason: 'quiet', outputs, speech: outputs.map(o => o.text) } as never;
+    });
+    return f;
+  };
+  const press = { action: { kind: 'intent', intent: 'activate' } } as const, move = { action: { kind: 'intent', intent: 'next' } } as const;
+  const heard = (trace: { events: readonly { type: string; data: unknown }[] }) => trace.events.filter(e => e.type.endsWith('.observation')).map(e => (e.data as { speech: string[] }).speech);
+  const notYet = () => vi.fn(async (): Promise<VerificationRecord> => ({ passed: false, failures: [] }));
+  it('waits for the late answer without pressing anything, and records one observation for the move', async () => {
+    const f = answering('Start', '', '', 'Completed');
+    const trace = await runWithPolicy(noTask, { ...f, verifier: notYet(), outDir: await out(), silentPressWaitMs: 2000, policy: new ScriptedPolicy([press, { stop: 'stuck' }]) });
+    expect(heard(trace)).toEqual([['Start'], ['Completed']]);
+    expect(f.backend.execute).toHaveBeenCalledTimes(1);
+    expect(f.backend.observe).toHaveBeenCalledTimes(4);
+  });
+  it('does not wait after a press that put focus in a text field: the user types next', async () => {
+    const f = answering('Start');
+    f.browser.page.evaluate = vi.fn(async () => true) as never;
+    await runWithPolicy(noTask, { ...f, verifier: notYet(), outDir: await out(), silentPressWaitMs: 60_000, policy: new ScriptedPolicy([press, { stop: 'stuck' }]) });
+    expect(f.backend.observe).toHaveBeenCalledTimes(2);
+  });
+  it('stops waiting after the limit, and costs no wait when the press said something, after a move, or by default', async () => {
+    const silent = answering('Start');
+    const started = Date.now();
+    const trace = await runWithPolicy(noTask, { ...silent, verifier: notYet(), outDir: await out(), silentPressWaitMs: 300, policy: new ScriptedPolicy([press, { stop: 'stuck' }]) });
+    expect(heard(trace)).toEqual([['Start'], []]);
+    expect(Date.now() - started).toBeGreaterThanOrEqual(300);
+    for (const [replies, decision, wait] of [[['Start', 'Dialog'], press, 60_000], [['Start'], move, 60_000], [['Start'], press, undefined]] as const) {
+      const f = answering(...replies);
+      await runWithPolicy(noTask, { ...f, verifier: notYet(), outDir: await out(), ...(wait ? { silentPressWaitMs: wait } : {}), policy: new ScriptedPolicy([decision, { stop: 'stuck' }]) });
+      expect(f.backend.observe).toHaveBeenCalledTimes(2);
+    }
+  });
+});

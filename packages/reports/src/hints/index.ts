@@ -245,8 +245,8 @@ export function extractHints(trace: Readonly<RunTrace>, options: HintOptions = {
 
   for (const item of evidence.filter(e => e.data.kind === 'orchestration-plan')) {
     const trigger = item.data.trigger, version = item.data.version;
-    if (trigger === 'failures' || trigger === 'no-change' || trigger === 'oscillation') add({ kind: 'replan', certainty: 'observed', steps: [item.step],
-      summary: trigger === 'failures' ? `Actions kept failing, so the planner wrote plan v${String(version)}.` : trigger === 'oscillation' ? `The cursor kept going back and forth between the same two items, so the planner wrote plan v${String(version)}.` : `Actions kept changing nothing, so the planner wrote plan v${String(version)}.`,
+    if (trigger === 'failures' || trigger === 'no-change' || trigger === 'oscillation' || trigger === 'press-unanswered') add({ kind: 'replan', certainty: 'observed', steps: [item.step],
+      summary: trigger === 'failures' ? `Actions kept failing, so the planner wrote plan v${String(version)}.` : trigger === 'oscillation' ? `The cursor kept going back and forth between the same two items, so the planner wrote plan v${String(version)}.` : trigger === 'press-unanswered' ? `A press did not say what the plan expected, so the planner wrote plan v${String(version)}.` : `Actions kept changing nothing, so the planner wrote plan v${String(version)}.`,
       detail: { trigger, version }, evidence: [item.id] }, focusBefore(item.step - 1));
     else if (trigger === 'task-limit') add({ kind: 'task-limit', certainty: 'observed', steps: [item.step],
       summary: `A task used up its actions, so the planner wrote plan v${String(version)}.`, detail: { trigger, version }, evidence: [item.id] }, focusBefore(item.step - 1));

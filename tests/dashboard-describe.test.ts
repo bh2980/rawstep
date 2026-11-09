@@ -36,6 +36,7 @@ describe('describeHint', () => {
     ['goal word stretch', hint('goal-word-stretch', { moves: 40, from: 3, to: 42 }), ['3~42', '40번']],
     ['expectation broken', hint('expectation-broken', { assumption: { id: 'A3', text: 'The add control is a button' }, version: 4 }), ['A3', 'The add control is a button', 'v4']],
     ['replan', hint('replan', { trigger: 'no-change', version: 3 }), ['바뀌지 않아', 'v3']],
+    ['replan after an unanswered press', hint('replan', { trigger: 'press-unanswered', version: 4 }), ['기대한 말', 'v4']],
     ['task-limit', hint('task-limit', { version: 2 }), ['행동 한도']],
     ['goal-met-at-start all', hint('goal-met-at-start', { rules: [{ ruleIndex: 0, ruleType: 'url' }] }), ['완료 확인', '모두']],
     ['goal-met-at-start some', hint('goal-met-at-start', { rules: [{ ruleIndex: 0 }, { ruleIndex: 1 }] }, { certainty: 'suspected' }), ['2개']],

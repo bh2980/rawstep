@@ -86,7 +86,7 @@ Each entry in `profiles` (`1–500` entries) defines a complete set of experimen
     "keys": [],
     "intents": ["next", "previous", "activate", "heading.next", "heading.previous", "headings.list"],
     "typeText": true,
-    "replaceText": false
+    "replaceText": true
   },
   "page": "default",
   "screenReader": "simulation",

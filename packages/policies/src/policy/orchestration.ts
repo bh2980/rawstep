@@ -2,7 +2,7 @@ import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import type { Decision, DecisionPolicy, HistoryEntry } from '@rawstep/core/contracts';
 import type { ChoiceCandidate, ModelFailure } from './choice.js';
 import { modelHistory, type ModelHistoryEntry } from './history.js';
-import { applyDraft, cueText, currentTask, failCurrent, finishCurrent, goalLeads, goalNamed, markCheckpoint, needsCheckpoint, phaseOf, matchCue, planTasks, verifyCue,
+import { applyDraft, cueText, currentTask, failCurrent, finishCurrent, goalLeads, goalNamed, markCheckpoint, namedInOtherRole, needsCheckpoint, phaseOf, matchCue, planTasks, verifyCue, wentAsPlanned,
   type GiveUp, type PlanDocument, type PlanDraft, type PlanTask, type PlanTrigger } from './plan-document.js';
 import { currentItem, currentItemState, speechChoices, speechGuardStop, type SpeechPolicyOptions } from './speech.js';
 
@@ -87,6 +87,8 @@ const DEFAULTS = { ...RAWSTEP_DEFAULTS.orchestration, failureLimit: 2, noChangeL
 const MAX_CALLS_PER_STEP = 8;
 /** Moves that open a list once, in which next and previous then move: opening it again would start the list over. */
 const LIST_OPENERS = new Set(['formControls.rotor']);
+/** Items with the cue's name in another role put to the planner per task: walking a list of look-alikes must not become a call per item. */
+const OTHER_ROLE_QUESTIONS = 2;
 /** The choice ID an action has among the offered ones (`intent:next`, `type:query`…). */
 const choiceIdOf = (decision: Decision): string | undefined => !('action' in decision) ? undefined
   : decision.action.kind === 'intent' ? `intent:${decision.action.intent}` : decision.action.kind === 'key' ? `key:${decision.action.key}`
@@ -98,15 +100,19 @@ const choiceIdOf = (decision: Decision): string | undefined => !('action' in dec
  * Undefined when none of those is offered.
  */
 export function followPlan(task: Pick<PlanTask, 'activates' | 'moves' | 'types'>, offered: readonly string[], taken: readonly string[] = []): string | undefined {
-  const typing = task.types ? [`type:${task.types}`, `replace:${task.types}`] : [];
+  const typing = task.types ? typingChoices(task.types) : [];
   const wanted = task.types ? (taken.includes('intent:activate') ? typing : ['intent:activate', ...typing])
     : task.activates === true ? ['intent:activate']
     : [...(task.moves ?? []).filter(move => !(LIST_OPENERS.has(move) && taken.includes(`intent:${move}`))), 'next'].map(intent => `intent:${intent}`);
   return wanted.find(id => offered.includes(id));
 }
+/** The choices that carry out a typing task, in order. `replace:query` is only that: typing instead would add to what the field holds. */
+function typingChoices(types: string): string[] { return types.startsWith('replace:') ? [types] : [`type:${types}`, `replace:${types}`]; }
 /** Whether the task's input was typed by one of its actions that ran. */
 const typedIn = (task: Pick<PlanTask, 'types'>, attempts: readonly { decision: Decision; execution?: { ok: boolean } }[]) =>
-  !!task.types && attempts.some(h => h.execution?.ok === true && [`type:${task.types}`, `replace:${task.types}`].includes(choiceIdOf(h.decision) ?? ''));
+  !!task.types && attempts.some(h => h.execution?.ok === true && typingChoices(task.types!).includes(choiceIdOf(h.decision) ?? ''));
+/** Whether one of the task's actions that ran pressed the item. */
+const pressedOn = (attempts: readonly { decision: Decision; execution?: { ok: boolean } }[]) => attempts.some(h => h.execution?.ok === true && choiceIdOf(h.decision) === 'intent:activate');
 type Input = Parameters<DecisionPolicy['decide']>[0];
 
 /**
@@ -132,6 +138,8 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
   private surveyed = false;
   /** Spoken items already put to the planner for the current task: one question per item. */
   private asked = new Set<string>();
+  /** How many of those had the cue's name in another role. */
+  private otherRoleAsked = 0;
   /** Items named as in the goal that the planner was already told about. */
   private readonly noticed = new Set<string>();
   constructor(readonly planner: Planner, private readonly options: OrchestrationOptions = {}) {
@@ -194,6 +202,13 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
         // The cue was a guess written before the item was heard. An item that shares a name word with it is put to the planner, as a
         // person who hears "Order updates, checkbox" knows it is the order-updates setting they were looking for.
         if (await this.recognized(input, doc, task)) { await this.finishTask(input, step, doc, task, 'recognized'); continue; }
+        // A press is made once. Pressing again is the planner's call: a second press can undo the first (close the dialog it opened).
+        if (task.activates === true && pressedOn(attempts)) {
+          if (verifyCue(task, input.observation.speech) === 'unchecked') { await this.finishTask(input, step, doc, task, 'unchecked'); continue; }
+          if (this.outOfCalls()) return this.unmeasured(step, 'press-unanswered');
+          await this.replan(input, step, 'press-unanswered');
+          continue;
+        }
       }
       // Rawstep carries out the task as written. The headings survey is the user's move before the first plan, never a task's.
       const actions = speechChoices(input.allowedActions, input.inputs).filter(c => !(c.decision.action.kind === 'intent' && c.decision.action.intent === 'headings.list'));
@@ -213,16 +228,21 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
     const phase = phaseOf(doc, task.id);
     const done = finishCurrent(doc, step, verified)!;
     this.taskEvent(done, 'active');
-    // A finished phase is reviewed before the next one starts (with nothing left, the final review covers it).
-    if (needsCheckpoint(phase) && currentTask(doc)) { await this.replan(input, step, 'checkpoint'); markCheckpoint(this.doc!, phase!.title, step); return; }
+    // A finished phase is reviewed before the next one starts (with nothing left, the final review covers it), unless it went as
+    // planned: then a review only costs a planner call.
+    if (needsCheckpoint(phase) && !wentAsPlanned(phase!) && currentTask(doc)) { await this.replan(input, step, 'checkpoint'); markCheckpoint(this.doc!, phase!.title, step); return; }
     this.startTask(input);
   }
   /** Asks the planner whether the item the cursor is on is what the task's cue describes (once per item and task). */
   private async recognized(input: Input, doc: PlanDocument, task: PlanTask): Promise<boolean> {
+    const lines = [...input.observation.speech].reverse().map(t => t.trim()).filter(t => t && !this.asked.has(t));
     // The latest line that shares cue words without matching it (role and state agreeing) and has not been asked about yet.
-    const heard = [...input.observation.speech].reverse().map(t => t.trim()).find(t => t && !this.asked.has(t) && matchCue(task, t) === 'candidate');
+    const candidate = lines.find(t => matchCue(task, t) === 'candidate');
+    const otherRole = candidate || this.otherRoleAsked >= OTHER_ROLE_QUESTIONS ? undefined : lines.find(t => namedInOtherRole(task, t));
+    const heard = candidate ?? otherRole;
     // Recognizing is a planner call too: with none left the item is not asked about, and the next plan decision ends the run.
     if (!this.planner.recognize || !heard || this.outOfCalls()) return false;
+    if (otherRole) this.otherRoleAsked++;
     this.asked.add(heard);
     const started = performance.now();
     this.plannerCalls++;
@@ -311,6 +331,7 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
   private startTask(input: Input): void {
     this.taskFrom = input.history.length;
     this.asked.clear();
+    this.otherRoleAsked = 0;
     const task = this.doc && currentTask(this.doc);
     if (task && task.actions === 0) this.evidence.push({ kind: 'orchestration-task', taskId: task.id, planVersion: this.doc!.version, fromStatus: 'pending', toStatus: 'active', actions: 0 });
   }

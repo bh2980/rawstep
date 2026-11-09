@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  applyDraft, currentItem, currentTask, goalWordStretch, speechRepetition, matchCue, renderPlanMarkdown, OrchestratedSpeechPolicy, planTasks, plannerDraftSchema, verifyCue,
+  applyDraft, currentItem, currentTask, goalWordStretch, speechRepetition, matchCue, renderPlanMarkdown, OrchestratedSpeechPolicy, planFileSchema, planTasks, plannerDraftSchema, verifyCue,
   type PlanDraft, type PlanRequest, type Planner,
 } from '@rawstep/policies/policy';
 import type { DecisionPolicy, HistoryEntry } from '@rawstep/core/contracts';
@@ -126,16 +126,36 @@ describe('orchestrated speech policy', () => {
     expect(kinds.map(k => k.kind)).not.toContain('model-inference');
     expect(policy.planDocument()!.phases[0]!.tasks[0]).toMatchObject({ status: 'active', actions: 1 });
   });
-  it('ends a task when its cue is heard after an action, reviews the finished phase, and moves on within the same runner step', async () => {
-    const p = planner(draft({ Find: ['Find the button'], Buy: [{ goal: 'Activate it', activates: true }] }), draft({ Find: [['t1', 'Find the button']], Buy: [{ keep: 't2', goal: 'Activate it', activates: true }] }, 'Phase 1 met C1.'));
+  it('ends a task when its cue is heard after an action and moves on within the same runner step, without reviewing a phase that went as planned', async () => {
+    const p = planner(draft({ Find: ['Find the button'], Buy: [{ goal: 'Activate it', activates: true }] }));
     const policy = new OrchestratedSpeechPolicy(p.planner);
     expect(await policy.decide(input())).toEqual({ action: { kind: 'intent', intent: 'next' } });
     expect(await policy.decide(input({ observation: said('Find the button'), history: [acted(1, 'next', 'Thor Hammer, heading level 1')] }))).toEqual({ action: { kind: 'intent', intent: 'activate' } });
     const done = evidence(policy).find(k => k.kind === 'orchestration-task' && k.toStatus === 'done');
     expect(done).toMatchObject({ taskId: 't1', fromStatus: 'active', ending: { reason: 'done', step: 2, verified: 'heard' } });
-    expect(p.requests.map(r => r.trigger)).toEqual(['start', 'checkpoint']);
+    expect(p.requests.map(r => r.trigger)).toEqual(['start']);
     const doc = policy.planDocument()!;
-    expect(doc).toMatchObject({ version: 2, current: 't2' }); expect(doc.phases[0]!.checkpoint).toEqual({ version: 2, step: 2 });
+    expect(doc).toMatchObject({ version: 1, current: 't2' }); expect(doc.phases[0]!.checkpoint).toBeUndefined();
+  });
+  it('reviews a finished phase that typed something or left a cue unchecked before the next phase starts', async () => {
+    const allowed = { intents: ['next', 'activate'], keys: [], inputKeys: ['query'], typeText: true, replaceText: false };
+    const then = { goal: 'Then', done: 'x', cue: 'x' };
+    const typedPlan = (keep?: string) => ({ ...draft({}), phases: [{ title: 'Enter', tasks: [{ ...(keep ? { keep } : {}), goal: 'Type it', done: 'Typed', cue: 'query', types: 'query' }] }, { title: 'Next', tasks: [{ ...(keep ? { keep: 't2' } : {}), ...then }] }] });
+    const typing = planner(typedPlan(), typedPlan('t1'));
+    const p1 = new OrchestratedSpeechPolicy(typing.planner);
+    const typed: HistoryEntry = { step: 2, decision: { action: { kind: 'typeText', input: 'query' } }, observation: said('Query, edit text'), execution: { ok: true } };
+    await p1.decide(input({ allowedActions: allowed }));
+    await p1.decide(input({ allowedActions: allowed, history: [acted(1, 'activate', 'Query, edit text')], observation: said('Query, edit text') }));
+    // The cue is heard, but what typing did to the field is for the planner to judge.
+    await p1.decide(input({ allowedActions: allowed, history: [acted(1, 'activate', 'Query, edit text'), typed], observation: said('query') }));
+    expect(typing.requests.map(r => r.trigger)).toEqual(['start', 'checkpoint']);
+    expect(p1.planDocument()!.phases[0]!.checkpoint).toEqual({ version: 2, step: 3 });
+    const pressPlan = (keep?: string) => ({ ...draft({}), phases: [{ title: 'Open', tasks: [{ ...(keep ? { keep } : {}), goal: 'Press it', done: 'It opens', cue: '', activates: true }] }, { title: 'Next', tasks: [{ ...(keep ? { keep: 't2' } : {}), ...then }] }] });
+    const pressing = planner(pressPlan(), pressPlan('t1'));
+    const p2 = new OrchestratedSpeechPolicy(pressing.planner);
+    await p2.decide(input());
+    await p2.decide(input({ history: [acted(1, 'activate', 'Open, link')], observation: said('New page') }));
+    expect(pressing.requests.map(r => r.trigger)).toEqual(['start', 'checkpoint']);
   });
   it('asks for a new plan after failed actions, with the attempts linked to their tasks', async () => {
     const p = planner(draft({ Find: ['Find the button'] }), draft({ Find: ['Move by form controls'] }, 'Both moves failed.'));
@@ -254,6 +274,83 @@ describe('orchestrated speech policy carrying out the plan', () => {
     // An activation that failed and said nothing leaves the item it was on as the current one.
     await policy.decide(input({ observation: said(), history: [{ step: 1, decision: { action: { kind: 'intent', intent: 'activate' } }, observation: said('Add to cart, button'), execution: { ok: false, failure: 'backend' } }] }));
     expect(p.requests[1]).toMatchObject({ trigger: 'failures', currentItem: 'Add to cart, button' });
+  });
+  describe('pressing once', () => {
+    const allowed = { intents: ['next', 'activate'], keys: [], inputKeys: [], replaceText: false };
+    const press = (cue: string) => ({ ...draft({}), phases: [{ title: 'Buy', tasks: [{ goal: 'Press it', done: 'It works', cue, activates: true }, { goal: 'Then', done: 'x', cue: 'x' }] }] });
+    const pressed = (ok = true) => [acted(1, 'activate', 'Add to cart, button', ok)];
+    const activate = { action: { kind: 'intent', intent: 'activate' } }, next = { action: { kind: 'intent', intent: 'next' } };
+    it('goes back to the planner when the cue is not heard, instead of pressing again', async () => {
+      const p = planner(press('Added'), { ...draft({}, 'The press opened a dialog.'), phases: [{ title: 'Buy', tasks: [{ goal: 'Look around', done: 'x', cue: 'x' }] }] });
+      const policy = new OrchestratedSpeechPolicy(p.planner);
+      expect(await policy.decide(input({ allowedActions: allowed, observation: said('Add to cart, button') }))).toEqual(activate);
+      expect(await policy.decide(input({ allowedActions: allowed, observation: said('Dialog, Close, button'), history: pressed() }))).toEqual(next);
+      expect(p.requests.map(r => r.trigger)).toEqual(['start', 'press-unanswered']);
+      expect(p.requests[1]).toMatchObject({ speech: ['Dialog, Close, button'], attempts: [{ step: 1, taskId: 't1' }] });
+    });
+    it('moves on when the cue is heard, or when the plan wrote none to listen for', async () => {
+      for (const [cue, heard, verified] of [['Added', 'Added', 'heard'], ['', 'Something happened', 'unchecked']] as const) {
+        const p = planner(press(cue));
+        const policy = new OrchestratedSpeechPolicy(p.planner);
+        await policy.decide(input({ allowedActions: allowed, observation: said('Add to cart, button') }));
+        expect(await policy.decide(input({ allowedActions: allowed, observation: said(heard), history: pressed() }))).toEqual(next);
+        expect(p.requests.map(r => r.trigger)).toEqual(['start']);
+        expect(policy.planDocument()!.phases[0]!.tasks[0]).toMatchObject({ status: 'done', actions: 1, ending: { verified } });
+      }
+    });
+    it('tries a press that failed to run again, and presses again only when the planner keeps the task', async () => {
+      const failed = new OrchestratedSpeechPolicy(planner(press('Added')).planner);
+      await failed.decide(input({ allowedActions: allowed }));
+      expect(await failed.decide(input({ allowedActions: allowed, history: pressed(false) }))).toEqual(activate);
+      const kept = planner(press('Added'), { ...draft({}), phases: [{ title: 'Buy', tasks: [{ keep: 't1', goal: 'Press it', done: 'It works', cue: 'Added' }] }] });
+      const again = new OrchestratedSpeechPolicy(kept.planner);
+      await again.decide(input({ allowedActions: allowed }));
+      expect(await again.decide(input({ allowedActions: allowed, history: pressed(), observation: said('Add to cart, button') }))).toEqual(activate);
+      expect(kept.requests.map(r => r.trigger)).toEqual(['start', 'press-unanswered']);
+    });
+    it('ends the run unmeasured when no planner call is left to ask', async () => {
+      const policy = new OrchestratedSpeechPolicy(planner(press('Added')).planner, { maxPlannerCalls: 1 });
+      await policy.decide(input({ allowedActions: allowed }));
+      expect(await policy.decide(input({ allowedActions: allowed, history: pressed(), observation: said('Add to cart, button') }))).toEqual({ stop: 'uncertain', stopSource: 'orchestration-limit' });
+    });
+  });
+  it('asks about an item with the whole cue name in another role, at most twice a task, and ends the task when it is the one', async () => {
+    const plan = { ...draft({}), phases: [{ title: 'Finish', tasks: [{ goal: 'Move to the check control', done: 'Hear it', cue: { name: 'check', role: 'checkbox' }, activates: false }, { goal: 'Press it', done: 'x', cue: 'Completed', activates: true }] }] };
+    const allowed = { intents: ['next', 'activate'], keys: [], inputKeys: [], replaceText: false };
+    const run = async (lines: string[], yes: string) => {
+      const p = planner(plan), asked: string[] = [];
+      const policy = new OrchestratedSpeechPolicy({ plan: p.planner.plan, recognize: async request => { asked.push(request.heard); return { matches: request.heard === yes, model: { id: 'planner', runtime: 'test' } }; } });
+      await policy.decide(input({ allowedActions: allowed, observation: said('Start') }));
+      let last;
+      for (const [i, line] of lines.entries()) last = await policy.decide(input({ allowedActions: allowed, observation: said(line), history: ['Start', ...lines].slice(0, i + 1).map((item, n) => acted(n + 1, 'next', item)) }));
+      return { asked, last, doc: policy.planDocument()! };
+    };
+    const found = await run(['Finish check button'], 'Finish check button');
+    expect(found.last).toEqual({ action: { kind: 'intent', intent: 'activate' } });
+    expect(found.doc.phases[0]!.tasks[0]).toMatchObject({ status: 'done', ending: { verified: 'recognized' } });
+    // A list of look-alikes costs two questions at most; items without the whole name cost none.
+    const lookAlikes = await run(['Check out, link', 'Help, link', 'Check price, link', 'Check stock, link'], '');
+    expect(lookAlikes.asked).toEqual(['Check out, link', 'Check price, link']);
+    expect(lookAlikes.last).toEqual({ action: { kind: 'intent', intent: 'next' } });
+  });
+  it('overwrites the field when the plan says replace, and never types into it instead', async () => {
+    const plan = (types: string) => ({ ...draft({}), phases: [{ title: 'Edit', tasks: [{ goal: 'Enter it', done: 'Entered', cue: '', types }, { goal: 'Then', done: 'x', cue: 'x' }] }] });
+    const both = { intents: ['next', 'activate'], keys: [], inputKeys: ['query'], typeText: true, replaceText: true };
+    const onField = [acted(1, 'activate', 'Query, OLD, edit text')];
+    const start = async (types: string, allowed = both) => { const policy = new OrchestratedSpeechPolicy(planner(plan(types)).planner); await policy.decide(input({ allowedActions: allowed })); return { policy, typing: await policy.decide(input({ allowedActions: allowed, history: onField, observation: said('Query, OLD, edit text') })) }; };
+    const replacing = await start('replace:query');
+    expect(replacing.typing).toEqual({ action: { kind: 'replaceText', input: 'query' } });
+    expect(renderPlanMarkdown(replacing.policy.planDocument()!)).toContain('· types replace:query');
+    // Done once the overwrite ran.
+    const replaced: HistoryEntry = { step: 2, decision: { action: { kind: 'replaceText', input: 'query' } }, observation: said('Query, OLD, edit text'), execution: { ok: true } };
+    expect(await replacing.policy.decide(input({ allowedActions: both, history: [...onField, replaced], observation: said('Query, NEW, edit text') }))).toEqual({ action: { kind: 'intent', intent: 'next' } });
+    // A plain input name, or the type: form, still types.
+    expect((await start('query')).typing).toEqual({ action: { kind: 'typeText', input: 'query' } });
+    expect((await start('type:query')).typing).toEqual({ action: { kind: 'typeText', input: 'query' } });
+    // With overwriting not allowed the plan cannot be carried out; typing would add to the old value.
+    expect((await start('replace:query', { ...both, replaceText: false })).typing).toEqual({ stop: 'uncertain', stopSource: 'no-allowed-action' });
+    // A plan file saved from such a run reads back the same.
+    expect(planFileSchema.parse(JSON.parse(JSON.stringify(replacing.policy.planDocument()!))).phases[0]!.tasks[0]).toMatchObject({ types: 'replace:query' });
   });
   it('takes only moves on a task that only moves, and presses on the task that presses', async () => {
     const moving = { ...draft({}), phases: [{ title: 'Buy', tasks: [{ goal: 'Move to the button', done: 'Hear it', cue: 'Add to cart', activates: false }, { goal: 'Press it', done: 'Hear added', cue: 'Added', activates: true }] }] };
