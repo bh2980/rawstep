@@ -13,7 +13,9 @@ export const TASK_SHAPE = ['Set "activates" to false for a task that only moves 
   'repeats that move until the cue is heard, so to change method or direction, start a new task.',
   'To fill in a field, first move to it, then give a task of its own "types": the name of one of the listed inputs (for example "query" for',
   '"type:query"), with no "moves" and a cue of "" (what the field says after typing cannot be predicted). That task presses the field the cursor',
-  'is on, which gives it focus, types the input and is then done. You know the input\'s name, never its value.'].join(' ');
+  'is on, which gives it focus, types the input and is then done. You know the input\'s name, never its value. Typing adds to what the field holds:',
+  'when the field must end up holding only the input and "replace:query" is listed, set "types" to "replace:query".',
+  'A pressing task presses once. Its cue not being heard brings you back with the trigger "press-unanswered".'].join(' ');
 /** The planner's standing rules; an agent's own instructions are added after them, never in their place. */
 export const SPEECH_PLANNER_INSTRUCTIONS = [
   'You plan for a screen reader user who is trying to reach a goal on a web page. Rawstep carries out your plan one task at a time, exactly',
@@ -43,9 +45,11 @@ export const SPEECH_PLANNER_INSTRUCTIONS = [
   'When "document" is present you are revising your plan because of "trigger". "oscillation" means the cursor kept',
   'swinging between the same two items: the target is probably one of them, or the method cannot reach it; plan from those items. "goal-heard" means the user',
   'just heard "currentItem", which is named as something in the goal, while the task was after something else: plan from it (the control the goal needs is',
-  'probably next to it) and keep tasks that still fit. "effort-review" means the user has made many moves since you last looked: take stock of',
+  'probably next to it) and keep tasks that still fit. "press-unanswered" means the current task pressed its item once and its cue was not heard: plan from',
+  'what the speech says the press did (it may have opened, closed or changed something, so another press can undo it). Keeping that task, or adding another',
+  'pressing task, presses again: do that only when a second press is what the user would try. "effort-review" means the user has made many moves since you last looked: take stock of',
   '"effort" and what was heard, then keep the plan if the target is still likely ahead, change the approach, or give up. "checkpoint" means a phase just',
-  'finished: check its criteria and the assumptions its tasks relied on. "plan-finished" means no tasks are left: check every criterion.',
+  'finished that typed something or left a cue unheard: check its criteria and the assumptions its tasks relied on. "plan-finished" means no tasks are left: check every criterion.',
   'Read "attempts": each action is linked to its task and says whether it ran (execution.ok) and whether the speech changed (changed); finished tasks',
   'show whether their cue was heard (ending.verified). Set criterion status ("met", "unmet") and assumption status ("held", "broken") from that evidence.',
   'List at most 10 criteria and 10 assumptions. A settled assumption stays in the document when you leave it out: list the ones the plan still relies on and the ones you settle now.',

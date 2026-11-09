@@ -201,17 +201,7 @@ export class AtDriverBackend {
     this.busy = true;
     const window = this.beginWindow();
     const commands: CommandReceipt[] = [];
-    const press = async (keys: readonly string[]) => {
-      options.signal?.throwIfAborted();
-      const receipt = await this.client.request("interaction.userIntent", { name: "pressKeys", keys: [...keys] }, options);
-      options.signal?.throwIfAborted();
-      // PAC currently serializes its EmptyResult as null; Bocoup uses {}.
-      if (receipt.result !== null && (!isRecord(receipt.result) || Object.keys(receipt.result).length > 0)) {
-        throw new AtDriverError("Invalid interaction.userIntent acknowledgement", "protocol error", receipt.commandId, receipt.result);
-      }
-      commands.push(receipt);
-      window.acknowledgedAt = receipt.acknowledgedAt;
-    };
+    const press = this.presser(window, commands, options);
     try {
       options.signal?.throwIfAborted();
       if (open && !inRotor) {
@@ -225,33 +215,87 @@ export class AtDriverBackend {
       for (const keys of presses) await press(keys);
       return { windowId: window.id, commandIds: commands.map(command => command.commandId), acknowledgedAt: window.acknowledgedAt, commands };
     } catch (error) {
-      // An unacknowledged/invalid command may still take effect later. Do not let
-      // a subsequent policy step race it or mistake a quiet interval for success.
-      if (options.signal?.aborted) {
-        // Cancellation cannot retract a keypress already on the wire. End the
-        // session so later actions cannot race an unacknowledged partial action.
-        await this.close();
-      } else if (error instanceof AtDriverError && ["command timeout", "send error", "protocol error"].includes(error.code)) {
-        this.fatalError = error;
-        await this.close();
-      }
+      await this.endAfterFailedPress(error, options);
       throw error;
     } finally { this.busy = false; }
   }
 
-  /** Presses keys and returns the last thing spoken once speech goes quiet; everything spoken stays in the output buffer. */
-  private async listen(keys: readonly string[], press: (keys: readonly string[]) => Promise<void>, signal?: AbortSignal): Promise<string | undefined> {
+  /**
+   * Gets the cursor into a newly loaded page for a reader that stays on the browser's own controls (see `AtDriverPageEntry`); a reader
+   * without that need does nothing. The walk over those controls stays in the raw record but is not what the user heard on the page, so
+   * the observation keeps only what the reader said on load and on going in.
+   */
+  async enterPage(options: AtDriverOperationOptions = {}): Promise<{ entered: boolean; moves: number }> {
+    const entry = this.profile.pageEntry;
+    if (!entry) return { entered: false, moves: 0 };
+    options.signal?.throwIfAborted();
+    this.assertReady();
+    if (this.busy || this.observationInProgress) throw new AtDriverError("Concurrent execution/observation is not supported", "invalid state");
+    this.busy = true;
+    const press = this.presser(this.beginWindow(), [], options);
+    const lastItem = (lines: readonly string[]) => lines.filter(line => !entry.hint.test(line)).at(-1) ?? "";
+    try {
+      await this.quiet(options.signal);
+      const walkFrom = this.outputs.length;
+      let moves = 0, found = false;
+      while (!found && moves < entry.maxMoves) {
+        moves++;
+        found = entry.webContent.test(lastItem(await this.listen(entry.move, press, options.signal)));
+      }
+      if (!found) throw new AtDriverError(`${this.profile.atName} did not name the web content within ${moves} moves, so the page could not be entered`, "page entry failed");
+      const walkEnd = this.outputs.length;
+      const heard = lastItem(await this.listen(entry.enter, press, options.signal));
+      if (!entry.inside.test(heard)) throw new AtDriverError(`${this.profile.atName} did not go into the web content: it said "${heard}"`, "page entry failed");
+      this.outputs.splice(walkFrom, walkEnd - walkFrom);
+      return { entered: true, moves };
+    } catch (error) {
+      await this.endAfterFailedPress(error, options);
+      throw error;
+    } finally { this.busy = false; }
+  }
+
+  /** A press that reports its acknowledgement on `window` and adds its receipt to `commands`. */
+  private presser(window: Window, commands: CommandReceipt[], options: AtDriverOperationOptions) {
+    return async (keys: readonly string[]): Promise<void> => {
+      options.signal?.throwIfAborted();
+      const receipt = await this.client.request("interaction.userIntent", { name: "pressKeys", keys: [...keys] }, options);
+      options.signal?.throwIfAborted();
+      // PAC currently serializes its EmptyResult as null; Bocoup uses {}.
+      if (receipt.result !== null && (!isRecord(receipt.result) || Object.keys(receipt.result).length > 0)) {
+        throw new AtDriverError("Invalid interaction.userIntent acknowledgement", "protocol error", receipt.commandId, receipt.result);
+      }
+      commands.push(receipt);
+      window.acknowledgedAt = receipt.acknowledgedAt;
+    };
+  }
+
+  /**
+   * An unacknowledged/invalid command may still take effect later. Do not let a subsequent policy step race it or mistake a quiet
+   * interval for success. Cancellation cannot retract a keypress already on the wire, so it ends the session as well.
+   */
+  private async endAfterFailedPress(error: unknown, options: AtDriverOperationOptions): Promise<void> {
+    if (options.signal?.aborted) await this.close();
+    else if (error instanceof AtDriverError && ["command timeout", "send error", "protocol error"].includes(error.code)) {
+      this.fatalError = error;
+      await this.close();
+    }
+  }
+
+  /** Presses keys and returns what was spoken once speech goes quiet; everything spoken stays in the output buffer. */
+  private async listen(keys: readonly string[], press: (keys: readonly string[]) => Promise<void>, signal?: AbortSignal): Promise<string[]> {
     const from = this.outputs.length;
     await press(keys);
     await this.quiet(signal);
-    return this.outputs.slice(from).map(output => output.text.trim()).filter(Boolean).at(-1);
+    return this.outputs.slice(from).map(output => output.text.trim()).filter(Boolean);
   }
 
   /** Opens the rotor and moves to the wanted list by ear. Returns whether its name was heard; the rotor is left open either way. */
   private async findList(list: AtDriverRotorList, press: (keys: readonly string[]) => Promise<void>, signal?: AbortSignal): Promise<boolean> {
+    // A list says its name and then its current item, whose name can hold the wanted word: only a line that is not the item counts.
+    const named = (lines: readonly string[]) => lines.some(line => list.listName.test(line) && !list.itemLine.test(line));
     let heard = await this.listen(list.open, press, signal);
-    for (let i = 0; i < list.maxLists && !list.listName.test(heard ?? ""); i++) heard = await this.listen(list.nextList, press, signal);
-    return list.listName.test(heard ?? "");
+    for (let i = 0; i < list.maxLists && !named(heard); i++) heard = await this.listen(list.nextList, press, signal);
+    return named(heard);
   }
 
   /**
@@ -265,11 +309,11 @@ export class AtDriverBackend {
       // ends the list only when the press after it repeats as well: the last item again, or the second item after the first.
       const items: string[] = [];
       while (items.length < routine.maxItems) {
-        const item = await this.listen(routine.nextItem, press, signal);
+        const item = (await this.listen(routine.nextItem, press, signal)).at(-1);
         if (!item) break;
         const ending = item === items.at(-1) ? item : item === items[0] ? items[1] ?? item : undefined;
         if (ending === undefined) { items.push(item); continue; }
-        const next = await this.listen(routine.nextItem, press, signal);
+        const next = (await this.listen(routine.nextItem, press, signal)).at(-1);
         if (!next || next === ending) break;
         items.push(item, next);
       }

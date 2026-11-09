@@ -29,7 +29,7 @@ export type ErrorView = {
 };
 
 const START_STAGES = ['initialization', 'backend-start', 'browser-start'] as const;
-const RUNTIME_STAGES = ['observation', 'policy', 'action', 'settling', 'verification'] as const;
+const RUNTIME_STAGES = ['page-entry', 'observation', 'policy', 'action', 'settling', 'verification'] as const;
 type Stage = (typeof START_STAGES)[number] | (typeof RUNTIME_STAGES)[number];
 const isStart = (stage: string | undefined): stage is (typeof START_STAGES)[number] => (START_STAGES as readonly (string | undefined)[]).includes(stage);
 const isRuntime = (stage: string | undefined): stage is (typeof RUNTIME_STAGES)[number] => (RUNTIME_STAGES as readonly (string | undefined)[]).includes(stage);

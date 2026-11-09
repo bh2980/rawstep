@@ -3,7 +3,7 @@ import { readTrace, type RunTrace, type TraceEvent } from '@rawstep/core/trace';
 import type { AnalysisReport } from '@rawstep/reports';
 import { validateBatchSummary, type BatchSummary } from '@rawstep/reports/compare';
 import type { ComparedRun, HintReport, ProfileFacts, RunComparison, RunExplanation, RunHintsView, RunResult, RunStepsView, StuckPlace, TaskBatch, TaskFindings, TaskSummary } from '../shared/api.js';
-import { isStuck, isWrongGuess, runEnding } from '@rawstep/reports/endings';
+import { goalUnconfirmed, isStuck, isWrongGuess, runEnding, runMoves } from '@rawstep/reports/endings';
 import type { RunRecord } from '../shared/config.js';
 import { readOptional, type ProjectStore } from '@rawstep/project/store';
 import { HttpError } from './http.js';
@@ -13,7 +13,7 @@ import { buildPlan, buildSteps, eventSteps } from './steps.js';
 const live = (run: RunRecord) => run.state === 'queued' || run.state === 'running';
 const finished = (run: RunRecord) => run.state === 'success' || run.state === 'failure' || run.state === 'inconclusive';
 const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
-type RunFacts = { unheard: boolean; startPage?: { eventId: string; width: number; height: number; url: string } };
+type RunFacts = { startPage?: { eventId: string; width: number; height: number; url: string } };
 /** Where a recorded cursor location sat on the start page, in page pixels; undefined when it was on another page. */
 function pageBox(location: unknown, startUrl: string): StuckPlace['location'] {
   if (!record(location) || !record(location.rect) || !record(location.scroll) || typeof location.url !== 'string') return undefined;
@@ -75,7 +75,7 @@ export class RunViews {
     const run = this.queue.find(experimentId, runId), trace = await this.trace(experimentId, runId);
     if (!trace) throw new HttpError(404, 'trace-missing');
     const candidates = this.queue.experiments.flatMap(e => e.runs.filter(r => r.id !== runId && r.taskId === run.taskId && r.outcome?.status === 'success' && finished(r)).map(r => ({ experimentId: e.id, run: r })))
-      .sort((a, b) => (a.run.outcome?.steps ?? Infinity) - (b.run.outcome?.steps ?? Infinity));
+      .sort((a, b) => (runMoves(a.run.outcome) ?? Infinity) - (runMoves(b.run.outcome) ?? Infinity));
     let reference: { experimentId: string; runId: string; trace: RunTrace } | undefined;
     for (const c of candidates) {
       const t = await this.trace(c.experimentId, c.run.id);
@@ -131,7 +131,7 @@ export class RunViews {
   private async taskData(taskId: string, experimentId: string | undefined) {
     // A run that never got going (the browser or model could not start) is not evidence about the page.
     const entries = this.taskEntries(taskId, experimentId), done = entries.filter(entry => finished(entry.run) && entry.run.outcome?.reason !== 'error');
-    const steps = (run: RunRecord) => typeof run.outcome?.steps === 'number' ? run.outcome.steps : undefined;
+    const steps = (run: RunRecord) => runMoves(run.outcome);
     const reached = done.filter(entry => entry.run.outcome?.status === 'success');
     const fastest = reached.reduce<typeof reached[number] | undefined>((best, entry) => steps(entry.run) !== undefined && (!best || steps(entry.run)! < steps(best.run)!) ? entry : best, undefined);
     const key = done.map(entry => entry.run.id).join(',');
@@ -193,7 +193,6 @@ export class RunViews {
         stretch: typeof stretch === 'number' ? stretch : null,
         ...(typeof stretch === 'number' && stretchHint && stretchHint.steps.length >= 2 ? { stretchSteps: [stretchHint.steps[0]!, stretchHint.steps.at(-1)!] as [number, number] } : {}),
         wrongGuesses: allBreaks.filter(wrongGuess).length,
-        unheard: end.ending === 'reached' && facts.get(run.id)!.unheard,
         // Two expectations broken at once on one object are one place passed, not two.
         stuck: [...new Map(breaks.map(hint => ({ place: placeOf(hint.target), step: hint.steps[0] ?? 0 })).filter(item => item.place >= 0).map(item => [`${item.place}:${item.step}`, item])).values()],
         differs: conditionsKey(run) !== newestKey.get(run.profileId),
@@ -213,7 +212,7 @@ export class RunViews {
       return {
         profileId: group[0]!.run.profileId, runs: group.length, reached: endings.reached, endings, unmeasuredBy,
         medianSteps: median(counts), minSteps: counts.length ? Math.min(...counts) : null, maxSteps: counts.length ? Math.max(...counts) : null,
-        unheard: own.filter(result => result.unheard).length,
+        unconfirmed: group.filter(entry => goalUnconfirmed(entry.run.outcome)).length,
         longestStretch: longest ? { moves: longest.stretch!, runId: longest.runId, ...(longest.stretchSteps ? { steps: longest.stretchSteps } : {}) } : null,
         wrongGuesses: median(own.map(result => result.wrongGuesses)),
         topTarget: top?.finding.target ?? null,
@@ -222,7 +221,7 @@ export class RunViews {
       };
     });
     const taskFacts: TaskFindings['facts'] = {
-      runs: done.length, reached: reached.length, medianSteps: median(done.flatMap(entry => steps(entry.run) ?? [])),
+      runs: done.length, reached: reached.length, unconfirmed: done.filter(entry => goalUnconfirmed(entry.run.outcome)).length, medianSteps: median(done.flatMap(entry => steps(entry.run) ?? [])),
       fastest: fastest ? { experimentId: fastest.experimentId, runId: fastest.run.id, steps: steps(fastest.run)! } : null,
       byProfile,
     };
@@ -230,20 +229,17 @@ export class RunViews {
     return { entries, done, facts: taskFacts, findings: cached.findings, results, stuck, ...(page ? { startPage: page } : {}), steps };
   }
   /**
-   * What a finished run's journal says beyond its hints: whether its last `goal.reached` was unheard (and no `goal.lost` came after
-   * it), and the whole start page if it recorded one. A finished run's journal does not change.
+   * What a finished run's journal says beyond its hints: the whole start page if it recorded one. A finished run's journal does not change.
    */
   private async runFacts(experimentId: string, runId: string): Promise<RunFacts> {
     const known = this.factsCache.get(runId);
     if (known) return known;
-    let heard: unknown, startPage: RunFacts['startPage'];
+    let startPage: RunFacts['startPage'];
     for (const event of await this.events(experimentId, runId)) {
-      if (event.type === 'goal.reached') heard = (event.data as { heard?: unknown } | null)?.heard;
-      else if (event.type === 'goal.lost') heard = undefined;
-      else if (event.type === 'browser.start-page' && record(event.data) && typeof event.data.width === 'number' && typeof event.data.height === 'number' && typeof event.data.url === 'string')
+      if (event.type === 'browser.start-page' && record(event.data) && typeof event.data.width === 'number' && typeof event.data.height === 'number' && typeof event.data.url === 'string')
         startPage = { eventId: event.id, width: event.data.width, height: event.data.height, url: event.data.url };
     }
-    const result = { unheard: heard === false, ...(startPage ? { startPage } : {}) };
+    const result = startPage ? { startPage } : {};
     this.factsCache.set(runId, result);
     return result;
   }

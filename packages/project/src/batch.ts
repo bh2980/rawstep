@@ -7,6 +7,7 @@ import { usesKeptProfile, type Task } from '@rawstep/core/contracts';
 import { AT_DRIVER_COMMAND_ENV, modelKeyRequired, profileConditions, type ManagedTask, type Model, type ProjectConfig } from './config.js';
 import { ProjectError } from './errors.js';
 import { buildBatchSummary, type BatchSummary, type SummaryRun } from '@rawstep/reports/compare';
+import { runMoves } from '@rawstep/reports/endings';
 import type { Hint } from '@rawstep/reports/hints';
 import { compareRepeats, finalizeRun, llmAnalyzer } from './finalize.js';
 import { assertRunnable, checkRun, loadPlanFile, resolvePermissions, runSpecOf, type RunConditions } from './plan.js';
@@ -37,6 +38,8 @@ export function publicOutcome(outcome: unknown): RunRecord['outcome'] {
     ...(typeof o.stage === 'string' ? { stage: o.stage } : {}),
     ...(typeof o.step === 'number' ? { step: o.step } : {}),
     ...(typeof o.policyStopSource === 'string' ? { stopSource: o.policyStopSource } : {}),
+    ...(o.goalConfirmed === false ? { goalConfirmed: false as const } : {}),
+    ...(typeof o.goalStep === 'number' ? { goalStep: o.goalStep } : {}),
   };
 }
 const DETAIL_LIMIT = 600;
@@ -320,7 +323,7 @@ export class BatchQueue {
     const runs: SummaryRun[] = [];
     for (const run of experiment.runs.filter(r => r.state !== 'cancelled' || r.startedAt)) {
       const dir = await this.runDir(experiment.id, run.id), trace = await readTrace(dir).catch(() => undefined);
-      const hints = await readFile(dir + '/hints.json', 'utf8').then(text => JSON.parse(text) as { steps: number; hints: Hint[] }, () => ({ steps: typeof trace?.outcome?.steps === 'number' ? trace.outcome.steps : 0, hints: [] as Hint[] }));
+      const hints = await readFile(dir + '/hints.json', 'utf8').then(text => JSON.parse(text) as { steps: number; hints: Hint[] }, () => ({ steps: runMoves(trace?.outcome) ?? 0, hints: [] as Hint[] }));
       runs.push({ taskId: run.taskId, taskName: run.snapshot.taskName, profileId: run.profileId, profileName: profiles.find(p => p.id === run.profileId)?.name ?? run.profileId,
         outcome: trace?.outcome ?? { status: 'failure', reason: 'error' }, hints });
     }

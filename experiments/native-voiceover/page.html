@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Native engine check</title>
+<style>body{font:20px system-ui;max-width:44rem;margin:3rem auto;padding:1rem}button,input{font:inherit;margin:.5rem;padding:.4rem}dialog{padding:2rem}label{display:block}</style>
+<main id="main"></main>
+<script>
+  const mode = new URL(location.href).searchParams.get('case') || 'button';
+  const main = document.getElementById('main');
+  document.documentElement.dataset.completed = 'false';
+  document.documentElement.dataset.mode = mode;
+  const complete = (announce = true) => {
+    document.documentElement.dataset.completed = 'true';
+    document.getElementById('status').textContent = 'Completed';
+    document.documentElement.dataset.announcement = announce ? 'live-region' : 'ordinary-text';
+  };
+  const finish = '<button id="finish">Finish check</button><p id="status" role="status"></p>';
+  if (mode === 'destination') {
+    main.innerHTML = '<h1>Destination reached</h1><p id="status">Completed</p>';
+    document.documentElement.dataset.completed = 'true';
+  } else if (mode === 'link') {
+    main.innerHTML = '<h1>Link check</h1><a href="page.html?case=destination">Open destination</a><p id="status"></p>';
+  } else if (mode === 'onward') {
+    main.innerHTML = '<h1>Onward check</h1><a href="page.html?case=onward-target">Open next page</a><p id="status"></p>';
+  } else if (['form', 'replace', 'two-fields'].includes(mode)) {
+    main.innerHTML = '<h1>Form check</h1><form><label>Query<input id="query" autocomplete="off"></label>' +
+      (mode === 'two-fields' ? '<label>Code<input id="code" autocomplete="off"></label>' : '') +
+      '<button type="submit">Submit check</button></form><p id="status" role="status"></p>';
+    if (mode === 'replace') document.getElementById('query').value = 'OLD';
+    main.querySelector('form').addEventListener('submit', event => {
+      event.preventDefault();
+      if (document.getElementById('query').value === 'TEST42' && (mode !== 'two-fields' || document.getElementById('code').value === 'CODE7')) complete();
+      else document.getElementById('status').textContent = 'Input check failed';
+    });
+  } else if (mode === 'dialog') {
+    main.innerHTML = '<h1>Dialog check</h1><button id="open">Open dialog</button><dialog aria-labelledby="dialog-title"><h2 id="dialog-title">Dialog check</h2><button id="close">Close dialog</button></dialog><p id="status" role="status"></p>';
+    const dialog = main.querySelector('dialog');
+    document.getElementById('open').onclick = () => { dialog.showModal(); document.documentElement.dataset.opened = 'true'; };
+    document.getElementById('close').onclick = () => { dialog.close(); complete(); };
+  } else {
+    main.innerHTML = mode === 'heading' ? '<h1>Heading check</h1><p>Introduction</p><h2>Target section</h2>' + finish : mode === 'onward-target' ? '<h1>Next page</h1>' + finish : '<h1>Button check</h1>' + finish;
+    if (mode === 'silent') document.getElementById('status').removeAttribute('role');
+    document.getElementById('finish').onclick = () => {
+      const root = document.documentElement;
+      root.dataset.activations = String(Number(root.dataset.activations || 0) + 1);
+      if (root.dataset.scheduled) return;
+      root.dataset.scheduled = 'true';
+      setTimeout(() => complete(mode !== 'silent'), mode === 'delayed' ? 1500 : mode === 'late' ? 4500 : 0);
+    };
+  }
+</script>
+</html>

@@ -4,6 +4,8 @@ export const RAWSTEP_DEFAULTS = Object.freeze({
   viewport: Object.freeze({ width: 1280, height: 800 }),
   /** Quiet period after network idle before the next observation. */
   settleMs: 120,
+  /** How long the simulated user keeps listening after a press that said nothing, before deciding nothing happened. */
+  silentPressWaitMs: 5_000,
   /** Bounded resource cleanup; native screen-reader bridges get longer to release OS state. */
   cleanupTimeoutMs: Object.freeze({ default: 2_000, nativeBackend: 5_000 }),
   /** Per-request budget for planner and analysis model calls. */

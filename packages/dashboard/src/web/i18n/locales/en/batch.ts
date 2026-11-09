@@ -22,6 +22,7 @@ export const batchUi: LocaleShape<typeof ko> = {
     columns: { taskProfile: 'Task · Run profile', result: 'Result', cost: 'Moves (runs that reached the goal)', stuck: 'Stuck places', findings: 'Places worth a look', change: 'Changes from the baseline', runs: 'Runs' },
     reached: 'Reached the goal in {{reached}} of {{n}}',
     nothingMeasured: 'No run measured',
+    unconfirmed: 'Not confirmed {{count}}',
     others: { 'gave-up': 'Gave up {{count}}', mistaken: 'Said it was done, but the goal was not reached {{count}}', unmeasured: 'Not measured {{count}}', error: 'Ended on an error {{count}}' },
     costMedian: 'Median {{n}} moves',
     costMedian_one: 'Median {{n}} move',
@@ -45,6 +46,7 @@ export const batchUi: LocaleShape<typeof ko> = {
     },
     changes: {
       reach: 'Reached the goal in {{reached}} of {{head}} runs, against {{baseReached}} of {{base}} in the baseline.',
+      unconfirmed: 'Not confirmed in {{unconfirmed}} of {{head}} runs, against {{baseUnconfirmed}} of {{base}} in the baseline.',
       moves: 'Reaching the goal took a median of {{median}} moves, outside the baseline\'s {{low}}–{{high}} (its runs: {{min}}–{{max}}).',
       stuckNew: 'New stuck place: {{place}}, in {{runs}} of {{total}} runs.',
       stuckGone: 'No longer a stuck place: {{place}} (in the baseline: {{runs}} of {{total}} runs).',

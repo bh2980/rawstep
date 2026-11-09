@@ -3,7 +3,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { validateTrace, writeJsonAtomic, type RunTrace } from "@rawstep/core/trace";
 import { validateAnalysisReport, type AnalysisReport } from "../analyze/index.js";
-import { isStuck, isWrongGuess, runEnding, type EndingOf, type RunEnding } from "../endings/index.js";
+import { goalUnconfirmed, isStuck, isWrongGuess, runEnding, runMoves, type EndingOf, type RunEnding } from "../endings/index.js";
 import type { Hint, HintReport } from "../hints/index.js";
 import { record } from "../internal/guards.js";
 import { actionLabel, eventGrounds, summarizeTrace, type ReportSummary } from "./summary.js";
@@ -104,6 +104,7 @@ function renderHard(trace: RunTrace, summary: ReportSummary, hints?: HintReport)
   if (typeof stretch === "number") items.push(`<li>${bi(`${stretch} ${plural(stretch, "move", "moves")} in a row without hearing a word about the goal.`, `목표와 관련된 낱말을 듣지 못한 채 ${stretch}번 연속 행동했습니다.`)}</li>`);
   const others = found.filter((item) => item.source === "page").length;
   if (others) items.push(`<li>${bi(`${others} ${plural(others, "place", "places")} on the page worth a look (see Friction hints in the details).`, `페이지에서 더 살펴볼 지점이 ${others}곳 있습니다. (자세히의 마찰 힌트 참고)`)}</li>`);
+  if (goalUnconfirmed(trace.outcome)) items.push(`<li>${bi("Not confirmed: the goal check passed, but nothing shows the user knew. They did not hear a confirmation or say it was done. A success message that shows on screen but is not read out is a common cause; a page that confirms in other words can land here too, so have a look.", "확인 안 됨: 목표 검사는 통과했지만 사용자가 알았다는 근거가 없습니다. 완료 안내를 듣지 못했고 끝났다고 말하지도 않았습니다. 화면에만 뜨고 읽히지 않는 성공 메시지가 흔한 원인이지만, 다른 말로 안내하는 페이지일 수도 있으니 직접 확인하세요.")}</li>`);
   if (ending?.ending === "gave-up") {
     const giveUp = found.find((item) => item.kind === "early-stop")?.detail.giveUp as { reason?: unknown } | undefined, said = typeof giveUp?.reason === "string" ? giveUp.reason : "";
     items.push(`<li>${bi(`The user gave up: nothing they heard left another way to try.${said ? ` In their words: ${e(said)}` : ""}`, `사용자가 포기했습니다. 들은 것만으로는 더 해볼 방법이 없다고 판단했습니다.${said ? ` 사용자의 말: ${e(said)}` : ""}`)}</li>`);
@@ -122,13 +123,14 @@ ${hints ? "" : `<p class="muted">${bi("This report was made without friction hin
 /** How the run ended and what reaching or leaving the goal cost: moves, written as a cost and not as a pass or fail mark. */
 function renderEnding(trace: RunTrace, summary: ReportSummary): string {
   const outcome = trace.outcome, ending = endingOf(trace), e = escapeHtml;
-  const moves = typeof outcome?.steps === "number" ? outcome.steps : summary.actions.length;
+  const moves = runMoves(outcome) ?? summary.actions.length;
+  const after = typeof outcome?.goalStep === "number" ? summary.actions.length - outcome.goalStep : 0;
   const label = ending ? bi(ENDINGS[ending.ending][0], ENDINGS[ending.ending][1]) : bi("Not finished", "끝나지 않음");
   const by = ending?.by ? STOPPED_BY[ending.by] : undefined;
   const started = Date.parse(trace.startedAt), ended = trace.endedAt ? Date.parse(trace.endedAt) : NaN;
   const seconds = Number.isFinite(started) && Number.isFinite(ended) && ended >= started ? ((ended - started) / 1000).toFixed(1) : undefined;
   return `<section aria-labelledby="ending"><h2 id="ending">${bi("How it ended and what it cost", "어떻게 끝났고 얼마나 들었나")}</h2>
-<p class="ending">${label} · ${bi(`${moves} ${plural(moves, "move", "moves")}`, `${moves}번 행동`)}</p>
+<p class="ending">${label} · ${bi(`${moves} ${plural(moves, "move", "moves")}`, `${moves}번 행동`)}${after > 0 ? bi(` (${after} more after the goal check passed, watching whether the user noticed)`, ` (목표 검사 통과 뒤 사용자가 알아채는지 지켜본 ${after}번 별도)`) : ""}</p>
 ${ending?.by ? `<p>${bi(`Stopped by ${by ? by[0] : e(ending.by)}.`, `멈춘 원인: ${by ? by[1] : e(ending.by)}.`)}</p>` : ""}
 <p class="muted">${bi("A move is one key press or command the simulated user sent.", "한 번은 시뮬레이션한 사용자가 보낸 키 입력이나 명령 하나입니다.")}${seconds ? ` ${bi(`It took ${seconds} s.`, `걸린 시간은 ${seconds}초입니다.`)}` : ""}</p>
 ${summary.modality === "simulation" || summary.modality === "mixed" ? `<p class="muted">${bi("This run used a simulated VoiceOver, an approximation and not Apple VoiceOver.", "이 실행은 시뮬레이션한 VoiceOver를 썼습니다. 근사한 것이며 Apple VoiceOver가 아닙니다.")}</p>` : ""}</section>`;

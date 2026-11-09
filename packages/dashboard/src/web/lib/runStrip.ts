@@ -1,7 +1,7 @@
 import type { RunRecord, RunState } from '../../shared/config.js';
 import { t } from '../i18n/index.js';
 import { runStateLabel } from '../i18n/labels.js';
-import { runEnding, type RunEnding } from '@rawstep/reports/endings';
+import { goalUnconfirmed, runEnding, type RunEnding } from '@rawstep/reports/endings';
 
 /** What a run is drawn as: a filled square when the goal was reached, a striped one when not, a hollow one when it is undecided or ended early. */
 export type RunGlyphKind = 'reached' | 'missed' | 'inconclusive' | 'live';
@@ -47,10 +47,10 @@ export function recentRuns<T extends { run: Pick<RunRecord, 'taskId' | 'state'> 
 /** What a status mark shows: how a finished run ended, `error` for one that stopped on the tool's side, or where an unfinished run is. */
 export type RunStatus = RunEnding | 'error' | 'running' | 'queued' | 'cancelled';
 
-/** The status of a run, and for a run that was not measured, what ended it first. */
+/** The status of a run, and what to say beside it: what ended a run that was not measured first, or that a run that reached the goal was not confirmed. */
 export function runStatus(run: Pick<RunRecord, 'state' | 'outcome'>): { status: RunStatus; by?: string } {
   if (run.state === 'queued' || run.state === 'running' || run.state === 'cancelled') return { status: run.state };
   const ended = finishedEnding(run);
-  if (ended) return { status: ended.ending, ...(ended.by ? { by: ended.by } : {}) };
+  if (ended) return { status: ended.ending, ...(ended.by ? { by: ended.by } : goalUnconfirmed(run.outcome) ? { by: 'unconfirmed' } : {}) };
   return { status: 'error' };
 }

@@ -13,7 +13,7 @@ export type Persona = 'linear' | 'headings' | 'formControls' | 'links' | 'custom
 type Preset = Exclude<Persona, 'custom'>;
 export const PRESETS: readonly Preset[] = ['linear', 'headings', 'formControls', 'links'];
 
-const permissions = (keys: readonly string[], intents: readonly string[], typeText: boolean): Permissions => ({ keys: [...keys], intents: [...intents], typeText, replaceText: false });
+const permissions = (keys: readonly string[], intents: readonly string[], typeText: boolean): Permissions => ({ keys: [...keys], intents: [...intents], typeText, replaceText: typeText });
 // Typing the task's inputs is part of the task, not a way of finding things, so every screen reader way allows it.
 const PERMISSIONS: Record<Preset, Permissions> = {
   linear: permissions([], SCREENREADER_BASIC, true),

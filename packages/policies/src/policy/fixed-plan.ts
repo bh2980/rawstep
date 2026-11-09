@@ -57,7 +57,7 @@ function draftOfDocument(value: unknown): unknown {
 /**
  * A plan written beforehand — by a person, or by a planner model and saved — that never changes during the run. It holds the plan
  * still, so a run measures how these tasks fare on the page rather than how well a planner plans. When Rawstep would ask
- * for a new plan because a task is stuck (actions failing, changing nothing, running long), that task is abandoned and the
+ * for a new plan because a task is stuck (actions failing, changing nothing, running long, a press unanswered), that task is abandoned and the
  * next one starts: that abandonment is the finding. When no task is left the plan has no other way to try: the user following it
  * gives up, unless the run's own checks found the goal reached first.
  */
@@ -76,9 +76,9 @@ export class FixedPlanner implements Planner {
     // A phase review, a goal item heard on the way, or taking stock of the effort: nothing is stuck, so the plan goes on as it is.
     if (request.trigger === 'checkpoint' || request.trigger === 'goal-heard' || request.trigger === 'effort-review') return result(kept());
     const open = openTasks(doc);
-    // Nothing left to try. The goal was checked after every action, so it was not reached: the plan claims nothing, it ends.
+    // Nothing left to try: the plan claims nothing, it ends. The goal can already hold here, when the user never heard so.
     if (request.trigger === 'plan-finished' || open.length <= (doc.current ? 1 : 0)) return result({ ...kept(doc.current), rationale: 'Fixed plan: every task has been tried.',
-      giveUp: { reason: 'The written plan ran out of tasks before the goal was reached.', tried: [] } }, true);
+      giveUp: { reason: 'The written plan ran out of tasks.', tried: [] } }, true);
     return result(kept(doc.current));
   }
 }

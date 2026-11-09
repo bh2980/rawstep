@@ -70,7 +70,7 @@ export const executeRun: RunExecutor = async ({ task, settings, environment, bac
     const browser = task.browser ?? { mode: 'launch' as const };
     const endpoint = browser.mode === 'connect' ? machine.browserEndpoint.trim() : '';
     if (browser.mode === 'connect' && !endpoint) throw new ProjectError('browser-endpoint-missing', 'This task runs in a Chrome you started yourself, but this computer has no address for it (machine.browserEndpoint).');
-    const common = { policy, outDir, signal, allowedActions: permissions, confirmationGrace: rules.confirmationGrace, ...(onEvent ? { onEvent } : {}), ...(conditions ? { conditions } : {}),
+    const common = { policy, outDir, signal, allowedActions: permissions, confirmationGrace: rules.confirmationGrace, silentPressWaitMs: RAWSTEP_DEFAULTS.silentPressWaitMs, ...(onEvent ? { onEvent } : {}), ...(conditions ? { conditions } : {}),
       headless: backend !== 'simulation' ? false : machine.headless,
       browserExecutablePath: machine.browserExecutablePath || undefined,
       ...(endpoint ? { browserEndpoint: endpoint, ...(browser.copySignIn ? { copySignIn: true } : {}) } : machine.proxyServer.trim() ? { proxyServer: machine.proxyServer.trim() } : {}),

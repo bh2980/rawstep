@@ -86,7 +86,7 @@ API 키는 `rawstep.config.json`에 적지 않고 `.env.local`(파일 권한 `06
     "keys": [],
     "intents": ["next", "previous", "activate", "heading.next", "heading.previous", "headings.list"],
     "typeText": true,
-    "replaceText": false
+    "replaceText": true
   },
   "page": "default",
   "screenReader": "simulation",
@@ -146,7 +146,7 @@ API 키는 `rawstep.config.json`에 적지 않고 `.env.local`(파일 권한 `06
 | :--- | :--- | :---: | :--- |
 | `repetitionGuard` | `boolean` | `true` | 동일한 동작이 연속으로 `maxUnchangedTransitions`번 똑같은 음성만 낼 때 실행을 중단합니다. |
 | `maxUnchangedTransitions` | 정수 `1–10000` | `4` | `repetitionGuard`가 작동하기까지 허용할 연속 동일 전이 횟수. |
-| `confirmationGrace` | 정수 `0–100` | `5` | `verify.all` 조건이 충족된 단계에서 변화를 알리는 음성 안내가 전혀 없었을 때, 즉시 종료하지 않고 추가로 지켜볼 이동 횟수 (`0`이면 즉시 종료). |
+| `confirmationGrace` | 정수 `0–100` | `5` | `verify.all` 조건이 충족된 단계에서 변화를 알리는 음성 안내가 전혀 없었을 때, 즉시 종료하지 않고 추가로 지켜볼 이동 횟수 (`0`이면 즉시 종료). 어느 쪽이든 `reached`로 끝나며, 이 이동은 비용에 넣지 않습니다. |
 | `maxPlannerCalls` | 정수 `1–1000` | `40` | 한 번의 실행에서 플래너 모델을 호출할 수 있는 최대 횟수 (초과 시 `unmeasured`로 종료). |
 | `reviewEvery` | 정수 `1–10000` | `60` | 마지막 플래너 호출 이후 `effort-review` 재계획을 요청하기까지의 이동 횟수. |
 | `stepActionLimit` | 정수 `1–1000` | `12` | 하나의 세부 작업에서 새로운 단서를 듣지 못한 채 이동할 수 있는 최대 횟수 (초과 시 `task-limit` 재계획 요청). |

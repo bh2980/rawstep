@@ -75,3 +75,12 @@ Run `doctor` to test the WebSocket connection to your configured AT Driver serve
 ```bash
 npx rawstep doctor
 ```
+
+### Getting Into the Page on VoiceOver
+
+VoiceOver's cursor stays on the browser's own controls when a page loads, and nothing in the page can be reached until it goes in. The engine does this itself, at the start of a run and on every new document:
+
+1. If the page moved focus into itself on load (`autofocus` or a `focus()` call), VoiceOver is already inside and nothing is pressed.
+2. Otherwise it presses VoiceOver's next-item key until VoiceOver names the web content (up to 8 times), then goes in (VO+Shift+Down) and checks that VoiceOver said so.
+
+It is not one of the user's moves: it adds nothing to the move count, and the walk over the browser's controls stays out of what the planner hears, though the raw trace keeps it (`screen-reader.page-entry` records each entry). It does take time from the run's `timeoutMs`: about 4 seconds at the start and 7 on each later page. If VoiceOver cannot get in, the run ends on an error at the `page-entry` stage, which says nothing about the page. NVDA has no such step.

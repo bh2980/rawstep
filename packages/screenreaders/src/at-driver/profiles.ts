@@ -57,6 +57,8 @@ export interface AtDriverRotorList {
   close: readonly string[];
   /** Spoken when the wanted list is shown (English or Korean speech). */
   listName: RegExp;
+  /** The line naming the list's current item, which follows the list's name and can hold the wanted name as a word of its own. */
+  itemLine: RegExp;
   maxLists: number;
 }
 /**
@@ -77,7 +79,7 @@ export interface AtDriverRotorRoutine extends AtDriverRotorList {
   pick: readonly string[];
 }
 /** VoiceOver's rotor (VO+U): Right/Left switch lists, Down/Up move through one, Return goes to the item, Escape closes it. */
-const voiceoverRotor = { open: [...vo, "u"], nextList: [AT_DRIVER_KEYS.ArrowRight], close: [AT_DRIVER_KEYS.Escape], maxLists: 12 } as const;
+const voiceoverRotor = { open: [...vo, "u"], nextList: [AT_DRIVER_KEYS.ArrowRight], close: [AT_DRIVER_KEYS.Escape], itemLine: /^on item\b/i, maxLists: 12 } as const;
 const voiceoverRoutines: Readonly<Record<string, AtDriverListRoutine>> = Object.freeze({
   "headings.list": { ...voiceoverRotor, nextItem: [AT_DRIVER_KEYS.ArrowDown], listName: /\bheadings\b|머리말/i, maxItems: 100 },
   // Anchored: a heading or form control can have "links" or "링크" in its name.
@@ -85,6 +87,26 @@ const voiceoverRoutines: Readonly<Record<string, AtDriverListRoutine>> = Object.
 });
 const voiceoverRotors: Readonly<Record<string, AtDriverRotorRoutine>> = Object.freeze({
   "formControls.rotor": { ...voiceoverRotor, next: [AT_DRIVER_KEYS.ArrowDown], previous: [AT_DRIVER_KEYS.ArrowUp], pick: [AT_DRIVER_KEYS.Enter], listName: /form controls|폼 컨트롤|양식 컨트롤/i },
+});
+/**
+ * How a reader that stays on the browser's own controls when a page loads gets into the page: move until it names the web content,
+ * then go in. Going in from anywhere else enters that item instead (on the tab group it lands on the tab's Close button), so the web
+ * content has to be heard first and the way in is checked.
+ */
+export interface AtDriverPageEntry {
+  move: readonly string[];
+  enter: readonly string[];
+  /** The line naming the web content when the cursor is on it. */
+  webContent: RegExp;
+  /** The line saying the cursor went in. */
+  inside: RegExp;
+  /** The reader's usage hint: it comes late, so it can name the place the cursor just left. */
+  hint: RegExp;
+  maxMoves: number;
+}
+const voiceoverPageEntry: AtDriverPageEntry = Object.freeze({
+  move: voiceoverIntents.next!, enter: voiceoverIntents.interact!,
+  webContent: /(?:web content|웹 ?콘텐츠)$/i, inside: /web content|웹 ?콘텐츠/i, hint: /^you are currently\b/i, maxMoves: 8,
 });
 
 export interface AtDriverProfile {
@@ -99,6 +121,8 @@ export interface AtDriverProfile {
   routines: Readonly<Record<string, AtDriverListRoutine>>;
   /** Intents that open a rotor list and leave it open (see `AtDriverRotorRoutine`). */
   rotors: Readonly<Record<string, AtDriverRotorRoutine>>;
+  /** Set when the reader needs moving into a newly loaded page (see `AtDriverPageEntry`). */
+  pageEntry?: AtDriverPageEntry;
 }
 
 const shiftedDigits: Readonly<Record<string, string>> = Object.freeze({
@@ -146,8 +170,9 @@ export function getAtDriverProfile(name: AtDriverProfileName): AtDriverProfile {
     assumptions: [
       "US keyboard layout and default key bindings; actual layout and bindings are unknown",
       ...(name === "voiceover" ? ["VoiceOver modifier is Control+Option", "Printable ASCII text only; punctuation uses Bocoup macOS server key names",
-        "headings.list and links.list open the rotor (VO+U), press Right until English or Korean speech names the Headings or Links list, read with Down until the list wraps to its start, stays on its last item or goes silent, then press Escape; not yet checked against a live VoiceOver",
-        "formControls.rotor opens the rotor on its Form Controls list the same way and leaves it open: next/previous press Down/Up, activate presses Return (goes to the item), Escape closes it, and any other action presses Escape first. The Korean list name (폼 컨트롤 or 양식 컨트롤) and where the list starts are not checked against a live VoiceOver"] : [
+        "headings.list and links.list open the rotor (VO+U), press Right until English or Korean speech names the Headings or Links list, read with Down until the list wraps to its start, stays on its last item or goes silent, then press Escape; headings.list was checked on one live VoiceOver with English speech, links.list was not",
+        "formControls.rotor opens the rotor on its Form Controls list the same way and leaves it open: next/previous press Down/Up, activate presses Return (goes to the item), Escape closes it, and any other action presses Escape first. Checked on one live VoiceOver with English speech; the Korean list name (폼 컨트롤 or 양식 컨트롤) was not",
+        "A new document with nothing focused in it is entered by pressing next until the speech names the web content, then VO+Shift+Down. Checked on one live VoiceOver with English speech in Chromium; the Korean name (웹 콘텐츠) and other browsers were not"] : [
         "Navigation intents require NVDA browse mode; next/previous move by line",
         "No interact/stopInteracting mapping: NVDA mode toggling is not an idempotent semantic action",
         "Text is limited to ASCII letters, digits, spaces, shifted digits, semicolon, colon, equals and plus by the PAC server key parser",
@@ -165,6 +190,7 @@ export function getAtDriverProfile(name: AtDriverProfileName): AtDriverProfile {
     ],
     routines,
     rotors,
+    ...(name === "voiceover" ? { pageEntry: voiceoverPageEntry } : {}),
     mapAction(action) {
       if (action.kind === "intent") {
         if (!Object.hasOwn(intents, action.intent)) throw new AtDriverError(`Unsupported ${name} intent: ${action.intent}`, "unsupported action");

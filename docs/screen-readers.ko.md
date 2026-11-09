@@ -74,3 +74,12 @@ RAWSTEP_AT_DRIVER_COMMAND="npx your-at-driver-server --port 4382"
 ```bash
 npx rawstep doctor
 ```
+
+### VoiceOver에서 페이지 안으로 들어가기
+
+VoiceOver의 커서는 페이지가 열려도 브라우저 자체의 컨트롤에 머물고, 안으로 들어가기 전에는 페이지 내용에 닿을 수 없습니다. 실행을 시작할 때와 새 문서가 열릴 때마다 엔진이 직접 들어갑니다.
+
+1. 페이지가 열리면서 스스로 포커스를 옮겼다면(`autofocus` 또는 `focus()` 호출) VoiceOver가 이미 안에 있으므로 아무 키도 누르지 않습니다.
+2. 그렇지 않으면 VoiceOver가 웹 콘텐츠를 말할 때까지(최대 8번) 다음 항목 키를 누른 뒤, 안으로 들어가고(VO+Shift+Down) VoiceOver가 그렇게 말했는지 확인합니다.
+
+이 과정은 사용자의 이동이 아닙니다. 이동 횟수에 더해지지 않고, 브라우저 컨트롤을 지나는 동안의 발화는 플래너가 듣는 내용에서 빠집니다. 원시 trace에는 남고, 진입마다 `screen-reader.page-entry`가 기록됩니다. 다만 실행의 `timeoutMs`는 소모합니다. 시작할 때 약 4초, 이후 페이지마다 약 7초입니다. VoiceOver가 들어가지 못하면 실행은 `page-entry` 단계의 오류로 끝나며, 이는 페이지에 대해 아무것도 말해 주지 않습니다. NVDA에는 이 단계가 없습니다.

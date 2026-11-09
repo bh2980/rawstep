@@ -15,6 +15,7 @@ export const batchUi = {
     columns: { taskProfile: '작업 · 실행 프로필', result: '결과', cost: '행동 수 (해낸 실행)', stuck: '막힌 곳', findings: '살펴볼 지점', change: '기준과 달라진 점', runs: '실행' },
     reached: '{{n}}번 중 {{reached}}번 해냄',
     nothingMeasured: '측정된 실행 없음',
+    unconfirmed: '확인 안 됨 {{count}}번',
     others: { 'gave-up': '포기함 {{count}}번', mistaken: '잘못 끝냄 {{count}}번', unmeasured: '측정 못 함 {{count}}번', error: '오류로 끝남 {{count}}번' },
     costMedian: '중앙값 {{n}}번',
     stuckPlace: '{{place}} · {{total}}번 중 {{runs}}번',
@@ -35,6 +36,7 @@ export const batchUi = {
     },
     changes: {
       reach: '목표에 닿은 실행이 {{head}}번 중 {{reached}}번입니다. 기준은 {{base}}번 중 {{baseReached}}번입니다.',
+      unconfirmed: '확인 안 된 실행이 {{head}}번 중 {{unconfirmed}}번입니다. 기준은 {{base}}번 중 {{baseUnconfirmed}}번입니다.',
       moves: '목표에 닿기까지 중앙값 {{median}}번입니다. 기준의 허용 범위 {{low}}–{{high}}번 밖입니다(기준 실행은 {{min}}–{{max}}번).',
       stuckNew: '새로 막힌 곳: {{place}} ({{total}}번 중 {{runs}}번)',
       stuckGone: '더는 막히지 않은 곳: {{place}} (기준에서는 {{total}}번 중 {{runs}}번)',

@@ -44,13 +44,14 @@ sequenceDiagram
   - `cue`: 찾고 있는 항목에 도달했을 때 들릴 것으로 기대하는 단어입니다 (항목을 듣기 전에 쓴 추측입니다). 플래너나 계획 파일은 문자열로 쓰거나, 역할(`"button"`, `"link"`, `"heading"` 등)과 상태(`"checked"`, `"unchecked"`, `"expanded"`, `"collapsed"`, `"selected"`)를 선택적으로 붙여 `{ "name": "Add to cart", "role": "button", "state": "checked" }` 형태로 씁니다. Rawstep이 모르는 역할이나 상태는 버려집니다. 저장되는 `plan.json`에는 `cue`, `cueRole`, `cueState`로 기록됩니다.
   - **수행할 동작 (`followPlan`):**
     - **이동 작업 (`moves`):** `cue`가 들릴 때까지, 나열된 이동 명령(예: `["heading.next"]`) 중 프로필이 허용하는 첫 번째 것을 반복합니다. `moves`를 생략했거나 하나도 허용되지 않으면 한 항목씩(`next`) 이동합니다.
-    - **활성화 작업 (`activates: true`):** 현재 스크린리더 커서가 위치한 항목을 누릅니다 (`activate`).
-    - **입력 작업 (`types: "<inputName>"`):** 포커스된 필드를 활성화하고 선언된 태스크 입력값을 타이핑합니다 (`typeText` / `replaceText`).
+    - **활성화 작업 (`activates: true`):** 현재 스크린리더 커서가 위치한 항목을 한 번 누릅니다 (`activate`). 아무 말이 없고 포커스가 입력창으로 가지 않았으면 키를 더 누르지 않고 최대 5초 더 듣습니다. 그래도 `cue`가 들리지 않으면 플래너가 다음 행동을 정합니다. `cue`가 없는 작업은 그대로 끝납니다.
+    - **입력 작업 (`types: "<inputName>"`):** 포커스된 필드를 활성화하고 선언된 태스크 입력값을 필드의 기존 값 뒤에 타이핑합니다. `types: "replace:<inputName>"`은 기존 값을 덮어쓰며, 프로필에 `replaceText` 권한이 있어야 합니다.
 
 ### 3단계: 음성 단서 매칭 및 인식
 매 동작이 끝날 때마다 Rawstep은 방금 스크린리더가 읽어준 내용을 현재 세부 작업의 `cue`와 비교합니다.
 - 읽힌 텍스트가 `cue` 단어, 역할, 상태와 직접 일치하면 해당 세부 작업을 즉시 완료 처리합니다 (`verified: "heard"`).
 - 읽힌 텍스트가 `cue`와 정확히 일치하지는 않지만 이름에 쓰인 단어를 일부 공유한다면, 플래너의 `recognize()` 메서드를 호출해 방금 들은 항목이 찾던 대상이 맞는지 확인합니다 (`verified: "recognized"`). 같은 세부 작업에서 같은 항목은 한 번만 묻습니다.
+- `cue`의 역할도 추측입니다. 읽힌 텍스트에 `cue`의 이름 단어가 모두 있는데 역할이 다르면(`"check"` 체크박스를 찾는데 `"Finish check button"`이 들린 경우) 같은 질문을 세부 작업당 최대 2번까지 합니다.
 
 ### 4단계: 재계획이 호출되는 시점 (`PlanTrigger`)
 Rawstep은 판단이 필요한 순간에만 플래너를 다시 호출합니다.
@@ -58,10 +59,11 @@ Rawstep은 판단이 필요한 순간에만 플래너를 다시 호출합니다.
 | `trigger` | 호출 시점 |
 | :--- | :--- |
 | `'start'` | 실행 시작 시 첫 계획을 세울 때. |
-| `'checkpoint'` | 현재 페이즈의 모든 세부 작업이 끝났을 때, 다음 페이즈로 넘어가기 전 완료 기준이 충족되었는지 점검할 때. |
+| `'checkpoint'` | 현재 페이즈의 모든 세부 작업이 끝났고 그 페이즈에 입력이 있었거나 듣지 못한 `cue`가 있을 때, 다음 페이즈로 넘어가기 전 완료 기준이 충족되었는지 점검할 때. `cue`를 모두 들은 페이즈는 바로 넘어갑니다. |
 | `'goal-heard'` | 현재 세부 작업이 다른 것을 찾는 중인데, 목표에 나온 이름의 항목이 처음으로 들렸을 때. |
 | `'failures'` | 현재 세부 작업에서 연속으로 `runRules.failureLimit`(기본값 `2`)번 동작 실행이 실패했을 때. |
 | `'no-change'` | 현재 세부 작업에서 연속으로 `runRules.noChangeLimit`(기본값 `3`)번 아무런 음성 변화가 없었을 때. |
+| `'press-unanswered'` | 현재 세부 작업이 항목을 한 번 눌렀는데 `cue`가 들리지 않았을 때. |
 | `'oscillation'` | 커서가 마지막으로 멈춘 항목 `4`개가 같은 두 항목을 번갈아 오갈 때(`A → B → A → B`). |
 | `'task-limit'` | 현재 세부 작업에서 새로운 단서를 듣지 못한 채 `runRules.stepActionLimit`(기본값 `12`)번 이동했을 때. |
 | `'effort-review'` | 플래너가 마지막으로 점검한 이후 `runRules.reviewEvery`(기본값 `60`)번의 이동이 지났을 때. |
@@ -91,7 +93,7 @@ Rawstep은 판단이 필요한 순간에만 플래너를 다시 호출합니다.
     "keys": [],
     "intents": ["next", "previous", "activate", "heading.next", "heading.previous", "headings.list"],
     "typeText": true,
-    "replaceText": false
+    "replaceText": true
   }
 }
 ```
@@ -127,7 +129,7 @@ API 호출 없이 빠르고 동일하게 재현되는 실행이 필요할 때(`r
     "keys": [],
     "intents": ["next", "previous", "activate", "heading.next", "heading.previous", "headings.list"],
     "typeText": true,
-    "replaceText": false
+    "replaceText": true
   }
 }
 ```

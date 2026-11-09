@@ -25,12 +25,12 @@ const median = (values: readonly number[]): number | null => {
 
 /** What a summary cell says in numbers. `measured` leaves out runs that ended on an error: they say nothing about the page. */
 export type CellFacts = {
-  runs: number; measured: number; reached: number; gaveUp: number; mistaken: number; unmeasured: number; errors: number;
+  runs: number; measured: number; reached: number; unconfirmed: number; gaveUp: number; mistaken: number; unmeasured: number; errors: number;
   median: number | null; min: number | null; max: number | null;
 };
 export function cellFacts(cell: SummaryCell): CellFacts {
   const moves = cell.reachedMoves;
-  return { runs: cell.runs, measured: cell.runs - cell.endings.error, reached: cell.endings.reached, gaveUp: cell.endings['gave-up'], mistaken: cell.endings.mistaken,
+  return { runs: cell.runs, measured: cell.runs - cell.endings.error, reached: cell.endings.reached, unconfirmed: cell.unconfirmed ?? 0, gaveUp: cell.endings['gave-up'], mistaken: cell.endings.mistaken,
     unmeasured: cell.endings.unmeasured, errors: cell.endings.error, median: median(moves), min: moves.length ? Math.min(...moves) : null, max: moves.length ? Math.max(...moves) : null };
 }
 
@@ -50,6 +50,8 @@ export function describeCellChange(cell: CellComparison): CellChange {
     switch (change.kind) {
       case 'reach-drop': case 'reach-rise':
         return head && base ? [t('batchSummary.changes.reach', { reached: head.reached, head: head.measured, baseReached: base.reached, base: base.measured })] : [];
+      case 'unconfirmed-rise': case 'unconfirmed-fall':
+        return head && base ? [t('batchSummary.changes.unconfirmed', { unconfirmed: head.unconfirmed, head: head.measured, baseUnconfirmed: base.unconfirmed, base: base.measured })] : [];
       case 'moves-up': case 'moves-down':
         return head && base && cell.movesBand && head.median !== null && base.min !== null && base.max !== null
           ? [t('batchSummary.changes.moves', { median: head.median, low: cell.movesBand[0], high: cell.movesBand[1], min: base.min, max: base.max })] : [];
@@ -86,11 +88,11 @@ export const csvText = (rows: readonly (readonly (string | number | null | undef
 
 const placeName = (item: { role: string; name?: string }) => `${item.role}${item.name ? ` "${item.name}"` : ''}`;
 /** The columns of the summary CSV: stable English names (a file other tools read), not the words of the screen. */
-export const SUMMARY_CSV_COLUMNS = ['batch', 'date', 'task', 'profile', 'runs', 'reached', 'gave_up', 'said_done_not_reached', 'not_measured', 'errors', 'median_moves', 'min_moves', 'max_moves', 'stuck_places', 'page_findings'] as const;
+export const SUMMARY_CSV_COLUMNS = ['batch', 'date', 'task', 'profile', 'runs', 'reached', 'not_confirmed', 'gave_up', 'said_done_not_reached', 'not_measured', 'errors', 'median_moves', 'min_moves', 'max_moves', 'stuck_places', 'page_findings'] as const;
 /** One row per task × profile of a summary. */
 export function summaryCsv(summary: BatchSummary): string {
   return csvText([SUMMARY_CSV_COLUMNS, ...summary.cells.map(cell => { const f = cellFacts(cell);
-    return [summary.batch.note ?? summary.batch.id, summary.batch.createdAt, cell.taskName, cell.profileName, f.runs, f.reached, f.gaveUp, f.mistaken, f.unmeasured, f.errors, f.median, f.min, f.max,
+    return [summary.batch.note ?? summary.batch.id, summary.batch.createdAt, cell.taskName, cell.profileName, f.runs, f.reached, f.unconfirmed, f.gaveUp, f.mistaken, f.unmeasured, f.errors, f.median, f.min, f.max,
       cell.stuck.map(item => `${placeName(item)} (${item.runs}/${f.measured})`).join('; '), cell.pageFindings.length]; })]);
 }
 

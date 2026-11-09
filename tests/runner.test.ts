@@ -15,14 +15,15 @@ const dirs: string[] = [];
 afterEach(async () => { vi.unstubAllGlobals(); await Promise.all(dirs.splice(0).map(path => rm(path, { recursive: true, force: true }))); });
 async function out() { const path = await mkdtemp(join(tmpdir(),'rawstep-runner-v2-')); dirs.push(path); return path; }
 const task: Task = { id:'test',url:'https://example.com/task',goal:'Activate start',maxSteps:3,timeoutMs:2000,verify:{all:[{titleIncludes:'Done'}]} };
-function fixture(said = 'Real captured utterance') {
+function fixture(said: string | string[] = 'Real captured utterance') {
   const listeners = new Set<(event: unknown) => void>();
   let sequence = 0;
+  const lines = Array.isArray(said) ? said : [said];
   const backend: Backend = {
     capabilities:{intents:['next','activate'],keys:['Tab','Enter'],textEntry:true,replaceText:true},
     start:vi.fn(async () => ({screenReader:'mock',screenReaderVersion:'unknown'})),
     execute:vi.fn(async (action:BackendAction) => ({id:'command-1',action})),
-    observe:vi.fn(async () => { const output = {sequence:++sequence,receivedAt:new Date().toISOString(),text:said,raw:{method:'interaction.capturedOutput',params:{data:said}}}; for(const listener of listeners) listener({type:'output',output}); return {windowId:`w-${sequence}`,startedAt:new Date().toISOString(),endedAt:new Date().toISOString(),reason:'quiet',outputs:[output],speech:[output.text]}; }),
+    observe:vi.fn(async () => { const text = lines[Math.min(sequence,lines.length-1)]!; const output = {sequence:++sequence,receivedAt:new Date().toISOString(),text,raw:{method:'interaction.capturedOutput',params:{data:text}}}; for(const listener of listeners) listener({type:'output',output}); return {windowId:`w-${sequence}`,startedAt:new Date().toISOString(),endedAt:new Date().toISOString(),reason:'quiet',outputs:[output],speech:[output.text]}; }),
     close:vi.fn(async () => {}),
     subscribe:listener => { listeners.add(listener); return () => listeners.delete(listener); }
   };
@@ -395,22 +396,90 @@ describe('model-neutral runner',()=>{
     });
   });
 });
+describe('getting a screen reader into a newly loaded page', () => {
+  const next = { action: { kind: 'intent' as const, intent: 'next' } };
+  /** A page whose document and focus change as the script says, one entry for each look at it. */
+  const loading = (looks: ({ document: number; focused: boolean } | Error)[]) => {
+    const f = fixture(), enterPage = vi.fn(async () => ({ entered: true, moves: 1 }));
+    f.backend.enterPage = enterPage;
+    f.verifier.mockResolvedValue({ passed: false, failures: ['missing'] });
+    let at = 0;
+    vi.mocked(f.browser.page.evaluate).mockImplementation(async (work: unknown) => {
+      if (!String(work).includes('timeOrigin')) return true;
+      const look = looks[Math.min(at++, looks.length - 1)]!;
+      if (look instanceof Error) throw look;
+      return look;
+    });
+    return { f, enterPage };
+  };
+  const script = (steps: number) => new ScriptedPolicy([...Array(steps).fill(next), { stop: 'stuck' as const }]);
+  it('goes in at the start and again only when another document has loaded, without counting it as a move', async () => {
+    const { f, enterPage } = loading([{ document: 1, focused: false }, { document: 1, focused: false }, { document: 2, focused: false }]);
+    const trace = await runWithPolicy(task, { ...f, outDir: await out(), policy: script(2) });
+    expect(enterPage).toHaveBeenCalledTimes(2);
+    expect(trace.events.filter(e => e.type === 'screen-reader.page-entry').map(e => e.data)).toEqual([{ step: 0, entered: true, moves: 1 }, { step: 2, entered: true, moves: 1 }]);
+    expect(trace.outcome).toMatchObject({ steps: 3 }); // Two moves and the stop: going in is not among them.
+    expect(vi.mocked(f.backend.enterPage!).mock.invocationCallOrder[0]!).toBeLessThan(vi.mocked(f.backend.observe).mock.invocationCallOrder[0]!);
+  });
+  it('leaves the cursor alone on a page that moved focus into itself', async () => {
+    const { f, enterPage } = loading([{ document: 1, focused: true }]);
+    const trace = await runWithPolicy(task, { ...f, outDir: await out(), policy: script(1) });
+    expect(enterPage).not.toHaveBeenCalled();
+    expect(trace.events.find(e => e.type === 'screen-reader.page-entry')?.data).toMatchObject({ step: 0, entered: false });
+  });
+  it('looks again after the next action when the page cannot answer yet', async () => {
+    const { f, enterPage } = loading([new Error('Execution context was destroyed'), { document: 1, focused: false }]);
+    await runWithPolicy(task, { ...f, outDir: await out(), policy: script(1) });
+    expect(enterPage).toHaveBeenCalledTimes(1);
+  });
+  it('ends the run on an error when the reader cannot get in, since the run could then say nothing about the page', async () => {
+    const { f, enterPage } = loading([{ document: 1, focused: false }]);
+    enterPage.mockRejectedValue(new Error('VoiceOver did not name the web content'));
+    const trace = await runWithPolicy(task, { ...f, outDir: await out(), policy: script(1) });
+    expect(trace.outcome).toMatchObject({ status: 'failure', reason: 'error', stage: 'page-entry', error: expect.stringContaining('web content') });
+    expect(f.backend.execute).not.toHaveBeenCalled();
+  });
+});
 describe('a goal reached without the user hearing so', () => {
   const shop: Task = { ...task, maxSteps: 10, verify: { all: [{ textVisible: 'Added to cart' }] } };
   const next = { action: { kind: 'intent' as const, intent: 'next' } };
   const run = async (f: ReturnType<typeof fixture>, confirmationGrace?: number) => runWithPolicy(shop, { ...f, outDir: await out(), policy: new ScriptedPolicy(Array(10).fill(next)), ...(confirmationGrace !== undefined ? { confirmationGrace } : {}) });
   it('goes on for the grace when the confirmation was only shown, and records when it was reached', async () => {
     const trace = await run(fixture(), 2);
-    expect(trace.outcome).toMatchObject({ status: 'success', reason: 'verified', steps: 3 });
+    expect(trace.outcome).toMatchObject({ status: 'success', reason: 'verified', steps: 3, goalStep: 1, goalConfirmed: false });
     expect(trace.events.find(e => e.type === 'goal.reached')?.data).toMatchObject({ step: 1, heard: false, grace: 2 });
   });
   it('keeps a reached goal as reached when the step limit cuts the grace short', async () => {
     const trace = await run(fixture(), 50);
-    expect(trace.outcome).toMatchObject({ status: 'success', reason: 'verified', steps: 10 });
+    expect(trace.outcome).toMatchObject({ status: 'success', reason: 'verified', steps: 10, goalStep: 1, goalConfirmed: false });
   });
   it('stops at once when the user heard it, or without a grace', async () => {
-    expect((await run(fixture('Added to cart'), 2)).outcome).toMatchObject({ status: 'success', steps: 1 });
-    expect((await run(fixture())).outcome).toMatchObject({ status: 'success', steps: 1 });
+    const heard = await run(fixture('Added to cart'), 2);
+    expect(heard.outcome).toMatchObject({ status: 'success', steps: 1 });
+    expect(heard.outcome).not.toHaveProperty('goalConfirmed');
+    expect(heard.outcome).not.toHaveProperty('goalStep');
+    expect((await run(fixture())).outcome).toMatchObject({ status: 'success', steps: 1, goalConfirmed: false });
+  });
+  it('knows after all when the user comes upon the confirmation within the grace', async () => {
+    const trace = await run(fixture(['Start', 'Moved', 'Added to cart']), 5);
+    expect(trace.outcome).toMatchObject({ status: 'success', steps: 2, goalStep: 1 });
+    expect(trace.outcome).not.toHaveProperty('goalConfirmed');
+    expect(trace.events.find(e => e.type === 'goal.heard')?.data).toMatchObject({ step: 2, reachedAt: 1 });
+  });
+  it('leaves the goal unconfirmed when a limit or the guard stops the run, and when the time limit cuts the grace short', async () => {
+    const stopped = await runWithPolicy(shop, { ...fixture('Nothing about it'), outDir: await out(), policy: new ScriptedPolicy([{ stop: 'stuck', stopSource: 'exploration-guard' }]) });
+    expect(stopped.outcome).toMatchObject({ status: 'success', policyStopSource: 'exploration-guard', goalConfirmed: false });
+    const f = fixture(); let presses = 0;
+    vi.mocked(f.backend.execute).mockImplementation(async (action: BackendAction) => { if (++presses > 1) await new Promise(() => {}); return { id: 'command-1', action }; });
+    const timed = await runWithPolicy({ ...shop, timeoutMs: 400 }, { ...f, outDir: await out(), confirmationGrace: 5, policy: new ScriptedPolicy(Array(10).fill(next)) });
+    expect(timed.outcome).toMatchObject({ status: 'success', reason: 'verified', goalConfirmed: false });
+  });
+  it('tells a user who stopped not knowing from one who said they were done', async () => {
+    const stopping = async (stop: 'stuck' | 'success') => runWithPolicy(shop, { ...fixture(), outDir: await out(), confirmationGrace: 5, policy: new ScriptedPolicy([next, { stop }]) });
+    expect((await stopping('stuck')).outcome).toMatchObject({ status: 'success', policyStop: 'stuck', goalConfirmed: false });
+    const done = await stopping('success');
+    expect(done.outcome).toMatchObject({ status: 'success', policyStop: 'success' });
+    expect(done.outcome).not.toHaveProperty('goalConfirmed');
   });
   it('carries on as before when an action in the grace undoes the goal', async () => {
     const f = fixture(); let calls = 0;
@@ -419,5 +488,50 @@ describe('a goal reached without the user hearing so', () => {
     expect(trace.events.filter(e => e.type === 'goal.reached').map(e => (e.data as { step: number }).step)).toEqual([1, 3]);
     expect(trace.events.some(e => e.type === 'goal.lost')).toBe(true);
     expect(trace.outcome).toMatchObject({ status: 'success', steps: 5 });
+  });
+});
+
+describe('listening on after a press that said nothing', () => {
+  const noTask: Task = { ...task, maxSteps: 2 };
+  /** A backend that answers each observation with the next line; `''` is silence. */
+  const answering = (...replies: string[]) => {
+    const f = fixture();
+    let sequence = 0;
+    // No focus in a text field, unless a test says so.
+    f.browser.page.evaluate = vi.fn(async () => false) as never;
+    f.backend.observe = vi.fn(async () => {
+      const text = replies.shift() ?? '', stamp = new Date().toISOString();
+      const outputs = text ? [{ sequence: ++sequence, receivedAt: stamp, text, raw: {} }] : [];
+      return { kind: 'screenreader', windowId: `w-${sequence}`, startedAt: stamp, endedAt: stamp, reason: 'quiet', outputs, speech: outputs.map(o => o.text) } as never;
+    });
+    return f;
+  };
+  const press = { action: { kind: 'intent', intent: 'activate' } } as const, move = { action: { kind: 'intent', intent: 'next' } } as const;
+  const heard = (trace: { events: readonly { type: string; data: unknown }[] }) => trace.events.filter(e => e.type.endsWith('.observation')).map(e => (e.data as { speech: string[] }).speech);
+  const notYet = () => vi.fn(async (): Promise<VerificationRecord> => ({ passed: false, failures: [] }));
+  it('waits for the late answer without pressing anything, and records one observation for the move', async () => {
+    const f = answering('Start', '', '', 'Completed');
+    const trace = await runWithPolicy(noTask, { ...f, verifier: notYet(), outDir: await out(), silentPressWaitMs: 2000, policy: new ScriptedPolicy([press, { stop: 'stuck' }]) });
+    expect(heard(trace)).toEqual([['Start'], ['Completed']]);
+    expect(f.backend.execute).toHaveBeenCalledTimes(1);
+    expect(f.backend.observe).toHaveBeenCalledTimes(4);
+  });
+  it('does not wait after a press that put focus in a text field: the user types next', async () => {
+    const f = answering('Start');
+    f.browser.page.evaluate = vi.fn(async () => true) as never;
+    await runWithPolicy(noTask, { ...f, verifier: notYet(), outDir: await out(), silentPressWaitMs: 60_000, policy: new ScriptedPolicy([press, { stop: 'stuck' }]) });
+    expect(f.backend.observe).toHaveBeenCalledTimes(2);
+  });
+  it('stops waiting after the limit, and costs no wait when the press said something, after a move, or by default', async () => {
+    const silent = answering('Start');
+    const started = Date.now();
+    const trace = await runWithPolicy(noTask, { ...silent, verifier: notYet(), outDir: await out(), silentPressWaitMs: 300, policy: new ScriptedPolicy([press, { stop: 'stuck' }]) });
+    expect(heard(trace)).toEqual([['Start'], []]);
+    expect(Date.now() - started).toBeGreaterThanOrEqual(300);
+    for (const [replies, decision, wait] of [[['Start', 'Dialog'], press, 60_000], [['Start'], move, 60_000], [['Start'], press, undefined]] as const) {
+      const f = answering(...replies);
+      await runWithPolicy(noTask, { ...f, verifier: notYet(), outDir: await out(), ...(wait ? { silentPressWaitMs: wait } : {}), policy: new ScriptedPolicy([decision, { stop: 'stuck' }]) });
+      expect(f.backend.observe).toHaveBeenCalledTimes(2);
+    }
   });
 });

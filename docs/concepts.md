@@ -54,7 +54,7 @@ Each profile bundles five settings under a single name:
 
 ---
 
-## 4. The Four Run Endings (`RunEnding`)
+## 4. The Five Run Endings (`RunEnding`)
 
 Rawstep does not reduce runs to a simplistic pass/fail boolean. Every finished run is classified into one of four endings (`runEnding` in `@rawstep/reports`):
 
@@ -72,7 +72,8 @@ Rawstep does not reduce runs to a simplistic pass/fail boolean. Every finished r
 Even when a run ends as **`reached`**, Rawstep looks closely at what it took to get there:
 
 - **Moves:** How many screen-reader actions it took to reach the goal. If a task takes 6 moves when jumping by headings (`by-headings`) but 28 moves when reading item by item (`linear`), or if a UI change pushes the median move count from 8 to 22, Rawstep highlights the difference.
-- **Confirmation Grace (`confirmationGrace`):** When `verify.all` passes on an action (for example, clicking "Save"), Rawstep checks whether the page actually announced anything confirming the change. If nothing was announced, the run continues for up to `confirmationGrace` (default `5`) extra moves so you can see the user wandering because they were never told their action succeeded.
+- **Confirmation Grace (`confirmationGrace`):** When `verify.all` passes on an action (for example, clicking "Save"), Rawstep checks whether the page actually announced anything confirming the change. The check is a literal match of the wording of the rules against the speech. If it was not announced, the run continues for up to `confirmationGrace` (default `5`) extra moves to see whether the user comes upon it. The run ends as `reached` either way, and moves count only up to where the rules passed.
+- **Not confirmed (`goalConfirmed: false`):** A note beside `reached`, never a result of its own. It means nothing shows the user knew: the wording was not heard within the grace and the user did not say they were done, or the run stopped for another reason (a limit or the repetition guard). A success message that shows on screen but is not read out is a common cause; a page that confirms in other words can get the note too, so have a look. Rules with no wording to compare (only `urlIncludes` or `script`) end at once with no note. The completion rules are what you call done: if the user has to hear it, add `activatedAnnouncementIncludes` to them, and a run that does not hear it does not pass.
 - **Stuck Places (`expectation-broken`):** When the user activates a control or types into a field expecting a specific change (recorded in the plan's `cue` and `assumptions`), and nothing happens or the expectation fails, Rawstep records the element and the broken expectation as a stuck place.
 - **Friction Hints (`hints.json`):** Rawstep extracts 16 specific hint types grouped by source:
   - **Page hints (`source: 'page'`):** Issues observed directly in browser/AT behavior (`excess-keystrokes`, `focus-lost`, `focus-left-page`, `focus-not-visible`, `modal-focus-outside`, `missing-announcement`, `live-interruptions`).

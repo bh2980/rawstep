@@ -39,6 +39,17 @@ export function runEnding(outcome: { status: string; reason?: string } | undefin
   }
 }
 
+/**
+ * A run reached the goal with nothing to show the user knew. A note beside the ending, never the ending itself: the goal check is what
+ * the person writing the task calls done. A task where the user has to hear it says so in the check (`activatedAnnouncementIncludes`).
+ */
+export const goalUnconfirmed = (outcome: { status: string; goalConfirmed?: unknown } | undefined): boolean => outcome?.status === 'success' && outcome.goalConfirmed === false;
+/** What a run cost in moves: up to where the goal check passed. Moves after it only watched whether the user noticed. */
+export function runMoves(outcome: object | undefined): number | undefined {
+  const { steps, goalStep } = (outcome ?? {}) as { steps?: unknown; goalStep?: unknown }, moves = goalStep ?? steps;
+  return typeof moves === 'number' ? moves : undefined;
+}
+
 type BrokenDetail = { detail: Record<string, unknown> };
 /**
  * An `expectation-broken` hint that marks a stuck place: the user pressed the object a moment before and it did not respond as they

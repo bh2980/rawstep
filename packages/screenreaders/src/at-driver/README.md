@@ -86,9 +86,9 @@ So a period fails on NVDA with this server, and Unicode text is not supported on
 
 ## Rotor routines
 
-VoiceOver's rotor (VO+U) is read by listening, because Rawstep only gets speech back. A routine presses a key, waits for the speech to go quiet, reads the last thing spoken, and decides the next key from it. Everything spoken along the way stays in the observation, so the planner hears what a user would hear. NVDA has no routines.
+VoiceOver's rotor (VO+U) is read by listening, because Rawstep only gets speech back. A routine presses a key, waits for the speech to go quiet, reads what was spoken, and decides the next key from it. Everything spoken along the way stays in the observation, so the planner hears what a user would hear. NVDA has no routines.
 
-**Finding a list.** Press VO+U to open the rotor and listen. While the last thing spoken does not name the wanted list, press Right and listen again, up to 12 times. The list name is matched against English or Korean speech:
+**Finding a list.** Press VO+U to open the rotor and listen. VoiceOver says a list's name and then its current item ("Form Controls menu", "On item Query edit text"), and the rotor opens on the list it was last left on. While no line other than the item line names the wanted list, press Right and listen again, up to 12 times. The list name is matched against English or Korean speech:
 
 | Routine | Matches | Notes |
 |---|---|---|
@@ -112,12 +112,22 @@ The action counts as one step in a run. The cursor on the page does not move.
 
 If an action fails part way, the rotor is closed before the next action.
 
+## Getting into the page
+
+VoiceOver's cursor stays on the browser's own controls when a page loads. At the start of a run and for each new document (the runner compares `performance.timeOrigin`), when nothing in the page has focus, the runner calls `enterPage()` before the next observation:
+
+1. Wait for quiet, then press `next` and listen until the last line that is not a usage hint ends in "web content" or "웹 콘텐츠", up to 8 times. A usage hint comes late and can name the place the cursor just left, so it does not count.
+2. Press VO+Shift+Down and check the last line names the web content. `interact` anywhere else goes into that item instead: from the tab group it lands on the tab's Close button. So the web content has to be heard first, and a failure at either step rejects (`page entry failed`) rather than carrying on.
+3. Drop the walk from what the next observation returns, keeping what was said on load and on going in. The raw `backend.output` events still hold it.
+
+A page that moved focus into itself on load takes the cursor in by itself, so nothing is pressed. NVDA's profile has no page entry, and `enterPage()` does nothing there.
+
 ## What is not confirmed on a real screen reader
 
 The fake-transport tests in `tests/at-driver.test.ts` and `tests/at-driver-workflow.test.ts` check the protocol, cancellation and collection rules against a fake server. They do not check how VoiceOver, NVDA or a browser behave. No recorded live check is kept in this repository. Things to treat as unconfirmed until you have seen them on your machine:
 
-- **The three rotor routines have not been checked on a live VoiceOver** (as the profile's own assumptions say). That includes: that VO+U opens the rotor on the list you expect, that Right steps through the lists in the order the routine relies on, what the end of a list sounds like (stays on the last item or wraps), and that Return in the rotor goes to the item without pressing it.
-- **The Korean list names** ("머리말", "링크", "폼 컨트롤", "양식 컨트롤") and **where the form controls list starts** are guesses from the routine's design.
+- **The rotor routines and page entry were checked on one setup only:** VoiceOver 26.6.2 with English speech and Chromium for Testing 147, in a macOS 26 VM. There the Headings list stayed on its last item at the end, and Return in the Form Controls list moved focus to the field without pressing anything. **`links.list` has not been run on a live VoiceOver**, and other versions and browsers may differ.
+- **The Korean names** ("머리말", "링크", "폼 컨트롤", "양식 컨트롤", "웹 콘텐츠") are guesses from the routine's design.
 - **Default key bindings and a US keyboard layout** are assumed. Neither is read from the machine; the run records layout and settings as `unknown`. A changed VoiceOver modifier, Quick Nav or a different layout will change what the keys do.
 - **NVDA keys assume browse mode.** The adapter does not detect or switch the mode.
 - **Which screen reader and browser versions** the key map suits is not established. Versions are only what the server reports.

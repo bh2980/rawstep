@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { EventEmitter } from "node:events";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { runCli, parseCliArguments, formatRunResult, formatSuiteResult, nodeSupported, type CliDependencies } from "@rawstep/cli/cli";
+import { runCli, parseCliArguments, endingText, formatRunResult, formatSuiteResult, nodeSupported, type CliDependencies } from "@rawstep/cli/cli";
 import { BrowserConnectError } from "@rawstep/browser/browser";
 import { ProjectError } from "@rawstep/project/errors";
 import { ProjectStore, demoConfig, initProject } from "@rawstep/project/store";
@@ -40,6 +40,13 @@ function fixtureTrace(status: "success" | "failure" = "success"): RunTrace {
     events: [], outcome: { status }, privacy: { inputValues: "redacted", redactionApplied: false },
   };
 }
+
+describe("a run whose user may not have known", () => {
+  it("still says it reached the goal, with the note beside it", () => {
+    expect(endingText({ status: "success", reason: "verified", goalConfirmed: false })).toBe("reached the goal (not confirmed)");
+    expect(endingText({ status: "success", reason: "verified" })).toBe("reached the goal");
+  });
+});
 
 describe("CLI argument contract", () => {
   it("parses the eight commands and their options", () => {
@@ -426,6 +433,14 @@ describe("hints command", () => {
     expect(written).toMatchObject({ runId: "hint-run", goalReached: true, steps: 12 });
     expect(written.hints.map((hint: { kind: string }) => hint.kind)).toEqual(["excess-keystrokes"]);
     expect(await readFile(join(directory, "trace.json"), "utf8")).toBe(source);
+  });
+  it("notes when the goal check passed but nothing showed the user noticed", async () => {
+    const directory = await temporaryDirectory();
+    const trace = frictionTrace("unconfirmed-run", 12);
+    await writeFile(join(directory, "trace.json"), JSON.stringify({ ...trace, outcome: { ...trace.outcome, goalConfirmed: false } }));
+    const io = output(directory);
+    expect(await runCli(["hints", "trace.json"], io)).toBe(0);
+    expect(io.stdout.mock.calls.flat().join("")).toContain("Hints: 1 · goal reached: yes (not confirmed) · steps 12\n");
   });
   it("accepts run directories and compares against a reference run", async () => {
     const directory = await temporaryDirectory();
