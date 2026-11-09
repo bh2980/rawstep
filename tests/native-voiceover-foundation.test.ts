@@ -54,8 +54,11 @@ describe('native experiment preparation (no native screen reader runs)', () => {
     expect(config.connections).toMatchObject([{ id: 'grok', provider: 'grok' }]);
     expect(config.profiles.find(p => p.id === 'S01-button')).toMatchObject({ screenReader: 'voiceover', planner: { connectionId: 'grok', modelId: 'grok-4.7' }, actions: { typeText: true, replaceText: true }, runRules: { survey: 'headings' } });
     expect(config.profiles.find(p => p.id === 'F01-timeout')?.planner).toEqual({ planFile: 'plans/F01-timeout.json' });
-    const c = CASES.find(c => c.id === 'S01-button')!, spec = await specFor(c, dir, config);
-    expect(spec.plannerModel).toMatchObject({ provider: 'grok', modelId: 'grok-4.7' }); expect(spec.plannerPlan).toBeUndefined(); expect(spec.task.goal).toBe(c.userGoal);
+    // The product's preflight builds a VoiceOver run spec only on macOS, where the experiment runs.
+    if (process.platform === 'darwin') {
+      const c = CASES.find(c => c.id === 'S01-button')!, spec = await specFor(c, dir, config);
+      expect(spec.plannerModel).toMatchObject({ provider: 'grok', modelId: 'grok-4.7' }); expect(spec.plannerPlan).toBeUndefined(); expect(spec.task.goal).toBe(c.userGoal);
+    }
     await expect(readFile(join(dir, 'plans/S01-button.json'), 'utf8')).rejects.toThrow();
     expect(plannedAttempts(CASES, 1, 'grok-4.7').find(a => a.caseId === 'S01-button')?.model).toBe('grok-4.7');
     expect(plannedAttempts(CASES, 1, 'grok-4.7').find(a => a.caseId === 'F01-timeout')?.model).toBeUndefined();
