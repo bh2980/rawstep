@@ -34,7 +34,8 @@
 - **`taskId`, `taskName`, `profileId`, `profileName`:** 어느 태스크를 어느 프로필로 실행한 셀인지.
 - **`runs`:** 셀에 속한 실행 횟수.
 - **`endings`:** `{ reached, gave-up, mistaken, unmeasured, error }`. 종료 상태별 실행 횟수이며, `error`는 실행 자체가 깨진 경우로 페이지에 대해서는 아무것도 알려 주지 않습니다.
-- **`reachedMoves`:** `number[]`. `reached`로 끝난 실행들의 이동 횟수를 실행 순서대로 담습니다.
+- **`reachedMoves`:** `number[]`. `reached`로 끝난 실행들의 이동 횟수를 실행 순서대로 담습니다. 목표 검사를 통과한 지점까지만 셉니다(`goalStep`, 거기서 멈춘 실행은 `steps`).
+- **`unconfirmed`:** `number`, 0이면 생략. 그중 사용자가 알았다는 근거가 없는 실행 수입니다(`goalConfirmed: false`).
 - **`stuck`:** `{ role, name?, runs }[]`. 눌렀을 때 사용자가 기대한 대로 반응하지 않은 요소(`expectation-broken`)와, 셀의 실행 중 몇 번에서 나타났는지.
 - **`pageFindings`:** `{ kind, role, name?, runs }[]`. 힌트 종류와 요소별로 집계된 `page` 출처의 반복 마찰 힌트.
 
@@ -46,7 +47,7 @@
 
 | `ending` | `outcome.status` / `reason` / 중단 주체 | 설명 |
 | :--- | :--- | :--- |
-| **`reached`** | `status: "success"` | 독립 검증 규칙(`task.verify.all`)을 모두 통과함. |
+| **`reached`** | `status: "success"` | 독립 검증 규칙(`task.verify.all`)을 모두 통과함. 옆에 `goalConfirmed: false`가 있으면 사용자가 알았다는 근거가 없다는 참고 정보이며, 종료 상태를 바꾸지 않습니다. |
 | **`gave-up`** | 중단 주체 `"user-gave-up"` 또는 `reason: "policy-stuck"` | 플래너가 페이지에서 더 이상 목표를 달성할 방법이 없다고 판단해 포기함(`giveUp: { reason, tried }`). 또는 커스텀 정책이 막힘(stuck)으로 멈춤. |
 | **`mistaken`** | `reason: "verification-failed"` | 플래너는 목표가 달성되었다고 보고 `complete: true`를 선언했으나 `task.verify.all`은 통과하지 못함. |
 | **`unmeasured`** | 한도 도달, 차단 또는 환경 중단 | 사용자가 완료하거나 포기하기 전에 중단됨. `by` 필드로 원인을 구분합니다(아래 참고). |

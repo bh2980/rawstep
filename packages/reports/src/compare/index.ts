@@ -4,7 +4,7 @@
  * what changed beyond noise. Pure and free of Node APIs, so the dashboard uses it too.
  */
 import type { Hint, HintTarget } from '../hints/index.js';
-import { isStuck, runEnding, type RunEnding } from '../endings/index.js';
+import { goalUnconfirmed, isStuck, runEnding, type RunEnding } from '../endings/index.js';
 
 export const SUMMARY_SCHEMA_VERSION = '1.0' as const;
 /** How the runs of one task under one profile ended, a run that broke counted apart: it says nothing about the page. */
@@ -18,6 +18,8 @@ export type SummaryCell = {
   endings: SummaryEndings;
   /** Moves of each run that reached the goal, in run order. */
   reachedMoves: number[];
+  /** How many of the runs that reached the goal had nothing to show the user knew: a note, not an ending. Left out when none did. */
+  unconfirmed?: number;
   /** Where pressing did not respond as the user expected. */
   stuck: SummaryPlace[];
   /** Page findings (focus, announcements, dialogs…) by kind and element. */
@@ -31,7 +33,7 @@ export type BatchSummary = {
 /** A finished run as the summary reads it. */
 export type SummaryRun = {
   taskId: string; taskName: string; profileId: string; profileName: string;
-  outcome: { status: string; reason?: string; policyStopSource?: string } | undefined;
+  outcome: { status: string; reason?: string; policyStopSource?: string; goalConfirmed?: unknown } | undefined;
   hints: { steps: number; hints: readonly Hint[] };
 };
 
@@ -54,17 +56,19 @@ export function buildBatchSummary(batch: BatchSummary['batch'], runs: readonly S
   for (const run of runs) { const key = `${run.taskId}\u0000${run.profileId}`; groups.set(key, [...groups.get(key) ?? [], run]); }
   for (const group of groups.values()) {
     const first = group[0]!, endings: SummaryEndings = { reached: 0, 'gave-up': 0, mistaken: 0, unmeasured: 0, error: 0 }, reachedMoves: number[] = [];
+    let unconfirmed = 0;
     for (const run of group) {
       if (brokeRun(run.outcome)) { endings.error++; continue; }
       const ended = runEnding(run.outcome, run.outcome!.policyStopSource)!;
       endings[ended.ending]++;
       if (ended.ending === 'reached') reachedMoves.push(run.hints.steps);
+      if (goalUnconfirmed(run.outcome)) unconfirmed++;
     }
     const counted = group.filter(run => !brokeRun(run.outcome)).map(run => run.hints.hints);
     const stuck = places(counted, hint => hint.kind === 'expectation-broken' && isStuck(hint)).map(({ hint, runs }) => ({ role: hint.target!.role, ...(hint.target!.name ? { name: hint.target!.name } : {}), runs }));
     const pageFindings = places(counted, hint => hint.source === 'page', hint => `${hint.kind}\u0000${placeKey(hint.target)}`)
       .map(({ hint, runs }) => ({ kind: hint.kind, role: hint.target!.role, ...(hint.target!.name ? { name: hint.target!.name } : {}), runs }));
-    cells.push({ taskId: first.taskId, taskName: first.taskName, profileId: first.profileId, profileName: first.profileName, runs: group.length, endings, reachedMoves, stuck, pageFindings });
+    cells.push({ taskId: first.taskId, taskName: first.taskName, profileId: first.profileId, profileName: first.profileName, runs: group.length, endings, reachedMoves, ...(unconfirmed ? { unconfirmed } : {}), stuck, pageFindings });
   }
   return { schemaVersion: SUMMARY_SCHEMA_VERSION, batch, cells };
 }
@@ -77,8 +81,8 @@ export function validateBatchSummary(value: unknown): BatchSummary {
   return v as BatchSummary;
 }
 
-/** What can change between two summaries; a gate (`--fail-on`) picks the ones that fail a CI job. */
-export type ChangeKind = 'reach-drop' | 'reach-rise' | 'moves-up' | 'moves-down' | 'stuck-new' | 'stuck-gone' | 'cell-new' | 'cell-gone';
+/** What can change between two summaries; a gate (`--fail-on`) picks the ones that fail a CI job. No gate takes `unconfirmed-*`: they are for reading. */
+export type ChangeKind = 'reach-drop' | 'reach-rise' | 'unconfirmed-rise' | 'unconfirmed-fall' | 'moves-up' | 'moves-down' | 'stuck-new' | 'stuck-gone' | 'cell-new' | 'cell-gone';
 export type Change = { kind: ChangeKind; taskId: string; taskName: string; profileId: string; profileName: string; text: string; place?: SummaryPlace };
 /** How a cell compares: changed beyond noise, within noise, or too few runs on a side to tell. */
 export type CellComparison = {
@@ -104,6 +108,7 @@ export const DEFAULT_NOISE: Readonly<NoiseRules> = Object.freeze({ minRuns: 2, m
 
 /** Runs that said something about the user: reached, gave up, or said done when it was not. Not measured and broken runs did not. */
 const counted = (cell: SummaryCell) => cell.endings.reached + cell.endings['gave-up'] + cell.endings.mistaken;
+const unconfirmedRuns = (cell: SummaryCell) => cell.unconfirmed ?? 0;
 const median = (values: readonly number[]) => { const s = [...values].sort((a, b) => a - b), m = s.length >> 1; return s.length % 2 ? s[m]! : (s[m - 1]! + s[m]!) / 2; };
 const placeName = (place: SummaryPlace) => `${place.role}${place.name ? ` "${place.name}"` : ''}`;
 
@@ -133,10 +138,13 @@ export function compareSummaries(base: BatchSummary, head: BatchSummary, rules: 
     if (nb >= r.minRuns && nh >= r.minRuns) {
       const before = b.endings.reached / nb, after = h.endings.reached / nh;
       // One run going the other way on the smaller side is noise.
-      if (Math.abs(after - before) > 1 / Math.min(nb, nh) + 1e-9) {
+      const noise = 1 / Math.min(nb, nh) + 1e-9;
+      if (Math.abs(after - before) > noise) {
         reach = 'changed';
         changes.push(change(after < before ? 'reach-drop' : 'reach-rise', `Reached the goal in ${h.endings.reached} of ${nh} runs, against ${b.endings.reached} of ${nb} in the baseline.`));
       } else reach = 'within-noise';
+      const unconfirmedBefore = unconfirmedRuns(b) / nb, unconfirmedAfter = unconfirmedRuns(h) / nh;
+      if (Math.abs(unconfirmedAfter - unconfirmedBefore) > noise) changes.push(change(unconfirmedAfter > unconfirmedBefore ? 'unconfirmed-rise' : 'unconfirmed-fall', `Not confirmed in ${unconfirmedRuns(h)} of ${nh} runs, against ${unconfirmedRuns(b)} of ${nb} in the baseline.`));
     }
     let moves: CellComparison['moves'] = 'too-few-runs', movesBand: [number, number] | undefined;
     if (b.reachedMoves.length >= 2 && h.reachedMoves.length >= 2) {
@@ -205,7 +213,7 @@ const md = (text: string) => text.replace(/[|\\]/g, c => `\\${c}`).replace(/\n/g
 export function cellText(cell: SummaryCell): string {
   const n = counted(cell), others = (['gave-up', 'mistaken', 'unmeasured'] as const).filter(e => cell.endings[e]).map(e => `${e === 'gave-up' ? 'gave up' : e === 'mistaken' ? 'said done, not reached' : 'not measured'} ${cell.endings[e]}`);
   const moves = cell.reachedMoves.length ? ` · median ${median(cell.reachedMoves)} moves${Math.min(...cell.reachedMoves) !== Math.max(...cell.reachedMoves) ? ` (${Math.min(...cell.reachedMoves)}–${Math.max(...cell.reachedMoves)})` : ''}` : '';
-  return `${n ? `reached ${cell.endings.reached} of ${n}` : 'nothing measured'}${others.length ? ` · ${others.join(' · ')}` : ''}${cell.endings.error ? ` · ${cell.endings.error} ended on an error` : ''}${moves}`;
+  return `${n ? `reached ${cell.endings.reached} of ${n}${unconfirmedRuns(cell) ? ` (${unconfirmedRuns(cell)} not confirmed)` : ''}` : 'nothing measured'}${others.length ? ` · ${others.join(' · ')}` : ''}${cell.endings.error ? ` · ${cell.endings.error} ended on an error` : ''}${moves}`;
 }
 /**
  * A summary, and a comparison when there is a baseline, as Markdown for a CI job summary (GitHub's step summary): a table per task and

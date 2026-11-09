@@ -171,6 +171,11 @@ export interface Backend {
   readonly capabilities: BackendCapabilities;
   start(options?: BackendOperationOptions): Promise<unknown>;
   execute(action: BackendAction, options?: BackendOperationOptions): Promise<unknown>;
+  /**
+   * Called when a new document has loaded with nothing focused in it, before the next observation: a screen reader whose cursor stays
+   * on the browser's own controls then gets into the page. Not one of the user's moves. Rejects when it cannot.
+   */
+  enterPage?(options?: BackendOperationOptions): Promise<{ entered: boolean; moves: number }>;
   observe(options?: BackendOperationOptions): Promise<BackendObservation>;
   close(): Promise<void>;
   subscribe(listener: (event: unknown) => void): () => void;

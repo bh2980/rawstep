@@ -10,7 +10,7 @@ import { findRawstepError } from '@rawstep/core/errors';
 import { analyzeSavedTrace, readAnalysis } from '@rawstep/reports/analyze';
 import { writeReport } from '@rawstep/reports/report';
 import { HINTS_SCHEMA_VERSION, writeHints, type Hint, type HintComparison, type HintFinding, type HintReport } from '@rawstep/reports/hints';
-import { isStuck, isWrongGuess, runEnding, type RunEnding, type UnmeasuredBy } from '@rawstep/reports/endings';
+import { goalUnconfirmed, isStuck, isWrongGuess, runEnding, runMoves, type RunEnding, type UnmeasuredBy } from '@rawstep/reports/endings';
 import { ProjectError } from '@rawstep/project/errors';
 import { agentOf, atEndpointOf, CONFIG_FILE, credentialId, credentialRequirements, isFilePlanner, modelKeyEnvNames, modelKeyRequired, PROVIDERS, type ProviderId } from '@rawstep/project/config';
 import { inspectModel, type ModelInspection } from '@rawstep/project/checks';
@@ -167,7 +167,7 @@ const shortDuration = (ms: number) => { const s = Math.round(ms / 1000); return 
 /** One stderr line per run as it ends, so a long batch shows it is moving: `[3/10] Checkout · Default #2: reached the goal · 12 moves (1m40s)`. */
 function progressLine(p: RunProgress): string {
   const ending = p.outcome ? (p.outcome.status === 'aborted' ? 'cancelled' : endingText(p.outcome)) : p.error ? `did not start: ${p.error.split('\n')[0]}` : 'cancelled';
-  const moves = p.outcome && typeof p.outcome.steps === 'number' ? ` · ${p.outcome.steps} moves` : '';
+  const moves = p.outcome && runMoves(p.outcome) !== undefined ? ` · ${runMoves(p.outcome)} moves` : '';
   return `[${p.done}/${p.total}] ${p.taskName}${p.profiles > 1 ? ` · ${p.profileName}` : ''} #${p.repeat}: ${ending}${moves}${p.durationMs !== undefined ? ` (${shortDuration(p.durationMs)})` : ''}\n`;
 }
 async function run(args: CliArguments, projectDir: string, cwd: string, dependencies: CliDependencies, stdout: (text: string) => void, stderr: (text: string) => void): Promise<number> {
@@ -262,7 +262,13 @@ export function endingText(outcome: RunTaskResult['runs'][number]['outcome']): s
   if (outcome.status === 'aborted') return 'aborted';
   if (endedOnError(outcome)) return 'ended on an error (says nothing about the page)';
   const ended = runEnding(outcome, stopOf(outcome))!;
+  if (goalUnconfirmed(outcome)) return `${ENDING_TEXT[ended.ending]} (not confirmed)`;
   return ended.by ? `${ENDING_TEXT[ended.ending]} (${BY_TEXT[ended.by]})` : ENDING_TEXT[ended.ending];
+}
+/** " (1 not confirmed)": how many of the runs that reached the goal had nothing to show the user knew. A note on the count, not a count of its own. */
+function unconfirmedNote(runs: readonly { outcome?: { status: string; goalConfirmed?: unknown } | undefined }[]): string {
+  const n = runs.filter(run => goalUnconfirmed(run.outcome)).length;
+  return n ? ` (${n} not confirmed)` : '';
 }
 /** The run broke (runtime failure, trace not written) before it could say anything about the user. */
 const endedOnError = (outcome: RunTaskResult['runs'][number]['outcome']) => outcome?.reason === 'error' || outcome?.reason === 'trace-persistence-error';
@@ -358,7 +364,7 @@ export function formatRunResult(result: RunTaskResult): string {
   const counted = endings.filter((ended): ended is NonNullable<typeof ended> => !!ended), count = (ending: RunEnding) => counted.filter(ended => ended.ending === ending).length;
   const others = (['gave-up', 'mistaken', 'unmeasured'] as const).filter(ending => count(ending)).map(ending => `${ENDING_TEXT[ending]} ${count(ending)}`);
   const broken = result.runs.length - counted.length;
-  lines.push(counted.length ? `Could a first-time user do it? reached the goal in ${count('reached')} of ${counted.length} runs${others.length ? ` · ${others.join(' · ')}` : ''}${broken ? ` · ${broken} more ended on an error (not counted)` : ''}`
+  lines.push(counted.length ? `Could a first-time user do it? reached the goal in ${count('reached')} of ${counted.length} runs${unconfirmedNote(result.runs)}${others.length ? ` · ${others.join(' · ')}` : ''}${broken ? ` · ${broken} more ended on an error (not counted)` : ''}`
     : `Could a first-time user do it? not known: ${broken === 1 ? 'the run' : `all ${broken} runs`} ended before the user could try (see the error above)`);
   const reachedSteps = result.runs.filter((run, index) => endings[index]?.ending === 'reached').map(run => run.hints.steps);
   if (reachedSteps.length) lines.push(`Cost of reaching it: ${median(reachedSteps)} moves${Math.min(...reachedSteps) !== Math.max(...reachedSteps) ? ` (${Math.min(...reachedSteps)}–${Math.max(...reachedSteps)})` : ''}`);
@@ -391,7 +397,7 @@ function endingCounts(runs: readonly BatchRun[]): { text: string; reachedSteps: 
   const counted = endings.filter((ended): ended is NonNullable<typeof ended> => !!ended), count = (ending: RunEnding) => counted.filter(ended => ended.ending === ending).length;
   const others = (['gave-up', 'mistaken', 'unmeasured'] as const).filter(ending => count(ending)).map(ending => `${ENDING_TEXT[ending]} ${count(ending)}`);
   const broken = runs.length - counted.length;
-  const text = counted.length ? `reached the goal in ${count('reached')} of ${counted.length} runs${others.length ? ` · ${others.join(' · ')}` : ''}${broken ? ` · ${broken} ended on an error` : ''}`
+  const text = counted.length ? `reached the goal in ${count('reached')} of ${counted.length} runs${unconfirmedNote(runs)}${others.length ? ` · ${others.join(' · ')}` : ''}${broken ? ` · ${broken} ended on an error` : ''}`
     : `not known: ${broken === 1 ? 'the run' : `all ${broken} runs`} ended on an error`;
   return { text, reachedSteps: runs.filter((_, index) => endings[index]?.ending === 'reached').map(run => run.hints.steps) };
 }

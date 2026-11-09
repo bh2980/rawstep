@@ -140,7 +140,7 @@ function Row({ cell: item, runs, batchId, comparison, navigate }: { cell: Summar
   const other = ENDINGS.filter((key): key is Exclude<typeof key, 'reached'> => key !== 'reached').sort((a, b) => item.endings[b] - item.endings[a])[0]!;
   const lead = f.reached > 0 ? 'reached' : other;
   const leadLabel = f.reached > 0 ? t('batchSummary.reached', { reached: f.reached, n: f.measured }) : t(`batchSummary.others.${other}`, { count: item.endings[other] });
-  const rest = ENDINGS.filter((key): key is Exclude<typeof key, 'reached'> => key !== 'reached' && key !== lead && item.endings[key] > 0).map(key => t(`batchSummary.others.${key}`, { count: item.endings[key] }));
+  const rest = [...(f.unconfirmed ? [t('batchSummary.unconfirmed', { count: f.unconfirmed })] : []), ...ENDINGS.filter((key): key is Exclude<typeof key, 'reached'> => key !== 'reached' && key !== lead && item.endings[key] > 0).map(key => t(`batchSummary.others.${key}`, { count: item.endings[key] }))];
   const stuck = item.stuck.map(place => stuckText(item, place));
   const sentences = change?.status === 'changed' ? change.sentences.join(' ') : undefined;
   return <TableRow>

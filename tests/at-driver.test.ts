@@ -727,6 +727,92 @@ describe("AT Driver backend", () => {
   });
 });
 
+describe('real VoiceOver speech', () => {
+  const vo = [AT_DRIVER_KEYS.Control, AT_DRIVER_KEYS.Alt];
+  const next = [...vo, AT_DRIVER_KEYS.ArrowRight], interact = [...vo, AT_DRIVER_KEYS.Shift, AT_DRIVER_KEYS.ArrowDown];
+  const name = (keys: readonly string[]) => keys.join('+');
+  /** A reader that says the next lines in order for each press of a key, as VoiceOver 26 did in the validation VM. */
+  const scripted = (socket: Awaited<ReturnType<typeof backend>>['socket'], script: Record<string, string[][]>) => {
+    socket.onSend = command => {
+      socket.reply(command.id);
+      for (const text of script[name(command.params.keys as string[])]?.shift() ?? []) socket.output(text);
+    };
+  };
+  const finish = async <T,>(work: Promise<T>) => { const failed = work.catch(error => error as Error); await vi.advanceTimersByTimeAsync(10_000); return failed; };
+  const sent = (socket: Awaited<ReturnType<typeof backend>>['socket']) => socket.sent.slice(1).map(command => command.params.keys as string[]);
+
+  it('finds a rotor list that says its name and then its current item, and picks from it', async () => {
+    const { socket, backend: driver } = await backend();
+    await settle(driver);
+    scripted(socket, {
+      [name([...vo, 'u'])]: [['Headings menu', ' On item 1: Form check']],
+      [name([AT_DRIVER_KEYS.ArrowRight])]: [['Form Controls menu', ' On item Query edit text']],
+    });
+    await finish(driver.execute({ kind: 'intent', intent: 'formControls.rotor' }));
+    await finish(driver.execute({ kind: 'intent', intent: 'activate' }));
+    expect(sent(socket)).toEqual([[...vo, 'u'], [AT_DRIVER_KEYS.ArrowRight], [AT_DRIVER_KEYS.Enter]]);
+  });
+  it('reads a rotor list found that way to its end', async () => {
+    const { socket, backend: driver } = await backend();
+    await settle(driver);
+    scripted(socket, {
+      [name([...vo, 'u'])]: [['Headings menu', ' On item 1: Heading check']],
+      [name([AT_DRIVER_KEYS.ArrowDown])]: [['2: Target section'], ['1: Heading check'], ['2: Target section'], ['1: Heading check']],
+    });
+    await finish(driver.execute({ kind: 'intent', intent: 'headings.list' }));
+    expect((await settle(driver)).speech).toEqual(expect.arrayContaining(['2: Target section']));
+    expect(sent(socket).at(-1)).toEqual([AT_DRIVER_KEYS.Escape]);
+    expect(sent(socket)).not.toContainEqual([AT_DRIVER_KEYS.ArrowRight]);
+  });
+  it('does not take an item named like the wanted list for the list', async () => {
+    const { socket, backend: driver } = await backend();
+    await settle(driver);
+    scripted(socket, {
+      [name([...vo, 'u'])]: [['Form Controls menu', ' On item Show headings checkbox']],
+      [name([AT_DRIVER_KEYS.ArrowRight])]: [['Headings menu', ' On item 1: Heading check']],
+    });
+    await finish(driver.execute({ kind: 'intent', intent: 'headings.list' }));
+    expect(sent(socket).slice(0, 2)).toEqual([[...vo, 'u'], [AT_DRIVER_KEYS.ArrowRight]]);
+  });
+
+  it('walks to the web content by ear and goes in, keeping only what was said on load and on going in', async () => {
+    const { socket, backend: driver } = await backend();
+    await settle(driver);
+    scripted(socket, { [name(next)]: [['New Tab description, New tab button'], ['toolbar item palette'], ['Page web content']], [name(interact)]: [['In Page web content main']] });
+    socket.output('Page web content');
+    expect(await finish(driver.enterPage())).toEqual({ entered: true, moves: 3 });
+    expect(sent(socket)).toEqual([next, next, next, interact]);
+    expect((await settle(driver)).speech).toEqual(['Page web content', 'In Page web content main']);
+  });
+  it('does not take a late hint about the place the cursor left for reaching the web content', async () => {
+    const { socket, backend: driver } = await backend();
+    await settle(driver);
+    scripted(socket, { [name(next)]: [['You are currently on a web content, inside of a group.', 'New Tab description, New tab button'], ['Page web content', 'You are currently on a web content, inside of a group.']], [name(interact)]: [['In Page web content main']] });
+    expect(await finish(driver.enterPage())).toEqual({ entered: true, moves: 2 });
+  });
+  it('never goes in from anywhere else: going in on the tab group lands on its Close button', async () => {
+    const { socket, backend: driver } = await backend();
+    await settle(driver);
+    scripted(socket, { [name(next)]: Array(20).fill(['Other item']) });
+    const failed = await finish(driver.enterPage());
+    expect(failed).toMatchObject({ code: 'page entry failed' });
+    expect(sent(socket)).not.toContainEqual(interact);
+    expect(sent(socket)).toHaveLength(8);
+  });
+  it('fails when going in lands somewhere else', async () => {
+    const { socket, backend: driver } = await backend();
+    await settle(driver);
+    scripted(socket, { [name(next)]: [['Page web content']], [name(interact)]: [['In Page selected tab, group Close button']] });
+    expect(await finish(driver.enterPage())).toMatchObject({ code: 'page entry failed', message: expect.stringContaining('Close button') });
+  });
+  it('presses nothing for NVDA, which has no web content to walk to', async () => {
+    const { socket, backend: driver } = await backend('nvda');
+    await settle(driver);
+    expect(await finish(driver.enterPage())).toEqual({ entered: false, moves: 0 });
+    expect(sent(socket)).toEqual([]);
+  });
+});
+
 describe('AT Driver host preconditions', () => {
   const make = (url: string, profile: 'voiceover' | 'nvda' = 'voiceover') => new AtDriverBackend({ url, profile, webSocketFactory: () => { throw new Error('preflight must not connect'); } });
   const ok = { platform: 'darwin', headless: false, customBrowserSession: false };

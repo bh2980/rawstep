@@ -144,6 +144,7 @@ export function TasksPage({ pageProps, runs, summaries, summaryError, navigate, 
                     ? <span className="flex min-w-0 items-center gap-1.5 whitespace-nowrap">
                       <RunStrip navigate={navigate} runs={strip.slice(-5).map(ref => ({ id: ref.run.id, number: numbers.get(ref.run.id), status: runStatus(ref.run).status, steps: runStepCount(ref.run), to: { task: task.id, run: ref.run.id } }))} />
                       {row && row.facts.runs > 0 && <span className="tabular-nums text-ink-2">{t('taskList.reachedOf', { runs: row.facts.runs, reached: row.facts.reached })}</span>}
+                      {row && row.facts.unconfirmed > 0 && <span className="tabular-nums text-ink-2" title={t('taskPage.results.unconfirmedInfo')}>· {t('taskPage.results.unconfirmedCount', { unconfirmed: row.facts.unconfirmed, reached: row.facts.reached })}</span>}
                     </span>
                     : <Dash />}</td>
                   <td className={cell + ' text-right tabular-nums'}><Cost row={row} empty={profileMovesPlaceholder({ byProfile: row?.facts.byProfile ?? [], lastRunAt: row?.lastRunAt, listed: runs.some(ref => ref.run.taskId === task.id && isFinished(ref.run)) })} /></td>

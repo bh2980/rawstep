@@ -22,7 +22,9 @@ export type RunOptions = {
   /**
    * Screen reader runs: actions the run goes on after the goal is reached when nothing the user heard said so (default 0: stop at
    * once). The page may show "Added to cart" without announcing it; stopping there would hide the user's not knowing. Within the
-   * grace the policy may stop, and the run ends when it runs out; `goal.reached` records the step and whether it was heard.
+   * grace the policy may stop, and the run ends when it runs out; `goal.reached` records the step and whether it was heard, `goal.heard`
+   * a confirmation heard later. The outcome is decided by the goal check either way: `goalConfirmed: false` notes that nothing showed
+   * the user knew, and `goalStep` where the goal check passed when the run went on after it.
    */
   confirmationGrace?: number;
   /** Explicit opt-in: raw input keystrokes and echoed speech may expose secrets. */
@@ -154,6 +156,13 @@ export async function runWithPolicy(source: Task, options: RunOptions): Promise<
   /** A secret has been typed: screenshots from then on hide form fields, and are left out when the page shows the secret. */
   let secretTyped = false;
   let outcome: RunOutcome = { status: 'inconclusive', reason: 'maxSteps' };
+  /** The goal as of its last check, and whether the user heard so. An action that undoes it clears it. */
+  let reached: { step: number; heard: boolean | undefined } | undefined;
+  /**
+   * The goal holds, so the run reached it. Whether the user knew is a note beside that: a stop for any reason but saying they were done,
+   * or a confirmation never heard, leaves `goalConfirmed: false`. Moves after the goal check passed are not its cost, so `goalStep` keeps where it did.
+   */
+  const goalHolds = (stop?: string): RunOutcome => ({ status: 'success', reason: 'verified', ...(stop ? { policyStop: stop } : {}), ...((stop ? stop !== 'success' : reached?.heard === false) ? { goalConfirmed: false } : {}), ...(reached && reached.step < steps ? { goalStep: reached.step } : {}) });
   let steps = 0;
   const history: HistoryEntry[] = [];
   let latestActivation: VerificationContext['latestActivation'];
@@ -334,6 +343,26 @@ export async function runWithPolicy(source: Task, options: RunOptions): Promise<
       append(`${speechSource}.observation`, { ...observation, ...(inputTainted ? { speech: ['[REDACTED]'], ...(title ? { title: '[REDACTED]' } : {}), ...(announcements.length ? { announcements: ['[REDACTED]'] } : {}) } : collected.cursor ? { cursor: collected.cursor } : {}), association: 'temporal-only', speechCompletionKnown: false }, { source: speechSource, redacted: inputTainted, collectionWindow: { startedAt: collected.startedAt, endedAt: collected.endedAt } });
       return observation;
     };
+    /**
+     * VoiceOver's cursor stays on the browser's own controls when a page loads, and nothing in the page can be reached until it goes in.
+     * That is the browser's doing, not the page's, so it is not one of the user's moves. A page that moved focus itself has already
+     * taken the cursor in. Each new document is looked at once; one that cannot answer yet is looked at after the next action.
+     */
+    let enteredDocument: number | undefined;
+    const enterPage = async (step: number) => {
+      if (!options.backend.enterPage) return;
+      const loaded = await withinBudget(() => browser!.page.evaluate(() => {
+        const active = document.activeElement;
+        return { document: performance.timeOrigin, focused: !!active && active !== document.body && active !== document.documentElement };
+      })).catch((error: unknown) => { if (controller.signal.aborted || evidenceFailure || error instanceof BudgetExceeded) throw error; return undefined; });
+      if (typeof loaded?.document !== 'number' || loaded.document === enteredDocument) return;
+      enteredDocument = loaded.document;
+      if (loaded.focused) { append('screen-reader.page-entry', { step, entered: false, reason: 'the page moved focus into itself' }, { source: speechSource }); return; }
+      stage = 'page-entry';
+      const entry = await withinBudget(() => options.backend.enterPage!({ signal: controller.signal }));
+      append('screen-reader.page-entry', { step, ...entry }, { source: speechSource });
+    };
+    await enterPage(0);
     let observation = await observe();
     drainObserver();
     /** A screenshot for people only (`policyVisible: false`), never after text entry. Step 0 is the page before the first action. */
@@ -394,7 +423,6 @@ export async function runWithPolicy(source: Task, options: RunOptions): Promise<
     await diagnosticScreenshot(0);
     await startPageScreenshot();
     const grace = Math.max(0, Math.floor(options.confirmationGrace ?? 0));
-    let reached: { step: number; heard: boolean | undefined } | undefined;
     for (let step = 1; step <= task.maxSteps!; step++) {
       activeStep = step;
       stage = 'policy';
@@ -412,7 +440,7 @@ export async function runWithPolicy(source: Task, options: RunOptions): Promise<
       append('policy.decision', { step, decision: inputTainted ? ('action' in decision ? { action: decision.action } : { stop: decision.stop, ...(decision.stopSource ? { stopSource: decision.stopSource } : {}) }) : decision }, { source: 'policy', redacted: inputTainted });
       if ('stop' in decision) {
         const verification = await verify(step);
-        outcome = verification.passed ? { status: 'success', reason: 'verified', policyStop: decision.stop } : { status: 'failure', reason: decision.stop === 'success' ? 'verification-failed' : decision.stop === 'uncertain' ? 'policy-uncertain' : 'policy-stuck' };
+        outcome = verification.passed ? goalHolds(decision.stop) : { status: 'failure', reason: decision.stop === 'success' ? 'verification-failed' : decision.stop === 'uncertain' ? 'policy-uncertain' : 'policy-stuck' };
         if (!verification.passed && decision.stop === 'uncertain') outcome.status = 'inconclusive';
         if (decision.stopSource && STOP_SOURCES.includes(decision.stopSource)) outcome.policyStopSource = decision.stopSource;
         history.push({ step, decision, observation });
@@ -450,6 +478,7 @@ export async function runWithPolicy(source: Task, options: RunOptions): Promise<
       // An activation may start a route change that renders a moment later: settle on what the page does, not on a fixed wait.
       if (execution.ok) { stage = 'settling'; await withinBudget(() => settlePage(browser!.page, activity)); } else activity?.stop();
       await waitForPerson(step);
+      if (execution.ok) await enterPage(step);
       observation = await observe();
       // Character-by-character echoes of a sensitive value cannot be matched; withhold that step's speech from the policy.
       if (execution.ok && (action.kind === 'typeText' || action.kind === 'replaceText') && inputDescriptors[action.input]!.sensitive) withheldObservations.add(observation);
@@ -466,8 +495,12 @@ export async function runWithPolicy(source: Task, options: RunOptions): Promise<
           const heard = confirmationHeard(task, observation);
           reached = { step, heard };
           append('goal.reached', { step, heard: heard ?? 'unknown', grace: heard === false ? grace : 0 });
+        } else if (reached.heard === false && confirmationHeard(task, observation)) {
+          // The grace is there for this: the user came upon the confirmation after all, so they know.
+          reached.heard = true;
+          append('goal.heard', { step, reachedAt: reached.step });
         }
-        if (reached.heard !== false || step - reached.step >= grace) { outcome = { status: 'success', reason: 'verified' }; break; }
+        if (reached.heard !== false || step - reached.step >= grace) { outcome = goalHolds(); break; }
       } else if (reached !== undefined) {
         // An action in the grace undid the goal (a second press unchecked the box): the run goes on as before it was reached.
         append('goal.lost', { step, reachedAt: reached.step });
@@ -475,7 +508,7 @@ export async function runWithPolicy(source: Task, options: RunOptions): Promise<
       }
     }
     // The step limit cut the grace short: the goal still held at the last check, so the run reached it.
-    if (reached !== undefined && outcome.reason === 'maxSteps') outcome = { status: 'success', reason: 'verified' };
+    if (reached !== undefined && outcome.reason === 'maxSteps') outcome = goalHolds();
   } catch (error) {
     bestEffortEvidence(() => {
     if (error instanceof BrowserSetupError) {
@@ -501,6 +534,8 @@ export async function runWithPolicy(source: Task, options: RunOptions): Promise<
       outcome = { status: error instanceof BudgetExceeded ? 'inconclusive' : 'failure', reason: error instanceof BudgetExceeded ? 'timeout' : 'error', stage, step: activeStep, error: inputTainted ? 'Run failed after text entry; raw error redacted.' : errorMessage(error) };
       const hint = findRawstepError(error, candidate => !!candidate.outcome)?.outcome;
       if (hint) outcome = { ...outcome, ...hint };
+      // The time limit cut the grace short: the goal still held at the last check, like the step limit below.
+      if (error instanceof BudgetExceeded && reached !== undefined) outcome = goalHolds();
       // Why a model reply was not used is kept with the error; after text entry the reply itself is left out, like the message.
       const failure = findRawstepError(error, candidate => !!candidate.detail?.modelFailure)?.detail?.modelFailure as Record<string, unknown> | undefined;
       const modelFailure = failure && (inputTainted ? (({ reply: _reply, ...rest }) => rest)(failure) : failure);

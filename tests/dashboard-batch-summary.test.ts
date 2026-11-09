@@ -77,6 +77,9 @@ describe('what changed from a baseline batch, in words', () => {
     const head = cell({ runs: 4, endings: { reached: 1, 'gave-up': 2, mistaken: 0, unmeasured: 0, error: 1 }, reachedMoves: [12] });
     expect(compared(cell(), head).sentences[0]).toBe('Reached the goal in 1 of 3 runs, against 3 of 3 in the baseline.');
   });
+  it('says what changed about runs not confirmed, with the goal still reached', () => {
+    expect(compared(cell(), cell({ unconfirmed: 2 })).sentences).toEqual(['Not confirmed in 2 of 3 runs, against 0 of 3 in the baseline.']);
+  });
 
   it('names a task and profile the baseline lacks, and words it in Korean when Korean is shown', async () => {
     const result = describeCellChange(compareSummaries(summary([]), summary([cell()])).cells[0]!);
@@ -110,9 +113,9 @@ describe('files', () => {
       cell({ taskName: 'Subscribe, quickly', endings: { reached: 2, 'gave-up': 1, mistaken: 0, unmeasured: 0, error: 0 }, reachedMoves: [10, 14], stuck: [{ role: 'button', name: 'Go', runs: 2 }], pageFindings: [{ kind: 'focus-lost', role: 'dialog', runs: 1 }] }),
       cell({ profileId: 'q', profileName: 'Fast', runs: 1, endings: { reached: 0, 'gave-up': 0, mistaken: 0, unmeasured: 0, error: 1 }, reachedMoves: [] }),
     ]), batch: { id: 'b', createdAt: '2026-11-01T12:00:00.000Z', note: 'made Add a button' } }).split('\r\n');
-    expect(lines[0]).toBe('batch,date,task,profile,runs,reached,gave_up,said_done_not_reached,not_measured,errors,median_moves,min_moves,max_moves,stuck_places,page_findings');
-    expect(lines[1]).toBe('made Add a button,2026-11-01T12:00:00.000Z,"Subscribe, quickly",Default,3,2,1,0,0,0,12,10,14,"button ""Go"" (2/3)",1');
-    expect(lines[2]).toBe('made Add a button,2026-11-01T12:00:00.000Z,Subscribe,Fast,1,0,0,0,0,1,,,,,0');
+    expect(lines[0]).toBe('batch,date,task,profile,runs,reached,not_confirmed,gave_up,said_done_not_reached,not_measured,errors,median_moves,min_moves,max_moves,stuck_places,page_findings');
+    expect(lines[1]).toBe('made Add a button,2026-11-01T12:00:00.000Z,"Subscribe, quickly",Default,3,2,0,1,0,0,0,12,10,14,"button ""Go"" (2/3)",1');
+    expect(lines[2]).toBe('made Add a button,2026-11-01T12:00:00.000Z,Subscribe,Fast,1,0,0,0,0,0,1,,,,,0');
     expect(lines).toHaveLength(4);
   });
 

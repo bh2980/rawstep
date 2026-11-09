@@ -1,4 +1,5 @@
 import type { ProjectConfig } from '@rawstep/project/config';
+import { runMoves } from '@rawstep/reports/endings';
 import type { Experiment, RunRecord } from '../../shared/config.js';
 import { t } from '../i18n/index.js';
 
@@ -39,7 +40,7 @@ export function durationSeconds(run: RunRecord): number | undefined {
 }
 
 export function runStepCount(run: RunRecord): number | undefined {
-  return typeof run.outcome?.steps === 'number' ? run.outcome.steps : undefined;
+  return runMoves(run.outcome);
 }
 
 export function runPath(experimentId: string, runId: string): string {

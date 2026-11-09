@@ -8,6 +8,7 @@
   "include": [
     "packages/*/src/**/*.ts",
     "tests/**/*.ts",
+    "experiments/native-voiceover/**/*.ts",
     "vitest.config.mts"
   ]
 }

@@ -76,9 +76,9 @@ export class FixedPlanner implements Planner {
     // A phase review, a goal item heard on the way, or taking stock of the effort: nothing is stuck, so the plan goes on as it is.
     if (request.trigger === 'checkpoint' || request.trigger === 'goal-heard' || request.trigger === 'effort-review') return result(kept());
     const open = openTasks(doc);
-    // Nothing left to try. The goal was checked after every action, so it was not reached: the plan claims nothing, it ends.
+    // Nothing left to try: the plan claims nothing, it ends. The goal can already hold here, when the user never heard so.
     if (request.trigger === 'plan-finished' || open.length <= (doc.current ? 1 : 0)) return result({ ...kept(doc.current), rationale: 'Fixed plan: every task has been tried.',
-      giveUp: { reason: 'The written plan ran out of tasks before the goal was reached.', tried: [] } }, true);
+      giveUp: { reason: 'The written plan ran out of tasks.', tried: [] } }, true);
     return result(kept(doc.current));
   }
 }

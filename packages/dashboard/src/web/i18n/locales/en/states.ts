@@ -64,6 +64,7 @@ export const states: LocaleShape<typeof ko> = {
       observation: { what: 'It stopped while reading the screen or speech.', next: 'Run again with the same conditions. If it repeats, check Settings › This computer.' },
       policy: { what: 'It stopped while the model was choosing the next move.', next: 'Check the model connection and API key, then run again.' },
       action: { what: 'It stopped while carrying out the chosen move.', next: 'Run again with the same conditions. If it repeats on the same move, check whether the page has changed.' },
+      'page-entry': { what: 'The screen reader could not get into the new page.', next: 'Run again with the same conditions. If it repeats, check the screen reader in Settings › This computer.' },
       settling: { what: 'It stopped while waiting for the page to settle after a move.', next: 'Run again with the same conditions.' },
       verification: { what: 'It stopped while checking completion.', next: 'See whether what the completion check looks for can be observed on this page.' },
     },

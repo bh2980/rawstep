@@ -34,7 +34,8 @@ Each cell in `cells` groups runs by `(taskId, profileId)` and records:
 - **`taskId`, `taskName`, `profileId`, `profileName`:** Which task under which profile the cell is.
 - **`runs`:** How many runs the cell has.
 - **`endings`:** `{ reached, gave-up, mistaken, unmeasured, error }`, the number of runs that ended each way (`error` counts a run that broke, which says nothing about the page).
-- **`reachedMoves`:** `number[]`, the moves of each run that ended as `reached`, in run order.
+- **`reachedMoves`:** `number[]`. Moves of each run that ended as `reached`, in run order, counted up to where the goal check passed (`goalStep`; the run's `steps` when it stopped there).
+- **`unconfirmed`:** `number`, left out when zero. How many of those runs had nothing to show the user knew (`goalConfirmed: false`).
 - **`stuck`:** `{ role, name?, runs }[]`, elements where pressing did not respond as the user expected (`expectation-broken`), with how many of the cell's runs they came up in.
 - **`pageFindings`:** `{ kind, role, name?, runs }[]`, recurring `page`-source friction hints grouped by hint kind and element.
 
@@ -46,7 +47,7 @@ Computed by `runEnding(outcome, stopSource?)` (`rawstep/hints`, also exported fr
 
 | `ending` | `outcome.status` / `reason` / stop source | Description |
 | :--- | :--- | :--- |
-| **`reached`** | `status: "success"` | Independent verification (`task.verify.all`) passed. |
+| **`reached`** | `status: "success"` | Independent verification (`task.verify.all`) passed. A run with `goalConfirmed: false` beside it had nothing to show the user knew; that is a note and does not change the ending. |
 | **`gave-up`** | stop source `"user-gave-up"`, or `reason: "policy-stuck"` | The planner concluded no remaining approach on the page could achieve the goal (`giveUp: { reason, tried }`), or a custom policy stopped as stuck. |
 | **`mistaken`** | `reason: "verification-failed"` | The planner marked the plan `complete: true`, but `task.verify.all` did not pass. |
 | **`unmeasured`** | Any limit, block, or environment stop | Stopped before the user could finish or give up. `by` identifies the cause (see below). |

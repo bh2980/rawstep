@@ -146,7 +146,7 @@ Can be set per profile in `rawstep.config.json` and overridden per CLI invocatio
 | :--- | :--- | :---: | :--- |
 | `repetitionGuard` | `boolean` | `true` | Stops the run as stuck when the same action produces the exact same speech `maxUnchangedTransitions` times in a row. |
 | `maxUnchangedTransitions` | Integer `1–10000` | `4` | Consecutive identical action+speech transitions before `repetitionGuard` stops the run. |
-| `confirmationGrace` | Integer `0–100` | `5` | Extra moves the run continues after `verify.all` passes when nothing heard on that step announced the change (`0` stops immediately). |
+| `confirmationGrace` | Integer `0–100` | `5` | Extra moves the run continues after `verify.all` passes when nothing heard on that step announced the change (`0` stops immediately). The run ends as `reached` either way, and these moves are not counted as its cost. |
 | `maxPlannerCalls` | Integer `1–1000` | `40` | Maximum calls to the planner model during a run (cost limit; hitting it ends the run as `unmeasured`). |
 | `reviewEvery` | Integer `1–10000` | `60` | Moves since the planner last looked before triggering an `effort-review` replan. |
 | `stepActionLimit` | Integer `1–1000` | `12` | Maximum actions on a single plan subtask without hearing anything new before requesting a replan (`task-limit`). |

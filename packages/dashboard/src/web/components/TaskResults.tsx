@@ -91,7 +91,7 @@ function ProfileTable({ data, nameOf, numbers, navigate, taskId }: Ctx) {
               <span className="tabular-nums">{t('taskPage.results.reachedOf', { runs: group.runs, reached: group.reached })}</span>
               {others && <span className="truncate text-ink-2" title={others}>· {others}</span>}
             </span>
-            {group.unheard > 0 && <span className="block text-sm text-ink-2 tabular-nums" title={t('taskPage.results.unheardInfo')}>{t('taskPage.results.unheardCount', { unheard: group.unheard, reached: group.reached })}</span>}
+            {group.unconfirmed > 0 && <span className="block text-sm text-ink-2 tabular-nums" title={t('taskPage.results.unconfirmedInfo')}>{t('taskPage.results.unconfirmedCount', { unconfirmed: group.unconfirmed, reached: group.reached })}</span>}
           </td>
           <td className={cell + ' text-right tabular-nums'}>{group.medianSteps === null ? <Dash /> : <>
             {t('taskPage.results.moves', { n: formatSteps(group.medianSteps), count: group.medianSteps })}

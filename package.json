@@ -9,6 +9,7 @@
     "node": ">=22.12.0"
   },
   "scripts": {
+    "native:voiceover": "tsx experiments/native-voiceover/run.ts",
     "prepare": "husky",
     "build": "node scripts/build.mjs",
     "typecheck": "node scripts/typecheck.mjs && tsc -p tsconfig.tests.json --noEmit",

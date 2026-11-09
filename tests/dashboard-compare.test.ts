@@ -88,7 +88,7 @@ describe('comparing runs across tasks', () => {
   });
 });
 
-const result = (extra: Partial<RunResult>): RunResult => ({ experimentId: 'e', runId: 'r', profileId: 'p', ending: 'reached', steps: 10, stretch: null, wrongGuesses: 0, unheard: false, stuck: [], differs: false, ...extra });
+const result = (extra: Partial<RunResult>): RunResult => ({ experimentId: 'e', runId: 'r', profileId: 'p', ending: 'reached', steps: 10, stretch: null, wrongGuesses: 0, stuck: [], differs: false, ...extra });
 const side = (results: Partial<RunResult>[], stuck: { role: string; name?: string }[] = []) => ({ results: results.map(extra => result(extra)), stuck });
 
 describe('the sentence at the top of a comparison', () => {

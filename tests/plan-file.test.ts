@@ -80,7 +80,7 @@ describe('a fixed plan in the orchestrated policy', () => {
     const doc = policy.planDocument()!;
     // A plan file claims nothing: it ran out, and the give-up needs no broken assumption.
     expect(doc.complete).toBe(false);
-    expect(doc.revisions.at(-1)!.giveUp).toEqual({ reason: 'The written plan ran out of tasks before the goal was reached.', tried: [] });
+    expect(doc.revisions.at(-1)!.giveUp).toEqual({ reason: 'The written plan ran out of tasks.', tried: [] });
     expect(last.find(e => (e as { kind?: string }).kind === 'orchestration-give-up')).toMatchObject({ accepted: true, ranOut: true });
     expect(doc.retired.map(t => t.status)).toEqual(['abandoned', 'abandoned']);
     expect(doc.revisions.slice(1).every(r => r.rationale.startsWith('Fixed plan'))).toBe(true);

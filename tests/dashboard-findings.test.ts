@@ -21,9 +21,9 @@ const checkout = { role: 'button', name: 'Checkout' };
 
 /**
  * Sequential runs of one task with the given outcomes; each run's hints.json is then replaced by a fake
- * report. `heard` records a `goal.reached` event saying whether the user heard the goal.
+ * report. `heard: false` records a run whose user never heard the goal, `goalStep` where its goal check passed.
  */
-async function launch(outcomes: { status: 'success' | 'failure'; steps: number; hints: Hint[]; heard?: boolean; reason?: 'policy-stuck'; stopSource?: 'user-gave-up' }[]) {
+async function launch(outcomes: { status: 'success' | 'failure'; steps: number; hints: Hint[]; heard?: boolean; goalStep?: number; reason?: 'policy-stuck'; stopSource?: 'user-gave-up' }[]) {
   const dir = await mkdtemp(join(tmpdir(), 'rawstep-findings-')); dirs.push(dir);
   const store = new ProjectStore(dir), initial = await store.initialize(), config = defaultConfig();
   config.connections.push(connection('llm')); config.profiles[0] = profileWith('default', 'llm', 'planner', 'Default');
@@ -32,8 +32,7 @@ async function launch(outcomes: { status: 'success' | 'failure'; steps: number; 
   const app = await startDashboard({ projectDir: dir, port: 0, execute: async (run, actual, out) => {
     const trace = new TraceRecorder({ ...actual, id: 'fixture' }, out); await trace.initialize();
     const outcome = outcomes[run.repeat - 1]!;
-    if (outcome.heard !== undefined) trace.append('goal.reached', { step: outcome.steps, heard: outcome.heard, grace: 0 });
-    return trace.finalize({ status: outcome.status, steps: outcome.steps, ...(outcome.reason ? { reason: outcome.reason, step: outcome.steps } : {}), ...(outcome.stopSource ? { policyStopSource: outcome.stopSource } : {}) });
+    return trace.finalize({ status: outcome.status, steps: outcome.steps, ...(outcome.heard === false ? { goalConfirmed: false } : {}), ...(outcome.goalStep ? { goalStep: outcome.goalStep } : {}), ...(outcome.reason ? { reason: outcome.reason, step: outcome.steps } : {}), ...(outcome.stopSource ? { policyStopSource: outcome.stopSource } : {}) });
   } }); apps.push(app);
   const experiment = await app.queue.create({ taskIds: ['task'], profileIds: ['default'], repeats: outcomes.length });
   await waitFor(() => experiment.runs.every(run => run.reportStatus === 'complete'));
@@ -57,9 +56,9 @@ describe('task findings and summary', () => {
   it('groups hints across a task\'s finished runs and reports its facts', async () => {
     const { app, experiment, runs } = await launch(outcomes);
     const findings = await (await fetch(app.url + '/api/tasks/task/findings')).json() as TaskFindings;
-    expect(findings.facts).toEqual({ runs: 4, reached: 3, medianSteps: 9, fastest: { experimentId: experiment.id, runId: runs[1]!.id, steps: 2 },
+    expect(findings.facts).toEqual({ runs: 4, reached: 3, unconfirmed: 0, medianSteps: 9, fastest: { experimentId: experiment.id, runId: runs[1]!.id, steps: 2 },
       byProfile: [{ profileId: 'default', runs: 4, reached: 3, endings: { reached: 3, 'gave-up': 0, mistaken: 0, unmeasured: 1 }, unmeasuredBy: { other: 1 },
-        medianSteps: 7, minSteps: 2, maxSteps: 11, unheard: 0, topTarget: checkout, conditions: { combo: 'Default', at: 'Default' }, differing: 0, longestStretch: null, wrongGuesses: 0 }] });
+        medianSteps: 7, minSteps: 2, maxSteps: 11, unconfirmed: 0, topTarget: checkout, conditions: { combo: 'Default', at: 'Default' }, differing: 0, longestStretch: null, wrongGuesses: 0 }] });
     // Reaching the goal is what the cost is counted over; a run that ended another way is counted by how it ended.
     expect(findings.results.map(r => [r.ending, r.steps])).toEqual([['reached', 11], ['reached', 2], ['unmeasured', 20], ['reached', 7]]);
     // Run-level hints (slow-run) are not findings; findings are ordered by how many runs show them.
@@ -72,18 +71,20 @@ describe('task findings and summary', () => {
   it('answers with empty facts for a task that has no runs', async () => {
     const { app } = await launch(outcomes.slice(0, 1));
     const none = await (await fetch(app.url + '/api/tasks/ghost/findings')).json() as TaskFindings;
-    expect(none).toEqual({ taskId: 'ghost', batches: [], facts: { runs: 0, reached: 0, medianSteps: null, fastest: null, byProfile: [] }, findings: [], results: [], stuck: [] });
+    expect(none).toEqual({ taskId: 'ghost', batches: [], facts: { runs: 0, reached: 0, unconfirmed: 0, medianSteps: null, fastest: null, byProfile: [] }, findings: [], results: [], stuck: [] });
   });
 
-  it('counts runs that reached the goal without the user hearing it', async () => {
+  it('counts a run that reached the goal without the user hearing it as reached, with a note, and its moves up to where the goal check passed', async () => {
     const { app } = await launch([
-      { status: 'success', steps: 9, hints: [], heard: false },
+      { status: 'success', steps: 9, goalStep: 4, hints: [], heard: false },
       { status: 'success', steps: 5, hints: [], heard: true },
       { status: 'failure', steps: 12, hints: [] },
     ]);
     const findings = await (await fetch(app.url + '/api/tasks/task/findings')).json() as TaskFindings;
+    expect(findings.facts).toMatchObject({ runs: 3, reached: 2, unconfirmed: 1 });
+    expect(findings.results.map(result => [result.ending, result.steps])).toEqual([['reached', 4], ['reached', 5], ['unmeasured', 12]]);
     expect(findings.facts.byProfile).toEqual([{ profileId: 'default', runs: 3, reached: 2, endings: { reached: 2, 'gave-up': 0, mistaken: 0, unmeasured: 1 }, unmeasuredBy: { other: 1 },
-      medianSteps: 7, minSteps: 5, maxSteps: 9, unheard: 1, topTarget: null, conditions: { combo: 'Default', at: 'Default' }, differing: 0, longestStretch: null, wrongGuesses: 0 }]);
+      medianSteps: 4.5, minSteps: 4, maxSteps: 5, unconfirmed: 1, topTarget: null, conditions: { combo: 'Default', at: 'Default' }, differing: 0, longestStretch: null, wrongGuesses: 0 }]);
   });
 
   it('tells how each run ended and where the user\'s expectations broke, with the give-ups that rest on them', async () => {

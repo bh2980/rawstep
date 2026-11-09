@@ -101,7 +101,7 @@ function Facts({ data, minimalSteps, lastRunAt }: { data: TaskFindings; minimalS
   const middle = median(steps), low = steps.length ? Math.min(...steps) : 0, high = steps.length ? Math.max(...steps) : 0;
   const longest = data.facts.byProfile.map(group => group.longestStretch).filter(item => item !== null).sort((a, b) => b.moves - a.moves)[0], stretch = longest?.moves ?? 0;
   return <FactLine ruled label={t('taskPage.factsLabel')} items={[
-    <><StatusShape status="reached" className={data.facts.reached ? undefined : 'text-ink-3'} /><span className="tabular-nums">{t('taskPage.facts.reached', { runs: data.facts.runs, reached: data.facts.reached })}</span></>,
+    <><StatusShape status="reached" className={data.facts.reached ? undefined : 'text-ink-3'} /><span className="tabular-nums">{t('taskPage.facts.reached', { runs: data.facts.runs, reached: data.facts.reached })}</span>{data.facts.unconfirmed > 0 && <span className="ml-3 tabular-nums text-ink-2" title={t('taskPage.results.unconfirmedInfo')}>{t('taskPage.results.unconfirmedCount', { unconfirmed: data.facts.unconfirmed, reached: data.facts.reached })}</span>}</>,
     <Fact label={t('taskPage.results.cost')}>{middle === null ? <Dash />
       : <>{t('taskPage.facts.median', { n: formatSteps(middle), count: middle })}{low !== high && <span className="text-ink-2"> · {low}–{high}</span>}</>}
       {minimalSteps !== undefined && <span className="text-ink-2"> · {t('taskPage.results.minimal', { n: minimalSteps, count: minimalSteps })}</span>}</Fact>,

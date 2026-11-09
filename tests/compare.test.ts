@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { buildBatchSummary, compareSummaries, gatedChanges, junitXml, notComparedText, summaryMarkdown, uncheckedCells, validateBatchSummary, type BatchSummary, type SummaryCell, type SummaryRun } from '@rawstep/reports/compare';
+import { goalUnconfirmed, runEnding, runMoves } from '@rawstep/reports/endings';
+import { buildBatchSummary, cellText, compareSummaries, gatedChanges, junitXml, notComparedText, summaryMarkdown, uncheckedCells, validateBatchSummary, type BatchSummary, type SummaryCell, type SummaryRun } from '@rawstep/reports/compare';
 import type { Hint } from '@rawstep/reports/hints';
 
 const batch = (id: string, note?: string) => ({ id, createdAt: '2026-11-01T00:00:00.000Z', ...(note ? { note } : {}) });
@@ -11,6 +12,34 @@ function cell(taskId: string, reached: number[], others: Partial<SummaryCell['en
 const summary = (id: string, cells: SummaryCell[]): BatchSummary => ({ schemaVersion: '1.0', batch: batch(id), cells });
 
 describe('batch summaries compared with the spread between repeats in mind', () => {
+  it('counts a run that passed the goal check as reached, whether or not the user knew', () => {
+    const unsure = { status: 'success', reason: 'verified', goalConfirmed: false };
+    expect(runEnding({ status: 'success', reason: 'verified' })).toEqual({ ending: 'reached' });
+    expect(runEnding(unsure, 'user-gave-up')).toEqual({ ending: 'reached' });
+    expect(goalUnconfirmed(unsure)).toBe(true);
+    expect(goalUnconfirmed({ status: 'success' })).toBe(false);
+    expect(goalUnconfirmed({ status: 'failure', goalConfirmed: false })).toBe(false);
+  });
+  it('counts what a run cost up to where the goal check passed', () => {
+    expect(runMoves({ steps: 7, goalStep: 3 })).toBe(3);
+    expect(runMoves({ steps: 7 })).toBe(7);
+    expect(runMoves({})).toBeUndefined();
+    expect(runMoves(undefined)).toBeUndefined();
+  });
+  it('sums up a run whose user may not have known as reached, with a note beside the count', () => {
+    const run = (outcome: SummaryRun['outcome'], steps: number): SummaryRun => ({ taskId: 't', taskName: 't', profileId: 'p', profileName: 'p', outcome, hints: { steps, hints: [] } });
+    const made = buildBatchSummary(batch('b'), [run({ status: 'success', reason: 'verified', goalConfirmed: false }, 3), run({ status: 'success', reason: 'verified' }, 4)]).cells[0]!;
+    expect(made).toMatchObject({ runs: 2, endings: { reached: 2 }, reachedMoves: [3, 4], unconfirmed: 1 });
+    expect(buildBatchSummary(batch('b'), [run({ status: 'success', reason: 'verified' }, 4)]).cells[0]).not.toHaveProperty('unconfirmed');
+  });
+  it('tells of a rise in runs not confirmed for reading only: reach stays and no gate catches it', () => {
+    const comparison = compareSummaries(summary('a', [cell('t', [10, 11, 12])]), summary('b', [{ ...cell('t', [10, 11, 12]), unconfirmed: 2 }]));
+    expect(comparison.cells[0]!.reach).toBe('within-noise');
+    expect(comparison.changes.map(change => [change.kind, change.text])).toEqual([['unconfirmed-rise', 'Not confirmed in 2 of 3 runs, against 0 of 3 in the baseline.']]);
+    expect(gatedChanges(comparison, ['reach', 'moves', 'stuck', 'missing'])).toEqual([]);
+    expect(() => gatedChanges(comparison, ['unconfirmed'])).toThrow('Unknown gate unconfirmed');
+    expect(cellText({ ...cell('t', [10, 11, 12]), unconfirmed: 2 })).toContain('reached 3 of 3 (2 not confirmed)');
+  });
   it('calls the usability test\'s +3 and +4 moves on unchanged pages noise', () => {
     const base = summary('base', [cell('search', [27, 30]), cell('cart', [26, 34])]);
     const head = summary('head', [cell('search', [30, 30]), cell('cart', [34, 30])]);

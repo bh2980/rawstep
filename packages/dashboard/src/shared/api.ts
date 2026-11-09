@@ -134,6 +134,8 @@ export type TaskFindings = {
     runs: number;
     /** Finished runs that reached the goal. */
     reached: number;
+    /** Of those, the runs with nothing to show the user knew: a note beside `reached`, not a result of its own. */
+    unconfirmed: number;
     /** Median action count over finished runs that have one; null when none do. */
     medianSteps: number | null;
     /** The goal-reaching run with the fewest actions. */
@@ -157,10 +159,10 @@ export type ProfileFacts = {
   runs: number; reached: number;
   /** How the runs ended, and which limit ended the unmeasured ones. */
   endings: Record<RunEnding, number>; unmeasuredBy: Partial<Record<UnmeasuredBy, number>>;
-  /** Moves of the runs that reached the goal: what reaching it cost. */
+  /** Moves of the runs that reached the goal, up to where the goal check passed: what reaching it cost. */
   medianSteps: number | null; minSteps: number | null; maxSteps: number | null;
-  /** Runs that reached the goal while nothing the user heard said so (`goal.reached` with `heard: false`). */
-  unheard: number;
+  /** Of the runs that reached the goal, the ones with nothing to show the user knew. */
+  unconfirmed: number;
   /** The longest run of moves without a goal word that still meant something, and the run it was in. */
   longestStretch: { moves: number; runId: string; /** The first and last action of the stretch. */ steps?: [number, number] } | null;
   /** Median, over the runs, of the user's guesses about where something is that turned out wrong; null without runs. */
@@ -186,8 +188,6 @@ export type RunResult = {
   stretchSteps?: [number, number];
   /** The user's guesses about where something is that turned out wrong (expectations broken while moving, not after a press). */
   wrongGuesses: number;
-  /** Reached the goal while nothing the user heard said so. */
-  unheard: boolean;
   /** The `stuck` places (by index) this run's expectations broke at, with the step. */
   stuck: { place: number; step: number }[];
   /** Ran with other conditions than the newest run of its profile. */
