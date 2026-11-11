@@ -90,7 +90,7 @@ VoiceOver의 커서는 페이지가 열려도 브라우저 자체의 컨트롤�
 - **VoiceOver 유틸리티 › 일반 › "AppleScript로 VoiceOver 제어 허용"**을 켭니다.
 - **시스템 설정 › 개인정보 보호 및 보안 › 자동화:** Rawstep을 실행하는 앱(터미널, 편집기, CI 에이전트. SSH로 실행하면 `sshd-keygen-wrapper`)이 **VoiceOver**와 **System Events**를 제어하도록 허용합니다. 처음에는 macOS가 화면에 허용 여부를 묻는 창을 띄우고, 실행은 답을 기다립니다. 아무도 답하지 않으면 실행은 `page-entry` 단계의 오류로 끝납니다.
 
-`rawstep doctor`가 커서 위치를 한 번 읽어 보고 `VoiceOver cursor` 항목으로 알려 줍니다. 첫 실행 전에 같은 앱에서 한 번 돌려 두면, 허용 창이 화면을 보고 있을 때 뜹니다. 위치를 묻느라 VoiceOver를 켜지는 않습니다. VoiceOver가 꺼져 있으면 이 검사가 실패합니다.
+`rawstep doctor`가 커서 위치를 한 번 읽고 System Events로 맨 앞 창도 살펴본 뒤 `VoiceOver cursor` 항목으로 알려 줍니다. 첫 실행 전에 같은 앱에서 한 번 돌려 두면, 허용 창이 화면을 보고 있을 때 뜹니다. 위치를 묻느라 VoiceOver를 켜지는 않습니다. VoiceOver가 꺼져 있으면 이 검사가 실패합니다.
 
 ### VoiceOver가 키로 칠 수 없는 글자
 

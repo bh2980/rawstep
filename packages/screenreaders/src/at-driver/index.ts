@@ -128,9 +128,16 @@ export class AtDriverBackend {
   /** Keeps which browser shows the page, so getting into it looks at that browser's window. */
   attachSession(session: BackendSession): void { this.browserProcessId = session.browserProcessId; }
 
-  /** Without a trusted paired session factory, the AT server, OS screen reader and visible browser must share this host. */
+  /**
+   * Without a trusted paired session factory, the AT server, OS screen reader and visible browser must share this host. A paired
+   * VoiceOver on another machine also needs its helpers passed in: the default ones run AppleScript and the clipboard on this machine.
+   */
   preflight(context: BackendRunContext): void {
-    if (context.customBrowserSession) return;
+    if (context.customBrowserSession) {
+      const local = !this.options.cursorLocator || !this.options.commander || !this.options.clipboard;
+      if (this.profile.name === "voiceover" && local && this.options.url && !isLoopbackUrl(this.options.url)) throw new RawstepError("backend-precondition", "A VoiceOver on another machine needs cursorLocator, commander and clipboard that reach that Mac: the default ones run AppleScript and the clipboard on this machine.");
+      return;
+    }
     const host = this.profile.name === "voiceover" ? "darwin" : this.profile.name === "nvda" ? "win32" : undefined;
     if (host && host !== context.platform) throw new RawstepError("backend-precondition", "The native AT server and browser must run on the same supported host. Run RawStep on macOS for VoiceOver or Windows for NVDA.");
     if (this.options.url && !isLoopbackUrl(this.options.url)) throw new RawstepError("backend-precondition", "Default runs require a loopback AT Driver endpoint on the browser host. A remote endpoint needs an explicitly paired browserSessionFactory.");
@@ -292,14 +299,16 @@ export class AtDriverBackend {
       let at = await place();
       if (at === "inside") return { entered: false, moves: 0, reason: `${this.profile.atName} was already in the page` };
       const walkFrom = this.outputs.length;
-      let moves = 0;
+      let moves = 0, lastMoveFrom = walkFrom;
       while (at === "outside" && moves < entry.maxMoves) {
         moves++;
+        lastMoveFrom = this.outputs.length;
         await this.listen(entry.move, press, options.signal);
         at = await place();
       }
       if (at === "outside") throw new AtDriverError(`${this.profile.atName}'s cursor did not reach the web content within ${moves} moves, so the page could not be entered`, "page entry failed");
-      const walkEnd = this.outputs.length;
+      // A move that went straight onto something in the page said what the cursor is on now: that is the page's, not the walk's.
+      const walkEnd = at === "inside" ? lastMoveFrom : this.outputs.length;
       if (at === "on") {
         const said = await this.listen(entry.enter, press, options.signal);
         // Going in can land on something exactly the page's size (a main region on a page too short to scroll): it still says where.

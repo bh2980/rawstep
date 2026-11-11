@@ -39,6 +39,8 @@ An output's `windowId` records only which collection window was open when it arr
 - the endpoint is not a loopback address (a remote server needs a paired browser session);
 - the run is headless. A native run needs a visible browser, and the browser must be in the foreground on the same desktop as the screen reader. A page's focused field cannot prove the operating system's foreground focus.
 
+With a paired session and a VoiceOver endpoint on another machine, it also stops the run unless `cursorLocator`, `commander` and `clipboard` are all passed in. The default ones run `osascript` and `pbcopy` on the machine Rawstep runs on, so they would ask and move that machine's VoiceOver, not the paired one.
+
 The usual server addresses are `ws://localhost:4382/session` (VoiceOver, [Bocoup macOS server](https://github.com/bocoup/macos-at-driver-server)) and `ws://localhost:3031/session` (NVDA, [PAC NVDA server](https://github.com/Prime-Access-Consulting/nvda-at-automation)). They are the defaults when `machine.atEndpoints.<voiceover|nvda>` is empty (`AT_DRIVER_DEFAULTS` in `@rawstep/project/config`). `@rawstep/project/atdriver` starts a server for a run when none answers and the `RAWSTEP_AT_DRIVER_COMMAND` command is set (waits up to 30 s for the port, stops what it started), and `doctor` opens a session and negotiates the profile (5 s limit).
 
 ## Key mapping
@@ -59,7 +61,7 @@ Rawstep sends actions by meaning (an intent, a named key, text). A profile turns
 | `links.list` | rotor routine, below | not offered |
 | `formControls.rotor` | rotor routine, below | not offered |
 
-VoiceOver's three backward moves are not keys. Their keys are VO+Command+Shift+H/J/L, but VoiceOver's keyboard help (VO+K) names what the Bocoup server sends for them as Find *Next* Heading/Control/Link: the Shift is lost on the way. The server presses keys through System Events, whose Shift handling it has patched before (bocoup/macos-at-driver-server #11 and #15). The same keys posted as hardware events are named Find Previous, so the keys are right. Rawstep instead runs VoiceOver's own command by name through its AppleScript commander (`voiceoverCommander()`, `osascript`), which needs the same AppleScript setting and Automation permission for VoiceOver as page entry below. It is not an AT Driver command, so its receipt has no command ID; speech is collected after it returns as after a key press. The profile lists these intents in `commands`.
+VoiceOver's three backward moves are not keys. Their keys are VO+Command+Shift+H/J/L, but VoiceOver's keyboard help (VO+K) names what the Bocoup server sends for them as Find *Next* Heading/Control/Link: the Shift is lost on the way. The server presses keys through System Events, whose Shift handling it has patched before (bocoup/macos-at-driver-server #11 and #15). The same keys posted as hardware events are named Find Previous, so the keys are right. Rawstep instead runs VoiceOver's own command by name through its AppleScript commander (`voiceoverCommander()`, `osascript`), which needs the same AppleScript setting and Automation permission for VoiceOver as page entry below. It is not an AT Driver command, so its receipt has no command ID; speech is collected after it returns as after a key press. A command that gets no answer within 15 seconds ends the session (`command timeout`), as an unacknowledged key press does: VoiceOver can still carry it out later. A command VoiceOver refused (`command failed`) fails only that action. The profile lists these intents in `commands`.
 
 `readCurrent` and `readFocused` exist only in the simulation. An intent a profile does not list fails with `unsupported action` before any key is pressed.
 
@@ -121,12 +123,12 @@ If an action fails part way, the rotor is closed before the next action.
 VoiceOver's cursor can stay on the browser's own controls when a page loads, and it can also go in by itself (and read the page aloud, depending on its settings). At the start of a run and for each new document (the runner compares `performance.timeOrigin`), the runner calls `enterPage()` before the next observation. Where the cursor is comes from the screen, not from speech, so it holds in any speech language (`CursorLocator`, `placeOf`):
 
 - The page is the largest web area in the front window of the browser that shows it (`attachSession` passes the browser's process ID; without one, the app in front). It is read once per entry through macOS accessibility.
-- The cursor is VoiceOver's `vo cursor` bounds from its AppleScript interface. It is *on* the web content when it covers the page's area to within a point, *inside* when its center is in the page, and *outside* otherwise. A main region one scroll bar narrower than the page counts as inside.
+- The cursor is VoiceOver's `vo cursor` bounds from its AppleScript interface. It is *on* the web content when it covers the page's area to within a point, *inside* when it lies within the page's area (to within a point), and *outside* otherwise. VoiceOver gives the part of an item that shows, so a main region taller than the page comes back cut to it and counts as inside, one scroll bar narrower than the page. A toolbar control whose box hangs over the top of the page, or a group that holds the page, reaches past the page and is outside.
 
 Then:
 
 1. Wait for quiet. If the cursor is inside, press nothing and return `reason`.
-2. While it is outside, press `next`, up to 8 times. Still outside: reject (`page entry failed`). `interact` anywhere else goes into that item instead: from the tab group it lands on the tab's Close button.
+2. While it is outside, press `next`, up to 8 times. Still outside: reject (`page entry failed`). A press that lands straight on something in the page needs no step 3, and what VoiceOver said on that press stays in the observation. `interact` anywhere else goes into that item instead: from the tab group it lands on the tab's Close button.
 3. On the web content, press VO+Shift+Down and check the cursor is inside. Landing on something exactly the page's size counts as in only when VoiceOver said something on going in.
 4. Drop the walk from what the next observation returns, keeping what was said on load and on going in. The raw `backend.output` events still hold it.
 

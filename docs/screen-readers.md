@@ -91,7 +91,7 @@ To read the cursor's position, and to run VoiceOver's `find previous heading/con
 - **VoiceOver Utility › General › "Allow VoiceOver to be controlled with AppleScript"** turned on.
 - **System Settings › Privacy & Security › Automation:** the app that runs Rawstep (your terminal, your editor, or the CI agent; over SSH it is `sshd-keygen-wrapper`) allowed to control **VoiceOver** and **System Events**. macOS asks the first time with a prompt on screen, and the run waits for it: unanswered, the run ends on an error at the `page-entry` stage.
 
-`rawstep doctor` reads the cursor once and reports `VoiceOver cursor`. Run it once from the same app before your first run, so the prompts come up while you are watching. Rawstep never starts VoiceOver to ask: when VoiceOver is off, the check fails instead.
+`rawstep doctor` reads the cursor once, looks at the front window through System Events, and reports `VoiceOver cursor`. Run it once from the same app before your first run, so the prompts come up while you are watching. Rawstep never starts VoiceOver to ask: when VoiceOver is off, the check fails instead.
 
 ### Text VoiceOver Cannot Type
 
