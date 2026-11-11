@@ -53,9 +53,11 @@ pnpm native:voiceover run --planner grok --repeats 1
 
 ### VoiceOver의 페이지 진입
 
-실제 VoiceOver의 커서는 페이지가 열려도 브라우저 자체의 컨트롤에 머문다. 페이지를 옮겨도 다시 밖으로 나온다. 그래서 엔진이 시작할 때와 새 문서가 열릴 때마다 웹 콘텐츠를 말할 때까지 `next`를 누른 뒤 안으로 들어가고(`interact`), 그 결과를 `screen-reader.page-entry`로 남긴다. 사용자의 이동으로 세지 않으며 계획에도 쓰지 않는다. 페이지가 스스로 포커스를 옮겼으면 이미 안에 있으므로 누르지 않는다. 모의 VoiceOver에는 브라우저 창이 없어 이 단계가 없다.
+실제 VoiceOver의 커서는 페이지가 열려도 브라우저 자체의 컨트롤에 머물 수 있다. 연결한 Chrome처럼 VoiceOver가 혼자 들어가 페이지를 읽기 시작할 때도 있다. 그래서 엔진이 시작할 때와 새 문서가 열릴 때마다 VoiceOver 커서가 어디 있는지 화면 좌표로 확인한다. 이미 페이지 안이면 누르지 않고, 웹 콘텐츠 위면 안으로 들어가고(`interact`), 브라우저 컨트롤에 있으면 웹 콘텐츠 위에 올 때까지 `next`를 누른 뒤 들어간다. 결과는 `screen-reader.page-entry`로 남긴다. 사용자의 이동으로 세지 않으며 계획에도 쓰지 않는다. 모의 VoiceOver에는 브라우저 창이 없어 이 단계가 없다.
 
-웹 콘텐츠를 듣기 전에 `interact`를 누르면 그 자리의 항목으로 들어간다. 탭 그룹에서는 탭의 닫기 버튼에 닿아, 이어서 활성화하면 탭이 닫힌다. 그래서 진입은 반드시 귀로 확인한다.
+웹 콘텐츠 위가 아닌 곳에서 `interact`를 누르면 그 자리의 항목으로 들어간다. 탭 그룹에서는 탭의 닫기 버튼에 닿아, 이어서 활성화하면 탭이 닫힌다. 그래서 들어가기 전과 후에 커서 위치를 확인한다. 위치는 발화가 아니라 화면에서 읽으므로 음성 언어와 상관없다. VoiceOver의 "AppleScript로 VoiceOver 제어 허용"과, 실행하는 앱이 VoiceOver와 System Events를 제어하는 자동화 권한이 필요하다.
+
+`heading.previous`·`form.previous`·`link.previous`는 키가 아니라 VoiceOver 명령(`find previous heading/control/link`)을 AppleScript로 실행한다. AT Driver 서버가 보내는 VO+Command+Shift+H/J/L을 VoiceOver 키보드 도움말(VO+K)로 확인하면 Find Next로 인식된다. 같은 키를 하드웨어 입력 단계로 보내면 Find Previous로 인식되므로, 키가 아니라 서버의 Shift 전달 방식이 문제다.
 
 하드웨어 모델, macOS, Node, 브라우저 실행 파일, 읽을 수 있는 키보드·VoiceOver 저장 설정을 `results.json`에 기록한다. 이 기록으로 실제 Quick Nav 상태나 모든 설정을 확인했다고 주장하지 않는다. 위 조건이 다르면 그 사실을 결과와 함께 기록하고, 결과 폴더를 바꿔 재실행한다. 설정을 중간에 바꿔 얻은 결과를 한 배치로 합치지 않는다.
 
@@ -82,9 +84,8 @@ pnpm native:voiceover run --planner grok --repeats 1
 | F03-disconnect | 첫 Native 이동 완료 후 이 실행의 연결만 끊기 | failure / error |
 | F04-focus-loss | 첫 키 전송 전에 Finder 활성화 | harness가 전송 차단, aborted |
 | C01-simulation-only | readCurrent를 Native 프로필에 허용 | 세션 시작 전 unsupported-action |
-| C02-unicode | 한글 입력·교체 매핑 요청 | 키 생성 전 unsupported action |
 
-F01~F04는 일부러 넣은 실행 환경 오류에서 엔진이 안전하게 멈추는지 보는 검사이고, 접근성 오류를 찾는 검사가 아니다. F01은 기한만 보려고 멈춤 감지를 끄며, 없는 대상을 만났을 때 기본 규칙으로 어떻게 끝나는지는 L01이 본다. C01·C02는 오프라인 계약 검사이며 Native 실행 수에 포함하지 않는다. F04는 **실험 도구의 안전 차단** 검사이다. 현재 엔진 자체가 OS의 전면 앱을 계속 감시하거나 복구한다는 증거로 사용하지 않는다.
+F01~F04는 일부러 넣은 실행 환경 오류에서 엔진이 안전하게 멈추는지 보는 검사이고, 접근성 오류를 찾는 검사가 아니다. F01은 기한만 보려고 멈춤 감지를 끄며, 없는 대상을 만났을 때 기본 규칙으로 어떻게 끝나는지는 L01이 본다. C01은 오프라인 계약 검사이며 Native 실행 수에 포함하지 않는다. F04는 **실험 도구의 안전 차단** 검사이다. 현재 엔진 자체가 OS의 전면 앱을 계속 감시하거나 복구한다는 증거로 사용하지 않는다.
 
 ## 기존 엔진을 사용하는 범위
 

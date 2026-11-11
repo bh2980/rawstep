@@ -158,7 +158,7 @@ export type BackendOperationOptions = { signal?: AbortSignal };
 /** What the runner knows about this run's host and browser, for a backend's own preconditions. */
 export type BackendRunContext = { headless: boolean; platform: string; customBrowserSession: boolean };
 /** The opened browser session as a backend sees it; `page` is the automation page (Playwright in Rawstep's browser package). */
-export type BackendSession = { readonly page: unknown; readonly nativeTargetWindowId?: number };
+export type BackendSession = { readonly page: unknown; readonly nativeTargetWindowId?: number; readonly browserProcessId?: number };
 export interface Backend {
   /** Called after start(): throw when this run cannot proceed here (platform, visibility, session pairing). */
   preflight?(context: BackendRunContext): void | Promise<void>;
@@ -172,10 +172,11 @@ export interface Backend {
   start(options?: BackendOperationOptions): Promise<unknown>;
   execute(action: BackendAction, options?: BackendOperationOptions): Promise<unknown>;
   /**
-   * Called when a new document has loaded with nothing focused in it, before the next observation: a screen reader whose cursor stays
-   * on the browser's own controls then gets into the page. Not one of the user's moves. Rejects when it cannot.
+   * Called when a new document has loaded, before the next observation: a screen reader whose cursor can stay on the browser's own
+   * controls then gets into the page, unless it is already there (`reason` says why nothing was pressed). Not one of the user's moves.
+   * Rejects when it cannot.
    */
-  enterPage?(options?: BackendOperationOptions): Promise<{ entered: boolean; moves: number }>;
+  enterPage?(options?: BackendOperationOptions): Promise<{ entered: boolean; moves: number; reason?: string }>;
   observe(options?: BackendOperationOptions): Promise<BackendObservation>;
   close(): Promise<void>;
   subscribe(listener: (event: unknown) => void): () => void;

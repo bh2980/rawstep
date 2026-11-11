@@ -48,18 +48,18 @@ export async function prepareProject(root: string, browserExecutablePath = '', e
   // A slow reply is not what this measures: at its default effort (high) one planning call took 168-253 s against the usual 180 s limit.
   if (model) config.connections.push(connectionSchema.parse({ id: 'grok', name: 'Grok Build', provider: 'grok', timeoutMs: 300_000 }));
   // A model gets what a person using Rawstep would: the default rules, its first look at the headings, and both ways of entering text.
-  config.profiles = CASES.filter(c => c.id !== 'C02-unicode').map(c => plannedByModel(c, model) ? {
+  config.profiles = CASES.map(c => plannedByModel(c, model) ? {
     ...defaultProfile(c.id, c.id), planner: { connectionId: 'grok', modelId: model!, reasoningEffort: 'low', instructions: '' }, screenReader: 'voiceover' as const,
     actions: { keys: [], intents: [...MODEL_INTENTS], typeText: true, replaceText: true },
   } : {
     ...defaultProfile(c.id, c.id), planner: { planFile: `plans/${c.id}.json` }, screenReader: 'voiceover' as const,
-    actions: { keys: [], intents: [...BASE_INTENTS, ...(c.survey ? ['headings.list'] : []), ...(c.id === 'C01-simulation-only' ? ['readCurrent'] : [])], typeText: !c.replace, replaceText: !!c.replace },
+    actions: { keys: [], intents: [...BASE_INTENTS, ...(c.intents ?? []), ...(c.survey ? ['headings.list'] : []), ...(c.id === 'C01-simulation-only' ? ['readCurrent'] : [])], typeText: !c.replace, replaceText: !!c.replace },
     runRules: { ...defaultProfile().runRules, survey: c.survey ? 'headings' : 'none',
       ...(c.group === 'fault' ? { repetitionGuard: false, maxUnchangedTransitions: 10000, noChangeLimit: 100, failureLimit: 100, stepActionLimit: 1000, reviewEvery: 10000 } : {}) },
   });
   config.machine = { ...config.machine, headless: false, parallelRuns: 1, browserExecutablePath, atEndpoints: { voiceover: endpoint, nvda: '' } };
-  config.tasks = CASES.filter(c => c.id !== 'C02-unicode').map(c => ({ id: c.id, name: c.purpose, file: `tasks/${c.id}.json`, profiles: [c.id], tags: [c.group] }));
-  for (const c of CASES.filter(c => c.id !== 'C02-unicode')) {
+  config.tasks = CASES.map(c => ({ id: c.id, name: c.purpose, file: `tasks/${c.id}.json`, profiles: [c.id], tags: [c.group] }));
+  for (const c of CASES) {
     await writeFile(join(root, 'tasks', `${c.id}.json`), json(taskFor(c, root, plannedByModel(c, model))));
     if (!plannedByModel(c, model)) await writeFile(join(root, 'plans', `${c.id}.json`), json(planFor(c)));
   }
@@ -77,7 +77,7 @@ export async function specFor(c: Case, root: string, config: ProjectConfig): Pro
 }
 
 /** No connection or keys: validate plans and exercise known refusal boundaries using the product code. */
-export async function checkFoundation(): Promise<{ cases: number; fixtureSha256: string; contracts: Record<string, string> }> {
+export async function checkFoundation(): Promise<{ cases: number; fixtureSha256: string }> {
   const profile = getAtDriverProfile('voiceover');
   for (const c of CASES.filter(c => c.group !== 'contract')) {
     taskFor(c, directory); planFileSchema.parse(planFor(c));
@@ -87,15 +87,7 @@ export async function checkFoundation(): Promise<{ cases: number; fixtureSha256:
       } else if (c.input) for (const text of Object.values(c.input)) profile.mapAction({ kind: name as 'typeText' | 'replaceText', text });
     }
   }
-  const contracts: Record<string, string> = {};
-  for (const kind of ['typeText', 'replaceText'] as const) {
-    try { profile.mapAction({ kind, text: '한글' }); throw new Error(`${kind} unexpectedly accepted Unicode`); }
-    catch (error) {
-      if ((error as { code?: string }).code !== 'unsupported action') throw error;
-      contracts[kind] = 'unsupported action';
-    }
-  }
-  return { cases: CASES.length, fixtureSha256: createHash('sha256').update(await readFile(join(directory, 'page.html'))).digest('hex'), contracts };
+  return { cases: CASES.length, fixtureSha256: createHash('sha256').update(await readFile(join(directory, 'page.html'))).digest('hex') };
 }
 
 export type Attempt = {
@@ -127,7 +119,8 @@ export function auditTrace(c: Case, trace: RunTrace, attempt: Pick<Attempt, 'for
   const speech = [...live, ...of('screen-reader.output').filter(e => !sequences.has(record(e.data).sequence))].sort((a, b) => a.seq - b.seq);
   const outputs = speech.filter(e => e.seq > (keyCommands[0]?.seq ?? Infinity) && typeof record(e.data).text === 'string' && record(e.data).text.trim());
   const allSpeech = speech.map(e => String(record(e.data).text ?? '')).join('\n');
-  const pagesEntered = of('screen-reader.page-entry').filter(e => record(e.data).entered === true).length;
+  // A page counts once the cursor is in it: taken in, or found already there (VoiceOver can go in by itself).
+  const pagesEntered = of('screen-reader.page-entry').filter(e => record(e.data).entered === true || typeof record(e.data).reason === 'string').length;
   // What was pressed, not what the action said: a rotor routine that does not find its list still returns as if it had.
   const pressed = keyCommands.map(e => (record(record(e.data).raw).params as { keys?: string[] } | undefined)?.keys ?? []);
   const pressedAlone = (key: string) => pressed.some(keys => keys.length === 1 && keys[0] === key);
@@ -159,6 +152,9 @@ export function auditTrace(c: Case, trace: RunTrace, attempt: Pick<Attempt, 'for
       if (!byModel) {
         if (c.rotor === 'reads-list') add('rotor-read-the-list', pressedAlone(AT_DRIVER_KEYS.ArrowDown));
         if (c.rotor === 'picks-item') add('rotor-picked-an-item', pressedAlone(AT_DRIVER_KEYS.Enter));
+        // Moves made by VoiceOver's own commands press no key, so they are proved by the commands it ran.
+        const ran = of('backend.readerCommand').map(e => record(e.data));
+        if (c.intents) add('reader-commands-ran', ran.filter(d => d.stage === 'done').length >= c.intents.length && !ran.some(d => d.stage === 'failed'));
         for (const cue of c.speech) add(`heard:${cue}`, allSpeech.toLowerCase().includes(cue.toLowerCase()));
         if (['delayed', 'late'].includes(c.page)) add('completion-event-captured', outputs.some(e => /completed/i.test(record(e.data).text)));
       }

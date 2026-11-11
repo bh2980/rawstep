@@ -11,6 +11,8 @@ export type Case = {
    */
   userGoal?: string;
   page: string; tasks: PlanTask[]; actions: string[]; speech: string[];
+  /** Intents this case's written plan uses beyond `BASE_INTENTS`. */
+  intents?: string[];
   input?: Task['input']; replace?: boolean; survey?: boolean;
   fault?: 'cancel' | 'disconnect' | 'focus-loss'; timeoutMs?: number;
   /** How many documents the run has to get the reader into. Every case that reaches page content goes into at least the first. */
@@ -64,6 +66,10 @@ export const CASES: readonly Case[] = [
     tasks: [move('Finish check'), press()], actions: ['intent:activate'], speech: ['Finish check'], expected: unconfirmed },
   { id: 'W10-next-page', userGoal: 'Open the next page and finish the check there.', group: 'workflow', purpose: 'Carry on with the task on the document a link leads to', page: 'onward', pages: 2,
     tasks: [move('Open next page', 'link.next'), press(newPage), move('Finish check'), press()], actions: ['intent:link.next', 'intent:activate', 'intent:next', 'intent:activate'], speech: ['Open next page', 'Next page', 'Finish check', 'Completed'], expected: success },
+  { id: 'W11-backward', group: 'workflow', purpose: 'Go to the last field, then move back by link, form control and heading to the button', page: 'back',
+    intents: ['heading.previous', 'form.previous', 'link.previous'],
+    tasks: [move('Last field', 'form.next'), move('Later link', 'link.previous'), move('Finish check', 'form.previous'), move('Target section', 'heading.previous'), move('Finish check'), press()],
+    actions: ['intent:form.next', 'intent:link.previous', 'intent:form.previous', 'intent:heading.previous', 'intent:activate'], speech: ['Last field', 'Later link', 'Target section'], expected: success },
   { id: 'L01-missing-target', userGoal: 'Find the Submit payment button on this page and press it.', group: 'limit', purpose: 'Walk a page to its end looking for what is not there, under the default rules', page: 'button', timeoutMs: 60_000,
     tasks: [move('This cue never exists')], actions: ['intent:next'], speech: ['Finish check', 'end of main'], expected: { status: 'failure', reason: 'policy-stuck', ending: 'gave-up' } },
   { id: 'F01-timeout', group: 'fault', purpose: 'End a non-progressing task by its actual task deadline', page: 'button', timeoutMs: 20_000,
@@ -76,8 +82,6 @@ export const CASES: readonly Case[] = [
     tasks: [move('Finish check'), press()], actions: [], speech: [], expected: { status: 'aborted', reason: 'aborted' } },
   { id: 'C01-simulation-only', group: 'contract', purpose: 'Reject readCurrent before opening a native session', page: 'button',
     tasks: [move('Finish check', 'readCurrent')], actions: ['intent:readCurrent'], speech: [], expected: { status: 'not-started', errorCode: 'unsupported-action' } },
-  { id: 'C02-unicode', group: 'contract', purpose: 'Reject unmappable text before select-all/delete or any character is sent', page: 'form', input: { query: '한글' },
-    tasks: [], actions: [], speech: [], expected: { status: 'not-started', errorCode: 'unsupported action' } },
 ];
 
 export function planFor(c: Case): PlanDraft {

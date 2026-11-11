@@ -52,12 +52,14 @@ Rawstep sends actions by meaning (an intent, a named key, text). A profile turns
 | `activate` | VO+Space | Enter |
 | `interact` | VO+Shift+Down | not offered |
 | `stopInteracting` | VO+Shift+Up | not offered |
-| `heading.next`, `heading.previous` | VO+Command+H, VO+Command+Shift+H | H, Shift+H |
-| `form.next`, `form.previous` | VO+Command+J, VO+Command+Shift+J | F, Shift+F |
-| `link.next`, `link.previous` | VO+Command+L, VO+Command+Shift+L | K, Shift+K |
+| `heading.next`, `heading.previous` | VO+Command+H, VoiceOver command `find previous heading` | H, Shift+H |
+| `form.next`, `form.previous` | VO+Command+J, VoiceOver command `find previous control` | F, Shift+F |
+| `link.next`, `link.previous` | VO+Command+L, VoiceOver command `find previous link` | K, Shift+K |
 | `headings.list` | rotor routine, below | not offered |
 | `links.list` | rotor routine, below | not offered |
 | `formControls.rotor` | rotor routine, below | not offered |
+
+VoiceOver's three backward moves are not keys. Their keys are VO+Command+Shift+H/J/L, but VoiceOver's keyboard help (VO+K) names what the Bocoup server sends for them as Find *Next* Heading/Control/Link: the Shift is lost on the way. The server presses keys through System Events, whose Shift handling it has patched before (bocoup/macos-at-driver-server #11 and #15). The same keys posted as hardware events are named Find Previous, so the keys are right. Rawstep instead runs VoiceOver's own command by name through its AppleScript commander (`voiceoverCommander()`, `osascript`), which needs the same AppleScript setting and Automation permission for VoiceOver as page entry below. It is not an AT Driver command, so its receipt has no command ID; speech is collected after it returns as after a key press. The profile lists these intents in `commands`.
 
 `readCurrent` and `readFocused` exist only in the simulation. An intent a profile does not list fails with `unsupported action` before any key is pressed.
 
@@ -71,7 +73,9 @@ Differences to keep in mind:
 
 ### Text entry
 
-`typeText` presses one key per character. The whole text is checked before the first press, and a character with no mapping fails the action without touching the field. `replaceText` first presses select-all (`Mod+A`) and Backspace, then types. There is no clipboard, no DOM typing and no focus repair. The runner decides whether a named input may be typed and checks that an editable field has focus before calling these.
+`typeText` presses one key per character. The whole text is checked before the first press. `replaceText` first presses select-all (`Mod+A`) and Backspace, then types. There is no DOM typing and no focus repair.
+
+On VoiceOver, text with a character the keys cannot type (Korean, for example) is pasted instead: Rawstep puts the whole text on the system clipboard with `pbcopy` and presses Command+V, the way a person pastes a word they were given. The paste is recorded as `backend.clipboard` with the text's length only, since the text can be a sensitive input. The clipboard keeps the text after the run, so a sensitive value pasted this way stays there. Typing Korean key by key would need the Korean input source and its key sequence, which Rawstep does not do. On NVDA, such a character still fails the action without touching the field. The runner decides whether a named input may be typed and checks that an editable field has focus before calling these.
 
 | Characters | VoiceOver | NVDA |
 |---|---|---|
@@ -80,9 +84,9 @@ Differences to keep in mind:
 | `! @ # $ % ^ & * ( )` | Shift+digit | Shift+digit |
 | `; :` and `= +` | yes | yes |
 | Other ASCII punctuation: `-` `[` `]` `'` `\` `,` `/` `.` and backtick, and their shifted forms `_` `{` `}` `"` `\|` `<` `>` `?` `~` | yes, using the Bocoup server's key names | no |
-| anything else, including non-ASCII | no | no |
+| anything else, including non-ASCII | pasted from the clipboard | no |
 
-So a period fails on NVDA with this server, and Unicode text is not supported on either. A US keyboard layout is assumed.
+So a period fails on NVDA with this server, and Unicode text is not supported there. A US keyboard layout is assumed.
 
 ## Rotor routines
 
@@ -114,20 +118,27 @@ If an action fails part way, the rotor is closed before the next action.
 
 ## Getting into the page
 
-VoiceOver's cursor stays on the browser's own controls when a page loads. At the start of a run and for each new document (the runner compares `performance.timeOrigin`), when nothing in the page has focus, the runner calls `enterPage()` before the next observation:
+VoiceOver's cursor can stay on the browser's own controls when a page loads, and it can also go in by itself (and read the page aloud, depending on its settings). At the start of a run and for each new document (the runner compares `performance.timeOrigin`), the runner calls `enterPage()` before the next observation. Where the cursor is comes from the screen, not from speech, so it holds in any speech language (`CursorLocator`, `placeOf`):
 
-1. Wait for quiet, then press `next` and listen until the last line that is not a usage hint ends in "web content" or "웹 콘텐츠", up to 8 times. A usage hint comes late and can name the place the cursor just left, so it does not count.
-2. Press VO+Shift+Down and check the last line names the web content. `interact` anywhere else goes into that item instead: from the tab group it lands on the tab's Close button. So the web content has to be heard first, and a failure at either step rejects (`page entry failed`) rather than carrying on.
-3. Drop the walk from what the next observation returns, keeping what was said on load and on going in. The raw `backend.output` events still hold it.
+- The page is the largest web area in the front window of the browser that shows it (`attachSession` passes the browser's process ID; without one, the app in front). It is read once per entry through macOS accessibility.
+- The cursor is VoiceOver's `vo cursor` bounds from its AppleScript interface. It is *on* the web content when it covers the page's area to within a point, *inside* when its center is in the page, and *outside* otherwise. A main region one scroll bar narrower than the page counts as inside.
 
-A page that moved focus into itself on load takes the cursor in by itself, so nothing is pressed. NVDA's profile has no page entry, and `enterPage()` does nothing there.
+Then:
+
+1. Wait for quiet. If the cursor is inside, press nothing and return `reason`.
+2. While it is outside, press `next`, up to 8 times. Still outside: reject (`page entry failed`). `interact` anywhere else goes into that item instead: from the tab group it lands on the tab's Close button.
+3. On the web content, press VO+Shift+Down and check the cursor is inside. Landing on something exactly the page's size counts as in only when VoiceOver said something on going in.
+4. Drop the walk from what the next observation returns, keeping what was said on load and on going in. The raw `backend.output` events still hold it.
+
+`voiceoverCursorLocator()` runs `osascript`. While VoiceOver reads a new page aloud by itself, it now and then has no cursor bounds to give (null, the next read fine), so a missing cursor is asked for up to 5 times, 300 ms apart, before the page entry fails. It needs VoiceOver's "Allow VoiceOver to be controlled with AppleScript" and Automation permission for VoiceOver and System Events; it never starts VoiceOver. NVDA's profile has no page entry, and `enterPage()` does nothing there.
 
 ## What is not confirmed on a real screen reader
 
 The fake-transport tests in `tests/at-driver.test.ts` and `tests/at-driver-workflow.test.ts` check the protocol, cancellation and collection rules against a fake server. They do not check how VoiceOver, NVDA or a browser behave. No recorded live check is kept in this repository. Things to treat as unconfirmed until you have seen them on your machine:
 
-- **The rotor routines and page entry were checked on one setup only:** VoiceOver 26.6.2 with English speech and Chromium for Testing 147, in a macOS 26 VM. There the Headings list stayed on its last item at the end, and Return in the Form Controls list moved focus to the field without pressing anything. **`links.list` has not been run on a live VoiceOver**, and other versions and browsers may differ.
-- **The Korean names** ("머리말", "링크", "폼 컨트롤", "양식 컨트롤", "웹 콘텐츠") are guesses from the routine's design.
+- **The rotor routines were checked on one setup only:** VoiceOver 26.6.2 with English speech and Chromium for Testing 147, in a macOS 26 VM. There the Headings list stayed on its last item at the end, and Return in the Form Controls list moved focus to the field without pressing anything. **`links.list` has not been run on a live VoiceOver**, and other versions and browsers may differ.
+- **Page entry by position** was measured on VoiceOver 26.6.2 with Google Chrome 157 on one display, in a macOS 26 VM. More than one display and other browsers are not checked.
+- **The Korean names** ("머리말", "링크", "폼 컨트롤", "양식 컨트롤") are guesses from the routine's design.
 - **Default key bindings and a US keyboard layout** are assumed. Neither is read from the machine; the run records layout and settings as `unknown`. A changed VoiceOver modifier, Quick Nav or a different layout will change what the keys do.
 - **NVDA keys assume browse mode.** The adapter does not detect or switch the mode.
 - **Which screen reader and browser versions** the key map suits is not established. Versions are only what the server reports.

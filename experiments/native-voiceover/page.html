@@ -38,7 +38,9 @@
     document.getElementById('open').onclick = () => { dialog.showModal(); document.documentElement.dataset.opened = 'true'; };
     document.getElementById('close').onclick = () => { dialog.close(); complete(); };
   } else {
-    main.innerHTML = mode === 'heading' ? '<h1>Heading check</h1><p>Introduction</p><h2>Target section</h2>' + finish : mode === 'onward-target' ? '<h1>Next page</h1>' + finish : '<h1>Button check</h1>' + finish;
+    main.innerHTML = mode === 'heading' ? '<h1>Heading check</h1><p>Introduction</p><h2>Target section</h2>' + finish
+      : mode === 'back' ? '<h1>Back check</h1><h2>Target section</h2>' + finish + '<p><a href="#later">Later link</a></p><h2 id="later">Later section</h2><input aria-label="Last field" autocomplete="off">'
+      : mode === 'onward-target' ? '<h1>Next page</h1>' + finish : '<h1>Button check</h1>' + finish;
     if (mode === 'silent') document.getElementById('status').removeAttribute('role');
     document.getElementById('finish').onclick = () => {
       const root = document.documentElement;

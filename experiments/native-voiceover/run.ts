@@ -10,7 +10,6 @@ import { parseArgs } from 'node:util';
 import { chromium } from 'playwright';
 import { readTrace, type TraceEvent } from '@rawstep/core/trace';
 import { executeRun, lockBrowserProfile } from '@rawstep/project/execution';
-import { getAtDriverProfile } from '@rawstep/screenreaders/at-driver';
 import { CASES, type Case } from './cases.js';
 import { auditTrace, checkFoundation, directory, json, plannedByModel, prepareProject, specFor, summary, type Attempt } from './suite.js';
 
@@ -138,47 +137,38 @@ export async function runExperiment(options: { out: string; phase: string; repea
       const outDir = join(root, 'attempts', attempt.id);
       let relay: Awaited<ReturnType<typeof driverRelay>> | undefined;
       try {
-        if (c.id === 'C02-unicode') {
-          // The actual profile maps the complete text before it can dispatch even a destructive replace prefix.
-          const refused: string[] = [];
-          for (const kind of ['typeText', 'replaceText'] as const) try { getAtDriverProfile('voiceover').mapAction({ kind, text: '한글' }); }
-          catch (error) { if ((error as { code?: string }).code === 'unsupported action') refused.push(kind); else throw error; }
-          attempt.checks = [{ name: 'both-input-actions-refused-offline', passed: refused.length === 2 }];
-          attempt.verdict = refused.length === 2 ? 'passed' : 'failed';
-        } else {
-          const spec = await specFor(c, join(root, 'project'), config);
-          if (c.expected.errorCode) throw new Error('An expected setup refusal did not occur.');
-          if (c.fault === 'disconnect') {
-            relay = await driverRelay(spec.settings.machine.atEndpoints.voiceover);
-            spec.settings.machine.atEndpoints.voiceover = relay.endpoint;
-          }
-          const onEvent = (event: TraceEvent) => {
-            try {
-              const data = event.data as { method?: string; ok?: boolean };
-              if (event.type === 'backend.command' && data.method === 'interaction.userIntent') {
-                if (c.fault === 'focus-loss' && !attempt.injection!.triggered) {
-                  shell('/usr/bin/osascript', ['-e', 'tell application "Finder" to activate']);
-                  attempt.injection = { kind: c.fault, triggered: true, atEvent: event.id };
-                }
-                let check = frontmost(browser);
-                // Activation is asynchronous; the focus-loss probe waits only for the injected change, never repairs focus.
-                if (c.fault === 'focus-loss') for (let n = 0; check.matched && n < 5; n++) check = frontmost(browser);
-                attempt.foreground!.push({ ...check, commandId: event.commandId });
-                if (!check.matched || c.fault === 'focus-loss') current!.abort('foreground-lost');
-              }
-              if (event.type === 'action.result' && data.ok && c.fault && !attempt.injection!.triggered) {
-                attempt.injection = { kind: c.fault, triggered: true, atEvent: event.id };
-                if (c.fault === 'cancel') current!.abort('requested');
-                if (c.fault === 'disconnect') relay!.disconnect();
-              }
-            } catch (error) { attempt.error = error instanceof Error ? error.message : String(error); current!.abort('guard-error'); }
-          };
-          await executeRun(spec, { outDir, signal: current.signal, onEvent });
-          const trace = await readTrace(outDir);
-          attempt.engineOutcome = trace.outcome; attempt.trace = relative(root, join(outDir, 'trace.json'));
-          Object.assign(attempt, auditTrace(c, trace, attempt));
-          if (attempt.error) attempt.verdict = 'unverified';
+        const spec = await specFor(c, join(root, 'project'), config);
+        if (c.expected.errorCode) throw new Error('An expected setup refusal did not occur.');
+        if (c.fault === 'disconnect') {
+          relay = await driverRelay(spec.settings.machine.atEndpoints.voiceover);
+          spec.settings.machine.atEndpoints.voiceover = relay.endpoint;
         }
+        const onEvent = (event: TraceEvent) => {
+          try {
+            const data = event.data as { method?: string; ok?: boolean };
+            if (event.type === 'backend.command' && data.method === 'interaction.userIntent') {
+              if (c.fault === 'focus-loss' && !attempt.injection!.triggered) {
+                shell('/usr/bin/osascript', ['-e', 'tell application "Finder" to activate']);
+                attempt.injection = { kind: c.fault, triggered: true, atEvent: event.id };
+              }
+              let check = frontmost(browser);
+              // Activation is asynchronous; the focus-loss probe waits only for the injected change, never repairs focus.
+              if (c.fault === 'focus-loss') for (let n = 0; check.matched && n < 5; n++) check = frontmost(browser);
+              attempt.foreground!.push({ ...check, commandId: event.commandId });
+              if (!check.matched || c.fault === 'focus-loss') current!.abort('foreground-lost');
+            }
+            if (event.type === 'action.result' && data.ok && c.fault && !attempt.injection!.triggered) {
+              attempt.injection = { kind: c.fault, triggered: true, atEvent: event.id };
+              if (c.fault === 'cancel') current!.abort('requested');
+              if (c.fault === 'disconnect') relay!.disconnect();
+            }
+          } catch (error) { attempt.error = error instanceof Error ? error.message : String(error); current!.abort('guard-error'); }
+        };
+        await executeRun(spec, { outDir, signal: current.signal, onEvent });
+        const trace = await readTrace(outDir);
+        attempt.engineOutcome = trace.outcome; attempt.trace = relative(root, join(outDir, 'trace.json'));
+        Object.assign(attempt, auditTrace(c, trace, attempt));
+        if (attempt.error) attempt.verdict = 'unverified';
       } catch (error) {
         const code = (error as { code?: string }).code;
         if (c.expected.errorCode && c.expected.errorCode === code) {

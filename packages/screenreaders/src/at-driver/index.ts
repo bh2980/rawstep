@@ -1,12 +1,14 @@
 import { AtDriverClient, AtDriverError, type AtDriverClientOptions, type AtDriverOperationOptions, type AtDriverTransportEvent, type CommandReceipt } from "./transport.js";
 import { getAtDriverProfile, type AtDriverAction, type AtDriverCapabilities, type AtDriverProfile, type AtDriverProfileName, type AtDriverListRoutine, type AtDriverRotorList, type AtDriverRotorRoutine } from "./profiles.js";
+import { macClipboard, placeOf, voiceoverCommander, voiceoverCursorLocator, type ClipboardWriter, type CursorLocator, type ReaderCommander } from "./voiceover-applescript.js";
 import { isRecord, positiveMilliseconds } from "../internal/guards.js";
-import type { BackendRunContext } from "@rawstep/core/contracts";
+import type { BackendRunContext, BackendSession } from "@rawstep/core/contracts";
 import { isLoopbackUrl } from "@rawstep/core/defaults";
 import { RawstepError } from "@rawstep/core/errors";
 
 export * from "./transport.js";
 export * from "./profiles.js";
+export * from "./voiceover-applescript.js";
 
 export interface AtDriverOutput {
   sequence: number;
@@ -64,12 +66,35 @@ export type AtDriverEvent = (AtDriverTransportEvent & { windowId?: string }) | {
   timestamp: number;
   windowId: string;
   observation?: AtDriverObservation;
+} | {
+  /** One of the reader's own commands, run outside AT Driver (backend.readerCommand in a run trace): before it runs, then how it ended. */
+  type: "readerCommand";
+  timestamp: number;
+  windowId: string;
+  command: string;
+  stage: "sent" | "done" | "failed";
+  error?: string;
+} | {
+  /**
+   * Text was put on the clipboard for the paste that follows, because the keys cannot type it (backend.clipboard in a run trace).
+   * Only its length is kept: the text can be a sensitive input, which a trace never holds.
+   */
+  type: "clipboard";
+  timestamp: number;
+  windowId: string;
+  characters: number;
 };
 
 export interface AtDriverBackendOptions extends AtDriverClientOptions {
   profile: AtDriverProfileName;
   quietMs?: number;
   maxWaitMs?: number;
+  /** Where the reader's cursor and the page are on the screen, for getting into a page; VoiceOver's own on macOS by default. */
+  cursorLocator?: CursorLocator;
+  /** Runs the reader's own commands for the intents its profile does not do with keys; VoiceOver's AppleScript commander by default. */
+  commander?: ReaderCommander;
+  /** Puts text on the clipboard for a text action the keys cannot type; `pbcopy` by default. */
+  clipboard?: ClipboardWriter;
 }
 
 type Window = { id: string; startedAt: number; acknowledgedAt: number; commandIds: number[] };
@@ -95,6 +120,13 @@ export class AtDriverBackend {
   private fatalError?: AtDriverError;
   private observationWake?: () => void;
   private unsubscribe: () => void;
+  private browserProcessId?: number;
+  private locator?: CursorLocator;
+  private commander?: ReaderCommander;
+  private clipboard?: ClipboardWriter;
+
+  /** Keeps which browser shows the page, so getting into it looks at that browser's window. */
+  attachSession(session: BackendSession): void { this.browserProcessId = session.browserProcessId; }
 
   /** Without a trusted paired session factory, the AT server, OS screen reader and visible browser must share this host. */
   preflight(context: BackendRunContext): void {
@@ -191,13 +223,15 @@ export class AtDriverBackend {
     if (this.busy || this.observationInProgress) throw new AtDriverError("Concurrent execution/observation is not supported", "invalid state");
     const routine = action.kind === "intent" && Object.hasOwn(this.profile.routines, action.intent) ? this.profile.routines[action.intent] : undefined;
     const rotor = action.kind === "intent" && Object.hasOwn(this.profile.rotors, action.intent) ? this.profile.rotors[action.intent] : undefined;
+    const command = action.kind === "intent" && Object.hasOwn(this.profile.commands, action.intent) ? this.profile.commands[action.intent] : undefined;
     // While a rotor list is open, moving and picking go to it, Escape only closes it, and anything else closes it first.
     const open = this.rotor;
     const rotorMoves: Readonly<Record<string, readonly string[]>> | undefined = open && { next: open.next, previous: open.previous, activate: open.pick };
     const inRotor = rotorMoves && action.kind === "intent" && Object.hasOwn(rotorMoves, action.intent) ? rotorMoves[action.intent] : undefined;
     const onlyClose = open && action.kind === "key" && action.key === "Escape";
     // Reject unsupported input before mutating the remote end.
-    const presses = inRotor ? [inRotor] : onlyClose || routine || rotor ? [] : this.profile.mapAction(action);
+    const presses = inRotor ? [inRotor] : onlyClose || routine || rotor || command ? [] : this.profile.mapAction(action);
+    const paste = presses.length && !inRotor ? this.profile.pasteText(action) : undefined;
     this.busy = true;
     const window = this.beginWindow();
     const commands: CommandReceipt[] = [];
@@ -212,6 +246,21 @@ export class AtDriverBackend {
       if (open && action.kind === "intent" && action.intent === "activate") this.rotor = undefined;
       if (routine) await this.readList(routine, press, options.signal);
       if (rotor) await this.openRotor(rotor, press, options.signal);
+      if (command) {
+        // Not an AT Driver command, so it has no command ID; its return stands in for the acknowledgement speech is collected after.
+        const commander = this.commander ??= this.options.commander ?? voiceoverCommander();
+        this.emit({ type: "readerCommand", timestamp: Date.now(), windowId: window.id, command, stage: "sent" });
+        try { await commander(command, options.signal); } catch (error) {
+          this.emit({ type: "readerCommand", timestamp: Date.now(), windowId: window.id, command, stage: "failed", error: error instanceof Error ? error.message : String(error) });
+          throw error;
+        }
+        window.acknowledgedAt = Date.now();
+        this.emit({ type: "readerCommand", timestamp: window.acknowledgedAt, windowId: window.id, command, stage: "done" });
+      }
+      if (paste !== undefined) {
+        await (this.clipboard ??= this.options.clipboard ?? macClipboard())(paste, options.signal);
+        this.emit({ type: "clipboard", timestamp: Date.now(), windowId: window.id, characters: Array.from(paste).length });
+      }
       for (const keys of presses) await press(keys);
       return { windowId: window.id, commandIds: commands.map(command => command.commandId), acknowledgedAt: window.acknowledgedAt, commands };
     } catch (error) {
@@ -221,11 +270,12 @@ export class AtDriverBackend {
   }
 
   /**
-   * Gets the cursor into a newly loaded page for a reader that stays on the browser's own controls (see `AtDriverPageEntry`); a reader
-   * without that need does nothing. The walk over those controls stays in the raw record but is not what the user heard on the page, so
-   * the observation keeps only what the reader said on load and on going in.
+   * Gets the cursor into a newly loaded page for a reader whose cursor can stay on the browser's own controls (see `AtDriverPageEntry`);
+   * a reader without that need does nothing. Where the cursor is comes from the screen, so a reader that went in by itself (VoiceOver
+   * can, and then reads the page aloud) is left alone. The walk over the browser's controls stays in the raw record but is not what the
+   * user heard on the page, so the observation keeps only what the reader said on load and on going in.
    */
-  async enterPage(options: AtDriverOperationOptions = {}): Promise<{ entered: boolean; moves: number }> {
+  async enterPage(options: AtDriverOperationOptions = {}): Promise<{ entered: boolean; moves: number; reason?: string }> {
     const entry = this.profile.pageEntry;
     if (!entry) return { entered: false, moves: 0 };
     options.signal?.throwIfAborted();
@@ -233,19 +283,29 @@ export class AtDriverBackend {
     if (this.busy || this.observationInProgress) throw new AtDriverError("Concurrent execution/observation is not supported", "invalid state");
     this.busy = true;
     const press = this.presser(this.beginWindow(), [], options);
-    const lastItem = (lines: readonly string[]) => lines.filter(line => !entry.hint.test(line)).at(-1) ?? "";
+    const locator = this.locator ??= this.options.cursorLocator ?? voiceoverCursorLocator();
     try {
       await this.quiet(options.signal);
+      const page = await locator.page(this.browserProcessId, options.signal);
+      if (!page) throw new AtDriverError(`The page's area could not be found in the browser window, so ${this.profile.atName} could not be taken into it`, "page entry failed");
+      const place = async () => placeOf(await locator.cursor(options.signal), page);
+      let at = await place();
+      if (at === "inside") return { entered: false, moves: 0, reason: `${this.profile.atName} was already in the page` };
       const walkFrom = this.outputs.length;
-      let moves = 0, found = false;
-      while (!found && moves < entry.maxMoves) {
+      let moves = 0;
+      while (at === "outside" && moves < entry.maxMoves) {
         moves++;
-        found = entry.webContent.test(lastItem(await this.listen(entry.move, press, options.signal)));
+        await this.listen(entry.move, press, options.signal);
+        at = await place();
       }
-      if (!found) throw new AtDriverError(`${this.profile.atName} did not name the web content within ${moves} moves, so the page could not be entered`, "page entry failed");
+      if (at === "outside") throw new AtDriverError(`${this.profile.atName}'s cursor did not reach the web content within ${moves} moves, so the page could not be entered`, "page entry failed");
       const walkEnd = this.outputs.length;
-      const heard = lastItem(await this.listen(entry.enter, press, options.signal));
-      if (!entry.inside.test(heard)) throw new AtDriverError(`${this.profile.atName} did not go into the web content: it said "${heard}"`, "page entry failed");
+      if (at === "on") {
+        const said = await this.listen(entry.enter, press, options.signal);
+        // Going in can land on something exactly the page's size (a main region on a page too short to scroll): it still says where.
+        const after = await place();
+        if (after === "outside" || (after === "on" && !said.length)) throw new AtDriverError(`${this.profile.atName} did not go into the web content`, "page entry failed");
+      }
       this.outputs.splice(walkFrom, walkEnd - walkFrom);
       return { entered: true, moves };
     } catch (error) {

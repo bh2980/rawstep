@@ -19,8 +19,8 @@ In Rawstep, a profile's `actions` object controls which intents and keys the sim
 | **Custom** | Any combination of intents and `keys` | Custom testing scenarios (e.g., adding `Escape`, `Tab`, `Shift+Tab`, `ArrowDown`, `readCurrent`, or `readFocused`). |
 
 ### How Rotor List Intents Work
-- **`headings.list`:** Announces every heading on the page along with its heading level in a single output window (modeled on the VoiceOver Headings rotor list). When `runRules.survey` is `"headings"` (the default) and `headings.list` is allowed, the simulated user runs this automatically on step 1.
-- **`links.list`:** Announces all links on the page in a single output window.
+- **`headings.list`:** Announces every heading on the page along with its heading level in a single output window (modeled on the VoiceOver Headings rotor list). When `runRules.survey` is `"headings"` (the default) and `headings.list` is allowed, the simulated user runs this automatically on step 1. A plan can also use it later (on a new page, for example). The list closes again and the cursor stays where it was.
+- **`links.list`:** Announces all links on the page in a single output window. The cursor stays where it was.
 - **`formControls.rotor`:** Opens the Form Controls rotor list. While open, `next` and `previous` step through the listed controls, `activate` moves the screen-reader cursor onto the chosen control without pressing it (closing the rotor), and `Escape` closes the rotor without moving.
 
 ---
@@ -70,7 +70,7 @@ When a run uses `voiceover` or `nvda` and the WebSocket port is not yet listenin
 
 ### Verifying Native Screen-Reader Connectivity
 
-Run `doctor` to test the WebSocket connection to your configured AT Driver server:
+Run `doctor` to test the WebSocket connection to your configured AT Driver server and, for VoiceOver, that Rawstep can read where VoiceOver's cursor is (see the next section):
 
 ```bash
 npx rawstep doctor
@@ -78,9 +78,27 @@ npx rawstep doctor
 
 ### Getting Into the Page on VoiceOver
 
-VoiceOver's cursor stays on the browser's own controls when a page loads, and nothing in the page can be reached until it goes in. The engine does this itself, at the start of a run and on every new document:
+VoiceOver's cursor can stay on the browser's own controls when a page loads, and nothing in the page can be reached until it goes in. At the start of a run and on every new document, the engine checks where VoiceOver's cursor is. It reads the position from the screen, not from what VoiceOver says, so this works in any speech language.
 
-1. If the page moved focus into itself on load (`autofocus` or a `focus()` call), VoiceOver is already inside and nothing is pressed.
-2. Otherwise it presses VoiceOver's next-item key until VoiceOver names the web content (up to 8 times), then goes in (VO+Shift+Down) and checks that VoiceOver said so.
+1. If the cursor is already in the page (the page moved focus into itself, or VoiceOver went in by itself), nothing is pressed.
+2. If the cursor is on the web content as a whole, it goes in (VO+Shift+Down).
+3. Otherwise it presses VoiceOver's next-item key until the cursor is on the web content (up to 8 times), then goes in. After going in it checks that the cursor is in the page.
 
-It is not one of the user's moves: it adds nothing to the move count, and the walk over the browser's controls stays out of what the planner hears, though the raw trace keeps it (`screen-reader.page-entry` records each entry). It does take time from the run's `timeoutMs`: about 4 seconds at the start and 7 on each later page. If VoiceOver cannot get in, the run ends on an error at the `page-entry` stage, which says nothing about the page. NVDA has no such step.
+It is not one of the user's moves: it adds nothing to the move count, and the walk over the browser's controls stays out of what the planner hears, though the raw trace keeps it (`screen-reader.page-entry` records each entry, with `reason` when nothing was pressed). It does take a few seconds of the run's `timeoutMs` on each new page. If VoiceOver cannot get in, the run ends on an error at the `page-entry` stage, which says nothing about the page. NVDA has no such step.
+
+To read the cursor's position, and to run VoiceOver's `find previous heading/control/link` commands for `heading.previous`, `form.previous` and `link.previous` (their keys do not arrive through the AT Driver server with Shift held), the Mac that runs Rawstep needs:
+
+- **VoiceOver Utility › General › "Allow VoiceOver to be controlled with AppleScript"** turned on.
+- **System Settings › Privacy & Security › Automation:** the app that runs Rawstep (your terminal, your editor, or the CI agent; over SSH it is `sshd-keygen-wrapper`) allowed to control **VoiceOver** and **System Events**. macOS asks the first time with a prompt on screen, and the run waits for it: unanswered, the run ends on an error at the `page-entry` stage.
+
+`rawstep doctor` reads the cursor once and reports `VoiceOver cursor`. Run it once from the same app before your first run, so the prompts come up while you are watching. Rawstep never starts VoiceOver to ask: when VoiceOver is off, the check fails instead.
+
+### Text VoiceOver Cannot Type
+
+The engine types text through the AT Driver server one key at a time, which covers printable ASCII on a US layout. On VoiceOver, text with any other character (Korean, for example) is pasted: the engine puts it on the Mac's clipboard and presses Command+V, the way a person pastes a word they were given. The clipboard keeps that text after the run, sensitive inputs included; the trace records only that a paste happened and its length. NVDA does not paste, so such text fails there.
+
+### Caution: VoiceOver's Setting for Newly Loaded Pages
+
+**VoiceOver Utility › Web › General › "When loading a new web page:"** decides what VoiceOver does when a page loads: *Automatically speak the web page*, *Speak web page summary* or *Do Nothing*. With *Automatically speak the web page*, VoiceOver reads the page aloud on its own, and its cursor moves along as it reads. The run then starts wherever the cursor is when Rawstep makes its first move. That depends on timing (how fast the machine is), not on a person, so two runs of the same task can start in different places and spend different numbers of moves. Rawstep does not move the cursor back: that would no longer be where a user with this setting starts.
+
+Choose this setting for the users you want to model. When you compare runs, use a setting that does not read the page aloud (*Speak web page summary* or *Do Nothing*), and keep it the same across the runs you compare.

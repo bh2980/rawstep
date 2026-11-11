@@ -32,11 +32,18 @@ const voiceoverIntents: Readonly<Record<string, readonly string[]>> = Object.fre
   interact: [...vo, AT_DRIVER_KEYS.Shift, AT_DRIVER_KEYS.ArrowDown],
   stopInteracting: [...vo, AT_DRIVER_KEYS.Shift, AT_DRIVER_KEYS.ArrowUp],
   "heading.next": [...vo, AT_DRIVER_KEYS.Meta, "h"],
-  "heading.previous": [...vo, AT_DRIVER_KEYS.Meta, AT_DRIVER_KEYS.Shift, "h"],
   "form.next": [...vo, AT_DRIVER_KEYS.Meta, "j"],
-  "form.previous": [...vo, AT_DRIVER_KEYS.Meta, AT_DRIVER_KEYS.Shift, "j"],
   "link.next": [...vo, AT_DRIVER_KEYS.Meta, "l"],
-  "link.previous": [...vo, AT_DRIVER_KEYS.Meta, AT_DRIVER_KEYS.Shift, "l"],
+});
+/**
+ * VoiceOver's own commands, run through its AppleScript commander instead of keys. Bocoup's server sends VO+Command+Shift+H/J/L, but
+ * VoiceOver's keyboard help names what arrives as Find Next Heading/Control/Link: the Shift is lost on the way. The same keys posted as
+ * hardware events are named Find Previous, so the keys are right and the server's way of sending Shift is not.
+ */
+const voiceoverCommands: Readonly<Record<string, string>> = Object.freeze({
+  "heading.previous": "find previous heading",
+  "form.previous": "find previous control",
+  "link.previous": "find previous link",
 });
 const nvdaIntents: Readonly<Record<string, readonly string[]>> = Object.freeze({
   next: [AT_DRIVER_KEYS.ArrowDown], // Browse-mode next line, not VoiceOver's next object.
@@ -89,25 +96,17 @@ const voiceoverRotors: Readonly<Record<string, AtDriverRotorRoutine>> = Object.f
   "formControls.rotor": { ...voiceoverRotor, next: [AT_DRIVER_KEYS.ArrowDown], previous: [AT_DRIVER_KEYS.ArrowUp], pick: [AT_DRIVER_KEYS.Enter], listName: /form controls|폼 컨트롤|양식 컨트롤/i },
 });
 /**
- * How a reader that stays on the browser's own controls when a page loads gets into the page: move until it names the web content,
- * then go in. Going in from anywhere else enters that item instead (on the tab group it lands on the tab's Close button), so the web
- * content has to be heard first and the way in is checked.
+ * How a reader whose cursor can stay on the browser's own controls when a page loads gets into the page: move until the cursor is on
+ * the web content, then go in. Going in from anywhere else enters that item instead (on the tab group it lands on the tab's Close
+ * button), so the cursor's place is checked before going in and after. The place is read from the screen, not from speech, so it
+ * holds in any speech language (see `CursorLocator`).
  */
 export interface AtDriverPageEntry {
   move: readonly string[];
   enter: readonly string[];
-  /** The line naming the web content when the cursor is on it. */
-  webContent: RegExp;
-  /** The line saying the cursor went in. */
-  inside: RegExp;
-  /** The reader's usage hint: it comes late, so it can name the place the cursor just left. */
-  hint: RegExp;
   maxMoves: number;
 }
-const voiceoverPageEntry: AtDriverPageEntry = Object.freeze({
-  move: voiceoverIntents.next!, enter: voiceoverIntents.interact!,
-  webContent: /(?:web content|웹 ?콘텐츠)$/i, inside: /web content|웹 ?콘텐츠/i, hint: /^you are currently\b/i, maxMoves: 8,
-});
+const voiceoverPageEntry: AtDriverPageEntry = Object.freeze({ move: voiceoverIntents.next!, enter: voiceoverIntents.interact!, maxMoves: 8 });
 
 export interface AtDriverProfile {
   name: AtDriverProfileName;
@@ -121,8 +120,15 @@ export interface AtDriverProfile {
   routines: Readonly<Record<string, AtDriverListRoutine>>;
   /** Intents that open a rotor list and leave it open (see `AtDriverRotorRoutine`). */
   rotors: Readonly<Record<string, AtDriverRotorRoutine>>;
+  /** Intents carried out by the reader's own command of this name instead of keys (see `voiceoverCommands`). */
+  commands: Readonly<Record<string, string>>;
   /** Set when the reader needs moving into a newly loaded page (see `AtDriverPageEntry`). */
   pageEntry?: AtDriverPageEntry;
+  /**
+   * The text a text action puts on the clipboard to paste, when the keys cannot type it (letters outside ASCII, such as Korean):
+   * `mapAction` then presses paste instead of typing. Undefined for text the keys type, other actions, and readers that cannot paste.
+   */
+  pasteText(action: AtDriverAction): string | undefined;
 }
 
 const shiftedDigits: Readonly<Record<string, string>> = Object.freeze({
@@ -135,6 +141,10 @@ const macPunctuation: Readonly<Record<string, string>> = Object.freeze({
 const shiftedPunctuation: Readonly<Record<string, string>> = Object.freeze({
   "_": "-", "{": "[", "}": "]", '"': "'", "|": "\\", "<": ",", ">": ".", "?": "/", "~": "`",
 });
+
+function typeable(text: string, profile: AtDriverProfileName): boolean {
+  try { textKeys(text, profile); return true; } catch { return false; }
+}
 
 function textKeys(text: string, profile: AtDriverProfileName): string[][] {
   // Validate the complete text before returning ANY key presses, particularly a destructive replace.
@@ -161,7 +171,10 @@ export function getAtDriverProfile(name: AtDriverProfileName): AtDriverProfile {
   const intents = name === "voiceover" ? voiceoverIntents : nvdaIntents;
   const routines = name === "voiceover" ? voiceoverRoutines : {};
   const rotors = name === "voiceover" ? voiceoverRotors : {};
-  const capabilities = Object.freeze({ intents: Object.freeze([...Object.keys(intents), ...Object.keys(routines), ...Object.keys(rotors)]), keys: allowedKeys, textEntry: true, replaceText: true });
+  const commands = name === "voiceover" ? voiceoverCommands : {};
+  const pasteText = (action: AtDriverAction) =>
+    name === "voiceover" && (action.kind === "typeText" || action.kind === "replaceText") && !typeable(action.text, name) ? action.text : undefined;
+  const capabilities = Object.freeze({ intents: Object.freeze([...Object.keys(intents), ...Object.keys(commands), ...Object.keys(routines), ...Object.keys(rotors)]), keys: allowedKeys, textEntry: true, replaceText: true });
   return {
     name,
     atName: name === "voiceover" ? "VoiceOver" : "NVDA",
@@ -169,10 +182,11 @@ export function getAtDriverProfile(name: AtDriverProfileName): AtDriverProfile {
     capabilities,
     assumptions: [
       "US keyboard layout and default key bindings; actual layout and bindings are unknown",
-      ...(name === "voiceover" ? ["VoiceOver modifier is Control+Option", "Printable ASCII text only; punctuation uses Bocoup macOS server key names",
+      ...(name === "voiceover" ? ["VoiceOver modifier is Control+Option", "Printable ASCII text is typed key by key; punctuation uses Bocoup macOS server key names. Other text (such as Korean) is put on the system clipboard and pasted with Command+V, so a run replaces what the clipboard held",
         "headings.list and links.list open the rotor (VO+U), press Right until English or Korean speech names the Headings or Links list, read with Down until the list wraps to its start, stays on its last item or goes silent, then press Escape; headings.list was checked on one live VoiceOver with English speech, links.list was not",
         "formControls.rotor opens the rotor on its Form Controls list the same way and leaves it open: next/previous press Down/Up, activate presses Return (goes to the item), Escape closes it, and any other action presses Escape first. Checked on one live VoiceOver with English speech; the Korean list name (폼 컨트롤 or 양식 컨트롤) was not",
-        "A new document with nothing focused in it is entered by pressing next until the speech names the web content, then VO+Shift+Down. Checked on one live VoiceOver with English speech in Chromium; the Korean name (웹 콘텐츠) and other browsers were not"] : [
+        "heading.previous, form.previous and link.previous run VoiceOver's find previous heading/control/link commands through AppleScript, because the AT Driver server's VO+Command+Shift+H/J/L reaches VoiceOver as Find Next. Checked on one live VoiceOver",
+        "A new page whose cursor stays on the browser's controls is entered by pressing next until VoiceOver's cursor covers the page's area on the screen, then VO+Shift+Down; the place is read from the screen, not from speech. Checked on one live VoiceOver in Chrome; other browsers were not"] : [
         "Navigation intents require NVDA browse mode; next/previous move by line",
         "No interact/stopInteracting mapping: NVDA mode toggling is not an idempotent semantic action",
         "Text is limited to ASCII letters, digits, spaces, shifted digits, semicolon, colon, equals and plus by the PAC server key parser",
@@ -184,13 +198,16 @@ export function getAtDriverProfile(name: AtDriverProfileName): AtDriverProfile {
       "https://support.apple.com/guide/voiceover/navigation-commands-cpvokys04/mac",
       "https://support.apple.com/guide/voiceover/interaction-commands-cpvokys07/mac",
       "https://support.apple.com/guide/voiceover/search-commands-cpvokys08/mac",
+      "/System/Library/PrivateFrameworks/ScreenReader.framework/Resources/SCRStringsToCommandsMap.scrconfig",
     ] : [
       "https://github.com/Prime-Access-Consulting/nvda-at-automation/blob/main/NVDAPlugin/globalPlugins/CommandSocket/keyboard_input.py",
       "https://download.nvaccess.org/documentation/en/userGuide.html#BrowseMode",
     ],
     routines,
     rotors,
+    commands,
     ...(name === "voiceover" ? { pageEntry: voiceoverPageEntry } : {}),
+    pasteText,
     mapAction(action) {
       if (action.kind === "intent") {
         if (!Object.hasOwn(intents, action.intent)) throw new AtDriverError(`Unsupported ${name} intent: ${action.intent}`, "unsupported action");
@@ -203,7 +220,7 @@ export function getAtDriverProfile(name: AtDriverProfileName): AtDriverProfile {
         return [[AT_DRIVER_KEYS[action.key as keyof typeof AT_DRIVER_KEYS]]];
       }
       if (action.kind === "typeText" || action.kind === "replaceText") {
-        const presses = textKeys(action.text, name);
+        const presses = pasteText(action) === undefined ? textKeys(action.text, name) : [[AT_DRIVER_KEYS.Meta, "v"]];
         return action.kind === "replaceText" ? [[name === "voiceover" ? AT_DRIVER_KEYS.Meta : AT_DRIVER_KEYS.Control, "a"], [AT_DRIVER_KEYS.Backspace], ...presses] : presses;
       }
       throw new AtDriverError("Unknown action kind", "unsupported action");
