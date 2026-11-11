@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AtDriverBackend, AtDriverClient, AtDriverError, getAtDriverProfile, placeOf, voiceoverCursorLocator, voiceoverCommander, AT_DRIVER_KEYS, type AtDriverEvent, type AtDriverTransportEvent, type CursorLocator, type WebSocketLike } from "@rawstep/screenreaders/at-driver";
+import { AtDriverBackend, AtDriverClient, AtDriverError, getAtDriverProfile, placeOf, voiceoverCursorLocator, voiceoverCommander, checkVoiceOverPlace, macClipboard, OsascriptTimeout, AT_DRIVER_KEYS, type AtDriverEvent, type AtDriverTransportEvent, type CursorLocator, type WebSocketLike } from "@rawstep/screenreaders/at-driver";
 
 class FakeSocket implements WebSocketLike {
   readyState = 1;
@@ -611,6 +611,18 @@ describe("AT Driver backend", () => {
     expect(calls[0]!.join(" ")).toContain("perform command (item 1 of argv)");
     await expect(voiceoverCommander(async () => { throw new Error("Not authorized to send Apple events to VoiceOver."); })("find previous link"))
       .rejects.toThrow(/VoiceOver did not run "find previous link": Not authorized.*Allow VoiceOver to be controlled with AppleScript/);
+    await expect(voiceoverCommander(async () => { throw new Error("Not authorized to send Apple events to VoiceOver."); })("find previous link")).rejects.toMatchObject({ code: "command failed" });
+    await expect(voiceoverCommander(async () => { throw new OsascriptTimeout("osascript got no answer within 15 s"); })("find previous link")).rejects.toMatchObject({ code: "command timeout" });
+  });
+
+  it("ends the session when a VoiceOver command got no answer in time, since it can still happen later, and goes on after one that was refused", async () => {
+    const refused = await backend("voiceover", { commander: voiceoverCommander(async () => { throw new Error("Not authorized to send Apple events to VoiceOver."); }) });
+    await expect(refused.backend.execute({ kind: "intent", intent: "link.previous" })).rejects.toMatchObject({ code: "command failed" });
+    await refused.backend.execute({ kind: "intent", intent: "next" });
+    await refused.backend.close();
+    const late = await backend("voiceover", { commander: voiceoverCommander(async () => { throw new OsascriptTimeout("osascript got no answer within 15 s"); }) });
+    await expect(late.backend.execute({ kind: "intent", intent: "link.previous" })).rejects.toMatchObject({ code: "command timeout" });
+    await expect(late.backend.execute({ kind: "intent", intent: "next" })).rejects.toMatchObject({ code: "command timeout" });
   });
 
   it("closes the rotor when no Form Controls list is found, so next moves the VoiceOver cursor again", async () => {
@@ -871,6 +883,16 @@ describe('real VoiceOver speech', () => {
     expect(sent(socket)).toEqual([next, next, next, interact]);
     expect((await settle(driver)).speech).toEqual(['Page web content', 'In Page web content main']);
   });
+  it('keeps what the reader said on the move that went straight onto something in the page', async () => {
+    const { cursorLocator, moving } = onScreen(TOOLBAR);
+    const { socket, backend: driver } = await backend('voiceover', { cursorLocator });
+    await settle(driver);
+    moving(socket, { [name(next)]: [{ say: ['toolbar item palette'], at: TOOLBAR }, { say: ['heading level 1 Products'], at: IN }] });
+    socket.output('Shop web content');
+    expect(await finish(driver.enterPage())).toEqual({ entered: true, moves: 2 });
+    expect(sent(socket)).toEqual([next, next]);
+    expect((await settle(driver)).speech).toEqual(['Shop web content', 'heading level 1 Products']);
+  });
   it('presses nothing when the reader is already in the page, whatever language it speaks', async () => {
     const { cursorLocator } = onScreen({ x: 196, y: 137, width: 631, height: 30 });
     const { socket, backend: driver } = await backend('voiceover', { cursorLocator });
@@ -940,6 +962,14 @@ describe('where VoiceOver\'s cursor is, from the screen', () => {
     expect(placeOf({ x: 776, y: 789, width: 51, height: 51 }, page)).toBe('inside');
     expect(placeOf({ x: 180, y: 103, width: 913, height: 24 }, page)).toBe('outside');
   });
+  it('is in the page only when it lies within it: a control that hangs over the page\'s top, or a window that holds the page, is the browser\'s', () => {
+    // The address bar's box reaches 10 points into the page; a taller control on that row has its middle in the page.
+    expect(placeOf({ x: 1146, y: 98, width: 34, height: 44 }, page)).toBe('outside');
+    expect(placeOf({ x: 44, y: 30, width: 1280, height: 887 }, page)).toBe('outside');
+    expect(placeOf({ x: 0, y: 0, width: 1440, height: 900 }, page)).toBe('outside');
+    // An item cut to the page's edges, one point of rounding allowed.
+    expect(placeOf({ x: 43.5, y: 116.5, width: 600, height: 800.8 }, page)).toBe('inside');
+  });
   it('asks VoiceOver and the browser\'s window through osascript, and says what to turn on when it cannot', async () => {
     const calls: string[][] = [];
     const reading = voiceoverCursorLocator(async args => { calls.push(args); return JSON.stringify({ cursor: { x: 1, y: 2, width: 3, height: 4 }, page: { x: 0, y: 0, width: 10, height: 10 } }); });
@@ -961,6 +991,22 @@ describe('where VoiceOver\'s cursor is, from the screen', () => {
   });
 });
 
+describe('VoiceOver helpers outside AT Driver', () => {
+  it('checks both the cursor and the page question, so a missing System Events permission shows before a run', async () => {
+    const asked: string[] = [];
+    const answering = voiceoverCursorLocator(async args => { asked.push(args[4]!); return JSON.stringify({ cursor: { x: 1, y: 2, width: 3, height: 4 } }); });
+    await checkVoiceOverPlace(answering);
+    expect(asked).toEqual(['cursor', 'page']);
+    const noSystemEvents = voiceoverCursorLocator(async args => { if (args[4] === 'page') throw new Error('Not authorized to send Apple events to System Events.'); return JSON.stringify({ cursor: { x: 1, y: 2, width: 3, height: 4 } }); });
+    await expect(checkVoiceOverPlace(noSystemEvents)).rejects.toThrow(/Not authorized to send Apple events to System Events.*control VoiceOver and System Events/s);
+  });
+  it('fails the paste, not the process, when the clipboard command is missing or stops before reading the text', async () => {
+    await expect(macClipboard('rawstep-no-such-clipboard-command')('배')).rejects.toMatchObject({ code: 'clipboard failed' });
+    // `false` exits at once, so a text larger than the pipe's buffer is still being written when its input closes.
+    await expect(macClipboard('false')('배'.repeat(400_000))).rejects.toMatchObject({ code: 'clipboard failed', message: expect.stringContaining('false exited with 1') });
+  });
+});
+
 describe('AT Driver host preconditions', () => {
   const make = (url: string, profile: 'voiceover' | 'nvda' = 'voiceover') => new AtDriverBackend({ url, profile, webSocketFactory: () => { throw new Error('preflight must not connect'); } });
   const ok = { platform: 'darwin', headless: false, customBrowserSession: false };
@@ -970,6 +1016,14 @@ describe('AT Driver host preconditions', () => {
     expect(() => make('ws://localhost/session', 'nvda').preflight({ ...ok, platform: 'win32' })).not.toThrow();
     expect(() => make('ws://example.test/session').preflight(ok)).toThrow(expect.objectContaining({ code: 'backend-precondition', message: expect.stringMatching(/loopback AT Driver endpoint/) }));
     expect(() => make('ws://localhost/session').preflight({ ...ok, headless: true })).toThrow(/headless is unsupported/);
-    expect(() => make('ws://example.test/session').preflight({ platform: 'linux', headless: true, customBrowserSession: true })).not.toThrow();
+    expect(() => make('ws://example.test/session', 'nvda').preflight({ platform: 'linux', headless: true, customBrowserSession: true })).not.toThrow();
+    expect(() => make('ws://localhost/session').preflight({ platform: 'linux', headless: true, customBrowserSession: true })).not.toThrow();
+  });
+  it('refuses a paired VoiceOver on another machine unless the helpers that reach that Mac are passed in', () => {
+    const paired = { platform: 'linux', headless: true, customBrowserSession: true };
+    expect(() => make('ws://example.test/session').preflight(paired)).toThrow(expect.objectContaining({ code: 'backend-precondition', message: expect.stringMatching(/cursorLocator, commander and clipboard/) }));
+    const helpers = { cursorLocator: { page: async () => undefined, cursor: async () => ({ x: 0, y: 0, width: 1, height: 1 }) }, commander: async () => {}, clipboard: async () => {} };
+    const remote = new AtDriverBackend({ url: 'ws://example.test/session', profile: 'voiceover', webSocketFactory: () => { throw new Error('preflight must not connect'); }, ...helpers });
+    expect(() => remote.preflight(paired)).not.toThrow();
   });
 });

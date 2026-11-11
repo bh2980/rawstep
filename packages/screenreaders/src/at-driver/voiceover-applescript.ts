@@ -24,12 +24,16 @@ export interface CursorLocator {
 /**
  * The cursor is on the web content when it covers exactly the page's area. Something in the page can come close (a main region one
  * scroll bar narrower), so the edges must match within a point. A region exactly the page's size would be taken for the web content.
+ *
+ * It is in the page when it lies within the page's area: VoiceOver gives the part of an item that shows, so an item taller than the
+ * page comes back cut to it. A cursor that reaches past the page's edge is on something of the browser's, such as a toolbar control
+ * whose box hangs over the top of the page, or a group or window that holds the page.
  */
 export function placeOf(cursor: ScreenRect, page: ScreenRect): CursorPlace {
   const near = (a: number, b: number) => Math.abs(a - b) <= 1;
   if (near(cursor.x, page.x) && near(cursor.y, page.y) && near(cursor.width, page.width) && near(cursor.height, page.height)) return "on";
-  const cx = cursor.x + cursor.width / 2, cy = cursor.y + cursor.height / 2;
-  return cx >= page.x && cx <= page.x + page.width && cy >= page.y && cy <= page.y + page.height ? "inside" : "outside";
+  const within = cursor.x >= page.x - 1 && cursor.y >= page.y - 1 && cursor.x + cursor.width <= page.x + page.width + 1 && cursor.y + cursor.height <= page.y + page.height + 1;
+  return within ? "inside" : "outside";
 }
 
 /**
@@ -113,6 +117,15 @@ export function voiceoverCursorLocator(run: (args: string[], signal?: AbortSigna
   };
 }
 
+/**
+ * Asks both questions a run asks to get into a page, for a setup check. The cursor comes from VoiceOver and the page's area from
+ * System Events, each with a macOS permission of its own. No page has to be open: the question only has to be answered.
+ */
+export async function checkVoiceOverPlace(locator: CursorLocator = voiceoverCursorLocator(), signal?: AbortSignal): Promise<void> {
+  await locator.cursor(signal);
+  await locator.page(undefined, signal);
+}
+
 /** Runs one of the screen reader's own commands by name (see `AtDriverProfile.commands`). */
 export type ReaderCommander = (command: string, signal?: AbortSignal) => Promise<void>;
 
@@ -132,7 +145,9 @@ export function voiceoverCommander(run: (args: string[], signal?: AbortSignal) =
       ], signal);
     } catch (error) {
       if (signal?.aborted) throw error;
-      throw new AtDriverError(`VoiceOver did not run "${command}": ${(error instanceof Error ? error.message : String(error)).replace(/[.\s]+$/, "")}. ${VOICEOVER_COMMAND_HELP}`, "command failed");
+      // A command that got no answer in time can still reach VoiceOver later, like a key press that was never acknowledged.
+      const late = error instanceof OsascriptTimeout;
+      throw new AtDriverError(`VoiceOver did not run "${command}": ${(error instanceof Error ? error.message : String(error)).replace(/[.\s]+$/, "")}. ${VOICEOVER_COMMAND_HELP}`, late ? "command timeout" : "command failed");
     }
   };
 }
@@ -142,25 +157,31 @@ export type ClipboardWriter = (text: string, signal?: AbortSignal) => Promise<vo
 
 const PBCOPY_TIMEOUT_MS = 5_000;
 /** `ClipboardWriter` for macOS, through `pbcopy`; the text goes in as UTF-8 whatever the process locale. */
-export function macClipboard(): ClipboardWriter {
+export function macClipboard(command = "pbcopy"): ClipboardWriter {
   return (text, signal) => new Promise((resolve, reject) => {
-    const child = spawn("pbcopy", [], { env: { ...process.env, LANG: "en_US.UTF-8", LC_ALL: "en_US.UTF-8" }, timeout: PBCOPY_TIMEOUT_MS, signal, stdio: ["pipe", "ignore", "pipe"] });
+    const child = spawn(command, [], { env: { ...process.env, LANG: "en_US.UTF-8", LC_ALL: "en_US.UTF-8" }, timeout: PBCOPY_TIMEOUT_MS, signal, stdio: ["pipe", "ignore", "pipe"] });
     let said = "";
     child.stderr.on("data", chunk => { said += String(chunk); });
     child.on("error", error => reject(new AtDriverError(`Could not put the text on the clipboard: ${error.message}`, "clipboard failed")));
-    child.on("close", code => code === 0 ? resolve() : reject(new AtDriverError(`Could not put the text on the clipboard: ${said.trim() || `pbcopy exited with ${String(code)}`}`, "clipboard failed")));
+    child.on("close", code => code === 0 ? resolve() : reject(new AtDriverError(`Could not put the text on the clipboard: ${said.trim() || `${command} exited with ${String(code)}`}`, "clipboard failed")));
+    // A pbcopy that never started or was stopped closes its input under the write. That ends as the rejection above, so the pipe's
+    // own error is only kept from being thrown as an unhandled one.
+    child.stdin.on("error", () => undefined);
     child.stdin.end(text, "utf8");
   });
 }
 
 const OSASCRIPT_TIMEOUT_MS = 15_000;
+/** osascript was stopped because it got no answer in time: what it asked for may still happen. */
+export class OsascriptTimeout extends Error {}
 /** Runs osascript. Its own failure message repeats the whole script, so only what osascript said (or that it said nothing) is kept. */
 function osascript(args: string[], signal?: AbortSignal): Promise<string> {
   return new Promise((resolve, reject) => {
     execFile("osascript", args, { timeout: OSASCRIPT_TIMEOUT_MS, signal }, (error, stdout, stderr) => {
       if (!error) return resolve(String(stdout));
+      if (error.killed && !signal?.aborted) return reject(new OsascriptTimeout(`osascript got no answer within ${OSASCRIPT_TIMEOUT_MS / 1000} s`));
       const said = String(stderr).trim().split("\n").filter(Boolean).at(-1);
-      reject(new Error(said ?? (error.killed ? `osascript got no answer within ${OSASCRIPT_TIMEOUT_MS / 1000} s` : `osascript failed (exit ${String(error.code)})`)));
+      reject(new Error(said ?? `osascript failed (exit ${String(error.code)})`));
     });
   });
 }

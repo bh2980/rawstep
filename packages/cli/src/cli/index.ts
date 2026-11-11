@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { BrowserConnectError, createBrowserSession } from '@rawstep/browser/browser';
-import { AtDriverBackend, voiceoverCursorLocator } from '@rawstep/screenreaders/at-driver';
+import { AtDriverBackend, checkVoiceOverPlace } from '@rawstep/screenreaders/at-driver';
 import { discover } from '@rawstep/project/discover';
 import { readTrace, type RunTrace } from '@rawstep/core/trace';
 import { findRawstepError } from '@rawstep/core/errors';
@@ -33,7 +33,7 @@ export interface CliDependencies {
   launchBrowser?: (options: { executablePath?: string; cdpEndpoint?: string }) => Promise<void>;
   /** Opens and closes an AT Driver session; rejects when the endpoint does not answer. */
   checkNativeBackend?: (options: { profile: 'voiceover' | 'nvda'; url: string }) => Promise<unknown>;
-  /** Reads where VoiceOver's cursor is, as a run does to get into each page. */
+  /** Reads where VoiceOver's cursor is and looks for a page in the front window, as a run does to get into each page. */
   checkVoiceOverCursor?: () => Promise<unknown>;
   /** Test seam: whether a coding-agent CLI is installed and signed in. */
   /** Starts a coding-agent CLI over ACP and reads its models; rejects when it is missing or needs a sign-in. */
@@ -546,8 +546,8 @@ async function doctor(projectDir: string, dependencies: CliDependencies, stdout:
       } catch (error) { report(false, 'Screen reader', `${backend} AT Driver at ${atEndpoint}: ${errorDetails(error)}. Start the AT Driver server and the screen reader, then run doctor again`); }
       if (backend !== 'voiceover') continue;
       try {
-        await (dependencies.checkVoiceOverCursor ?? (() => voiceoverCursorLocator().cursor(AbortSignal.timeout(15_000))))();
-        report(true, 'VoiceOver cursor', 'Rawstep can read where VoiceOver\'s cursor is, which it needs to get into each page');
+        await (dependencies.checkVoiceOverCursor ?? (() => checkVoiceOverPlace(undefined, AbortSignal.timeout(30_000))))();
+        report(true, 'VoiceOver cursor', 'Rawstep can read where VoiceOver\'s cursor is and look at windows through System Events, which it needs to get into each page');
       } catch (error) { report(false, 'VoiceOver cursor', errorDetails(error)); }
     }
   }
