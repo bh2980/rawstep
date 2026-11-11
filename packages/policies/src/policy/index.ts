@@ -26,7 +26,7 @@ export type { ModelHistoryEntry } from './history.js';
 export { currentItem, currentItemState, speechChoices, speechGuardStop, speechRepetition } from './speech.js';
 export type { SpeechGuard, SpeechPolicyOptions } from './speech.js';
 export { OrchestratedSpeechPolicy, followPlan, goalWordStretch } from './orchestration.js';
-export { FixedPlanner, planDraftSchema, plannerDraftSchema, planFileSchema } from './fixed-plan.js';
+export { FixedPlanner, planDraftSchema, plannerDraftSchema, plannerDraftSchemaFor, planFileSchema } from './fixed-plan.js';
 export type { CueRequest, CueResult, Effort, OrchestrationOptions, PlanRequest, PlanResult, Planner, TaskAttempt } from './orchestration.js';
 export { activateNext, applyDraft, currentTask, failCurrent, finishCurrent, goalLeads, goalRelated, markCheckpoint, needsCheckpoint, phaseOf, planTasks, renderPlanMarkdown, cueText, matchCue, verifyCue, type CueRole, type CueState, type DraftCue } from './plan-document.js';
 export type { Assumption, AssumptionStatus, Criterion, CriterionStatus, GiveUp, PlanDocument, PlanDraft, PlanPhase, PlanRevision, PlanTask, PlanTrigger, TaskEnding, TaskStatus } from './plan-document.js';

@@ -85,8 +85,11 @@ export type OrchestrationOptions = SpeechPolicyOptions & {
 const DEFAULTS = { ...RAWSTEP_DEFAULTS.orchestration, failureLimit: 2, noChangeLimit: 3, oscillationLimit: 4 };
 /** Task changes in one runner step at most: finishing tasks or replanning never loops without an action. */
 const MAX_CALLS_PER_STEP = 8;
-/** Moves that open a list once, in which next and previous then move: opening it again would start the list over. */
-const LIST_OPENERS = new Set(['formControls.rotor']);
+/**
+ * Moves a task makes once. A rotor list is opened once, and next and previous then move in it: opening it again would start the list
+ * over. A list that is read out and closes says the same thing again, and the cursor stays where it was.
+ */
+const ONCE_PER_TASK = new Set(['formControls.rotor', 'headings.list', 'links.list']);
 /** Items with the cue's name in another role put to the planner per task: walking a list of look-alikes must not become a call per item. */
 const OTHER_ROLE_QUESTIONS = 2;
 /** The choice ID an action has among the offered ones (`intent:next`, `type:query`…). */
@@ -96,14 +99,14 @@ const choiceIdOf = (decision: Decision): string | undefined => !('action' in dec
 /**
  * The action a plan prescribes for its task, among the offered ones: a typing task presses the field the cursor is on (giving it
  * focus), then types its input; a pressing task presses; a moving task takes its first move; a task that names none of those moves
- * to the next item. A list the task already opened is not opened again. `taken` are the choice IDs of the task's actions so far.
- * Undefined when none of those is offered.
+ * to the next item. A list the task already opened or read is not opened or read again. `taken` are the choice IDs of the task's
+ * actions so far. Undefined when none of those is offered.
  */
 export function followPlan(task: Pick<PlanTask, 'activates' | 'moves' | 'types'>, offered: readonly string[], taken: readonly string[] = []): string | undefined {
   const typing = task.types ? typingChoices(task.types) : [];
   const wanted = task.types ? (taken.includes('intent:activate') ? typing : ['intent:activate', ...typing])
     : task.activates === true ? ['intent:activate']
-    : [...(task.moves ?? []).filter(move => !(LIST_OPENERS.has(move) && taken.includes(`intent:${move}`))), 'next'].map(intent => `intent:${intent}`);
+    : [...(task.moves ?? []).filter(move => !(ONCE_PER_TASK.has(move) && taken.includes(`intent:${move}`))), 'next'].map(intent => `intent:${intent}`);
   return wanted.find(id => offered.includes(id));
 }
 /** The choices that carry out a typing task, in order. `replace:query` is only that: typing instead would add to what the field holds. */

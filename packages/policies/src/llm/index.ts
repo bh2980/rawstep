@@ -6,7 +6,7 @@ import { isLoopbackHostname, RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import { RawstepError } from '@rawstep/core/errors';
 import type { ModelFailure } from '../policy/choice.js';
 import type { CueRequest, CueResult, Planner, PlanRequest, PlanResult } from '../policy/orchestration.js';
-import { plannerDraftSchema } from '../policy/fixed-plan.js';
+import { plannerDraftSchemaFor } from '../policy/fixed-plan.js';
 import { AcpAgent, AcpError, parseAgentJson } from '../acp/index.js';
 import { SPEECH_PLANNER_INSTRUCTIONS } from './rules.js';
 
@@ -238,7 +238,7 @@ export class LlmPlanner implements Planner {
     this.prompt = { id: 'rawstep-planner', version: sha256.slice(0, 12), sha256 };
   }
   async plan(request: PlanRequest, { signal }: { signal: AbortSignal }): Promise<PlanResult> {
-    const { object, modelId, retried } = await generateStructured({ model: this.llm, signal, strictModel: true, system: this.instructions, user: JSON.stringify(request), schema: plannerDraftSchema });
+    const { object, modelId, retried } = await generateStructured({ model: this.llm, signal, strictModel: true, system: this.instructions, user: JSON.stringify(request), schema: plannerDraftSchemaFor(request.document) });
     return { draft: object, model: { id: modelId, runtime: 'agent' in this.llm ? 'acp-agent-generative-plan' : 'openai-compatible-generative-plan' }, prompt: { ...this.prompt }, ...(retried ? { retried } : {}) };
   }
   async recognize(request: CueRequest, { signal }: { signal: AbortSignal }): Promise<CueResult> {

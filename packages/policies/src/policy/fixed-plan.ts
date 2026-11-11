@@ -22,17 +22,25 @@ export const planDraftSchema = z.object({
   giveUp: z.object({ reason: z.string().min(1).max(500), tried: z.array(ref).max(10) }).strict().optional(),
 }).strict();
 /**
- * A draft from a planner model. A long run piles up assumptions; past the limit, settled ones (held or broken) that no task relies on
- * are left out, oldest first, instead of failing the run: the document keeps settled assumptions anyway.
+ * A draft from a planner model, read against the plan document it revises. A long run piles up assumptions; past the limit, settled
+ * ones (held or broken) that no task relies on are left out instead of failing the run. Leaving one out loses nothing when the
+ * document already holds that status, so those go first; then ones the draft newly holds, then ones it newly breaks, oldest first
+ * each time. One the give-up names is never left out: the give-up is judged by it.
  */
-export const plannerDraftSchema = z.preprocess(trimSettledAssumptions, planDraftSchema);
-function trimSettledAssumptions(value: unknown): unknown {
-  const draft = value as { assumptions?: unknown; phases?: unknown } | null;
+export const plannerDraftSchemaFor = (document?: Pick<PlanDocument, 'assumptions'>) => z.preprocess(value => trimSettledAssumptions(value, document), planDraftSchema);
+/** `plannerDraftSchemaFor` with no document to read against. */
+export const plannerDraftSchema = plannerDraftSchemaFor();
+function trimSettledAssumptions(value: unknown, document?: Pick<PlanDocument, 'assumptions'>): unknown {
+  const draft = value as { assumptions?: unknown; phases?: unknown; giveUp?: { tried?: unknown } | null } | null;
   if (!draft || typeof draft !== 'object' || !Array.isArray(draft.assumptions) || draft.assumptions.length <= ASSUMPTION_LIMIT) return value;
   const tasks = Array.isArray(draft.phases) ? draft.phases.flatMap(p => Array.isArray(p?.tasks) ? p.tasks : []) : [];
   const relied = new Set(tasks.flatMap(t => Array.isArray(t?.relies) ? t.relies : []));
-  const settled = draft.assumptions.filter(a => (a?.status === 'held' || a?.status === 'broken') && !relied.has(a.id));
-  const dropped = new Set(settled.slice(0, draft.assumptions.length - ASSUMPTION_LIMIT));
+  const tried = new Set(Array.isArray(draft.giveUp?.tried) ? draft.giveUp.tried : []);
+  const known = new Map(document?.assumptions.map(a => [a.id, a.status]));
+  // What applying the draft would change: nothing (the document has that status, or has it broken already), a new held, a new broken.
+  const rank = (a: { id?: unknown; status?: unknown }) => known.get(String(a.id)) === a.status || known.get(String(a.id)) === 'broken' ? 0 : a.status === 'held' ? 1 : 2;
+  const settled = draft.assumptions.filter(a => (a?.status === 'held' || a?.status === 'broken') && !relied.has(a.id) && !tried.has(a.id));
+  const dropped = new Set([0, 1, 2].flatMap(r => settled.filter(a => rank(a) === r)).slice(0, draft.assumptions.length - ASSUMPTION_LIMIT));
   return { ...draft, assumptions: draft.assumptions.filter(a => !dropped.has(a)) };
 }
 /**

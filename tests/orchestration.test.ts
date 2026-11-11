@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  applyDraft, currentItem, currentTask, goalWordStretch, speechRepetition, matchCue, renderPlanMarkdown, OrchestratedSpeechPolicy, planFileSchema, planTasks, plannerDraftSchema, verifyCue,
+  applyDraft, currentItem, currentTask, goalWordStretch, speechRepetition, matchCue, renderPlanMarkdown, OrchestratedSpeechPolicy, planFileSchema, planTasks, plannerDraftSchema, plannerDraftSchemaFor, verifyCue,
   type PlanDraft, type PlanRequest, type Planner,
 } from '@rawstep/policies/policy';
 import type { DecisionPolicy, HistoryEntry } from '@rawstep/core/contracts';
@@ -63,6 +63,19 @@ describe('plan document', () => {
     over.phases[0]!.tasks[0] = { ...over.phases[0]!.tasks[0]!, cue: 'it', relies: ['A1'] };
     // A1 is relied on, so A2 and A3 (settled, oldest) go; the open ones stay.
     expect(plannerDraftSchema.parse(over).assumptions.map(a => a.id)).toEqual(['A1', 'A4', 'A5', 'A6', 'A7', 'A8', 'A9', 'A10', 'A11', 'A12']);
+  });
+  it('past the limit leaves out what the document already holds first, and never the assumption a draft newly breaks or its give-up names', () => {
+    const texts = Array.from({ length: 12 }, (_, i) => ({ id: `A${i + 1}`, text: `Assumption ${i + 1}` }));
+    const held = applyDraft(undefined, draft({ Find: ['Find it'] }, '', { assumptions: texts.slice(0, 10).map((a, i) => ({ ...a, ...(i < 3 ? { status: 'held' as const } : {}) })) }), { goal: 'g', step: 1, trigger: 'start' });
+    // A1 held before and is broken now; A2 and A3 are as the document has them; A11 and A12 are new.
+    const next = draft({ Find: [{ goal: 'Try links', cue: 'links' }] }, '', { assumptions: texts.map((a, i) => ({ ...a, ...(i === 0 ? { status: 'broken' as const } : i < 3 ? { status: 'held' as const } : {}) })) });
+    const read = plannerDraftSchemaFor(held).parse(next);
+    expect(read.assumptions.map(a => a.id)).toEqual(['A1', 'A4', 'A5', 'A6', 'A7', 'A8', 'A9', 'A10', 'A11', 'A12']);
+    expect(applyDraft(held, read, { goal: 'g', step: 9, trigger: 'no-change' }).assumptions.filter(a => a.status !== 'open').map(a => [a.id, a.status])).toEqual([['A1', 'broken'], ['A2', 'held'], ['A3', 'held']]);
+    // With nothing lossless left to leave out, a newly held one goes before a newly broken one, and one the give-up names stays.
+    const all = texts.map((a, i) => ({ ...a, status: i === 0 || i === 1 ? 'broken' as const : 'held' as const }));
+    const givingUp = { ...draft({}, '', { assumptions: all }), giveUp: { reason: 'Both ways failed', tried: ['A1', 'A2'] } };
+    expect(plannerDraftSchemaFor(applyDraft(undefined, draft({ Find: ['Find it'] }), { goal: 'g', step: 1, trigger: 'start' })).parse(givingUp).assumptions.map(a => a.id)).toEqual(['A1', 'A2', 'A5', 'A6', 'A7', 'A8', 'A9', 'A10', 'A11', 'A12']);
   });
   it('tells a cue the way a listener would: role and state first, then all name words, else worth asking', () => {
     const button = { cue: 'Add to cart', cueRole: 'button' as const };
@@ -385,6 +398,16 @@ describe('orchestrated speech policy carrying out the plan', () => {
     const allowed = { intents: ['next', 'activate', 'headings.list'], keys: [], inputKeys: [], replaceText: false };
     expect(await policy.decide(input({ allowedActions: allowed, observation: said('Help center, heading, level 1') }))).toEqual({ action: { kind: 'intent', intent: 'headings.list' } });
     expect(p.requests[0]!.actions).toContainEqual({ id: 'intent:headings.list', label: expect.stringContaining('the cursor stays where it was') });
+  });
+  it('reads a list once per task, then takes the task\'s next move instead of reading the same list again', async () => {
+    const plan = { ...draft({}), phases: [{ title: 'Look', tasks: [{ goal: 'Read the headings, then jump to Returns', done: 'Hear Returns', cue: 'Returns, heading', activates: false, moves: ['headings.list', 'heading.next'] }] }] };
+    const policy = new OrchestratedSpeechPolicy(planner(plan).planner);
+    const allowed = { intents: ['next', 'activate', 'heading.next', 'headings.list', 'links.list'], keys: [], inputKeys: [], replaceText: false };
+    expect(await policy.decide(input({ allowedActions: allowed, observation: said('Help center') }))).toEqual({ action: { kind: 'intent', intent: 'headings.list' } });
+    const h1 = [acted(1, 'headings.list', 'Help center')];
+    expect(await policy.decide(input({ allowedActions: allowed, observation: said('Headings, 2 items: Help center, level 1; Orders, level 2'), history: h1 }))).toEqual({ action: { kind: 'intent', intent: 'heading.next' } });
+    const h2 = [...h1, acted(2, 'heading.next', 'Headings, 2 items: Help center, level 1; Orders, level 2')];
+    expect(await policy.decide(input({ allowedActions: allowed, observation: said('Orders, heading, level 2'), history: h2 }))).toEqual({ action: { kind: 'intent', intent: 'heading.next' } });
   });
   it('takes the task\'s first move (written with or without the action id prefix), presses only when the task activates, and tells the planner where the cursor is', async () => {
     const byHeadings = { ...draft({}), phases: [{ title: 'Find', tasks: [{ goal: 'Jump by headings to Returns', done: 'Hear Returns', cue: 'Returns, heading', activates: false, moves: ['intent:heading.next'] }, { goal: 'Press it', done: 'Hear expanded', cue: 'expanded', activates: true, moves: ['next'] }] }] };
