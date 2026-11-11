@@ -118,8 +118,8 @@ export const phaseOf = (doc: PlanDocument, taskId: string): PlanPhase | undefine
 /**
  * Applies a planner draft. Kept tasks keep their id, status and action count; finished tasks the draft leaves out are retired
  * as they were; open tasks it leaves out are abandoned. Criteria and assumptions keep their id; a settled assumption stays
- * settled, and stays in the document when the draft leaves it out (the planner lists what the plan still relies on). Tasks are
- * renumbered by phase, and the first open task becomes current.
+ * settled (a held one can still be broken later), and stays in the document when the draft leaves it out (the planner lists what the
+ * plan still relies on). Tasks are renumbered by phase, and the first open task becomes current.
  */
 export function applyDraft(doc: PlanDocument | undefined, draft: PlanDraft, at: { goal: string; step: number; trigger: PlanTrigger }): PlanDocument {
   const version = (doc?.version ?? 0) + 1;
@@ -131,8 +131,9 @@ export function applyDraft(doc: PlanDocument | undefined, draft: PlanDraft, at: 
   const criteria: Criterion[] = draft.criteria.map(c => { const old = doc?.criteria.find(o => o.id === c.id);
     return { id: c.id, text: c.text, status: c.status ?? old?.status ?? 'open', addedIn: old?.addedIn ?? version }; });
   const assumptions: Assumption[] = draft.assumptions.map(a => { const old = doc?.assumptions.find(o => o.id === a.id);
-    const status = old && old.status !== 'open' ? old.status : a.status ?? 'open';
-    return { id: a.id, text: a.text, status, addedIn: old?.addedIn ?? version, ...(old?.settledIn ? { settledIn: old.settledIn } : status !== 'open' ? { settledIn: version } : {}) }; });
+    // An approach that worked once can fail later, so held can become broken. Broken stays broken: that approach was tried and failed.
+    const status = !old || old.status === 'open' ? a.status ?? 'open' : old.status === 'held' && a.status === 'broken' ? 'broken' : old.status;
+    return { id: a.id, text: a.text, status, addedIn: old?.addedIn ?? version, ...(status === 'open' ? {} : { settledIn: old?.status === status ? old.settledIn ?? version : version }) }; });
   const listed = new Set(assumptions.map(a => a.id));
   for (const old of doc?.assumptions ?? []) if (old.status !== 'open' && !listed.has(old.id)) assumptions.push(structuredClone(old));
   const phases: PlanPhase[] = draft.phases.map((phase, i) => ({ id: `p${version}.${i + 1}`, number: String(i + 1), title: phase.title, criteria: phase.criteria ?? [],

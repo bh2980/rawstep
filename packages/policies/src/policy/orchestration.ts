@@ -210,8 +210,8 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
           continue;
         }
       }
-      // Rawstep carries out the task as written. The headings survey is the user's move before the first plan, never a task's.
-      const actions = speechChoices(input.allowedActions, input.inputs).filter(c => !(c.decision.action.kind === 'intent' && c.decision.action.intent === 'headings.list'));
+      // Rawstep carries out the task as written, with the actions the planner was offered (a list it reads included).
+      const actions = speechChoices(input.allowedActions, input.inputs);
       const choiceId = followPlan(task, actions.map(c => c.id), attempts.flatMap(h => choiceIdOf(h.decision) ?? []));
       if (!choiceId) return this.unmeasured(step, 'plan-finished', 'no-allowed-action');
       this.evidence.push({ kind: 'orchestration-follow', taskId: task.id, planVersion: doc.version, choices: actions.map(({ id, label }) => ({ id, label })), choiceId,
