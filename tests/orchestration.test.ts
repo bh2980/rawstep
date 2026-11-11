@@ -54,6 +54,10 @@ describe('plan document', () => {
     // The next draft lists only what the plan still relies on.
     const v3 = applyDraft(v2, draft({ Find: ['Use headings'] }, '', { assumptions: [{ id: 'A3', text: 'Headings mark products' }] }), { goal: 'g', step: 9, trigger: 'no-change' });
     expect(v3.assumptions.map(a => [a.id, a.status])).toEqual([['A3', 'open'], ['A1', 'held'], ['A2', 'broken']]);
+    // What held once can fail later (and is then settled in that version); what failed stays failed.
+    const v4 = applyDraft(v3, draft({ Find: ['Use links'] }, '', { assumptions: [{ id: 'A1', text: 'Cart is in the header', status: 'broken' }, { id: 'A2', text: 'The item is a link', status: 'held' }] }), { goal: 'g', step: 14, trigger: 'no-change' });
+    expect(v4.assumptions.map(a => [a.id, a.status, a.settledIn])).toEqual([['A1', 'broken', 4], ['A2', 'broken', 2]]);
+    expect(v4.revisions.at(-1)).toMatchObject({ broken: ['A1'] });
     const many = Array.from({ length: 12 }, (_, i) => ({ id: `A${i + 1}`, text: `Assumption ${i + 1}`, ...(i < 4 ? { status: 'held' } : {}) }));
     const over = draft({ Find: ['Find it'] }, '', { assumptions: many as PlanDraft['assumptions'] });
     over.phases[0]!.tasks[0] = { ...over.phases[0]!.tasks[0]!, cue: 'it', relies: ['A1'] };
@@ -361,7 +365,7 @@ describe('orchestrated speech policy carrying out the plan', () => {
     expect(await policy.decide(input({ observation: said('Add to cart, button'), history: [acted(1, 'next', 'Phones, link')] }))).toEqual({ action: { kind: 'intent', intent: 'activate' } });
     expect(followed()).toEqual([['t2', 'intent:activate']]);
   });
-  it('surveys the headings as the first action before planning, plans from what it said, and never follows into the survey', async () => {
+  it('surveys the headings as the first action before planning and plans from what it said', async () => {
     const p = planner(draft({ Buy: ['Find the button'] }));
     const policy = new OrchestratedSpeechPolicy(p.planner, { survey: 'headings' });
     const allowed = { intents: ['next', 'activate', 'headings.list'], keys: [], inputKeys: [], replaceText: false };
@@ -372,7 +376,15 @@ describe('orchestrated speech policy carrying out the plan', () => {
     expect(await policy.decide(input({ allowedActions: allowed, context: 'PhoneShop, an online store; a product page', observation: said(listed), history: [{ step: 1, decision: { action: { kind: 'intent', intent: 'headings.list' } }, observation: said('Shop'), execution: { ok: true } }] }))).toEqual({ action: { kind: 'intent', intent: 'next' } });
     expect(p.requests[0]).toMatchObject({ trigger: 'start', speech: [listed], context: 'PhoneShop, an online store; a product page' });
     const follow = evidence(policy).find(k => k.kind === 'orchestration-follow')!;
-    expect((follow.choices as { id: string }[]).map(c => c.id)).toEqual(['intent:next', 'intent:activate']);
+    expect((follow.choices as { id: string }[]).map(c => c.id)).toEqual(['intent:next', 'intent:activate', 'intent:headings.list']);
+  });
+  it('reads the headings list when a task says to, as the planner was told it may, instead of moving to the next item', async () => {
+    const reading = { ...draft({}), phases: [{ title: 'Look', tasks: [{ goal: 'Read the headings', done: 'Hear Returns in the list', cue: 'Returns', activates: false, moves: ['headings.list'] }] }] };
+    const p = planner(reading);
+    const policy = new OrchestratedSpeechPolicy(p.planner);
+    const allowed = { intents: ['next', 'activate', 'headings.list'], keys: [], inputKeys: [], replaceText: false };
+    expect(await policy.decide(input({ allowedActions: allowed, observation: said('Help center, heading, level 1') }))).toEqual({ action: { kind: 'intent', intent: 'headings.list' } });
+    expect(p.requests[0]!.actions).toContainEqual({ id: 'intent:headings.list', label: expect.stringContaining('the cursor stays where it was') });
   });
   it('takes the task\'s first move (written with or without the action id prefix), presses only when the task activates, and tells the planner where the cursor is', async () => {
     const byHeadings = { ...draft({}), phases: [{ title: 'Find', tasks: [{ goal: 'Jump by headings to Returns', done: 'Hear Returns', cue: 'Returns, heading', activates: false, moves: ['intent:heading.next'] }, { goal: 'Press it', done: 'Hear expanded', cue: 'expanded', activates: true, moves: ['next'] }] }] };
@@ -491,6 +503,13 @@ describe('orchestrated speech policy carrying out the plan', () => {
     expect(await stubborn.decide(input({ goal, history: stale, observation: said('Thor Hammer') }))).toEqual({ action: { kind: 'intent', intent: 'next' } });
     expect(q.requests.map(r => r.refusedGiveUp)).toEqual([undefined, undefined, 'it names no approach that was tried and failed']);
     expect(evidence(stubborn).find(k => k.kind === 'orchestration-give-up')).toMatchObject({ accepted: false });
+    // An approach the plan first recorded as holding, and that then failed, counts as tried and failed.
+    const held = [{ id: 'A1', text: 'The add button follows the price', status: 'held' as const }];
+    const r = planner(draft({ Find: ['Walk to the button'] }, '', { assumptions: held }), giveUp(['A1'], failed));
+    const changed = new OrchestratedSpeechPolicy(r.planner, { stepActionLimit: 1 });
+    await changed.decide(input({ goal }));
+    expect(await changed.decide(input({ goal, history: stale, observation: said('Thor Hammer') }))).toEqual({ stop: 'stuck', stopSource: 'user-gave-up' });
+    expect(r.requests).toHaveLength(2);
   });
   it('lets the user take stock after many moves, telling the planner the effort spent and the moves without a word of the goal', async () => {
     const goal = 'Add Thor Hammer to the cart.';

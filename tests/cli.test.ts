@@ -745,16 +745,19 @@ describe("doctor", () => {
       config.profiles.push({ ...base, id: "vo", name: "VoiceOver", screenReader: "voiceover" }, { ...base, id: "vo2", name: "VoiceOver again", screenReader: "voiceover" }, { ...base, id: "nvda", name: "NVDA", screenReader: "nvda" });
       config.machine.atEndpoints.voiceover = "ws://127.0.0.1:9333";
     });
-    const io = output(directory), checkNativeBackend = vi.fn(async () => ({}));
-    expect(await runCli(["doctor"], { ...io, launchBrowser: async () => {}, checkNativeBackend })).toBe(0);
+    const io = output(directory), checkNativeBackend = vi.fn(async () => ({})), checkVoiceOverCursor = vi.fn(async () => ({}));
+    expect(await runCli(["doctor"], { ...io, launchBrowser: async () => {}, checkNativeBackend, checkVoiceOverCursor })).toBe(0);
     expect(checkNativeBackend).toHaveBeenCalledTimes(2);
     expect(checkNativeBackend).toHaveBeenCalledWith({ profile: "voiceover", url: "ws://127.0.0.1:9333" });
     expect(checkNativeBackend).toHaveBeenCalledWith({ profile: "nvda", url: "ws://localhost:3031/session" });
     expect(text(io.stdout)).toContain("ok    Screen reader: voiceover AT Driver answered");
     expect(text(io.stdout)).toContain("ok    Screen reader: nvda AT Driver answered");
+    expect(checkVoiceOverCursor).toHaveBeenCalledTimes(1);
+    expect(text(io.stdout)).toContain("ok    VoiceOver cursor: Rawstep can read where VoiceOver's cursor is");
     const failing = output(directory);
-    expect(await runCli(["doctor"], { ...failing, launchBrowser: async () => {}, checkNativeBackend: async () => { throw new Error("ECONNREFUSED"); } })).toBe(1);
+    expect(await runCli(["doctor"], { ...failing, launchBrowser: async () => {}, checkNativeBackend: async () => { throw new Error("ECONNREFUSED"); }, checkVoiceOverCursor: async () => { throw new Error("Not authorized to send Apple events to VoiceOver"); } })).toBe(1);
     expect(text(failing.stdout)).toContain("FAIL  Screen reader: voiceover AT Driver at ws://127.0.0.1:9333: ECONNREFUSED");
+    expect(text(failing.stdout)).toContain("FAIL  VoiceOver cursor: Not authorized to send Apple events to VoiceOver");
   });
 });
 

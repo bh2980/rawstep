@@ -360,20 +360,18 @@ export async function runWithPolicy(source: Task, options: RunOptions): Promise<
       return observation;
     };
     /**
-     * VoiceOver's cursor stays on the browser's own controls when a page loads, and nothing in the page can be reached until it goes in.
-     * That is the browser's doing, not the page's, so it is not one of the user's moves. A page that moved focus itself has already
-     * taken the cursor in. Each new document is looked at once; one that cannot answer yet is looked at after the next action.
+     * VoiceOver's cursor can stay on the browser's own controls when a page loads, and nothing in the page can be reached until it goes
+     * in. That is the browser's doing, not the page's, so it is not one of the user's moves. Whether the cursor is already in (the page
+     * moved focus, or VoiceOver went in by itself) is the backend's to tell: page focus says nothing about where VoiceOver's cursor is.
+     * Each new document is looked at once; one that cannot answer yet is looked at after the next action.
      */
     let enteredDocument: number | undefined;
     const enterPage = async (step: number) => {
       if (!options.backend.enterPage) return;
-      const loaded = await withinBudget(() => browser!.page.evaluate(() => {
-        const active = document.activeElement;
-        return { document: performance.timeOrigin, focused: !!active && active !== document.body && active !== document.documentElement };
-      })).catch((error: unknown) => { if (controller.signal.aborted || evidenceFailure || error instanceof BudgetExceeded) throw error; return undefined; });
-      if (typeof loaded?.document !== 'number' || loaded.document === enteredDocument) return;
-      enteredDocument = loaded.document;
-      if (loaded.focused) { append('screen-reader.page-entry', { step, entered: false, reason: 'the page moved focus into itself' }, { source: speechSource }); return; }
+      const loaded = await withinBudget(() => browser!.page.evaluate(() => performance.timeOrigin))
+        .catch((error: unknown) => { if (controller.signal.aborted || evidenceFailure || error instanceof BudgetExceeded) throw error; return undefined; });
+      if (typeof loaded !== 'number' || loaded === enteredDocument) return;
+      enteredDocument = loaded;
       stage = 'page-entry';
       const entry = await withinBudget(() => options.backend.enterPage!({ signal: controller.signal }));
       append('screen-reader.page-entry', { step, ...entry }, { source: speechSource });

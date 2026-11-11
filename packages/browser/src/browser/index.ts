@@ -66,6 +66,8 @@ export type BrowserSession = {
   };
   /** Exact native window owned by a trusted prepaired factory, when applicable. */
   nativeTargetWindowId?: number;
+  /** The operating system's process ID of the browser that shows the page, when the browser could say. */
+  browserProcessId?: number;
   /** Isolated-world change recorder for hints and goal signals; never visible to the policy. */
   observer?: PageObserver;
   appliedProfile?: AppliedProfile;
@@ -186,6 +188,22 @@ export class BrowserConnectError extends RawstepError {
     super("browser-setup", message, { cause });
     this.name = "BrowserConnectError";
   }
+}
+
+/**
+ * The browser's own process (the one with its windows), so a native screen reader's helper can find the window the page is in
+ * rather than whatever app is in front. A persistent profile has no browser object to ask; it is left unknown.
+ */
+async function browserProcessId(browser: Browser | undefined): Promise<number | undefined> {
+  if (!browser) return undefined;
+  try {
+    const cdp = await browser.newBrowserCDPSession();
+    try {
+      const info = await cdp.send("SystemInfo.getProcessInfo") as { processInfo?: { type?: string; id?: number }[] };
+      const id = info.processInfo?.find(p => p.type === "browser")?.id;
+      return typeof id === "number" && id > 0 ? id : undefined;
+    } finally { await cdp.detach().catch(() => undefined); }
+  } catch { return undefined; }
 }
 
 async function connectChromium(endpoint: string): Promise<Browser> {
@@ -319,9 +337,11 @@ export async function createBrowserSession(
       navigationGuardWarnings.push(warning);
     };
 
+    const processId = await browserProcessId(browser);
     const session: BrowserSession = {
       ...(browser ? { browser } : {}),
       ...(cdpEndpoint ? { connected: true } : {}),
+      ...(processId ? { browserProcessId: processId } : {}),
       context,
       page,
       network,
@@ -907,6 +927,9 @@ const DOCUMENT_NAVIGATION_GUARD_INSTALLER_SOURCE = String.raw`function(config) {
   };
 
   const maybeBlockNavigation = function(targetUrl, source) {
+    // A javascript: link runs the page's own script where it is, as it does for a person: it is not a navigation. Whatever the script
+    // then does (a form submit, a location change, a request) meets the guard on its own.
+    if (source === "navigation" && /^\s*javascript:/i.test(String(targetUrl))) return false;
     const normalizedTargetUrl = normalizeTargetUrlInPage(targetUrl);
     const shouldBlock = source === "popup" || !isAllowedNavigation(normalizedTargetUrl);
     if (shouldBlock) {

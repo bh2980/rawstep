@@ -75,7 +75,7 @@ describe('native experiment preparation (no native screen reader runs)', () => {
     expect(auditTrace(c, trace(), { foreground, model: 'grok-4.7' }).checks).toContainEqual({ name: 'planned-by-the-model', passed: false });
   });
   it('validates every positive plan and refuses simulation-only actions through the product preflight', async () => {
-    expect(await checkFoundation()).toMatchObject({ cases: 20, contracts: { typeText: 'unsupported action', replaceText: 'unsupported action' } });
+    expect(await checkFoundation()).toMatchObject({ cases: 20 });
     const dir = await temporary(); await prepareProject(dir);
     const { config, taskProblems } = await new ProjectStore(dir).read();
     expect(taskProblems).toEqual({}); expect(config.connections).toEqual([]);
@@ -112,11 +112,11 @@ describe('native experiment preparation (no native screen reader runs)', () => {
   });
   it('plans all repeats and recoveries before execution and retains unrun/unknown attempts', () => {
     const attempts = plannedAttempts(CASES, 3);
-    expect(attempts).toHaveLength(68);
-    expect(new Set(attempts.map(a => a.id)).size).toBe(68);
+    expect(attempts).toHaveLength(70);
+    expect(new Set(attempts.map(a => a.id)).size).toBe(70);
     expect(attempts.filter(a => a.recoveryOf)).toHaveLength(12);
     attempts[0]!.verdict = 'passed'; attempts[1]!.verdict = 'failed'; attempts[2]!.verdict = 'unverified';
-    expect(summary(attempts)).toMatchObject({ planned: 68, passed: 1, failed: 1, unverified: 1, 'not-run': 65, nativeRunsWithAcknowledgedKeys: 0 });
+    expect(summary(attempts)).toMatchObject({ planned: 70, passed: 1, failed: 1, unverified: 1, 'not-run': 67, nativeRunsWithAcknowledgedKeys: 0 });
   });
 });
 

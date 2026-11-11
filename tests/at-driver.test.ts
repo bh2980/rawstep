@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AtDriverBackend, AtDriverClient, AtDriverError, getAtDriverProfile, AT_DRIVER_KEYS, type AtDriverEvent, type AtDriverTransportEvent, type WebSocketLike } from "@rawstep/screenreaders/at-driver";
+import { AtDriverBackend, AtDriverClient, AtDriverError, getAtDriverProfile, placeOf, voiceoverCursorLocator, voiceoverCommander, AT_DRIVER_KEYS, type AtDriverEvent, type AtDriverTransportEvent, type CursorLocator, type WebSocketLike } from "@rawstep/screenreaders/at-driver";
 
 class FakeSocket implements WebSocketLike {
   readyState = 1;
@@ -577,6 +577,42 @@ describe("AT Driver backend", () => {
     await driver.close();
   });
 
+  it("moves back by heading, control or link on VoiceOver through its own commands, not keys, closing an open rotor first", async () => {
+    const commands: string[] = [];
+    const { socket, backend: driver, events } = await backend("voiceover", { commander: async (command: string) => { commands.push(command); socket.output(`${command} done`); } });
+    await settle(driver);
+    socket.onSend = command => { socket.reply(command.id); if ((command.params.keys as string[]).includes("u")) socket.output("Form Controls"); };
+    const sentKeys = () => socket.sent.slice(1).map(command => command.params.keys as string[]);
+    const run = async (action: Parameters<AtDriverBackend["execute"]>[0]) => {
+      const from = sentKeys().length;
+      const done = driver.execute(action);
+      await vi.advanceTimersByTimeAsync(5_000);
+      const receipt = await done;
+      return { keys: sentKeys().slice(from), receipt, observation: await settle(driver) };
+    };
+    for (const intent of ["heading.previous", "form.previous", "link.previous"]) {
+      const { keys, receipt, observation } = await run({ kind: "intent", intent });
+      expect(keys).toEqual([]);
+      expect(receipt.commandIds).toEqual([]);
+      expect(observation.speech.at(-1)).toMatch(/ done$/);
+    }
+    expect(commands).toEqual(["find previous heading", "find previous control", "find previous link"]);
+    expect(events.filter(e => e.type === "readerCommand").map(e => e.type === "readerCommand" && `${e.stage} ${e.command}`).slice(0, 2)).toEqual(["sent find previous heading", "done find previous heading"]);
+    await run({ kind: "intent", intent: "formControls.rotor" });
+    expect((await run({ kind: "intent", intent: "heading.previous" })).keys).toEqual([[AT_DRIVER_KEYS.Escape]]);
+    expect(commands.at(-1)).toBe("find previous heading");
+    await driver.close();
+  });
+
+  it("runs VoiceOver commands through osascript by name and explains a failure", async () => {
+    const calls: string[][] = [];
+    await voiceoverCommander(async args => { calls.push(args); return ""; })("find previous link");
+    expect(calls[0]!.at(-1)).toBe("find previous link");
+    expect(calls[0]!.join(" ")).toContain("perform command (item 1 of argv)");
+    await expect(voiceoverCommander(async () => { throw new Error("Not authorized to send Apple events to VoiceOver."); })("find previous link"))
+      .rejects.toThrow(/VoiceOver did not run "find previous link": Not authorized.*Allow VoiceOver to be controlled with AppleScript/);
+  });
+
   it("closes the rotor when no Form Controls list is found, so next moves the VoiceOver cursor again", async () => {
     const { socket, backend: driver } = await backend();
     await settle(driver);
@@ -600,6 +636,27 @@ describe("AT Driver backend", () => {
       [AT_DRIVER_KEYS.Meta, "a"], [AT_DRIVER_KEYS.Backspace], [AT_DRIVER_KEYS.Shift, "a"], [AT_DRIVER_KEYS.Shift, "2"], ["b"], ["period"], ["c"], ["o"],
     ]);
     expect(receipt.commandIds).toHaveLength(8);
+    await driver.close();
+  });
+
+  it("pastes text VoiceOver's keys cannot type, putting it on the clipboard before any key, and still types ASCII key by key", async () => {
+    const order: string[] = [];
+    const { socket, backend: driver, events } = await backend("voiceover", { clipboard: async (text: string) => { order.push(`clipboard ${text}`); } });
+    socket.onSend = command => { order.push(`keys ${(command.params.keys as string[]).join("+")}`); socket.reply(command.id); };
+    await driver.execute({ kind: "replaceText", text: "채식주의자 2" });
+    expect(order).toEqual(["clipboard 채식주의자 2", `keys ${AT_DRIVER_KEYS.Meta}+a`, `keys ${AT_DRIVER_KEYS.Backspace}`, `keys ${AT_DRIVER_KEYS.Meta}+v`]);
+    expect(events.filter(e => e.type === "clipboard")).toMatchObject([{ characters: 7 }]);
+    expect(JSON.stringify(events)).not.toContain("채식주의자");
+    order.length = 0;
+    await driver.execute({ kind: "typeText", text: "ab" });
+    expect(order).toEqual(["keys a", "keys b"]);
+    await driver.close();
+  });
+
+  it("fails without touching the field when the clipboard cannot be written", async () => {
+    const { socket, backend: driver } = await backend("voiceover", { clipboard: async () => { throw new Error("pbcopy missing"); } });
+    await expect(driver.execute({ kind: "typeText", text: "배" })).rejects.toThrow("pbcopy missing");
+    expect(socket.sent).toHaveLength(1);
     await driver.close();
   });
 
@@ -721,8 +778,16 @@ describe("AT Driver backend", () => {
     expect(vo.mapAction({ kind: "intent", intent: "next" })).toEqual([[AT_DRIVER_KEYS.Control, AT_DRIVER_KEYS.Alt, AT_DRIVER_KEYS.ArrowRight]]);
     expect(nvda.mapAction({ kind: "intent", intent: "next" })).toEqual([[AT_DRIVER_KEYS.ArrowDown]]);
     expect(vo.capabilities.intents).toContain("interact");
+    expect(vo.capabilities.intents).toEqual(expect.arrayContaining(["heading.previous", "form.previous", "link.previous"]));
+    expect(vo.commands["link.previous"]).toBe("find previous link");
+    expect(nvda.commands).toEqual({});
+    expect(nvda.mapAction({ kind: "intent", intent: "link.previous" })).toEqual([[AT_DRIVER_KEYS.Shift, "k"]]);
     expect(nvda.capabilities.intents).not.toContain("interact");
-    expect(() => vo.mapAction({ kind: "typeText", text: "한글" })).toThrow("unsupported");
+    expect(vo.mapAction({ kind: "typeText", text: "한글" })).toEqual([[AT_DRIVER_KEYS.Meta, "v"]]);
+    expect(vo.pasteText({ kind: "typeText", text: "한글" })).toBe("한글");
+    expect(vo.pasteText({ kind: "typeText", text: "abc" })).toBeUndefined();
+    expect(() => nvda.mapAction({ kind: "typeText", text: "한글" })).toThrow(/unsupported/);
+    expect(nvda.pasteText({ kind: "typeText", text: "한글" })).toBeUndefined();
     expect(Object.isFrozen(vo.capabilities.intents)).toBe(true);
   });
 });
@@ -775,41 +840,124 @@ describe('real VoiceOver speech', () => {
     expect(sent(socket).slice(0, 2)).toEqual([[...vo, 'u'], [AT_DRIVER_KEYS.ArrowRight]]);
   });
 
-  it('walks to the web content by ear and goes in, keeping only what was said on load and on going in', async () => {
-    const { socket, backend: driver } = await backend();
+  /** VoiceOver's cursor as the screen shows it: on the browser's controls, on the web content as a whole, or on something in the page. */
+  const PAGE = { x: 44, y: 117, width: 1280, height: 800 };
+  const TOOLBAR = { x: 180, y: 103, width: 913, height: 24 }, TABS = { x: 150, y: 60, width: 230, height: 30 }, ON = { ...PAGE };
+  const IN = { x: 44, y: 117, width: 1265, height: 325 };
+  type Rect = typeof PAGE;
+  /** A screen whose cursor goes to the next place on each press of a key, saying the given lines; the locator reads it. */
+  const onScreen = (start: Rect) => {
+    const screen = { cursor: start, pids: [] as (number | undefined)[] };
+    const cursorLocator: CursorLocator = { page: async pid => { screen.pids.push(pid); return PAGE; }, cursor: async () => screen.cursor };
+    const moving = (socket: Awaited<ReturnType<typeof backend>>['socket'], script: Record<string, { say: string[]; at: Rect }[]>) => {
+      socket.onSend = command => {
+        socket.reply(command.id);
+        const step = script[name(command.params.keys as string[])]?.shift();
+        if (!step) return;
+        screen.cursor = step.at;
+        for (const text of step.say) socket.output(text);
+      };
+    };
+    return { screen, cursorLocator, moving };
+  };
+
+  it('walks from the browser\'s controls to the web content by where the cursor is, goes in, and keeps only what was said on load and on going in', async () => {
+    const { cursorLocator, moving } = onScreen(TOOLBAR);
+    const { socket, backend: driver } = await backend('voiceover', { cursorLocator });
     await settle(driver);
-    scripted(socket, { [name(next)]: [['New Tab description, New tab button'], ['toolbar item palette'], ['Page web content']], [name(interact)]: [['In Page web content main']] });
+    moving(socket, { [name(next)]: [{ say: ['New Tab description, New tab button'], at: TABS }, { say: ['toolbar item palette'], at: TOOLBAR }, { say: ['Page web content'], at: ON }], [name(interact)]: [{ say: ['In Page web content main'], at: IN }] });
     socket.output('Page web content');
     expect(await finish(driver.enterPage())).toEqual({ entered: true, moves: 3 });
     expect(sent(socket)).toEqual([next, next, next, interact]);
     expect((await settle(driver)).speech).toEqual(['Page web content', 'In Page web content main']);
   });
-  it('does not take a late hint about the place the cursor left for reaching the web content', async () => {
-    const { socket, backend: driver } = await backend();
+  it('presses nothing when the reader is already in the page, whatever language it speaks', async () => {
+    const { cursorLocator } = onScreen({ x: 196, y: 137, width: 631, height: 30 });
+    const { socket, backend: driver } = await backend('voiceover', { cursorLocator });
     await settle(driver);
-    scripted(socket, { [name(next)]: [['You are currently on a web content, inside of a group.', 'New Tab description, New tab button'], ['Page web content', 'You are currently on a web content, inside of a group.']], [name(interact)]: [['In Page web content main']] });
-    expect(await finish(driver.enterPage())).toEqual({ entered: true, moves: 2 });
+    socket.output('현재 웹 콘텐츠 안에 있는 머리말에 있습니다.');
+    expect(await finish(driver.enterPage())).toEqual({ entered: false, moves: 0, reason: 'VoiceOver was already in the page' });
+    expect(sent(socket)).toEqual([]);
+  });
+  it('goes straight in when the cursor is on the web content itself', async () => {
+    const { cursorLocator, moving } = onScreen(ON);
+    const { socket, backend: driver } = await backend('voiceover', { cursorLocator });
+    await settle(driver);
+    moving(socket, { [name(interact)]: [{ say: ['In 올리브영 web content'], at: IN }] });
+    expect(await finish(driver.enterPage())).toEqual({ entered: true, moves: 0 });
+    expect(sent(socket)).toEqual([interact]);
   });
   it('never goes in from anywhere else: going in on the tab group lands on its Close button', async () => {
-    const { socket, backend: driver } = await backend();
+    const { cursorLocator, moving } = onScreen(TOOLBAR);
+    const { socket, backend: driver } = await backend('voiceover', { cursorLocator });
     await settle(driver);
-    scripted(socket, { [name(next)]: Array(20).fill(['Other item']) });
+    moving(socket, { [name(next)]: Array.from({ length: 20 }, () => ({ say: ['Other item'], at: TABS })) });
     const failed = await finish(driver.enterPage());
     expect(failed).toMatchObject({ code: 'page entry failed' });
     expect(sent(socket)).not.toContainEqual(interact);
     expect(sent(socket)).toHaveLength(8);
   });
-  it('fails when going in lands somewhere else', async () => {
-    const { socket, backend: driver } = await backend();
+  it('fails when going in lands outside the page', async () => {
+    const { cursorLocator, moving } = onScreen(ON);
+    const { socket, backend: driver } = await backend('voiceover', { cursorLocator });
     await settle(driver);
-    scripted(socket, { [name(next)]: [['Page web content']], [name(interact)]: [['In Page selected tab, group Close button']] });
-    expect(await finish(driver.enterPage())).toMatchObject({ code: 'page entry failed', message: expect.stringContaining('Close button') });
+    moving(socket, { [name(interact)]: [{ say: ['Close button'], at: TABS }] });
+    expect(await finish(driver.enterPage())).toMatchObject({ code: 'page entry failed' });
+  });
+  it('takes landing on something exactly the page\'s size as going in when the reader said where it went, and not when it said nothing', async () => {
+    for (const [say, entered] of [[['In Page web content main'], true], [[], false]] as const) {
+      const { cursorLocator, moving } = onScreen(ON);
+      const { socket, backend: driver } = await backend('voiceover', { cursorLocator });
+      await settle(driver);
+      moving(socket, { [name(interact)]: [{ say: [...say], at: ON }] });
+      const result = await finish(driver.enterPage());
+      if (entered) expect(result).toEqual({ entered: true, moves: 0 });
+      else expect(result).toMatchObject({ code: 'page entry failed' });
+    }
+  });
+  it('looks for the page in the window of the browser that shows it', async () => {
+    const { screen, cursorLocator } = onScreen(IN);
+    const { backend: driver } = await backend('voiceover', { cursorLocator });
+    await settle(driver);
+    driver.attachSession({ page: {}, browserProcessId: 4242 });
+    await finish(driver.enterPage());
+    expect(screen.pids).toEqual([4242]);
   });
   it('presses nothing for NVDA, which has no web content to walk to', async () => {
     const { socket, backend: driver } = await backend('nvda');
     await settle(driver);
     expect(await finish(driver.enterPage())).toEqual({ entered: false, moves: 0 });
     expect(sent(socket)).toEqual([]);
+  });
+});
+
+describe('where VoiceOver\'s cursor is, from the screen', () => {
+  // Measured on VoiceOver 26.6.2 with Chrome on GOV.UK: the page, and the cursor in each place.
+  const page = { x: 44, y: 117, width: 1280, height: 800 };
+  it('is on the web content only when it covers exactly the page, so a main region one scroll bar narrower is inside', () => {
+    expect(placeOf({ ...page }, page)).toBe('on');
+    expect(placeOf({ x: 44, y: 117, width: 1265, height: 800 }, page)).toBe('inside');
+    expect(placeOf({ x: 776, y: 789, width: 51, height: 51 }, page)).toBe('inside');
+    expect(placeOf({ x: 180, y: 103, width: 913, height: 24 }, page)).toBe('outside');
+  });
+  it('asks VoiceOver and the browser\'s window through osascript, and says what to turn on when it cannot', async () => {
+    const calls: string[][] = [];
+    const reading = voiceoverCursorLocator(async args => { calls.push(args); return JSON.stringify({ cursor: { x: 1, y: 2, width: 3, height: 4 }, page: { x: 0, y: 0, width: 10, height: 10 } }); });
+    expect(await reading.cursor()).toEqual({ x: 1, y: 2, width: 3, height: 4 });
+    expect(await reading.page(4242)).toEqual({ x: 0, y: 0, width: 10, height: 10 });
+    expect(calls.map(args => args.slice(-2))).toEqual([[expect.stringContaining('voCursor'), 'cursor'], ['page', '4242']]);
+    // VoiceOver reading a new page aloud can answer null now and then: asked again, it answers.
+    const answers = [null, null, { x: 5, y: 6, width: 7, height: 8 }];
+    const waits: number[] = [];
+    const busy = voiceoverCursorLocator(async () => JSON.stringify({ cursor: answers.shift() }), async ms => { waits.push(ms); });
+    expect(await busy.cursor()).toEqual({ x: 5, y: 6, width: 7, height: 8 });
+    expect(waits).toEqual([300, 300]);
+    let asked = 0;
+    const silent = voiceoverCursorLocator(async () => { asked++; return JSON.stringify({ cursor: null }); }, async () => {});
+    await expect(silent.cursor()).rejects.toMatchObject({ code: 'cursor place unknown', message: expect.stringMatching(/asked 5 times/) });
+    expect(asked).toBe(5);
+    const refused = voiceoverCursorLocator(async () => { throw new Error('execution error: Not authorized to send Apple events to VoiceOver. (-1743)'); });
+    await expect(refused.cursor()).rejects.toMatchObject({ code: 'cursor place unknown', message: expect.stringMatching(/Not authorized.*Allow VoiceOver to be controlled with AppleScript/s) });
   });
 });
 

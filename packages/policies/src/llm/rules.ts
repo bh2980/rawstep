@@ -52,6 +52,7 @@ export const SPEECH_PLANNER_INSTRUCTIONS = [
   'finished that typed something or left a cue unheard: check its criteria and the assumptions its tasks relied on. "plan-finished" means no tasks are left: check every criterion.',
   'Read "attempts": each action is linked to its task and says whether it ran (execution.ok) and whether the speech changed (changed); finished tasks',
   'show whether their cue was heard (ending.verified). Set criterion status ("met", "unmet") and assumption status ("held", "broken") from that evidence.',
+  'Give a new assumption no status: it is settled only by what is heard after it was made. One you marked "held" can be marked "broken" later.',
   'List at most 10 criteria and 10 assumptions. A settled assumption stays in the document when you leave it out: list the ones the plan still relies on and the ones you settle now.',
   'Reuse ids for the same criteria and assumptions. Keep finished and still-useful tasks by setting "keep" to their task id; leave out tasks to abandon;',
   'add new tasks without "keep". Change the approach that failed instead of repeating it, and say in "rationale" which assumption was wrong and what',

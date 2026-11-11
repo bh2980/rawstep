@@ -33,6 +33,16 @@ describe('historical navigation fixture safety in real Chromium',()=>{
     const f=await fixture(path);await f.page.locator('a,button').click();
     await expect.poll(()=>f.page.title()).toBe('Same Origin Target');expect(f.page.url()).toContain('#done');expect(f.session.takeBlockedNavigations()).toEqual([]);
   });
+  it('runs a javascript: link as the page script it is, and still blocks the navigation that script starts outside the policy',async()=>{
+    const f=await fixture('/javascript-link-start');
+    await f.page.locator('#javascript-external-link').click({noWaitAfter:true});
+    await expect.poll(()=>f.session.navigation.blocked.length).toBeGreaterThan(0);
+    expect(f.session.takeBlockedNavigations().every(event=>event.url.startsWith(f.externalUrl))).toBe(true);
+    expect(f.page.url()).toBe(`${f.baseUrl}/javascript-link-start`);
+    await f.page.locator('#javascript-submit-link').click();
+    await expect.poll(()=>f.page.title()).toBe('Same Origin Target');
+    expect(f.page.url()).toContain('q=pear');expect(f.session.takeBlockedNavigations()).toEqual([]);
+  });
   it('enforces start-url-prefix and continues to an allowed prefix child',async()=>{
     const f=await fixture('/prefix/start',()=>({strategy:'start-url-prefix'}));await f.page.locator('#prefix-blocked-link').click();expect(f.session.takeBlockedNavigations()).toHaveLength(1);
     await f.page.locator('#prefix-allowed-link').click();expect(await f.page.title()).toBe('Prefix Allowed');

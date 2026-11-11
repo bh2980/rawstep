@@ -149,6 +149,15 @@ Every rule in `verify.all` is evaluated independently in the browser after each 
 | **`any`** | `{ "any": VerifyRule[] }` | At least one rule in the `any` array (`1–20` items) passes. |
 | **`script`** | `{ "script": { "description": string, "source": "(ctx) => boolean" } }` | `description` is required (up to 300 chars). Function expression `source` (`<= 4000` chars; it must start like a function, e.g. `(ctx) =>`, `async (ctx) =>`, or `function`) returns `true` in isolated CDP world `rawstep-verify` (all network APIs disabled, `2000 ms` timeout). `ctx.timeline` contains the observer events recorded so far. |
 
+### Checking a Task Before Its First Run
+
+A run ending says something about the page only when the task itself holds. Before a batch, check these by hand on the real page:
+
+- **The rules mean the goal, no more and no less.** Open the page where a person would have what the goal asks for, and check that the rules pass there. Then open pages that come close but are wrong (the list instead of the detail, another item with the same name, a different day) and check that they fail. A rule stricter than the goal (a tab selected, when the answer is already read out in a list) turns a reached goal into `mistaken`.
+- **The answer does not change between runs.** Avoid rankings, "today's" items and anything else the site reorders.
+- **Every input can be entered.** Type each `input` value into its field yourself. On a native screen reader, text the keys cannot type is pasted on VoiceOver and fails on NVDA (see [Screen Readers](../screen-readers.md)).
+- **The goal says what the person wants, not how.** Leave out keys, routes and where things are on the page.
+
 ### `TextMatcher` Formats
 Fields typed as `TextMatcher` (`focused.name`, `event.name`, `event.text`, `event.url`) accept strings up to 200 characters in any of four formats:
 - `"Checkout"` (case-sensitive substring)

@@ -398,9 +398,9 @@ describe('model-neutral runner',()=>{
 });
 describe('getting a screen reader into a newly loaded page', () => {
   const next = { action: { kind: 'intent' as const, intent: 'next' } };
-  /** A page whose document and focus change as the script says, one entry for each look at it. */
-  const loading = (looks: ({ document: number; focused: boolean } | Error)[]) => {
-    const f = fixture(), enterPage = vi.fn(async () => ({ entered: true, moves: 1 }));
+  /** A page whose document changes as the script says (its `performance.timeOrigin`), one entry for each look at it. */
+  const loading = (looks: (number | Error)[]) => {
+    const f = fixture(), enterPage = vi.fn(async (): Promise<{ entered: boolean; moves: number; reason?: string }> => ({ entered: true, moves: 1 }));
     f.backend.enterPage = enterPage;
     f.verifier.mockResolvedValue({ passed: false, failures: ['missing'] });
     let at = 0;
@@ -414,27 +414,28 @@ describe('getting a screen reader into a newly loaded page', () => {
   };
   const script = (steps: number) => new ScriptedPolicy([...Array(steps).fill(next), { stop: 'stuck' as const }]);
   it('goes in at the start and again only when another document has loaded, without counting it as a move', async () => {
-    const { f, enterPage } = loading([{ document: 1, focused: false }, { document: 1, focused: false }, { document: 2, focused: false }]);
+    const { f, enterPage } = loading([1, 1, 2]);
     const trace = await runWithPolicy(task, { ...f, outDir: await out(), policy: script(2) });
     expect(enterPage).toHaveBeenCalledTimes(2);
     expect(trace.events.filter(e => e.type === 'screen-reader.page-entry').map(e => e.data)).toEqual([{ step: 0, entered: true, moves: 1 }, { step: 2, entered: true, moves: 1 }]);
     expect(trace.outcome).toMatchObject({ steps: 3 }); // Two moves and the stop: going in is not among them.
     expect(vi.mocked(f.backend.enterPage!).mock.invocationCallOrder[0]!).toBeLessThan(vi.mocked(f.backend.observe).mock.invocationCallOrder[0]!);
   });
-  it('leaves the cursor alone on a page that moved focus into itself', async () => {
-    const { f, enterPage } = loading([{ document: 1, focused: true }]);
+  it('leaves it to the screen reader whether its cursor is already in, and records why nothing was pressed', async () => {
+    const { f, enterPage } = loading([1]);
+    enterPage.mockResolvedValue({ entered: false, moves: 0, reason: 'VoiceOver was already in the page' });
     const trace = await runWithPolicy(task, { ...f, outDir: await out(), policy: script(1) });
-    expect(enterPage).not.toHaveBeenCalled();
-    expect(trace.events.find(e => e.type === 'screen-reader.page-entry')?.data).toMatchObject({ step: 0, entered: false });
+    expect(enterPage).toHaveBeenCalledTimes(1);
+    expect(trace.events.find(e => e.type === 'screen-reader.page-entry')?.data).toEqual({ step: 0, entered: false, moves: 0, reason: 'VoiceOver was already in the page' });
   });
   it('looks again after the next action when the page cannot answer yet', async () => {
-    const { f, enterPage } = loading([new Error('Execution context was destroyed'), { document: 1, focused: false }]);
+    const { f, enterPage } = loading([new Error('Execution context was destroyed'), 1]);
     await runWithPolicy(task, { ...f, outDir: await out(), policy: script(1) });
     expect(enterPage).toHaveBeenCalledTimes(1);
   });
   it('ends the run on an error when the reader cannot get in, since the run could then say nothing about the page', async () => {
-    const { f, enterPage } = loading([{ document: 1, focused: false }]);
-    enterPage.mockRejectedValue(new Error('VoiceOver did not name the web content'));
+    const { f, enterPage } = loading([1]);
+    enterPage.mockRejectedValue(new Error("VoiceOver's cursor did not reach the web content within 8 moves"));
     const trace = await runWithPolicy(task, { ...f, outDir: await out(), policy: script(1) });
     expect(trace.outcome).toMatchObject({ status: 'failure', reason: 'error', stage: 'page-entry', error: expect.stringContaining('web content') });
     expect(f.backend.execute).not.toHaveBeenCalled();
