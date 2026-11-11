@@ -927,6 +927,9 @@ const DOCUMENT_NAVIGATION_GUARD_INSTALLER_SOURCE = String.raw`function(config) {
   };
 
   const maybeBlockNavigation = function(targetUrl, source) {
+    // A javascript: link runs the page's own script where it is, as it does for a person: it is not a navigation. Whatever the script
+    // then does (a form submit, a location change, a request) meets the guard on its own.
+    if (source === "navigation" && /^\s*javascript:/i.test(String(targetUrl))) return false;
     const normalizedTargetUrl = normalizeTargetUrlInPage(targetUrl);
     const shouldBlock = source === "popup" || !isAllowedNavigation(normalizedTargetUrl);
     if (shouldBlock) {

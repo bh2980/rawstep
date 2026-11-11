@@ -92,6 +92,13 @@ function renderNavigationFixturePage(pathname: string, baseUrl: string, external
         <button type="button" id="assign-blocked-button" onclick="window.location.assign('${externalUrl}/assign-outside')">Assign blocked</button>
         <a href="${baseUrl}/same-origin-target?from=assign#done" id="assign-fallback-link">Fallback same-origin link</a>
       </body></html>`,
+    "/javascript-link-start": `<!doctype html>
+      <html><head><title>Javascript Link Start</title></head>
+      <body>
+        <form name="search" action="/same-origin-target" method="get"><input name="q" value="pear"></form>
+        <a id="javascript-submit-link" href="javascript:document.forms.search.submit();">Search</a>
+        <a id="javascript-external-link" href="javascript:window.location.assign('${externalUrl}/external-target');">Elsewhere</a>
+      </body></html>`,
     "/assign-allowed-start": `<!doctype html>
       <html><head><title>Assign Allowed Start</title></head>
       <body>
