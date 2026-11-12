@@ -274,7 +274,7 @@ If you add a rule, add the reported speech that backs it to the table above, or 
 ## Tests
 
 - `tests/mock-voiceover-evidence.test.ts`: the 13 VoiceOver wording cases, simulation provenance, the secure-field rule and that internal roles are never spoken.
-- `tests/mock-voiceover-browser.integration.test.ts`: the backend against real Chromium: static text, independent focus, dynamic node changes, native and broken custom widgets, dialog focus, real key presses, secure fields, input focus changes and cancellation.
+- `tests/mock-voiceover-browser.integration.test.ts`: the backend against real Chromium: static text, focus following the cursor, dynamic node changes, native and broken custom widgets, dialog focus, real key presses, secure fields, input focus changes and cancellation.
 - `tests/mock-runner.integration.test.ts`, `tests/observer-browser.integration.test.ts`: runs through the runner on the simulation.
 - `tests/evidence-corpus.test.ts`, `tests/evidence-coverage.test.ts`, `tests/evidence-corpus-browser.integration.test.ts`: the corpus, coverage summary and abstaining mock.
 

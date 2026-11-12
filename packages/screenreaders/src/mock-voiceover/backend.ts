@@ -11,7 +11,7 @@ export const MOCK_VOICEOVER_PROFILE = 'english-dom-navigation-evidence-v2' as co
 export const MOCK_VOICEOVER_LIMITATIONS = Object.freeze([
   'Simulation of an English DOM-navigation profile using Chromium accessibility semantics; not native VoiceOver speech or an accessibility conformance result.',
   'Selected navigation-wording rules are calibrated to versioned third-party VoiceOver observations; this is a composite profile, not any one macOS/Safari version. Other wording and state-change announcements remain heuristic.',
-  'A flat accessibility cursor is independent of keyboard focus. Only actual focus changes move the cursor to a focused exposed object.',
+  'Keyboard focus follows the cursor onto items that can take it, as VoiceOver does by default; a focus change made by the page moves the cursor to the focused item.',
   'Activation uses guarded DOM click or editable-field focus as an approximation of AXPress; DOM clicks are untrusted and no missing widget behavior is repaired.',
   'Quick navigation covers next/previous heading, form control and link; the rotor covers the headings, links and form controls lists only. No macOS/Safari AX fidelity, group interaction, Quick Nav settings, live-region announcement timing, speech queue, or cross-frame navigation simulation.',
   'Live regions (status, alert, log, aria-live polite/assertive): new text is spoken once after the speech of the action that caused it, without the role and without timing or interruption; an empty live region is not a cursor stop (documented VoiceOver/Safari support for role=status, a11ysupport.io 2020; the empty-region skip is inferred).',
@@ -295,6 +295,7 @@ export class MockVoiceOverBackend implements Backend {
         receipt.pressed = false;
         const item = rotor.items[rotor.index]!;
         this.cursor = this.nodes.some(node => node.identity === item.identity) ? item.identity : this.cursor;
+        await this.focusFollowsCursor(signal);
         this.announce(this.current(), undefined, true);
       } else if (action.kind === 'intent' && action.intent === 'formControls.rotor') {
         const items = this.nodes.filter(node => formRoles.has(node.semantic.role));
@@ -311,6 +312,7 @@ export class MockVoiceOverBackend implements Backend {
         while (move.match && index >= 0 && index < this.nodes.length && !move.match(this.nodes[index]!.semantic.role)) index += move.step;
         if (index >= 0 && index < this.nodes.length) {
           this.cursor = this.nodes[index]!.identity;
+          await this.focusFollowsCursor(signal);
           this.announce(this.current());
         } else this.announce(undefined, move.none);
       } else if (action.kind === 'intent' && action.intent === 'headings.list') this.announceText(headingsList(this.nodes), 'headings-list');
@@ -338,6 +340,25 @@ export class MockVoiceOverBackend implements Backend {
       signal?.throwIfAborted();
       return receipt;
     } finally { this.busy = false; }
+  }
+
+  /**
+   * Keyboard focus goes with the cursor onto an item that can take it, as VoiceOver does by default (measured on real VoiceOver:
+   * moving onto a button focuses it, so a dialog it opens gives focus back to it on closing). On text and other items that cannot
+   * take focus, focus stays where it was.
+   */
+  private async focusFollowsCursor(signal?: AbortSignal): Promise<void> {
+    const node = this.current();
+    if (!node || node.backendDOMNodeId === undefined) return;
+    const session = await this.cdp(signal);
+    const { object } = await session.send('DOM.resolveNode', { backendNodeId: node.backendDOMNodeId }).catch(() => ({ object: {} as { objectId?: string } }));
+    if (!object.objectId) return;
+    try {
+      await session.send('Runtime.callFunctionOn', { objectId: object.objectId, returnByValue: true,
+        functionDeclaration: `function() { if (this instanceof HTMLElement && this.isConnected && !this.matches(':disabled') && !this.closest('[inert]')) this.focus(); }` });
+      // The cursor is where focus now is: the next refresh must not read this as the page moving focus.
+      this.focusedIdentity = await this.readFocusedIdentity(session, signal);
+    } finally { await session.send('Runtime.releaseObject', { objectId: object.objectId }).catch(() => {}); }
   }
 
   private async activate(signal?: AbortSignal): Promise<'dom-click-untrusted' | 'dom-focus'> {
@@ -476,7 +497,8 @@ function semanticNode(node: AXNode): SimulatedSemanticNode {
   const level = property(node, 'level');
   const protectedValue = property(node, 'protected') === true;
   return {
-    role: stringValue(node.role), name: stringValue(node.name),
+    // Chromium keeps a label's surrounding whitespace in the name ("Email " from a label that wraps its field): speech has none.
+    role: stringValue(node.role), name: stringValue(node.name).replace(/\s+/g, ' ').trim(),
     ...(!protectedValue && value ? { value } : {}), ...(description ? { description } : {}),
     protected: protectedValue, disabled: property(node, 'disabled') === true, readonly: property(node, 'readonly') === true,
     required: property(node, 'required') === true, multiline: property(node, 'multiline') === true, modal: property(node, 'modal') === true,
