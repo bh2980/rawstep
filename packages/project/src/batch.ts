@@ -163,8 +163,8 @@ export class BatchQueue {
         if (!task || !source) reason = { code: 'task-not-found', text: `No task "${taskId}" in rawstep.config.json.` };
         else {
           try {
-            // A task file that is not registered has no entry in the config: a plan file named after `{task}` cannot be filled in for it.
-            const check = checkRun({ config, task: source, ...(Object.hasOwn(loose, taskId) ? {} : { taskEntry: task }), runRules: request.runRules, ...conditions });
+            // A task file that is not registered still has its file name, so a plan file named after `{task}` is found for it too.
+            const check = checkRun({ config, task: source, taskEntry: task, runRules: request.runRules, ...conditions });
             permissions = check.permissions; plannerName = check.plannerModel?.name ?? check.plannerPlanFile; warnings = check.warnings.map(warningMessage);
             const keyless = !check.problem && check.plannerModel ? await missingKey(check.plannerModel) : undefined;
             if (check.problem) reason = batchMessageOf(check.problem);

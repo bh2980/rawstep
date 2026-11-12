@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Cart - Demo shop</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+  </head>
+  <body>
+    <main>
+      <h1>Your cart</h1>
+      <ul id="items">
+        <li>Demo mug, $12 <button type="button" data-item="Demo mug">Remove Demo mug</button></li>
+        <li>Demo poster, $20 <button type="button" data-item="Demo poster">Remove Demo poster</button></li>
+      </ul>
+      <p id="status" role="status"></p>
+    </main>
+    <script>
+      // The bug this page shows: the mug's button says the item was removed and leaves it in the cart. The poster's button works.
+      for (const button of document.querySelectorAll("#items button")) {
+        button.addEventListener("click", () => {
+          const item = button.dataset.item;
+          document.getElementById("status").textContent = `${item} removed`;
+          if (item !== "Demo mug") button.closest("li").remove();
+        });
+      }
+    </script>
+  </body>
+</html>

@@ -1,0 +1,41 @@
+{
+  "strategy": "Walk to the Add to cart button and press it.",
+  "criteria": [
+    {
+      "id": "C1",
+      "text": "The page says the mug was added to the cart"
+    }
+  ],
+  "assumptions": [],
+  "phases": [
+    {
+      "title": "Do it",
+      "criteria": [
+        "C1"
+      ],
+      "tasks": [
+        {
+          "goal": "Move to the Add to cart button",
+          "done": "Hear the Add to cart button",
+          "cue": {
+            "name": "Add to cart",
+            "role": "button"
+          },
+          "activates": false,
+          "moves": [
+            "next"
+          ]
+        },
+        {
+          "goal": "Press Add to cart",
+          "done": "Hear \"Added to cart\"",
+          "cue": "Added to cart",
+          "activates": true,
+          "serves": [
+            "C1"
+          ]
+        }
+      ]
+    }
+  ]
+}

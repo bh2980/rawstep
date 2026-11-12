@@ -1,0 +1,27 @@
+{
+  "id": "api-cart",
+  "url": "http://127.0.0.1:4173/",
+  "goal": "Add the mug to the cart.",
+  "maxSteps": 20,
+  "timeoutMs": 180000,
+  "verify": {
+    "all": [
+      {
+        "requestSeen": {
+          "urlIncludes": "/api/cart",
+          "method": "POST"
+        }
+      },
+      {
+        "responseSeen": {
+          "urlIncludes": "/api/cart",
+          "method": "POST",
+          "status": 201
+        }
+      },
+      {
+        "activatedAnnouncementIncludes": "Added to cart"
+      }
+    ]
+  }
+}

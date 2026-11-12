@@ -1,0 +1,33 @@
+{
+  "id": "settings-dialog",
+  "url": "../../fixtures/settings-dialog.html",
+  "goal": "Turn on email updates about your orders.",
+  "maxSteps": 30,
+  "timeoutMs": 180000,
+  "verify": {
+    "all": [
+      {
+        "textVisible": "Settings saved: order updates on"
+      },
+      {
+        "focused": {
+          "role": "button",
+          "name": "Notification settings"
+        }
+      },
+      {
+        "event": {
+          "kind": "state",
+          "name": "Email me order updates",
+          "attr": "checked",
+          "value": "true"
+        }
+      },
+      {
+        "not": {
+          "textVisible": "Cancel"
+        }
+      }
+    ]
+  }
+}

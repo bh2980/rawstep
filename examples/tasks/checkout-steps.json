@@ -1,0 +1,28 @@
+{
+  "id": "checkout-steps",
+  "url": "../../fixtures/checkout-steps.html",
+  "goal": "Order the mug in your cart with standard delivery.",
+  "maxSteps": 30,
+  "timeoutMs": 180000,
+  "verify": {
+    "all": [
+      {
+        "urlIncludes": "step=done"
+      },
+      {
+        "textVisible": "Order placed"
+      },
+      {
+        "event": {
+          "kind": "navigation",
+          "url": "step=shipping"
+        }
+      },
+      {
+        "not": {
+          "textVisible": "Delivery: Express"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Account - Demo shop</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+  </head>
+  <body>
+    <main>
+      <h1>Account</h1>
+      <p>Signed in as traveler@example.com</p>
+      <button id="open" type="button">Notification settings</button>
+      <p id="status" role="status"></p>
+    </main>
+    <!-- A modal that behaves: focus moves in when it opens and returns to the button that opened it when it closes. -->
+    <dialog id="settings" aria-labelledby="settings-title">
+      <h2 id="settings-title">Notification settings</h2>
+      <label><input id="updates" type="checkbox" /> Email me order updates</label>
+      <div>
+        <button id="save" type="button">Save</button>
+        <button id="cancel" type="button">Cancel</button>
+      </div>
+    </dialog>
+    <script>
+      const dialog = document.getElementById("settings");
+      const updates = document.getElementById("updates");
+      const status = document.getElementById("status");
+      let saved = false;
+      document.getElementById("open").addEventListener("click", () => { updates.checked = saved; dialog.showModal(); });
+      document.getElementById("cancel").addEventListener("click", () => dialog.close());
+      document.getElementById("save").addEventListener("click", () => {
+        saved = updates.checked;
+        dialog.close();
+        status.textContent = saved ? "Settings saved: order updates on" : "Settings saved: order updates off";
+      });
+    </script>
+  </body>
+</html>

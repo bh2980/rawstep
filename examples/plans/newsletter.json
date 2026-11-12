@@ -1,0 +1,64 @@
+{
+  "strategy": "Type the email address and press Subscribe.",
+  "criteria": [
+    {
+      "id": "C1",
+      "text": "The page says the address was subscribed"
+    }
+  ],
+  "assumptions": [
+    {
+      "id": "A1",
+      "text": "The Subscribe button is the last thing the form needs"
+    }
+  ],
+  "phases": [
+    {
+      "title": "Do it",
+      "criteria": [
+        "C1"
+      ],
+      "tasks": [
+        {
+          "goal": "Move to the email field",
+          "done": "Hear the Email text field",
+          "cue": {
+            "name": "Email",
+            "role": "text field"
+          },
+          "activates": false,
+          "moves": [
+            "next"
+          ]
+        },
+        {
+          "goal": "Type the email address",
+          "done": "The address is in the field",
+          "cue": "Email",
+          "types": "email"
+        },
+        {
+          "goal": "Move to the Subscribe button",
+          "done": "Hear the Subscribe button",
+          "cue": {
+            "name": "Subscribe",
+            "role": "button"
+          },
+          "activates": false,
+          "moves": [
+            "next"
+          ]
+        },
+        {
+          "goal": "Press Subscribe",
+          "done": "Hear \"Subscribed\"",
+          "cue": "Subscribed",
+          "activates": true,
+          "serves": [
+            "C1"
+          ]
+        }
+      ]
+    }
+  ]
+}

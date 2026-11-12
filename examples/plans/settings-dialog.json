@@ -1,0 +1,73 @@
+{
+  "strategy": "Open the notification settings, tick the order updates box and save.",
+  "criteria": [
+    {
+      "id": "C1",
+      "text": "The page says the settings were saved with order updates on"
+    }
+  ],
+  "assumptions": [
+    {
+      "id": "A1",
+      "text": "Opening the settings puts the user on the first setting"
+    }
+  ],
+  "phases": [
+    {
+      "title": "Do it",
+      "criteria": [
+        "C1"
+      ],
+      "tasks": [
+        {
+          "goal": "Move to the notification settings button",
+          "done": "Hear the Notification settings button",
+          "cue": {
+            "name": "Notification settings",
+            "role": "button"
+          },
+          "activates": false,
+          "moves": [
+            "next"
+          ]
+        },
+        {
+          "goal": "Open the settings",
+          "done": "Hear the first setting in the dialog",
+          "cue": "Email me order updates",
+          "activates": true
+        },
+        {
+          "goal": "Tick the order updates box",
+          "done": "Hear that the box is checked",
+          "cue": {
+            "name": "Email me order updates",
+            "state": "checked"
+          },
+          "activates": true
+        },
+        {
+          "goal": "Move to the Save button",
+          "done": "Hear the Save button",
+          "cue": {
+            "name": "Save",
+            "role": "button"
+          },
+          "activates": false,
+          "moves": [
+            "next"
+          ]
+        },
+        {
+          "goal": "Save the settings",
+          "done": "Hear \"Settings saved\"",
+          "cue": "Settings saved",
+          "activates": true,
+          "serves": [
+            "C1"
+          ]
+        }
+      ]
+    }
+  ]
+}

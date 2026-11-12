@@ -1,0 +1,21 @@
+{
+  "id": "missing-invoice",
+  "url": "../../fixtures/order-history.html",
+  "goal": "Download the invoice for order 1042.",
+  "maxSteps": 30,
+  "timeoutMs": 180000,
+  "verify": {
+    "all": [
+      {
+        "any": [
+          {
+            "textVisible": "Invoice downloaded"
+          },
+          {
+            "urlIncludes": "invoice"
+          }
+        ]
+      }
+    ]
+  }
+}

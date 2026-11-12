@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Cart - Demo shop</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+  </head>
+  <body>
+    <!-- Three pages in one file: ?step=cart (default), ?step=shipping, ?step=done. Each link is a real page load. -->
+    <main id="page"></main>
+    <script>
+      const step = new URLSearchParams(location.search).get("step") ?? "cart";
+      const speed = new URLSearchParams(location.search).get("speed");
+      const pages = {
+        cart: { title: "Cart - Demo shop", html: `
+          <h1>Your cart</h1>
+          <ul><li>Demo mug, 1 item, $12</li></ul>
+          <p><a href="?step=shipping">Continue to shipping</a></p>` },
+        shipping: { title: "Shipping - Demo shop", html: `
+          <h1>Shipping</h1>
+          <form method="get">
+            <input type="hidden" name="step" value="done" />
+            <fieldset>
+              <legend>Delivery speed</legend>
+              <label><input type="radio" name="speed" value="standard" checked /> Standard, free</label>
+              <label><input type="radio" name="speed" value="express" /> Express, $5</label>
+            </fieldset>
+            <button type="submit">Place order</button>
+          </form>` },
+        done: { title: "Order placed - Demo shop", html: `
+          <h1>Order placed</h1>
+          <p>Thank you. Your order number is 1042.</p>
+          <p>Delivery: ${speed === "express" ? "Express" : "Standard"}</p>` },
+      };
+      const page = pages[step] ?? pages.cart;
+      document.title = page.title;
+      document.getElementById("page").innerHTML = page.html;
+    </script>
+  </body>
+</html>
