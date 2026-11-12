@@ -1,9 +1,10 @@
 import { AtDriverClient, AtDriverError, type AtDriverClientOptions, type AtDriverOperationOptions, type AtDriverTransportEvent, type CommandReceipt } from "./transport.js";
 import { getAtDriverProfile, type AtDriverAction, type AtDriverCapabilities, type AtDriverProfile, type AtDriverProfileName, type AtDriverListRoutine, type AtDriverRotorList, type AtDriverRotorRoutine } from "./profiles.js";
-import { macClipboard, placeOf, voiceoverCommander, voiceoverCursorLocator, type ClipboardWriter, type CursorLocator, type ReaderCommander } from "./voiceover-applescript.js";
-import { isRecord, positiveMilliseconds } from "../internal/guards.js";
-import type { BackendRunContext, BackendSession } from "@rawstep/core/contracts";
-import { isLoopbackUrl } from "@rawstep/core/defaults";
+import { placeOf, type ClipboardWriter, type CursorLocator, type ReaderCommander } from "./voiceover-applescript.js";
+import { isRecord } from "@rawstep/core/guards";
+import { positiveMilliseconds } from "../internal/guards.js";
+import type { Backend, BackendRunContext, BackendSession } from "@rawstep/core/contracts";
+import { isLoopbackUrl, RAWSTEP_DEFAULTS } from "@rawstep/core/defaults";
 import { RawstepError } from "@rawstep/core/errors";
 
 export * from "./transport.js";
@@ -54,12 +55,14 @@ export interface AtDriverMetadata {
   collection: { quietMs: number; maxWaitMs: number; attribution: "temporal-only"; speechCompletionSignal: false };
 }
 
-export interface AtDriverReceipt {
+export type AtDriverReceipt = {
   windowId: string;
   commandIds: number[];
   acknowledgedAt: number;
   commands: CommandReceipt[];
-}
+  /** false: `activate` went to the open rotor list's item (Return in the rotor) and pressed nothing on the page. */
+  pressed?: false;
+};
 
 export type AtDriverEvent = (AtDriverTransportEvent & { windowId?: string }) | {
   type: "windowOpened" | "windowClosed";
@@ -89,19 +92,24 @@ export interface AtDriverBackendOptions extends AtDriverClientOptions {
   profile: AtDriverProfileName;
   quietMs?: number;
   maxWaitMs?: number;
-  /** Where the reader's cursor and the page are on the screen, for getting into a page; VoiceOver's own on macOS by default. */
+  /** Where the reader's cursor and the page are on the screen, for getting into a page; by default the profile's own for a reader on this machine (`AtDriverProfile.hostHelpers`). */
   cursorLocator?: CursorLocator;
-  /** Runs the reader's own commands for the intents its profile does not do with keys; VoiceOver's AppleScript commander by default. */
+  /** Runs the reader's own commands for the intents its profile does not do with keys; by default the profile's own. */
   commander?: ReaderCommander;
-  /** Puts text on the clipboard for a text action the keys cannot type; `pbcopy` by default. */
+  /** Puts text on the clipboard for a text action the keys cannot type; by default the profile's own. */
   clipboard?: ClipboardWriter;
 }
 
 type Window = { id: string; startedAt: number; acknowledgedAt: number; commandIds: number[] };
 
-/** AT Driver adapter for the generic runner's backend boundary. */
-export class AtDriverBackend {
+/**
+ * AT Driver adapter for the generic runner's backend boundary. Which reader it drives is all in its profile (`getAtDriverProfile`):
+ * the keys, the routines and what the reader needs of its host. Nothing here asks which reader it is.
+ */
+export class AtDriverBackend implements Backend {
   readonly evidenceProvenance = 'native' as const;
+  /** A native bridge gets longer to close: it may have a rotor list to shut first. */
+  readonly cleanupTimeoutMs = RAWSTEP_DEFAULTS.cleanupTimeoutMs.nativeBackend;
   readonly capabilities: AtDriverCapabilities;
   private readonly profile: AtDriverProfile;
   private readonly client: AtDriverClient;
@@ -125,21 +133,27 @@ export class AtDriverBackend {
   private commander?: ReaderCommander;
   private clipboard?: ClipboardWriter;
 
+  /** A host helper: the one passed in, else the profile's own for a reader on this machine. */
+  private helper<K extends "cursorLocator" | "commander" | "clipboard">(kind: K): NonNullable<AtDriverBackendOptions[K]> {
+    const helper = this.options[kind] ?? this.profile.hostHelpers?.[kind]();
+    if (!helper) throw new AtDriverError(`The ${this.profile.name} profile has no ${kind}: pass one to the backend`, "unsupported action");
+    return helper as NonNullable<AtDriverBackendOptions[K]>;
+  }
+
   /** Keeps which browser shows the page, so getting into it looks at that browser's window. */
   attachSession(session: BackendSession): void { this.browserProcessId = session.browserProcessId; }
 
   /**
    * Without a trusted paired session factory, the AT server, OS screen reader and visible browser must share this host. A paired
-   * VoiceOver on another machine also needs its helpers passed in: the default ones run AppleScript and the clipboard on this machine.
+   * reader on another machine that needs host helpers also needs them passed in: the profile's own run on this machine.
    */
   preflight(context: BackendRunContext): void {
     if (context.customBrowserSession) {
       const local = !this.options.cursorLocator || !this.options.commander || !this.options.clipboard;
-      if (this.profile.name === "voiceover" && local && this.options.url && !isLoopbackUrl(this.options.url)) throw new RawstepError("backend-precondition", "A VoiceOver on another machine needs cursorLocator, commander and clipboard that reach that Mac: the default ones run AppleScript and the clipboard on this machine.");
+      if (this.profile.hostHelpers && local && this.options.url && !isLoopbackUrl(this.options.url)) throw new RawstepError("backend-precondition", `A ${this.profile.atName} on another machine needs cursorLocator, commander and clipboard that reach that machine: the default ones run on this one.`);
       return;
     }
-    const host = this.profile.name === "voiceover" ? "darwin" : this.profile.name === "nvda" ? "win32" : undefined;
-    if (host && host !== context.platform) throw new RawstepError("backend-precondition", "The native AT server and browser must run on the same supported host. Run RawStep on macOS for VoiceOver or Windows for NVDA.");
+    if (this.profile.platform !== context.platform) throw new RawstepError("backend-precondition", "The native AT server and browser must run on the same supported host. Run RawStep on macOS for VoiceOver or Windows for NVDA.");
     if (this.options.url && !isLoopbackUrl(this.options.url)) throw new RawstepError("backend-precondition", "Default runs require a loopback AT Driver endpoint on the browser host. A remote endpoint needs an explicitly paired browserSessionFactory.");
     if (context.headless) throw new RawstepError("backend-precondition", "Native AT Driver runs require a visible browser; headless is unsupported.");
   }
@@ -255,7 +269,7 @@ export class AtDriverBackend {
       if (rotor) await this.openRotor(rotor, press, options.signal);
       if (command) {
         // Not an AT Driver command, so it has no command ID; its return stands in for the acknowledgement speech is collected after.
-        const commander = this.commander ??= this.options.commander ?? voiceoverCommander();
+        const commander = this.commander ??= this.helper("commander");
         this.emit({ type: "readerCommand", timestamp: Date.now(), windowId: window.id, command, stage: "sent" });
         try { await commander(command, options.signal); } catch (error) {
           this.emit({ type: "readerCommand", timestamp: Date.now(), windowId: window.id, command, stage: "failed", error: error instanceof Error ? error.message : String(error) });
@@ -265,11 +279,12 @@ export class AtDriverBackend {
         this.emit({ type: "readerCommand", timestamp: window.acknowledgedAt, windowId: window.id, command, stage: "done" });
       }
       if (paste !== undefined) {
-        await (this.clipboard ??= this.options.clipboard ?? macClipboard())(paste, options.signal);
+        await (this.clipboard ??= this.helper("clipboard"))(paste, options.signal);
         this.emit({ type: "clipboard", timestamp: Date.now(), windowId: window.id, characters: Array.from(paste).length });
       }
       for (const keys of presses) await press(keys);
-      return { windowId: window.id, commandIds: commands.map(command => command.commandId), acknowledgedAt: window.acknowledgedAt, commands };
+      const picked = !!inRotor && action.kind === "intent" && action.intent === "activate";
+      return { windowId: window.id, commandIds: commands.map(command => command.commandId), acknowledgedAt: window.acknowledgedAt, commands, ...(picked ? { pressed: false as const } : {}) };
     } catch (error) {
       await this.endAfterFailedPress(error, options);
       throw error;
@@ -290,8 +305,11 @@ export class AtDriverBackend {
     if (this.busy || this.observationInProgress) throw new AtDriverError("Concurrent execution/observation is not supported", "invalid state");
     this.busy = true;
     const press = this.presser(this.beginWindow(), [], options);
-    const locator = this.locator ??= this.options.cursorLocator ?? voiceoverCursorLocator();
     try {
+      const locator = this.locator ??= this.helper("cursorLocator");
+      // A rotor list left open by the last action would take the keys of the walk: it is closed first, as before any other action.
+      const open = this.rotor;
+      if (open) { this.rotor = undefined; await press(open.close); }
       await this.quiet(options.signal);
       const page = await locator.page(this.browserProcessId, options.signal);
       if (!page) throw new AtDriverError(`The page's area could not be found in the browser window, so ${this.profile.atName} could not be taken into it`, "page entry failed");
@@ -458,9 +476,16 @@ export class AtDriverBackend {
     } finally { this.observationInProgress = false; }
   }
 
+  /**
+   * Ends the session. A rotor list the run left open is closed first, as far as it still can be: the next run's backend starts out
+   * believing it is closed. That may not hold up or fail the close.
+   */
   async close(): Promise<void> {
+    const open = this.rotor, connected = this.state === "ready" && !this.fatalError;
+    this.rotor = undefined;
     this.state = "closed";
     this.observationWake?.();
+    if (open && connected) await this.client.request("interaction.userIntent", { name: "pressKeys", keys: [...open.close] }, { signal: AbortSignal.timeout(1_000) }).catch(() => undefined);
     await this.client.close();
     this.unsubscribe();
   }

@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import { readTrace, type RunTrace } from '@rawstep/core/trace';
 import { analyzeTrace, writeReport, LlmTraceAnalyzer, type TraceAnalyzer } from '@rawstep/reports';
 import { selectReference, writeHints, type HintReport } from '@rawstep/reports/hints';
@@ -68,11 +68,25 @@ export function llmAnalyzer(model: Model, apiKey: string | undefined, instructio
   return new LlmTraceAnalyzer({ llm: llmModelOf(model, 'rawstep-analysis', apiKey), model: model.modelId || `${model.provider}-default`, timeoutMs: model.timeoutMs, ...(instructions ? { instructions } : {}), ...(signal ? { signal } : {}) });
 }
 
-/** The project's analysis LLM as a trace analyzer. */
-export async function projectAnalyzer(projectDir: string, options: { signal?: AbortSignal } = {}): Promise<{ analyzer: LlmTraceAnalyzer; modelName: string }> {
+/**
+ * The project's analysis LLM as a trace analyzer. `instructions` are the ones in force for the run being analysed (a task can have
+ * its own: see `runRecordOf`); without them, the project's.
+ */
+export async function projectAnalyzer(projectDir: string, options: { signal?: AbortSignal; instructions?: string | undefined } = {}): Promise<{ analyzer: LlmTraceAnalyzer; modelName: string }> {
   const store = new ProjectStore(resolve(projectDir)), { config } = await store.read();
   const model = projectAnalysisModel(config);
   if (!model) throw new ProjectError('no-analysis-model', 'The project has no analysis model. Pick an LLM for analysis in the project settings with `rawstep ui`.');
   const apiKey = await requireKey(store, model);
-  return { analyzer: llmAnalyzer(model, apiKey, config.project.analysis.instructions, options.signal), modelName: model.name };
+  return { analyzer: llmAnalyzer(model, apiKey, options.instructions?.trim() || config.project.analysis.instructions, options.signal), modelName: model.name };
+}
+/**
+ * What the batch that made a run recorded about it, for the commands that work on a run folder afterwards (`rawstep analyze`,
+ * `rawstep report`): the task's name and the analysis instructions the queue used. With these a file written again later is the one
+ * the queue would have written. Undefined for a folder that is not a run of a batch (a trace run by hand).
+ */
+export async function runRecordOf(runDir: string): Promise<{ taskName?: string; analysisInstructions?: string } | undefined> {
+  const batch = await readFile(join(dirname(resolve(runDir)), 'experiment.json'), 'utf8').then(text => JSON.parse(text) as { runs?: { id?: unknown; analysisInstructions?: unknown; snapshot?: { taskName?: unknown } }[] }, () => undefined);
+  const run = Array.isArray(batch?.runs) ? batch.runs.find(item => item?.id === basename(resolve(runDir))) : undefined;
+  if (!run) return undefined;
+  return { ...(typeof run.snapshot?.taskName === 'string' ? { taskName: run.snapshot.taskName } : {}), ...(typeof run.analysisInstructions === 'string' ? { analysisInstructions: run.analysisInstructions } : {}) };
 }

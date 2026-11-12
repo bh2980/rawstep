@@ -5,7 +5,8 @@ import { z } from 'zod';
 import { closeLlmModel, generateStructured } from '@rawstep/policies/llm';
 import type { MachineSettings, Model } from '@rawstep/project/config';
 import { llmModelOf } from '@rawstep/project/llm';
-import { HttpError, record } from './http.js';
+import { asRecord } from '@rawstep/core/guards';
+import { HttpError } from './http.js';
 import { openStartPage, readPageStructure } from './structure.js';
 import type { CheckSuggestion, SuggestionResult } from '../shared/api.js';
 
@@ -49,7 +50,7 @@ export async function suggestChecks(options: {
   url: string; goal: string; projectDir: string; model: Model; apiKey?: string;
   /** The language of the titles and reasons; the dashboard's own, English when not given. */
   language?: SuggestLanguage;
-  machine: Pick<MachineSettings, 'headless' | 'browserExecutablePath' | 'browserEndpoint'>; signal?: AbortSignal;
+  machine: Pick<MachineSettings, 'headless' | 'browserExecutablePath' | 'browserEndpoint' | 'proxyServer'>; signal?: AbortSignal;
 }): Promise<SuggestionResult> {
   const session = await openStartPage({ url: options.url, projectDir: options.projectDir, machine: options.machine });
   try {
@@ -59,7 +60,7 @@ export async function suggestChecks(options: {
     const suggestions: CheckSuggestion[] = [];
     let dropped = 0;
     for (const item of raw.slice(0, 6)) {
-      const candidate = record(item);
+      const candidate = asRecord(item);
       try {
         if (typeof candidate.title !== 'string' || typeof candidate.why !== 'string') throw new Error('shape');
         const rule = resolveTask({ url: options.url, goal: options.goal, verify: { all: [candidate.rule] } }, options.projectDir).verify.all[0]!;

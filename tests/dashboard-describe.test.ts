@@ -3,7 +3,7 @@ import type { HintKind } from '../packages/reports/src/hints/index.js';
 import { describeHint } from '../packages/dashboard/src/web/lib/describe.js';
 import { i18n } from '../packages/dashboard/src/web/i18n/index.js';
 import { core } from '../packages/dashboard/src/web/i18n/locales/ko/core.js';
-import { hintKindLabel, outcomeReasonLabel } from '../packages/dashboard/src/web/i18n/labels.js';
+import { hintKindLabel } from '../packages/dashboard/src/web/i18n/labels.js';
 
 // These tests read the Korean wording, so the language is pinned whatever the machine's own language is.
 await i18n.changeLanguage('ko');
@@ -73,15 +73,6 @@ describe('describeHint', () => {
     expect(describeHint({ kind: 'focus-not-visible', summary: 'Hidden.', detail: { target: { role: 'x' } } })).toBe('Hidden.');
     expect(describeHint({ kind: 'early-stop', summary: 'Stopped.', detail: { reason: 'maxSteps' } })).toBe('Stopped.');
     expect(describeHint({ kind: 'backtracking', summary: 'Reversed.', detail: null as unknown as Record<string, unknown> })).toBe('Reversed.');
-  });
-});
-
-describe('outcome labels', () => {
-  it('translates every known outcome reason and keeps unknown ones', () => {
-    for (const reason of ['verified', 'verification-failed', 'policy-stuck', 'policy-uncertain', 'maxSteps', 'timeout', 'error', 'aborted',
-      'trace-persistence-error', 'unsupported-profile', 'access-blocked', 'unsupported-pattern']) expect(outcomeReasonLabel(reason)).toMatch(hangul);
-    expect(outcomeReasonLabel('something-else')).toBe('something-else');
-    expect(outcomeReasonLabel('constructor')).toBe('constructor');
   });
 });
 

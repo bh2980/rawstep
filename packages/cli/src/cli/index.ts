@@ -1,21 +1,23 @@
+import { isRecord } from '@rawstep/core/guards';
 import { appendFile, readFile, stat, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { BrowserConnectError, createBrowserSession } from '@rawstep/browser/browser';
-import { AtDriverBackend, checkVoiceOverPlace } from '@rawstep/screenreaders/at-driver';
 import { discover } from '@rawstep/project/discover';
 import { readTrace, type RunTrace } from '@rawstep/core/trace';
 import { findRawstepError } from '@rawstep/core/errors';
 import { analyzeSavedTrace, readAnalysis } from '@rawstep/reports/analyze';
 import { writeReport } from '@rawstep/reports/report';
 import { HINTS_SCHEMA_VERSION, writeHints, type Hint, type HintComparison, type HintFinding, type HintReport } from '@rawstep/reports/hints';
-import { goalUnconfirmed, isStuck, isWrongGuess, runEnding, runMoves, type RunEnding, type UnmeasuredBy } from '@rawstep/reports/endings';
+import { goalUnconfirmed, isMeasured, isStuck, isWrongGuess, median, runBroke, runEnding, runMoves, type RunEnding, type UnmeasuredBy } from '@rawstep/reports/endings';
 import { ProjectError } from '@rawstep/project/errors';
-import { agentOf, atEndpointOf, CONFIG_FILE, credentialId, credentialRequirements, isFilePlanner, modelKeyEnvNames, modelKeyRequired, PROVIDERS, type ProviderId } from '@rawstep/project/config';
+import { agentOf, AT_DRIVER_COMMAND_ENV, atEndpointOf, browserOpenOf, CONFIG_FILE, defaultConfig, credentialId, credentialRequirements, isFilePlanner, modelKeyEnvNames, modelKeyRequired, PROVIDERS, type ProviderId } from '@rawstep/project/config';
 import { inspectModel, type ModelInspection } from '@rawstep/project/checks';
 import { ProjectStore, findAgentCli, initProject } from '@rawstep/project/store';
-import { projectAnalyzer, runSuite, runTask, type BatchRun, type RunProgress, type RunSuiteResult, type RunTaskResult } from '@rawstep/project/run';
+import { checkNativeScreenReader } from '@rawstep/project/atdriver';
+import { BatchQueue } from '@rawstep/project/batch';
+import { projectAnalyzer, runRecordOf, runSuite, runTask, usualProfiles, type BatchRun, type RunProgress, type RunSuiteResult, type RunTaskResult } from '@rawstep/project/run';
 import { CLI_USAGE, CliUsageError, parseCliArguments, parseRunRules, type CliArguments } from './args.js';
 
 export { CLI_USAGE, CliUsageError, parseCliArguments } from './args.js';
@@ -30,7 +32,7 @@ export interface CliDependencies {
   /** The process environment (GITHUB_STEP_SUMMARY); defaults to process.env. */
   env?: Record<string, string | undefined>;
   /** Launches and closes a browser; rejects when none can start. */
-  launchBrowser?: (options: { executablePath?: string; cdpEndpoint?: string }) => Promise<void>;
+  launchBrowser?: (options: { executablePath?: string; cdpEndpoint?: string; proxyServer?: string }) => Promise<void>;
   /** Opens and closes an AT Driver session; rejects when the endpoint does not answer. */
   checkNativeBackend?: (options: { profile: 'voiceover' | 'nvda'; url: string }) => Promise<unknown>;
   /** Reads where VoiceOver's cursor is and looks for a page in the front window, as a run does to get into each page. */
@@ -98,7 +100,8 @@ export async function runCli(argv: string[] = process.argv.slice(2), dependencie
       }
       case 'analyze': {
         const input = resolve(cwd, args.positionals[0]!), outDir = args.options.out ? resolve(cwd, String(args.options.out)) : await traceDirectory(input);
-        const analyzer = args.options.llm ? (await projectAnalyzer(projectDir)).analyzer : undefined;
+        // A run of a batch is analysed with the instructions its batch used (a task can have its own), as the queue did.
+        const analyzer = args.options.llm ? (await projectAnalyzer(projectDir, { instructions: (await runRecordOf(await traceDirectory(input)))?.analysisInstructions })).analyzer : undefined;
         const analysis = await analyzeSavedTrace(input, { analyzer, outDir });
         stdout(`Analysis: ${analysis.status}\nSaved: ${resolve(outDir, 'analysis.json')}\n`);
         stdout(`Hints saved: ${(await writeHints(input)).path}\n`);
@@ -108,9 +111,12 @@ export async function runCli(argv: string[] = process.argv.slice(2), dependencie
         const input = resolve(cwd, args.positionals[0]!), directory = await traceDirectory(input);
         const outDir = args.options.out ? resolve(cwd, String(args.options.out)) : directory;
         const trace = await readTrace(input);
-        const analysis = args.options.analysis ? await readAnalysis(resolve(cwd, String(args.options.analysis)), trace) : undefined;
-        const hints = await readHints(directory);
-        const paths = await writeReport(trace, analysis, outDir, hints ? { hints } : {});
+        // The report the queue writes holds the run's analysis and its task's name. Written again here it holds the same: the
+        // analysis.json next to the trace unless another is named, and the name the batch recorded.
+        const analysis = args.options.analysis ? await readAnalysis(resolve(cwd, String(args.options.analysis)), trace)
+          : existsSync(join(directory, 'analysis.json')) ? await readAnalysis(join(directory, 'analysis.json'), trace).catch(() => undefined) : undefined;
+        const hints = await readHints(directory), taskName = (await runRecordOf(directory))?.taskName;
+        const paths = await writeReport(trace, analysis, outDir, { ...(hints ? { hints } : {}), ...(taskName ? { taskName } : {}) });
         stdout(`Report: ${paths.htmlPath}\nData: ${paths.jsonPath}\n`);
         return 0;
       }
@@ -253,7 +259,7 @@ function exitCodeOf(runs: readonly BatchRun[], caught = 0): 0 | 1 | 3 | 4 {
   if (runs.some(run => endedOnError(run.outcome))) return 1;
   // A change the gates caught matters more than a run that was only not measured.
   if (caught) return 4;
-  return runs.some(run => !run.outcome || runEnding(run.outcome, stopOf(run.outcome))?.ending === 'unmeasured') ? 3 : 0;
+  return runs.some(run => !isMeasured(runEnding(run.outcome))) ? 3 : 0;
 }
 
 const ENDING_TEXT: Record<RunEnding, string> = { reached: 'reached the goal', 'gave-up': 'gave up', mistaken: 'said it was done, but the goal was not reached', unmeasured: 'not measured' };
@@ -263,7 +269,7 @@ export function endingText(outcome: RunTaskResult['runs'][number]['outcome']): s
   if (!outcome) return 'no outcome recorded';
   if (outcome.status === 'aborted') return 'aborted';
   if (endedOnError(outcome)) return 'ended on an error (says nothing about the page)';
-  const ended = runEnding(outcome, stopOf(outcome))!;
+  const ended = runEnding(outcome)!;
   if (goalUnconfirmed(outcome)) return `${ENDING_TEXT[ended.ending]} (not confirmed)`;
   return ended.by ? `${ENDING_TEXT[ended.ending]} (${BY_TEXT[ended.by]})` : ENDING_TEXT[ended.ending];
 }
@@ -272,10 +278,8 @@ function unconfirmedNote(runs: readonly { outcome?: { status: string; goalConfir
   const n = runs.filter(run => goalUnconfirmed(run.outcome)).length;
   return n ? ` (${n} not confirmed)` : '';
 }
-/** The run broke (runtime failure, trace not written) before it could say anything about the user. */
-const endedOnError = (outcome: RunTaskResult['runs'][number]['outcome']) => outcome?.reason === 'error' || outcome?.reason === 'trace-persistence-error';
-/** Who stopped a run that stopped itself, as the trace recorded it. */
-const stopOf = (outcome: Record<string, unknown>) => typeof outcome.policyStopSource === 'string' ? outcome.policyStopSource : undefined;
+/** The run broke on an error (runtime failure, trace not written), as against one that was cancelled: both are `runBroke`, worded apart. */
+const endedOnError = (outcome: RunTaskResult['runs'][number]['outcome']) => !!outcome && outcome.status !== 'aborted' && runBroke(outcome);
 /** One line per hint: where, what, how sure, and how many times when the same thing repeated. */
 const hintLine = (hint: Hint, prefix = 'step') => `${hint.steps.length ? `${prefix} ${hint.steps.join(',')}` : 'whole run'} · ${hint.kind}${hint.count ? ` ×${hint.count}` : ''} · ${hint.certainty} · ${hint.summary}\n`;
 const timesOf = (hints: Hint[]) => hints.reduce((total, hint) => total + (hint.count ?? 1), 0);
@@ -287,8 +291,7 @@ function hintsWarning(outcome: RunTrace['outcome'], subject: string): string | u
     return `${subject} ended on an error${error}, so its hints say nothing about the page.\n`;
   }
   if (outcome.status === 'aborted') return `${subject} was aborted, so its hints say nothing about the page.\n`;
-  const ended = runEnding(outcome, stopOf(outcome));
-  if (!ended || ended.ending === 'unmeasured') {
+  if (!isMeasured(runEnding(outcome))) {
     return `${subject} was ${endingText(outcome)}, so its hints say nothing about the page.\n`;
   }
   return undefined;
@@ -314,7 +317,6 @@ function hintsText(report: HintReport, comparison?: HintComparison, outcome?: Ru
   return lines.join('');
 }
 const elementText = (target: HintFinding['target']) => target ? `${target.role}${target.name ? ` "${target.name}"` : ''}` : '(no element)';
-const median = (values: number[]) => { const s = [...values].sort((a, b) => a - b), m = s.length >> 1; return s.length % 2 ? s[m]! : (s[m - 1]! + s[m]!) / 2; };
 /** Hints shown in their own lines of a run's block rather than as summaries. */
 const STRUCTURED: readonly string[] = ['early-stop', 'goal-word-stretch'];
 /** Hints that say the planner wrote a new plan, counted per run by why. */
@@ -362,13 +364,8 @@ export function formatRunResult(result: RunTaskResult): string {
   });
   lines.push('');
   // Across the runs, never judged: counts only.
-  const endings = result.runs.map(run => run.outcome && !endedOnError(run.outcome) && run.outcome.status !== 'aborted' ? runEnding(run.outcome, stopOf(run.outcome)) : undefined);
-  const counted = endings.filter((ended): ended is NonNullable<typeof ended> => !!ended), count = (ending: RunEnding) => counted.filter(ended => ended.ending === ending).length;
-  const others = (['gave-up', 'mistaken', 'unmeasured'] as const).filter(ending => count(ending)).map(ending => `${ENDING_TEXT[ending]} ${count(ending)}`);
-  const broken = result.runs.length - counted.length;
-  lines.push(counted.length ? `Could a first-time user do it? reached the goal in ${count('reached')} of ${counted.length} runs${unconfirmedNote(result.runs)}${others.length ? ` · ${others.join(' · ')}` : ''}${broken ? ` · ${broken} more ended on an error (not counted)` : ''}`
-    : `Could a first-time user do it? not known: ${broken === 1 ? 'the run' : `all ${broken} runs`} ended before the user could try (see the error above)`);
-  const reachedSteps = result.runs.filter((run, index) => endings[index]?.ending === 'reached').map(run => run.hints.steps);
+  const { text, reachedSteps } = endingCounts(result.runs, { broken: n => `${n} more ended on an error (not counted)`, allBroken: n => `${n === 1 ? 'the run' : `all ${n} runs`} ended before the user could try (see the error above)` });
+  lines.push(`Could a first-time user do it? ${text}`);
   if (reachedSteps.length) lines.push(`Cost of reaching it: ${median(reachedSteps)} moves${Math.min(...reachedSteps) !== Math.max(...reachedSteps) ? ` (${Math.min(...reachedSteps)}–${Math.max(...reachedSteps)})` : ''}`);
   const stuck = result.findings.filter(f => f.kind === 'expectation-broken' && f.target).map(f => ({ f, hits: f.occurrences.filter(isStuck) })).filter(item => item.hits.length);
   if (stuck.length) {
@@ -380,8 +377,8 @@ export function formatRunResult(result: RunTaskResult): string {
     }
   }
   const groups: [string, HintFinding['source']][] = [['Page', 'page'], ['Model', 'model']];
-  // How each run ended is said above; an early stop is not listed again as a finding.
-  const rest = result.findings.filter(f => f.kind !== 'expectation-broken' && f.kind !== 'early-stop');
+  // How each run ended is said above: an early stop is about the run, so it is never among the findings.
+  const rest = result.findings.filter(f => f.kind !== 'expectation-broken');
   if (!stuck.length && !rest.length) lines.push('', 'No findings.');
   for (const [title, source] of groups) {
     const findings = rest.filter(f => f.source === source);
@@ -393,14 +390,19 @@ export function formatRunResult(result: RunTaskResult): string {
   return lines.join('\n') + '\n';
 }
 
-/** Counts of how runs ended, leaving out runs that broke: "reached the goal in 2 of 3 runs · not measured 1". */
-function endingCounts(runs: readonly BatchRun[]): { text: string; reachedSteps: number[] } {
-  const endings = runs.map(run => run.outcome && !endedOnError(run.outcome) && run.outcome.status !== 'aborted' ? runEnding(run.outcome, stopOf(run.outcome)) : undefined);
-  const counted = endings.filter((ended): ended is NonNullable<typeof ended> => !!ended), count = (ending: RunEnding) => counted.filter(ended => ended.ending === ending).length;
+/**
+ * Counts of how runs ended: "reached the goal in 2 of 2 runs · not measured 1". The "of M" is the measured runs (reached, gave up, said
+ * done when it was not), as in the batch summary and the comparison: a run that was not measured or broke says nothing about the user,
+ * so it is counted beside the rate, never in it.
+ */
+function endingCounts(runs: readonly BatchRun[], words: { broken?: (n: number) => string; allBroken?: (n: number) => string } = {}): { text: string; reachedSteps: number[] } {
+  const endings = runs.map(run => runEnding(run.outcome)), count = (ending: RunEnding) => endings.filter(ended => ended?.ending === ending).length;
+  const measured = endings.filter(isMeasured).length, broken = endings.filter(ended => !ended).length;
   const others = (['gave-up', 'mistaken', 'unmeasured'] as const).filter(ending => count(ending)).map(ending => `${ENDING_TEXT[ending]} ${count(ending)}`);
-  const broken = runs.length - counted.length;
-  const text = counted.length ? `reached the goal in ${count('reached')} of ${counted.length} runs${unconfirmedNote(runs)}${others.length ? ` · ${others.join(' · ')}` : ''}${broken ? ` · ${broken} ended on an error` : ''}`
-    : `not known: ${broken === 1 ? 'the run' : `all ${broken} runs`} ended on an error`;
+  const brokenText = broken ? ` · ${(words.broken ?? (n => `${n} ended on an error`))(broken)}` : '';
+  const text = measured ? `reached the goal in ${count('reached')} of ${measured} runs${unconfirmedNote(runs)}${others.length ? ` · ${others.join(' · ')}` : ''}${brokenText}`
+    : count('unmeasured') ? `not known: no run was measured · ${others.join(' · ')}${brokenText}`
+    : `not known: ${(words.allBroken ?? (n => `${n === 1 ? 'the run' : `all ${n} runs`} ended on an error`))(broken)}`;
   return { text, reachedSteps: runs.filter((_, index) => endings[index]?.ending === 'reached').map(run => run.hints.steps) };
 }
 /**
@@ -469,16 +471,31 @@ async function doctor(projectDir: string, dependencies: CliDependencies, stdout:
       try { tasks.push(await store.task(task.file)); report(true, `Task ${task.id}`, `${task.file} is a valid task`); }
       catch (error) { tasks.push(undefined); report(false, `Task ${task.id}`, errorDetails(error)); }
     }
+    // Profiles whose own line already says they cannot run: their tasks are not listed again below.
+    const unusable = new Set<string>();
+    const profileLine = (profile: typeof c.profiles[number], ok: boolean | 'warn', detail: string) => { if (ok !== true) unusable.add(profile.id); report(ok, `Profile ${profile.name}`, detail); };
     for (const profile of c.profiles) {
       const planner = profile.planner, connection = planner && !isFilePlanner(planner) ? c.connections.find(x => x.id === planner.connectionId) : undefined;
-      if (!planner) report('warn', `Profile ${profile.name}`, 'no planner yet, so it cannot run. Pick a model in `npx rawstep ui` (Run profiles)');
+      if (!planner) profileLine(profile, 'warn', 'no planner yet, so it cannot run. Pick a model in `npx rawstep ui` (Run profiles)');
       else if (isFilePlanner(planner)) {
         const fixed = !planner.planFile.includes('{task}');
         const exists = fixed ? await stat(resolve(projectDir, planner.planFile)).then(() => true, () => false) : undefined;
-        report(exists === false ? false : true, `Profile ${profile.name}`, exists === false ? `its plan file ${planner.planFile} is missing` : `follows the plan file ${planner.planFile} (no model)`);
-      } else if (!connection) report(false, `Profile ${profile.name}`, `cannot run: it plans with the connection "${planner.connectionId}", which does not exist`);
-      else if (modelKeyRequired(connection) && !await store.credentialSource(connection)) report(false, `Profile ${profile.name}`, `cannot run: it plans with ${connection.name} · ${planner.modelId}, but the key ${modelKeyEnvNames(connection).join(' or ')} is not set`);
-      else report(true, `Profile ${profile.name}`, `plans with ${connection.name} · ${planner.modelId}`);
+        profileLine(profile, exists === false ? false : true, exists === false ? `its plan file ${planner.planFile} is missing` : `follows the plan file ${planner.planFile} (no model)`);
+      } else if (!connection) profileLine(profile, false, `cannot run: it plans with the connection "${planner.connectionId}", which does not exist`);
+      else if (modelKeyRequired(connection) && !await store.credentialSource(connection)) profileLine(profile, false, `cannot run: it plans with ${connection.name} · ${planner.modelId}, but the key ${modelKeyEnvNames(connection).join(' or ')} is not set`);
+      else profileLine(profile, true, `plans with ${connection.name} · ${planner.modelId}`);
+    }
+    // Each task under the profiles it runs with, checked by the queue's own plan: the check `rawstep run` and the dashboard make before
+    // a batch starts. What is said elsewhere here (the profile's own line, the browser address, the screen reader) is not repeated.
+    const elsewhere = ['browser-endpoint-missing', 'voiceover-macos', 'nvda-windows', 'endpoint-not-loopback'];
+    const readable = c.tasks.filter((entry, i) => tasks[i]);
+    if (readable.length && c.profiles.length) {
+      const rows = (await new BatchQueue(store).plan({ taskIds: readable.map(entry => entry.id), profileIds: [c.profiles[0]!.id], repeats: 1,
+        profilesByTask: Object.fromEntries(readable.map(entry => [entry.id, usualProfiles(c, entry).map(profile => profile.id)])) })).rows;
+      for (const row of rows) {
+        if (row.supported || unusable.has(row.profileId) || elsewhere.includes(row.reason?.code ?? '')) continue;
+        report(false, `Task ${row.taskId} under ${c.profiles.find(profile => profile.id === row.profileId)?.name ?? row.profileId}`, `cannot run: ${row.reason?.text ?? row.reason?.code ?? 'unknown reason'}`);
+      }
     }
     // What each task needs of the browser: a Chrome of your own needs this computer's address for it.
     const connecting = c.tasks.filter((entry, i) => tasks[i]?.browser?.mode === 'connect').map(entry => entry.name);
@@ -486,14 +503,25 @@ async function doctor(projectDir: string, dependencies: CliDependencies, stdout:
       ? `${connecting.join(', ')} ${connecting.length > 1 ? 'run' : 'runs'} in the Chrome you started (${c.machine.browserEndpoint.trim()})`
       : `${connecting.join(', ')} ${connecting.length > 1 ? 'need' : 'needs'} a Chrome you started yourself, but machine.browserEndpoint is empty`);
   } catch (error) { report(false, 'Config', errorDetails(error)); }
-  const executablePath = read?.config.machine.browserExecutablePath || undefined, cdpEndpoint = read?.config.machine.browserEndpoint.trim() || undefined;
-  try {
-    await (dependencies.launchBrowser ?? (async options => { const session = await createBrowserSession('about:blank', { headless: true, ...options }); await session.close(); }))({ ...(cdpEndpoint ? { cdpEndpoint } : executablePath ? { executablePath } : {}) });
-    report(true, 'Browser', cdpEndpoint ? `connected to ${cdpEndpoint}` : executablePath ? `launched ${executablePath}` : 'launched');
-  } catch (error) {
+  // Both ways a run opens a browser, each as a run would (`browserOpenOf`): the one Rawstep launches, which every task uses unless
+  // it says otherwise, and the Chrome the person started, when this computer has an address for it.
+  const machine = read?.config.machine ?? defaultConfig().machine;
+  const openBrowser = dependencies.launchBrowser ?? (async options => { const session = await createBrowserSession('about:blank', { headless: true, ...options }); await session.close(); });
+  const browserFailure = (error: unknown, advice: string) => {
     const connect = findRawstepError(error, e => e instanceof BrowserConnectError);
-    if (connect) report(false, 'Browser', `${connect.message} The address comes from machine.browserEndpoint in the config.`);
-    else report(false, 'Browser', `${errorDetails(error).replace(/[.\s]+$/, '')}. ${cdpEndpoint ? 'Start Chrome with `--remote-debugging-port=9222 --user-data-dir=<separate folder>` and check machine.browserEndpoint in the config.' : 'Install one with `npx playwright install chromium` or set machine.browserExecutablePath in the config.'}`);
+    return connect ? `${connect.message} The address comes from machine.browserEndpoint in the config.` : `${errorDetails(error).replace(/[.\s]+$/, '')}. ${advice}`;
+  };
+  const launched = browserOpenOf(machine, false) as { executablePath?: string; proxyServer?: string };
+  try {
+    await openBrowser(launched);
+    report(true, 'Browser', launched.executablePath ? `launched ${launched.executablePath}` : 'launched');
+  } catch (error) { report(false, 'Browser', browserFailure(error, 'Install one with `npx playwright install chromium` or set machine.browserExecutablePath in the config.')); }
+  const own = browserOpenOf(machine, true);
+  if ('cdpEndpoint' in own) {
+    try {
+      await openBrowser(own);
+      report(true, 'Your Chrome', `connected to ${own.cdpEndpoint}`);
+    } catch (error) { report(false, 'Your Chrome', browserFailure(error, 'Start Chrome with `--remote-debugging-port=9222 --user-data-dir=<separate folder>` and check machine.browserEndpoint in the config.')); }
   }
   if (read) {
     const config = read.config;
@@ -540,15 +568,20 @@ async function doctor(projectDir: string, dependencies: CliDependencies, stdout:
     if (!natives.length) report(undefined, 'Screen reader', 'only the simulation is configured; no native screen reader to check');
     for (const backend of natives) {
       const atEndpoint = atEndpointOf(read.config.machine, backend);
-      try {
-        await (dependencies.checkNativeBackend ?? (async options => { const b = new AtDriverBackend(options); try { return await b.start({ signal: AbortSignal.timeout(5000) }); } finally { await b.close(); } }))({ profile: backend, url: atEndpoint });
-        report(true, 'Screen reader', `${backend} AT Driver answered at ${atEndpoint}. This checks the protocol connection only; verify real speech on the target host`);
-      } catch (error) { report(false, 'Screen reader', `${backend} AT Driver at ${atEndpoint}: ${errorDetails(error)}. Start the AT Driver server and the screen reader, then run doctor again`); }
+      // The check a run's start makes, shared with the dashboard: the server is started with the saved command when nothing answers yet.
+      const check = await checkNativeScreenReader({ backend, machine: read.config.machine, command: await store.localValue(AT_DRIVER_COMMAND_ENV), cwd: projectDir, signal: AbortSignal.timeout(35_000) }, {
+        ...(dependencies.checkNativeBackend ? { ensure: async () => ({ started: false, stop: async () => {} }), session: dependencies.checkNativeBackend } : {}),
+        ...(dependencies.checkVoiceOverCursor ? { cursor: dependencies.checkVoiceOverCursor } : {}),
+      });
+      const failed = (stage: typeof check.problems[number]['stage']) => check.problems.find(problem => problem.stage === stage);
+      const setup = failed('setup'), connection = failed('server') ?? failed('session');
+      if (setup) { report(false, 'Screen reader', `${backend}: ${errorDetails(setup.error)}`); continue; }
+      if (connection) report(false, 'Screen reader', `${backend} AT Driver at ${atEndpoint}: ${errorDetails(connection.error).replace(/[.\s]+$/, '')}. Start the AT Driver server and the screen reader, then run doctor again`);
+      else report(true, 'Screen reader', `${backend} AT Driver ${check.started ? 'was started with the saved command and answered' : 'answered'} at ${atEndpoint}. This checks the protocol connection only; verify real speech on the target host`);
       if (backend !== 'voiceover') continue;
-      try {
-        await (dependencies.checkVoiceOverCursor ?? (() => checkVoiceOverPlace(undefined, AbortSignal.timeout(30_000))))();
-        report(true, 'VoiceOver cursor', 'Rawstep can read where VoiceOver\'s cursor is and look at windows through System Events, which it needs to get into each page');
-      } catch (error) { report(false, 'VoiceOver cursor', errorDetails(error)); }
+      const cursor = failed('cursor');
+      if (cursor) report(false, 'VoiceOver cursor', errorDetails(cursor.error));
+      else report(true, 'VoiceOver cursor', 'Rawstep can read where VoiceOver\'s cursor is and look at windows through System Events, which it needs to get into each page');
     }
   }
   return failed ? 1 : 0;
@@ -603,8 +636,7 @@ async function readRunTrace(path: string): Promise<RunTrace> {
 
 /** A hints.json next to the trace is optional report input; absent or unreadable means no hints section. */
 async function readHints(directory: string): Promise<HintReport | undefined> {
-  try { const value: unknown = JSON.parse(await readFile(resolve(directory, 'hints.json'), 'utf8')); return isObject(value) && value.schemaVersion === HINTS_SCHEMA_VERSION && Array.isArray(value.hints) ? value as HintReport : undefined; }
+  try { const value: unknown = JSON.parse(await readFile(resolve(directory, 'hints.json'), 'utf8')); return isRecord(value) && value.schemaVersion === HINTS_SCHEMA_VERSION && Array.isArray(value.hints) ? value as HintReport : undefined; }
   catch { return undefined; }
 }
 async function traceDirectory(path: string): Promise<string> { return (await stat(path)).isDirectory() ? path : dirname(path); }
-function isObject(value: unknown): value is Record<string, unknown> { return Boolean(value) && typeof value === 'object' && !Array.isArray(value); }

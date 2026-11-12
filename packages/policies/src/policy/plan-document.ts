@@ -110,6 +110,19 @@ export type PlanDraft = {
   giveUp?: GiveUp;
 };
 
+/**
+ * A plan task as the draft task it was planned as: the reverse of what `applyDraft` reads from a draft. The one place this is written:
+ * a plan file read back from a run's plan.json and a fixed plan that keeps its tasks both go through it, so a field added to a task
+ * is carried by both.
+ */
+export function draftTaskOf(task: PlanTask): PlanDraft['phases'][number]['tasks'][number] {
+  return {
+    goal: task.goal, done: task.done, cue: { name: task.cue, ...(task.cueRole ? { role: task.cueRole } : {}), ...(task.cueState ? { state: task.cueState } : {}) },
+    ...(task.activates !== undefined ? { activates: task.activates } : {}), ...(task.moves ? { moves: [...task.moves] } : {}), ...(task.types ? { types: task.types } : {}),
+    serves: [...task.serves], relies: [...task.relies],
+  };
+}
+
 const open = (t: PlanTask) => t.status === 'pending' || t.status === 'active';
 export const planTasks = (doc: PlanDocument): PlanTask[] => doc.phases.flatMap(p => p.tasks);
 export const currentTask = (doc: PlanDocument): PlanTask | undefined => planTasks(doc).find(t => t.id === doc.current);

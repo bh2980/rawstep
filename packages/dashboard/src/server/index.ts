@@ -8,18 +8,18 @@ import { existsSync, watch, type FSWatcher } from 'node:fs';
 import { z } from 'zod';
 import { BUILTIN_PROFILES } from '@rawstep/browser/profiles';
 import { createBrowserSession } from '@rawstep/browser/browser';
-import { AtDriverBackend } from '@rawstep/screenreaders/at-driver';
 import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
-import { AT_DRIVER_COMMAND_ENV, atBackendSchema, atEndpointOf, type AtBackend, machineSchema, modelKeyEnv, suggestionModel, providerSchema, providersOf, type Connection } from '@rawstep/project/config';
+import { AT_DRIVER_COMMAND_ENV, atBackendSchema, type AtBackend, browserOpenOf, machineSchema, modelKeyEnv, suggestionModel, providerSchema, providersOf, type Connection } from '@rawstep/project/config';
 import { ProjectStore, readOptional } from '@rawstep/project/store';
 import { ProjectError } from '@rawstep/project/errors';
 import { backendCapabilities } from '@rawstep/project/plan';
 import { discover } from '@rawstep/project/discover';
-import { ensureAtDriver } from '@rawstep/project/atdriver';
+import { checkNativeScreenReader } from '@rawstep/project/atdriver';
 import { requireKey } from '@rawstep/project/run';
 import type { ConfigView, DeleteTaskResult } from '../shared/config.js';
-import { HttpError, messageOf, record, statusOf } from './http.js';
-import { ExperimentQueue, type Executor } from './queue.js';
+import { asRecord } from '@rawstep/core/guards';
+import { HttpError, messageOf, statusOf } from './http.js';
+import { BATCHES_DIR, ExperimentQueue, type Executor } from './queue.js';
 import { RunViews } from './views.js';
 import { DIAGNOSTIC_PATH } from './steps.js';
 import { suggestChecks } from './suggest.js';
@@ -68,7 +68,7 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
   let looking: ReturnType<typeof setTimeout> | undefined;
   const look = () => { if (looking) return; looking = setTimeout(() => { looking = undefined; void queue.refresh().catch(() => {}); }, 300); looking.unref(); };
   let watcher: FSWatcher | undefined;
-  try { watcher = watch(await store.file('.rawstep/experiments'), { recursive: true }, look); watcher.on('error', () => { watcher?.close(); watcher = undefined; }); } catch { watcher = undefined; }
+  try { watcher = watch(await store.file(BATCHES_DIR), { recursive: true }, look); watcher.on('error', () => { watcher?.close(); watcher = undefined; }); } catch { watcher = undefined; }
   const sweep = setInterval(look, 5000); sweep.unref();
   const views = new RunViews(store, queue);
   const webDir = options.webDir ?? defaultWebDir();
@@ -119,18 +119,17 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
     }
     if (path === '/api/state' && method === 'GET') return send(res, await state());
     if (path === '/api/backend/check' && method === 'POST') {
-      const body = record(await jsonBody(req)), machine = machineSchema.parse(body.machine), backend = atBackendSchema.parse(body.backend);
+      const body = asRecord(await jsonBody(req)), machine = machineSchema.parse(body.machine), backend = atBackendSchema.parse(body.backend);
       if (backend === 'simulation') {
-        const browser = await createBrowserSession('about:blank', { headless: true, executablePath: machine.browserExecutablePath || undefined, ...(machine.browserEndpoint.trim() ? { cdpEndpoint: machine.browserEndpoint.trim() } : {}) });
+        const browser = await createBrowserSession('about:blank', { headless: true, ...browserOpenOf(machine, true) });
         await browser.close(); return send(res, { message: { code: 'check-simulation-ok' } });
       }
-      if ((backend === 'voiceover' && process.platform !== 'darwin') || (backend === 'nvda' && process.platform !== 'win32')) throw new HttpError(400, 'native-os-mismatch');
-      // The check starts the server with the saved command when nothing answers yet, just as a run would, and stops it again.
-      const url = atEndpointOf(machine, backend), driver = await ensureAtDriver({ endpoint: url, command: await store.localValue(AT_DRIVER_COMMAND_ENV), cwd: store.root, signal: AbortSignal.timeout(35000) });
-      const driverBackend = new AtDriverBackend({ profile: backend, url });
-      try { const metadata = await driverBackend.start({ signal: AbortSignal.timeout(5000) }); return send(res, { message: { code: driver.started ? 'check-at-driver-started' : 'check-at-driver-ok' }, metadata }); }
-      catch { throw new HttpError(502, 'at-driver-session-failed'); }
-      finally { await driverBackend.close(); await driver.stop(); }
+      // The same check as `rawstep doctor`: it starts the server with the saved command when nothing answers yet, just as a run
+      // would, and stops it again. The first thing a run would fail on is the answer.
+      const check = await checkNativeScreenReader({ backend, machine, command: await store.localValue(AT_DRIVER_COMMAND_ENV), cwd: store.root, signal: AbortSignal.timeout(35000) });
+      const problem = check.problems[0];
+      if (problem) throw problem.stage === 'session' ? new HttpError(502, 'at-driver-session-failed') : problem.stage === 'cursor' ? new HttpError(400, 'voiceover-cursor-unavailable') : problem.error;
+      return send(res, { message: { code: check.started ? 'check-at-driver-started' : 'check-at-driver-ok' }, metadata: check.metadata });
     }
     if (path === '/api/machine/at-driver-command') {
       if (method === 'GET') return send(res, { command: (await store.localValue(AT_DRIVER_COMMAND_ENV)) ?? '' });
@@ -142,7 +141,7 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
     }
     if (path === '/api/browser/check' && method === 'POST') {
       // On request only: this starts a browser, so it shares the one-at-a-time lock of the other page reads.
-      const machine = machineSchema.parse(record(await jsonBody(req)).machine);
+      const machine = machineSchema.parse(asRecord(await jsonBody(req)).machine);
       return send(res, await exclusivePageRead(() => checkBrowser(machine)));
     }
     if (path === '/api/connections/check' && method === 'POST') {
@@ -171,9 +170,9 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
       return send(res, { view: await state(), file: removed.file, fileRemoved: removed.fileRemoved } satisfies DeleteTaskResult);
     }
     if (path === '/api/config' && method === 'PUT') {
-      const body = record(await jsonBody(req));
+      const body = asRecord(await jsonBody(req));
       if (typeof body.revision !== 'string') throw new HttpError(400, 'revision-required');
-      const task = body.taskWrite ? record(body.taskWrite) : undefined;
+      const task = body.taskWrite ? asRecord(body.taskWrite) : undefined;
       await store.save(body.config, body.revision, task ? { file: String(task.file), task: task.task } : undefined);
       changed(); return send(res, await state());
     }
@@ -253,12 +252,9 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
         const body = z.object({ revision: z.string() }).strict().parse(await jsonBody(req));
         return send(res, await queue.retry(experimentId!, runId, body.revision), 201);
       }
-      const prefix = '.rawstep/experiments/' + experimentId + '/' + runId + '/';
-      if (operation === 'events' && method === 'GET') {
-        const raw = await readOptional(await store.file(prefix + 'trace.jsonl')) ?? '';
-        const events = raw.split('\n').filter(Boolean).map(line => JSON.parse(line));
-        return send(res, events);
-      }
+      const prefix = BATCHES_DIR + '/' + experimentId + '/' + runId + '/';
+      // The journal of a live run can end in a half-written line: both readers below take it through the views' tolerant reader.
+      if (operation === 'events' && method === 'GET') return send(res, await views.events(experimentId!, runId));
       if (operation === 'steps' && method === 'GET') return send(res, await views.steps(experimentId!, runId));
       if (operation === 'hints' && method === 'GET') return send(res, await views.hints(experimentId!, runId));
       if ((operation === 'trace' || operation === 'analysis') && method === 'GET') {
@@ -266,14 +262,15 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
         res.writeHead(200, { 'content-type': 'application/json', 'content-disposition': 'attachment; filename="' + operation + '.json"' }); return res.end(content);
       }
       if (operation === 'report' && method === 'GET') {
-        if (run.reportStatus !== 'complete') throw new HttpError(404, 'report-not-ready');
+        // The file decides, not the queue's note of having written it: a report made again with `rawstep report` is served too.
+        const report = await readFile(await store.file(prefix + 'report.html')).catch(() => undefined);
+        if (!report) throw new HttpError(404, 'report-not-ready');
         res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'content-security-policy': REPORT_CSP + "; img-src data:; sandbox allow-scripts" });
-        return res.end(await readFile(await store.file(prefix + 'report.html', true)));
+        return res.end(report);
       }
       if (operation === 'png' && method === 'GET') {
-        const raw = await readOptional(await store.file(prefix + 'trace.jsonl')) ?? '';
-        const event = raw.split('\n').filter(Boolean).map(l => JSON.parse(l)).find(e => e.id === decodeURIComponent(eventId ?? ''));
-        const diagnostic = record(event?.data).path;
+        const event = (await views.events(experimentId!, runId)).find(e => e.id === decodeURIComponent(eventId ?? ''));
+        const diagnostic = asRecord(event?.data).path;
         // A diagnostic screenshot is a plain file whose path the runner wrote and the pattern pins, never a path from the client.
         const file = (event?.type === 'browser.screenshot' || event?.type === 'browser.start-page') && typeof diagnostic === 'string' && DIAGNOSTIC_PATH.test(diagnostic)
           ? await readFile(await store.file(prefix + diagnostic, true)).catch(() => undefined) : undefined;

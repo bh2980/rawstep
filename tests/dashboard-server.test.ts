@@ -56,15 +56,15 @@ describe('dashboard API and sequential queue', () => {
     const dir = await root(), store = new ProjectStore(dir); const initial = await store.initialize(); await store.save(setup(), initial.revision, { file: 'task.json', task });
     let active = 0, maxActive = 0; const seen: unknown[] = [];
     const app = await startDashboard({ projectDir: dir, port: 0, webDir: join(process.cwd(), 'packages/dashboard/dist/web'), execute: async (run, actualTask, outDir, signal) => {
-      active++; maxActive = Math.max(active, maxActive); seen.push({ task: structuredClone(actualTask), instructions: run.snapshot.spec.plannerInstructions });
+      active++; maxActive = Math.max(active, maxActive); seen.push({ task: structuredClone(actualTask), instructions: run.snapshot.spec.planner.instructions });
       await new Promise(r => setTimeout(r, 15)); signal.throwIfAborted();
-      const trace = new TraceRecorder({ ...actualTask, id: actualTask.id ?? 'fixture' }, outDir); await trace.initialize(); trace.append('fixture.policy', { instructions: run.snapshot.spec.plannerInstructions }, { source: 'policy' });
+      const trace = new TraceRecorder({ ...actualTask, id: actualTask.id ?? 'fixture' }, outDir); await trace.initialize(); trace.append('fixture.policy', { instructions: run.snapshot.spec.planner.instructions }, { source: 'policy' });
       active--; return trace.finalize({ status: 'success', reason: 'test-double-only', steps: 1 });
     } }); apps.push(app);
     const response = await fetch(app.url + '/api/experiments', { method: 'POST', headers: { 'content-type': 'application/json', origin: app.url }, body: JSON.stringify({ ...request, profileIds: ['default', 'default-narrow', 'other', 'other-narrow'] }) });
     expect(response.status).toBe(201); const experiment = await response.json() as Experiment; expect(experiment.runs).toHaveLength(4);
-    expect(experiment.runs.map(r => [r.profileId, r.plannerName, r.snapshot.spec.plannerModel!.id, r.snapshot.spec.plannerModel!.modelId])).toEqual([['default', 'a · planner-a', 'a', 'planner-a'], ['default-narrow', 'a · planner-a', 'a', 'planner-a'], ['other', 'b · planner-b', 'b', 'planner-b'], ['other-narrow', 'b · planner-b', 'b', 'planner-b']]);
-    expect(experiment.runs.map(r => r.snapshot.spec.plannerInstructions)).toEqual(['', '', 'Careful planner instructions', 'Careful planner instructions']);
+    expect(experiment.runs.map(r => [r.profileId, r.plannerName, r.snapshot.spec.planner.model!.id, r.snapshot.spec.planner.model!.modelId])).toEqual([['default', 'a · planner-a', 'a', 'planner-a'], ['default-narrow', 'a · planner-a', 'a', 'planner-a'], ['other', 'b · planner-b', 'b', 'planner-b'], ['other-narrow', 'b · planner-b', 'b', 'planner-b']]);
+    expect(experiment.runs.map(r => r.snapshot.spec.planner.instructions)).toEqual(['', '', 'Careful planner instructions', 'Careful planner instructions']);
     const current = await store.read(); const emptied = structuredClone(current.config); emptied.profiles[0]!.actions.intents = ['next']; await store.save(emptied, current.revision);
     await waitFor(async () => { const durable = JSON.parse(await readFile(join(dir, '.rawstep/experiments', experiment.id, 'experiment.json'), 'utf8')) as Experiment; return durable.runs.every(r => r.state === 'success' && !!r.endedAt); });
     expect(maxActive).toBe(1); expect(seen).toHaveLength(4); expect(JSON.stringify(seen)).toContain('private-value');
@@ -133,7 +133,7 @@ describe('dashboard API and sequential queue', () => {
     await store.save(setup(), initial.revision, { file: 'task.json', task });
     const seen: { goal: string; input: unknown; model: string; instructions: string }[] = [];
     const app = await startDashboard({ projectDir: dir, port: 0, execute: async (run, actual, out) => {
-      seen.push({ goal: actual.goal, input: actual.input, model: run.snapshot.spec.plannerModel!.modelId, instructions: run.snapshot.spec.plannerInstructions! });
+      seen.push({ goal: actual.goal, input: actual.input, model: run.snapshot.spec.planner.model!.modelId, instructions: run.snapshot.spec.planner.instructions! });
       const trace = new TraceRecorder({ ...actual, id: 'fixture' }, out); await trace.initialize(); return trace.finalize({ status: 'success', steps: 0 });
     } }); apps.push(app);
     const e = await app.queue.create({ ...request, profileIds: ['other'] }); await waitFor(async () => !!e.runs[0]!.endedAt);
@@ -160,7 +160,7 @@ describe('dashboard API and sequential queue', () => {
     const app = await startDashboard({ projectDir: dir, port: 0 }); apps.push(app);
     const post = (path: string, body: unknown) => fetch(app.url + path, { method: 'POST', headers: { 'content-type': 'application/json', origin: app.url }, body: JSON.stringify(body) });
     const rowFor = async (profileId: string) => (await app.queue.plan({ ...request, profileIds: [profileId] })).rows[0]!;
-    expect(await rowFor('router')).toMatchObject({ supported: false, reason: { code: 'missing-planner-credential' } });
+    expect(await rowFor('router')).toMatchObject({ supported: false, reason: { code: 'missing-credential' } });
     vi.stubEnv('RAWSTEP_OPENAI_API_KEY', '');
     try {
       // A missing analysis key never blocks a run: the row can run and says the analysis falls back to rules.
@@ -245,21 +245,25 @@ describe('dashboard run views and live events', () => {
     expect((await fetch(`${app.url}/api/experiments/${ok.id}/runs/${randomUUID()}/steps`)).status).toBe(404);
     expect((await fetch(`${app.url}/api/experiments/${randomUUID()}/runs/${randomUUID()}/hints`)).status).toBe(404);
   });
-  it('compares hints with the shortest goal-reaching run of the same task across experiments', async () => {
-    const { experiment, get } = await launch([script(['Tab', 'Tab', 'Tab', 'Tab'], 'failure'), 'throw', script(['Tab', 'Enter'], 'success'), script(['Tab', 'Tab', 'Tab', 'Tab', 'Tab', 'Enter'], 'success'), script(['Tab', 'Tab', 'Tab', 'Tab', 'Enter'], 'success')]);
+  it('serves the hints the queue saved: a run is compared with the fastest repeat of its own batch and profile, never with another batch', async () => {
+    const { experiment, get } = await launch([script(['Tab', 'Tab', 'Tab', 'Tab'], 'failure'), 'throw', script(['Tab', 'Enter'], 'success'),
+      script(['Tab', 'Tab', 'Tab', 'Tab', 'Tab', 'Enter'], 'success'), script(['Tab', 'Enter'], 'success'), script(['Tab', 'Tab', 'Tab', 'Tab', 'Tab', 'Enter'], 'success')]);
     const failed = await experiment(['default']), missing = await experiment(['default']);
     const none = await (await get(failed, 0, 'hints')).json() as RunHintsView;
-    expect(none.referenceRun).toBeUndefined(); expect(none.reference).toBeUndefined(); expect(none.steps).toBe(4);
+    expect(none.reference).toBeUndefined(); expect(none.steps).toBe(4);
     const noTrace = await get(missing, 0, 'hints');
     expect(noTrace.status).toBe(404); expect((await noTrace.json() as { error: object }).error).toEqual({ code: 'trace-missing' });
-    const short = await experiment(['default']), slow = await experiment(['other']), middle = await experiment(['other']);
-    const hints = await (await get(slow, 0, 'hints')).json() as RunHintsView;
-    expect(hints.referenceRun).toEqual({ experimentId: short.id, runId: short.runs[0]!.id });
-    expect(hints.reference).toMatchObject({ runId: expect.any(String), steps: 2, goalReached: true });
+    // A short run in one batch, then a long one alone in another: the page may have changed in between, so they are not compared.
+    await experiment(['default']);
+    const alone = await experiment(['default']);
+    const apart = await (await get(alone, 0, 'hints')).json() as RunHintsView;
+    expect(apart.reference).toBeUndefined(); expect(apart.hints.map(h => h.kind)).not.toContain('slow-run');
+    // Two repeats in one batch: the longer is compared with the shorter, and the run page reads the same report.
+    const repeats = await experiment(['default'], 2), slow = repeats.runs.findIndex(r => r.repeat === 2);
+    const hints = await (await get(repeats, slow, 'hints')).json() as RunHintsView;
+    expect(hints.reference).toMatchObject({ steps: 2, goalReached: true });
     expect(hints.hints.map(h => h.kind)).toContain('slow-run');
-    expect((await (await get(middle, 0, 'hints')).json() as RunHintsView).referenceRun!.runId).toBe(short.runs[0]!.id);
-    // The reference run itself is compared with the next shortest goal-reaching run, never with itself.
-    expect((await (await get(short, 0, 'hints')).json() as RunHintsView).referenceRun!.runId).toBe(middle.runs[0]!.id);
+    expect((await (await get(repeats, slow, 'steps')).json() as RunStepsView).hints.map(h => h.kind)).toContain('slow-run');
   });
   it('broadcasts throttled run-event messages while a run records', async () => {
     const dir = await root(), store = new ProjectStore(dir), initial = await store.initialize(); await store.save(setup(), initial.revision, { file: 'task.json', task });
@@ -315,7 +319,7 @@ describe('dashboard conditions in plans and runs', () => {
     const e = await app.queue.create({ ...asked, selected: [rows[1]!.key, rows[2]!.key] });
     expect(e.runs.map(r => [r.profileId, r.repeat])).toEqual([['default', 2], ['reader', 1]]); expect(e.runs[0]!.snapshot.spec).not.toHaveProperty('mode');
     expect(e.runs.map(r => r.snapshot.spec.conditions)).toEqual([expect.objectContaining({ profile: expect.objectContaining({ id: 'default' }) }), expect.objectContaining({ profile: expect.objectContaining({ id: 'reader' }), atEnvironment: expect.objectContaining({ backend: 'simulation' }) })]);
-    expect(e.runs[1]!.snapshot.spec).toMatchObject({ plannerModel: { id: 'a', modelId: 'planner-a' }, plannerInstructions: '' });
+    expect(e.runs[1]!.snapshot.spec).toMatchObject({ planner: { model: { id: 'a', modelId: 'planner-a' }, instructions: '' } });
     await waitFor(async () => e.runs.every(r => !!r.endedAt));
   });
   it('multiplies run profiles by page environments and records the resolved environment in the run snapshot', async () => {
@@ -354,7 +358,7 @@ describe('dashboard conditions in plans and runs', () => {
     expect((await app.queue.plan(planned)).rows[0]).toMatchObject({ supported: true, plannerName: 'a · planner-fixture', warnings: [] });
     const made = await app.queue.create(planned), spec = made.runs[0]!.snapshot.spec;
     expect(made.runs[0]).toMatchObject({ plannerName: 'a · planner-fixture' });
-    expect(spec).toMatchObject({ plannerInstructions: 'Plan in small steps', plannerModel: { id: 'a', modelId: 'planner-fixture' } });
+    expect(spec).toMatchObject({ planner: { instructions: 'Plan in small steps', model: { id: 'a', modelId: 'planner-fixture' } } });
     expect(spec.conditions).toMatchObject({ combo: { planner: 'a · planner-fixture' } }); expect((spec.conditions as { combo: object }).combo).not.toHaveProperty('structure');
     await waitFor(async () => !!made.runs[0]!.endedAt);
     // A run always plans, so a profile without a planner is not supported.

@@ -3,6 +3,7 @@ import { serverText, t } from '../i18n/index.js';
 import { isServerMessageCode } from '../../shared/messages.js';
 import type { RouteChange } from '../hooks/useRoute.js';
 import { RUN_ERROR, type RunRecord } from '../../shared/config.js';
+import type { RunStage } from '@rawstep/core/trace';
 
 /**
  * Five kinds of trouble, kept apart because each asks for a different next step:
@@ -28,9 +29,11 @@ export type ErrorView = {
   raw?: string;
 };
 
-const START_STAGES = ['initialization', 'backend-start', 'browser-start'] as const;
-const RUNTIME_STAGES = ['page-entry', 'observation', 'policy', 'action', 'settling', 'verification'] as const;
+// The runner's stages (core's `RUN_STAGES`), split by whether the run had got going. A stage the runner adds fails to compile here until it is placed.
+const START_STAGES = ['initialization', 'backend-start', 'browser-start'] as const satisfies readonly RunStage[];
+const RUNTIME_STAGES = ['page-entry', 'observation', 'policy', 'action', 'settling', 'verification'] as const satisfies readonly RunStage[];
 type Stage = (typeof START_STAGES)[number] | (typeof RUNTIME_STAGES)[number];
+const _everyStagePlaced: Exclude<RunStage, Stage> extends never ? true : never = true; void _everyStagePlaced;
 const isStart = (stage: string | undefined): stage is (typeof START_STAGES)[number] => (START_STAGES as readonly (string | undefined)[]).includes(stage);
 const isRuntime = (stage: string | undefined): stage is (typeof RUNTIME_STAGES)[number] => (RUNTIME_STAGES as readonly (string | undefined)[]).includes(stage);
 /** The words for a stage: what stopped and what to do. */

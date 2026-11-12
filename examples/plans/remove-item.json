@@ -1,0 +1,41 @@
+{
+  "strategy": "Walk to the mug's remove button and press it.",
+  "criteria": [
+    {
+      "id": "C1",
+      "text": "The page says the mug was removed"
+    }
+  ],
+  "assumptions": [],
+  "phases": [
+    {
+      "title": "Do it",
+      "criteria": [
+        "C1"
+      ],
+      "tasks": [
+        {
+          "goal": "Move to the mug's remove button",
+          "done": "Hear the Remove Demo mug button",
+          "cue": {
+            "name": "Remove Demo mug",
+            "role": "button"
+          },
+          "activates": false,
+          "moves": [
+            "next"
+          ]
+        },
+        {
+          "goal": "Remove the mug",
+          "done": "Hear \"Demo mug removed\"",
+          "cue": "Demo mug removed",
+          "activates": true,
+          "serves": [
+            "C1"
+          ]
+        }
+      ]
+    }
+  ]
+}

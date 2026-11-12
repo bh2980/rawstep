@@ -56,9 +56,9 @@ describe('task findings and summary', () => {
   it('groups hints across a task\'s finished runs and reports its facts', async () => {
     const { app, experiment, runs } = await launch(outcomes);
     const findings = await (await fetch(app.url + '/api/tasks/task/findings')).json() as TaskFindings;
-    expect(findings.facts).toEqual({ runs: 4, reached: 3, unconfirmed: 0, medianSteps: 9, fastest: { experimentId: experiment.id, runId: runs[1]!.id, steps: 2 },
-      byProfile: [{ profileId: 'default', runs: 4, reached: 3, endings: { reached: 3, 'gave-up': 0, mistaken: 0, unmeasured: 1 }, unmeasuredBy: { other: 1 },
-        medianSteps: 7, minSteps: 2, maxSteps: 11, unconfirmed: 0, topTarget: checkout, conditions: { combo: 'Default', at: 'Default' }, differing: 0, longestStretch: null, wrongGuesses: 0 }] });
+    expect(findings.facts).toEqual({ runs: 4, measured: 3, reached: 3, unconfirmed: 0,
+      byProfile: [{ profileId: 'default', runs: 4, measured: 3, reached: 3, endings: { reached: 3, 'gave-up': 0, mistaken: 0, unmeasured: 1 }, unmeasuredBy: { other: 1 },
+        medianSteps: 7, minSteps: 2, maxSteps: 11, unconfirmed: 0, conditions: { combo: 'Default', at: 'Default' }, differing: 0, longestStretch: null }] });
     // Reaching the goal is what the cost is counted over; a run that ended another way is counted by how it ended.
     expect(findings.results.map(r => [r.ending, r.steps])).toEqual([['reached', 11], ['reached', 2], ['unmeasured', 20], ['reached', 7]]);
     // Run-level hints (slow-run) are not findings; findings are ordered by how many runs show them.
@@ -71,7 +71,7 @@ describe('task findings and summary', () => {
   it('answers with empty facts for a task that has no runs', async () => {
     const { app } = await launch(outcomes.slice(0, 1));
     const none = await (await fetch(app.url + '/api/tasks/ghost/findings')).json() as TaskFindings;
-    expect(none).toEqual({ taskId: 'ghost', batches: [], facts: { runs: 0, reached: 0, unconfirmed: 0, medianSteps: null, fastest: null, byProfile: [] }, findings: [], results: [], stuck: [] });
+    expect(none).toEqual({ taskId: 'ghost', batches: [], facts: { runs: 0, measured: 0, reached: 0, unconfirmed: 0, byProfile: [] }, findings: [], results: [], stuck: [] });
   });
 
   it('counts a run that reached the goal without the user hearing it as reached, with a note, and its moves up to where the goal check passed', async () => {
@@ -83,8 +83,8 @@ describe('task findings and summary', () => {
     const findings = await (await fetch(app.url + '/api/tasks/task/findings')).json() as TaskFindings;
     expect(findings.facts).toMatchObject({ runs: 3, reached: 2, unconfirmed: 1 });
     expect(findings.results.map(result => [result.ending, result.steps])).toEqual([['reached', 4], ['reached', 5], ['unmeasured', 12]]);
-    expect(findings.facts.byProfile).toEqual([{ profileId: 'default', runs: 3, reached: 2, endings: { reached: 2, 'gave-up': 0, mistaken: 0, unmeasured: 1 }, unmeasuredBy: { other: 1 },
-      medianSteps: 4.5, minSteps: 4, maxSteps: 5, unconfirmed: 1, topTarget: null, conditions: { combo: 'Default', at: 'Default' }, differing: 0, longestStretch: null, wrongGuesses: 0 }]);
+    expect(findings.facts.byProfile).toEqual([{ profileId: 'default', runs: 3, measured: 2, reached: 2, endings: { reached: 2, 'gave-up': 0, mistaken: 0, unmeasured: 1 }, unmeasuredBy: { other: 1 },
+      medianSteps: 4.5, minSteps: 4, maxSteps: 5, unconfirmed: 1, conditions: { combo: 'Default', at: 'Default' }, differing: 0, longestStretch: null }]);
   });
 
   it('tells how each run ended and where the user\'s expectations broke, with the give-ups that rest on them', async () => {
@@ -134,12 +134,37 @@ describe('task findings and summary', () => {
     expect(rows).toHaveLength(1);
     const row = rows[0]!;
     expect(row.taskId).toBe('task');
-    expect(row.facts.medianSteps).toBe(9);
+    expect(row.facts.byProfile[0]!.medianSteps).toBe(7);
     expect(row).not.toHaveProperty('recent');
     // backtracking is more frequent but is about the model; the table shows page findings.
     expect(row.topFinding).toEqual({ kind: 'excess-keystrokes', target: checkout, runs: 3, totalRuns: 4 });
     expect(row.findingCount).toBeGreaterThanOrEqual(1);
     expect(Date.parse(row.lastRunAt!)).not.toBeNaN();
+  });
+});
+
+describe('runs that broke', () => {
+  it('leaves a run that never started out of the task figures instead of failing the task pages', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'rawstep-findings-')); dirs.push(dir);
+    const store = new ProjectStore(dir), initial = await store.initialize(), config = defaultConfig();
+    config.connections.push(connection('llm')); config.profiles[0] = profileWith('default', 'llm', 'planner', 'Default');
+    config.tasks.push({ id: 'task', name: 'Fixture', file: 'task.json' });
+    await store.save(config, initial.revision, { file: 'task.json', task });
+    // The first run reaches the goal; the second throws before it has a trace (the screen reader server did not start).
+    const app = await startDashboard({ projectDir: dir, port: 0, execute: async (run, actual, out) => {
+      if (run.repeat === 2) throw new Error('No AT Driver server answers');
+      const trace = new TraceRecorder({ ...actual, id: 'fixture' }, out); await trace.initialize();
+      return trace.finalize({ status: 'success', steps: 4 });
+    } }); apps.push(app);
+    const experiment = await app.queue.create({ taskIds: ['task'], profileIds: ['default'], repeats: 2 });
+    await waitFor(() => experiment.runs.every(run => run.state === 'success' || run.state === 'failure'));
+    expect(experiment.runs.map(run => [run.repeat, run.state, run.outcome?.status]).sort()).toEqual([[1, 'success', 'success'], [2, 'failure', undefined]]);
+    const findings = await fetch(app.url + '/api/tasks/task/findings');
+    expect(findings.status).toBe(200);
+    expect((await findings.json() as TaskFindings).facts).toMatchObject({ runs: 1, measured: 1, reached: 1 });
+    const summaries = await fetch(app.url + '/api/tasks-summary');
+    expect(summaries.status).toBe(200);
+    expect((await summaries.json() as { tasks: TaskSummary[] } | TaskSummary[])).toBeTruthy();
   });
 });
 

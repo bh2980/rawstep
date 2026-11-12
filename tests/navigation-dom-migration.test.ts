@@ -4,7 +4,7 @@ const mocks=vi.hoisted(()=>({launch:vi.fn()}));
 vi.mock('playwright',()=>({chromium:{launch:mocks.launch}}));
 import { createBrowserSession, type BrowserSession } from '@rawstep/browser/browser';
 import { evaluateVerifyRule } from '@rawstep/browser/verify';
-import type { NavigationPolicy } from '@rawstep/core/contracts';
+import type { NavigationPolicy, VerifySpec } from '@rawstep/core/contracts';
 
 const cleanup:(()=>Promise<void>)[]=[];
 afterEach(async()=>{for(const close of cleanup.splice(0))await close();});
@@ -12,7 +12,7 @@ beforeEach(()=>mocks.launch.mockReset());
 
 /** Real document guard/recorder scripts, with the browser/transport boundary mocked.
  * jsdom cannot establish network, layout, or native keyboard correctness. */
-async function guardedDocument(navigation?:NavigationPolicy, html='') {
+async function guardedDocument(navigation?:NavigationPolicy, html='', verify:VerifySpec={all:[{domEventSeen:{selector:'#target',event:'click'}},{domEventSeen:{selector:'#target',event:'click'}}]}, personCheck=false) {
   const scripts:string[]=[];const bindings=new Map<string,(_source:unknown,payload:unknown)=>Promise<void>>();
   const virtualConsole=new VirtualConsole();
   const create=(url:string)=>{
@@ -33,7 +33,9 @@ async function guardedDocument(navigation?:NavigationPolicy, html='') {
   const cdp={on:vi.fn(),send:vi.fn(async(method:string)=>method==='Page.getFrameTree'?{frameTree:{frame:{id:'main'}}}:{})};
   const context={newPage:vi.fn(async()=>page),newCDPSession:vi.fn(async()=>cdp),route:vi.fn(async()=>{}),on:vi.fn(),close:vi.fn(async()=>dom.window.close())};
   const browser={newContext:vi.fn(async()=>context),close:vi.fn(async()=>{})};mocks.launch.mockResolvedValue(browser);
-  const session=await createBrowserSession('https://safe.example/app/',{navigation,verify:{all:[{domEventSeen:{selector:'#target',event:'click'}},{domEventSeen:{selector:'#target',event:'click'}}]}});
+  const session=await createBrowserSession('https://safe.example/app/',{navigation,verify,...(personCheck?{personCheck:true}:{})});
+  // A page opened bare for a person's check gets its guards when the check is gone.
+  await session.armGuards?.();
   cleanup.push(()=>session.close());
   const node=<T extends HTMLElement=HTMLElement>(selector:string)=>dom.window.document.querySelector(selector) as T;
   const click=(selector:string)=>{const event=new dom.window.MouseEvent('click',{bubbles:true,cancelable:true});node(selector).dispatchEvent(event);return event;};
@@ -92,6 +94,26 @@ describe('ported document navigation guards and event recording',()=>{
   it('uses real delegated event recording once per selector and supports descendant targets',async()=>{
     const f=await guardedDocument();expect(await evaluateVerifyRule({domEventSeen:{selector:'#target',event:'click'}},f.session)).toMatch(/not observed/);
     f.click('#child');await Promise.resolve();expect(f.session.domEvents).toHaveLength(1);expect(await evaluateVerifyRule({domEventSeen:{selector:'#target',event:'click'}},f.session)).toBeUndefined();
+  });
+  it('records the event of a domEventSeen rule nested in not or any, so the rule is judged on what happened',async()=>{
+    const nested:VerifySpec={all:[{not:{domEventSeen:{selector:'#target',event:'click'}}},{any:[{domEventSeen:{selector:'#link',event:'dblclick'}},{domEventSeen:{selector:'#form',event:'submit'}}]}]};
+    const f=await guardedDocument(undefined,'',nested);
+    expect(await evaluateVerifyRule(nested.all[0]!,f.session)).toBeUndefined();expect(await evaluateVerifyRule(nested.all[1]!,f.session)).toMatch(/Verification failed/);
+    f.click('#child');f.submit();await Promise.resolve();
+    expect(f.session.domEvents.map(event=>`${event.selector}:${event.event}`).sort()).toEqual(['#form:submit','#target:click']);
+    // The click happened, so the rule that it must not have fails; the submit happened, so the `any` holds.
+    expect(await evaluateVerifyRule(nested.all[0]!,f.session)).toMatch(/must not hold was observed/);expect(await evaluateVerifyRule(nested.all[1]!,f.session)).toBeUndefined();
+  });
+  it('lets a human check\'s own address load inside the page when a person passes checks, as the host does, and still blocks other sites',async()=>{
+    const f=await guardedDocument(undefined,'',undefined,true);
+    f.node<HTMLAnchorElement>('#link').href='https://challenges.cloudflare.com/cdn-cgi/challenge';expect(f.click('#link').defaultPrevented).toBe(false);
+    f.node<HTMLAnchorElement>('#link').href='https://safe.example/app/next?__cf_chl_rt_tk=x';expect(f.click('#link').defaultPrevented).toBe(false);
+    f.node<HTMLAnchorElement>('#link').href='https://outside.example/';expect(f.click('#link').defaultPrevented).toBe(true);
+    expect(f.session.takeBlockedNavigations().map(x=>x.url)).toEqual(['https://outside.example/']);
+    // Without a person to pass it, a check address is outside the run's scope like any other site, and the block is recorded.
+    const plain=await guardedDocument();
+    plain.node<HTMLAnchorElement>('#link').href='https://challenges.cloudflare.com/cdn-cgi/challenge';expect(plain.click('#link').defaultPrevented).toBe(true);
+    expect(plain.session.takeBlockedNavigations().map(x=>x.url)).toEqual(['https://challenges.cloudflare.com/cdn-cgi/challenge']);
   });
   it('disables service workers before creating the page and installs guards without focus mutation',async()=>{
     const f=await guardedDocument();expect(mocks.launch.mock.results.length).toBe(1);const browser=await mocks.launch.mock.results[0].value;

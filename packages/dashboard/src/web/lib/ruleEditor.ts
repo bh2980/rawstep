@@ -1,3 +1,4 @@
+import { isRecord } from '@rawstep/core/guards';
 import type { EventVerificationRule, ObservedEventKind, TextMatcher, VerifyRule } from '@rawstep/core/contracts';
 
 /** What a person edits when adding a completion check: plain strings per kind, converted to and from verify rules. */
@@ -42,7 +43,6 @@ export function blankDraft(kind: RuleDraftKind): RuleDraft {
   }
 }
 
-const isRecord = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
 const trimmed = (value: string) => value.trim();
 
 /** The text of a matcher that means "includes"; `null` for equals and regex matchers this editor cannot show, `''` when absent. */

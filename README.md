@@ -33,6 +33,17 @@ Rawstep runs through the page under those same conditions and writes a report of
 > [!NOTE]
 > Rawstep is a tool for spotting navigation friction during development and CI. Its hints point to places worth reviewing—they do not certify WCAG compliance or replace testing with real screen-reader users.
 
+### What has been tested
+
+Rawstep is at an early `0.x` release. How far each way of running it has been checked:
+
+| Screen reader | Where | Status |
+| :--- | :--- | :--- |
+| Simulated VoiceOver | macOS, Linux | Tested on every change (macOS locally, Linux in CI). |
+| Simulated VoiceOver | Windows | Not tested yet. |
+| Real VoiceOver | macOS | **Experimental.** Checked on Rawstep's own test pages and a few public sites, in one macOS virtual machine. A macOS permission prompt that appears during a run can stall it. |
+| Real NVDA | Windows | Not tested on a real Windows machine yet. |
+
 ---
 
 ## Quickstart

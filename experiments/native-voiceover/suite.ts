@@ -73,7 +73,7 @@ export async function specFor(c: Case, root: string, config: ProjectConfig): Pro
   const task = taskFor(c, root, !byFile), conditions = profileConditions(profile);
   const check = checkRun({ config, task, ...conditions });
   if (check.problem) throw check.problem;
-  return { ...runSpecOf(task, conditions, check), ...(byFile ? { plannerPlan: await loadPlanFile(new ProjectStore(root), `plans/${c.id}.json`) } : {}) };
+  return runSpecOf(task, conditions, check, byFile ? await loadPlanFile(new ProjectStore(root), `plans/${c.id}.json`) : undefined);
 }
 
 /** No connection or keys: validate plans and exercise known refusal boundaries using the product code. */
@@ -97,7 +97,12 @@ export type Attempt = {
   verdict: 'not-run' | 'running' | 'passed' | 'failed' | 'unverified';
   expected: Case['expected']; checks?: { name: string; passed: boolean }[];
   engineOutcome?: RunTrace['outcome']; error?: string; trace?: string;
-  foreground?: { commandId?: string; pid?: number; executable?: string; matched: boolean; error?: string }[];
+  /** One entry per key: the app in front just before it. `error`: the check could not be made. `ms`: how long the check took. */
+  foreground?: { commandId?: string; pid?: number; executable?: string; matched: boolean; error?: string; ms?: number }[];
+  /** The machine's one-minute load average when the attempt started: a busy machine slows the reader, the browser and the harness. */
+  load?: number;
+  /** Set when the first try was thrown away because the harness could not make its foreground check. */
+  retried?: { error: string; load: number; trace?: string };
   injection?: { kind: string; triggered: boolean; atEvent?: string };
   evidence?: { nativeSession: boolean; keysAcknowledged: number; outputsAfterKey: number; completionHeard: boolean; completionKnown: false; attribution: 'temporal-only'; plannerCalls: number };
 };
@@ -129,7 +134,7 @@ export function auditTrace(c: Case, trace: RunTrace, attempt: Pick<Attempt, 'for
   const add = (name: string, passed: boolean) => checks.push({ name, passed });
   add('native-session', nativeSession);
   add('expected-engine-outcome', trace.outcome?.status === c.expected.status && (!c.expected.reason || trace.outcome.reason === c.expected.reason));
-  if (c.expected.ending) add('expected-ending', runEnding(trace.outcome, trace.outcome?.policyStopSource as string | undefined)?.ending === c.expected.ending);
+  if (c.expected.ending) add('expected-ending', runEnding(trace.outcome)?.ending === c.expected.ending);
   if (c.expected.ending === 'reached' && !byModel) add('expected-confirmation', (trace.outcome?.goalConfirmed === false) === (c.expected.confirmed === false));
   const plans = of('policy.evidence').map(e => record(record(e.data).evidence)).filter(e => e.kind === 'orchestration-plan');
   if (byModel) add('planned-by-the-model', plans.length > 0 && plans.every(plan => record(plan.model).id === attempt.model && record(plan.model).runtime !== 'fixed-plan'));

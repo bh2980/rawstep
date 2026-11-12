@@ -76,7 +76,7 @@ rawstep --version | -v
 | `--profile <id\|name>` | 불가 | 태스크의 첫 프로필, 없으면 프로젝트의 첫 프로필 | 실행에 사용할 프로필 ID 또는 이름. |
 | `--rule <name>=<value>` | **가능** | *(프로필의 `runRules`)* | 이번 실행에서만 특정 `runRules` 항목을 덮어씁니다 (예: `--rule maxPlannerCalls=20 --rule survey=none`). 같은 규칙을 여러 번 적으면 마지막 값이 적용됩니다. [설정 파일 레퍼런스](./config.ko.md#35-실행-규칙-runrules)를 참고하세요. |
 | `--repeat <n>` | 불가 | `1` | 반복 실행 횟수 (`1–100`). 반복 실행 시 목표에 도달한 가장 빠른 실행을 기준으로 비교합니다. |
-| `--parallel <n>` | 불가 | `machine.parallelRuns` (`1`) | 동시에 띄울 최대 브라우저 실행 수 (`1–8`). 자체 브라우저에서 `personCheck`를 사용하는 태스크는 항상 한 번에 하나씩만 실행됩니다. |
+| `--parallel <n>` | 불가 | `machine.parallelRuns` (`1`) | 동시에 띄울 최대 브라우저 실행 수 (`1–8`). 자체 브라우저에서 `personCheck`를 사용하는 태스크는 항상 한 번에 하나씩만 실행됩니다. 실제 스크린리더로 하는 실행도 한 번에 하나씩만 실행됩니다(한 데스크톱에는 스크린리더가 하나뿐입니다). |
 | `--note <text>` | 불가 | *(없음)* | 이번 배치에 붙일 메모 (최대 `200`자). 대시보드와 `summary.json`에 표시됩니다. |
 | `--baseline <summary>` | 불가 | *(없음)* | 비교 기준이 될 베이스라인 `summary.json` 파일 또는 배치 폴더 경로. |
 | `--fail-on <gates>` | 불가 | `reach` *(`--baseline` 지정 시)* | 쉼표로 구분한 회귀 판정 게이트 (`reach`, `moves`, `stuck`, `missing`). `--baseline`과 함께 사용하며 게이트에 걸리면 종료 코드 `4`로 끝납니다. |
@@ -154,7 +154,7 @@ rawstep --version | -v
 1. **Node:** `process.versions.node >= 22.12.0` 여부를 확인합니다.
 2. **Config:** `rawstep.config.json`(v7) 문법과 스키마를 검증합니다.
 3. **Tasks:** `rawstep.config.json`에 등록된 모든 태스크 파일이 유효한지 검증합니다.
-4. **Profiles:** 각 프로필의 플래너만 확인합니다. 플래너가 없는 프로필은 경고이고, 연결이나 API 키가 없거나 `planFile`이 없으면 실패입니다. 태스크가 하나도 없는 프로젝트도 경고합니다.
-5. **Browser:** `browser.mode`가 `connect`인 태스크가 있으면 `machine.browserEndpoint`가 설정되어 있는지 확인합니다. 그다음 Chromium이 정상적으로 뜨고 닫히는지 확인합니다 (기존 Chrome에 연결하는 설정이면 `machine.browserEndpoint` 연결을 확인).
+4. **Profiles:** 각 프로필의 플래너를 확인합니다. 플래너가 없는 프로필은 경고이고, 연결이나 API 키가 없거나 `planFile`이 없으면 실패입니다. 태스크가 하나도 없는 프로젝트도 경고합니다. 그다음 각 태스크를 그 태스크가 쓰는 프로필(`tasks[].profiles`, 없으면 프로젝트의 첫 프로필)로 점검합니다. `run`과 대시보드가 배치를 시작하기 전에 하는 것과 같은 점검입니다. 스크린 리더가 지원하지 않는 동작, 없거나 계획이 아닌 계획 파일, 태스크에 없는 입력 이름을 잡습니다. 다른 줄에서 이미 알린 문제는 다시 적지 않습니다.
+5. **Browser:** `browser.mode`가 `connect`인 태스크가 있으면 `machine.browserEndpoint`가 설정되어 있는지 확인합니다. 그다음 다른 모든 태스크가 쓰는, Rawstep이 직접 띄우는 브라우저가 뜨고 닫히는지 확인합니다(`machine.browserExecutablePath`와 `machine.proxyServer` 적용). `machine.browserEndpoint`가 설정되어 있으면 그 Chrome에 연결되는지도 따로 확인합니다(`Your Chrome`). 실행이 브라우저를 여는 두 가지 방법을 모두 점검하는 것입니다.
 6. **Connections & Keys:** API 키 또는 에이전트 CLI 로그인 상태를 확인하고, 설정된 각 모델 ID가 실제로 응답하는지 점검합니다.
-7. **Screen Readers:** `voiceover`나 `nvda`를 사용하는 프로필이 있다면 설정된 AT Driver WebSocket 엔드포인트(`machine.atEndpoints`, 비어 있으면 해당 스크린 리더의 기본 엔드포인트) 연결을 확인합니다. 프로필이 시뮬레이션만 쓰면 건너뜁니다.
+7. **Screen Readers:** `voiceover`나 `nvda`를 사용하는 프로필이 있다면 실행이 시작할 때 하는 점검을 그대로 합니다(대시보드의 확인 버튼도 같은 점검입니다). 스크린 리더가 이 운영체제에서 도는지, 주소가 이 컴퓨터인지, AT Driver 서버가 `machine.atEndpoints`(비어 있으면 해당 스크린 리더의 기본 주소)에서 응답하고 세션을 여는지, VoiceOver라면 커서 위치를 읽을 수 있는지 봅니다. 응답이 없고 서버 실행 명령이 저장되어 있으면 실행과 마찬가지로 그 명령으로 서버를 띄웠다가 내립니다. 다른 운영체제의 스크린 리더는 여기서 실행할 수 없다고 알립니다. 프로필이 시뮬레이션만 쓰면 건너뜁니다.

@@ -126,6 +126,7 @@ describe('public API surface', () => {
       "atomicJson",
       "backendCapabilities",
       "boundedJson",
+      "browserOpenOf",
       "checkRun",
       "closeLlmModel",
       "comboPlanner",
@@ -156,10 +157,12 @@ describe('public API surface', () => {
       "llmPlannerSchema",
       "loadPlanFile",
       "lockBrowserProfile",
+      "lockScreenReader",
       "machineSchema",
       "modelKeyEnv",
       "modelKeyEnvNames",
       "modelKeyRequired",
+      "nativeBackendProblem",
       "pageEnvironmentSchema",
       "parseConfig",
       "permissionsSchema",
@@ -181,6 +184,7 @@ describe('public API surface', () => {
       "resolvePermissions",
       "resolveRunRules",
       "resolveRunSettings",
+      "runRecordOf",
       "runRulesOverrideSchema",
       "runRulesSchema",
       "runSpecOf",
@@ -189,6 +193,7 @@ describe('public API surface', () => {
       "suggestionModel",
       "tagSchema",
       "taskSchema",
+      "usualProfiles",
     ]
   `); });
   it('pins the cli root', async () => { expect(await exportNames('@rawstep/cli')).toMatchInlineSnapshot(`
@@ -287,6 +292,8 @@ describe('public API surface', () => {
       const manifest = JSON.parse(await readFile(manifestPath(root), 'utf8'));
       for (const key of Object.keys(manifest.exports).filter(key => key !== './package.json')) {
         const specifier = key === '.' ? root : `${root}/${key.slice(2)}`;
+        // The one home of the plain-object guards, shared by the workspaces; the published `rawstep` does not re-export it.
+        if (specifier === '@rawstep/core/guards') continue;
         expect(Object.keys(await import(specifier)).filter(name => internalNames.includes(name)), specifier).toEqual([]);
       }
     }

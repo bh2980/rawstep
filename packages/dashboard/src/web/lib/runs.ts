@@ -13,8 +13,8 @@ export const shortModel = (model: { modelId?: string; name: string }): string =>
 
 /** What planned a run: its planner model's ID, or the plan file it read. */
 export const runModelsName = (run: Pick<RunRecord, 'snapshot'>): string => {
-  const { plannerModel, plannerPlan } = run.snapshot.spec;
-  return plannerModel ? shortModel(plannerModel) : plannerPlan ? t('conditions.summary.planFile', { path: plannerPlan.file }) : '—';
+  const { planner } = run.snapshot.spec;
+  return planner.model ? shortModel(planner.model) : t('conditions.summary.planFile', { path: planner.plan.file });
 };
 
 export function runStartedAt(ref: RunRef): number {
@@ -67,7 +67,7 @@ export function runConditions(run: Pick<RunRecord, 'snapshot' | 'analysisModel'>
   const profile = named ?? config?.profiles?.find(p => p.id === run.profileId)?.name ?? run.profileId ?? '—';
   return {
     backend: spec.backend, profile,
-    ...(spec.plannerModel ? { planner: spec.plannerModel.name } : {}),
+    ...(spec.planner.model ? { planner: spec.planner.model.name } : {}),
     ...(run.analysisModel ? { analysis: run.analysisModel.name } : {}),
   };
 }

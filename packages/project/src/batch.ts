@@ -1,17 +1,18 @@
+import { REDACTED } from '@rawstep/core/redacted';
 import { randomUUID } from 'node:crypto';
 import { hostname } from 'node:os';
 import { mkdir, readdir, readFile, rm, stat } from 'node:fs/promises';
 import { z } from 'zod';
 import { createRedactor, readTrace, type RunTrace, type TraceEvent } from '@rawstep/core/trace';
 import { usesKeptProfile, type Task } from '@rawstep/core/contracts';
-import { AT_DRIVER_COMMAND_ENV, modelKeyRequired, profileConditions, type ManagedTask, type Model, type ProjectConfig } from './config.js';
+import { AT_DRIVER_COMMAND_ENV, profileConditions, type ManagedTask, type Model, type ProjectConfig } from './config.js';
 import { ProjectError } from './errors.js';
 import { buildBatchSummary, type BatchSummary, type SummaryRun } from '@rawstep/reports/compare';
 import { runMoves } from '@rawstep/reports/endings';
 import type { Hint } from '@rawstep/reports/hints';
-import { compareRepeats, finalizeRun, llmAnalyzer } from './finalize.js';
-import { assertRunnable, checkRun, loadPlanFile, resolvePermissions, runSpecOf, type RunConditions } from './plan.js';
-import { executeRun } from './execution.js';
+import { compareRepeats, finalizeRun, llmAnalyzer, requireKey } from './finalize.js';
+import { assertRunnable, checkRun, loadPlanFile, resolvePermissions, runSpecOf, type RunCheck, type RunConditions, type RunWarning } from './plan.js';
+import { executeRun, type PlanFile } from './execution.js';
 import { planSchema, RUN_ERROR, type BatchMessage, type BatchOwner, type Combination, type Experiment, type RetryPreview, type RunRecord } from './experiment.js';
 
 export * from './experiment.js';
@@ -37,7 +38,7 @@ export function publicOutcome(outcome: unknown): RunRecord['outcome'] {
     ...(typeof o.steps === 'number' ? { steps: o.steps } : {}),
     ...(typeof o.stage === 'string' ? { stage: o.stage } : {}),
     ...(typeof o.step === 'number' ? { step: o.step } : {}),
-    ...(typeof o.policyStopSource === 'string' ? { stopSource: o.policyStopSource } : {}),
+    ...(typeof o.policyStopSource === 'string' ? { policyStopSource: o.policyStopSource } : {}),
     ...(o.goalConfirmed === false ? { goalConfirmed: false as const } : {}),
     ...(typeof o.goalStep === 'number' ? { goalStep: o.goalStep } : {}),
   };
@@ -149,8 +150,10 @@ export class BatchQueue {
     const entries = [...config.tasks, ...Object.values(loose).map(({ entry }) => entry)];
     if (request.revision && request.revision !== revision) throw new ProjectError('plan-changed', 'The project changed since this batch was planned.', 409);
     const rows: (Combination & { conditions?: RunConditions })[] = [];
-    const keyed = new Map<string, boolean>();
-    const hasKey = async (model: Model) => { if (!keyed.has(model.id)) keyed.set(model.id, !modelKeyRequired(model) || !!await this.store.credential(model)); return keyed.get(model.id)!; };
+    // What `start` needs of each row that can run, so it checks nothing a second time.
+    const checks = new Map<string, Omit<RunCheck, 'problem'>>(), plans = new Map<string, PlanFile>();
+    const keys = new Map<string, ProjectError | undefined>();
+    const missingKey = async (model: Model) => { if (!keys.has(model.id)) keys.set(model.id, await requireKey(this.store, model).then(() => undefined, error => error as ProjectError)); return keys.get(model.id); };
     for (const taskId of new Set(request.taskIds)) {
       const task = entries.find(t => t.id === taskId), source = tasks[taskId];
       for (const conditions of conditionSets(config, { profileIds: request.profilesByTask?.[taskId] ?? request.profileIds })) for (let repeat = 1; repeat <= request.repeats; repeat++) {
@@ -160,34 +163,47 @@ export class BatchQueue {
         if (!task || !source) reason = { code: 'task-not-found', text: `No task "${taskId}" in rawstep.config.json.` };
         else {
           try {
+            // A task file that is not registered still has its file name, so a plan file named after `{task}` is found for it too.
             const check = checkRun({ config, task: source, taskEntry: task, runRules: request.runRules, ...conditions });
             permissions = check.permissions; plannerName = check.plannerModel?.name ?? check.plannerPlanFile; warnings = check.warnings.map(warningMessage);
+            const keyless = !check.problem && check.plannerModel ? await missingKey(check.plannerModel) : undefined;
             if (check.problem) reason = batchMessageOf(check.problem);
-            else if (check.plannerModel && !await hasKey(check.plannerModel)) reason = { code: 'missing-planner-credential', text: `The key for the planner model "${check.plannerModel.name}" is not set.` };
-            else if (check.analysisModel && !await hasKey(check.analysisModel)) warnings.push({ code: 'analysis-key-missing', text: `The key for the analysis model "${check.analysisModel.name}" is not set; the runs get the rule-based analysis only.` });
+            else if (keyless) reason = batchMessageOf(keyless);
+            // A plan file is read here, not when the batch starts: a missing or broken one is this row's reason like any other.
+            else if (check.plannerPlanFile && !plans.has(check.plannerPlanFile)) plans.set(check.plannerPlanFile, await loadPlanFile(this.store, check.plannerPlanFile));
+            // Analysis never blocks a run: without its key the runs get the rule-based analysis only.
+            if (!reason && check.analysisModel && await missingKey(check.analysisModel)) warnings.push({ code: 'analysis-key-missing', text: `The key for the analysis model "${check.analysisModel.name}" is not set; the runs get the rule-based analysis only.` });
+            if (!reason) checks.set(key, assertRunnable(check));
           } catch (e) { reason = batchMessageOf(e); }
         }
         rows.push({ key, taskId, repeat, profileId, ...(plannerName ? { plannerName } : {}),
           supported: !reason, ...(reason ? { reason } : {}), warnings, permissions, conditions });
       }
     }
-    return { request, config, tasks, entries, rows };
+    return { request, config, tasks, entries, rows, checks, plans };
   }
+  /** Plans a batch and starts it. A run that cannot start stops the whole batch with that run's own reason. */
   async create(raw: unknown, loose: Record<string, LooseTask> = {}) {
+    return this.start(await this.plan(raw, loose));
+  }
+  /**
+   * Starts a planned batch. `plan` is the one place that decides whether a run can start; nothing is checked again here. When a
+   * selected run cannot, the error is that run's reason (a missing key, an action the screen reader lacks), not a general refusal.
+   */
+  async start({ request, tasks, entries, rows, checks, plans }: Awaited<ReturnType<BatchQueue['plan']>>) {
     if (this.closed) throw new ProjectError('shutting-down', 'Rawstep is shutting down.', 503);
-    const { request, config, tasks, entries, rows } = await this.plan(raw, loose);
     const selected = request.selected ? rows.filter(r => request.selected!.includes(r.key)) : rows;
-    if (!selected.length || selected.some(r => !r.supported) || (request.selected && new Set(request.selected).size !== selected.length)) throw new ProjectError('select-supported', 'Pick only runs that can run.');
-    const keyed = new Map<string, string | undefined>();
+    if (!selected.length || (request.selected && new Set(request.selected).size !== selected.length)) throw new ProjectError('select-supported', 'Pick only runs that can run.');
+    const blocked = selected.find(r => !r.supported)?.reason;
+    if (blocked) throw new ProjectError(blocked.code, blocked.text ?? 'A selected run cannot start.', 400, blocked.params);
     const runs: RunRecord[] = [];
     for (const { conditions, ...row } of selected) {
-      const task = entries.find(t => t.id === row.taskId)!;
-      const check = assertRunnable(checkRun({ config, task: tasks[row.taskId]!, taskEntry: task, runRules: request.runRules, ...conditions! }));
-      const analysisModel = check.analysisModel;
-      if (analysisModel && !keyed.has(analysisModel.id)) keyed.set(analysisModel.id, !modelKeyRequired(analysisModel) || await this.store.credential(analysisModel) ? analysisModel.id : undefined);
-      const spec = { ...runSpecOf(safeTask(tasks[row.taskId]!), conditions!, check), ...(check.plannerPlanFile ? { plannerPlan: await loadPlanFile(this.store, check.plannerPlanFile) } : {}) };
+      const task = entries.find(t => t.id === row.taskId)!, check = checks.get(row.key)!;
+      // Without its key the analysis is the rule-based one (the row says so as a warning).
+      const analysisModel = row.warnings.some(w => w.code === 'analysis-key-missing') ? undefined : check.analysisModel;
+      const spec = runSpecOf(safeTask(tasks[row.taskId]!), conditions!, check, check.plannerPlanFile ? plans.get(check.plannerPlanFile) : undefined);
       const run: RunRecord = { ...row, id: randomUUID(), state: 'queued', analysisStatus: 'pending', reportStatus: 'pending', taskFile: task.file, analysisInstructions: check.settings.analysisInstructions,
-        snapshot: { taskName: task.name, spec }, ...(analysisModel && keyed.get(analysisModel.id) ? { analysisModel } : {}) };
+        snapshot: { taskName: task.name, spec }, ...(analysisModel ? { analysisModel } : {}) };
       this.liveTasks.set(run.id, structuredClone(tasks[row.taskId]!));
       runs.push(run);
     }
@@ -213,7 +229,7 @@ export class BatchQueue {
     // Re-read secrets from the task file, retaining the original public execution conditions.
     const task = { ...structuredClone(original.snapshot.spec.task), input: fresh.input };
     for (const key of Object.keys(task) as (keyof Task)[]) {
-      if (JSON.stringify(task[key])?.includes('[REDACTED]')) Object.assign(task, { [key]: fresh[key] });
+      if (JSON.stringify(task[key])?.includes(REDACTED)) Object.assign(task, { [key]: fresh[key] });
     }
     if ((await this.store.read()).revision !== revision) throw new ProjectError('task-changed', 'The task changed since the preview.', 409);
     const spec = original.snapshot.spec;
@@ -236,12 +252,12 @@ export class BatchQueue {
     const machine = await this.store.read().then(({ config }) => config.machine, () => undefined);
     return Math.max(1, Math.min(8, this.options.parallel ?? machine?.parallelRuns ?? 1));
   }
-  /** The next run to start: the oldest batch's first queued run, skipping one that needs the kept browser profile while another has it. */
+  /** The next run to start: the oldest batch's first queued run, skipping one that needs something only one run can have while another has it. */
   private next(): { experiment: Experiment; run: RunRecord } | undefined {
-    const profileTaken = [...this.active.keys()].some(id => usesKeptProfile(this.experiments.flatMap(e => e.runs).find(r => r.id === id)?.snapshot.spec.task.browser));
+    const taken = new Set([...this.active.keys()].flatMap(id => { const run = this.experiments.flatMap(e => e.runs).find(r => r.id === id); return run ? exclusiveNeeds(run) : []; }));
     for (const experiment of [...this.experiments].reverse()) {
       if (!mine(experiment) || experiment.stopped) continue;
-      const run = experiment.runs.find(r => r.state === 'queued' && !(profileTaken && usesKeptProfile(r.snapshot.spec.task.browser)));
+      const run = experiment.runs.find(r => r.state === 'queued' && !exclusiveNeeds(r).some(need => taken.has(need)));
       if (run) return { experiment, run };
     }
     return undefined;
@@ -255,7 +271,7 @@ export class BatchQueue {
         this.refill = false;
         const limit = await this.limit();
         while (!this.closed && this.active.size < limit) {
-          // One Chrome profile cannot be open twice: runs that keep it wait for each other, the rest go on.
+          // One Chrome profile cannot be open twice, and one desktop has one screen reader: runs that need either wait for each other, the rest go on.
           const next = this.next(); if (!next) break;
           await this.begin(next.experiment, next.run);
         }
@@ -287,10 +303,14 @@ export class BatchQueue {
     const task = this.liveTasks.get(run.id)!;
     let plannerApiKey: string | undefined;
     try {
+      // This computer's settings belong to the computer, not to the batch: a run uses the ones in force when it starts. So a setting
+      // corrected after a failed run applies to its retry and to the runs still waiting, and the record keeps what the run really used.
+      const machine = await this.store.read().then(({ config }) => config.machine, () => undefined);
+      if (machine) run.snapshot.spec.settings = { ...run.snapshot.spec.settings, machine: structuredClone(machine) };
       const spec = run.snapshot.spec;
       const atDriverCommand = spec.backend !== 'simulation' ? await this.store.localValue(AT_DRIVER_COMMAND_ENV) : undefined;
       const browserProfileDir = await this.store.file('.rawstep/browser-profile');
-      plannerApiKey = spec.plannerModel ? await this.store.credential(spec.plannerModel) : undefined;
+      plannerApiKey = spec.planner.model ? await this.store.credential(spec.planner.model) : undefined;
       const trace = await this.executor(run, task, outDir, controller.signal, event => this.options.onRunEvent?.(experiment.id, run.id, event), { atDriverCommand, browserProfileDir, plannerApiKey });
       run.outcome = publicOutcome(trace.outcome);
       if (trace.outcome?.reason === 'error' && typeof trace.outcome.error === 'string') run.errorDetail = failureDetail(new Error(trace.outcome.error), [plannerApiKey ?? '', ...Object.values(task?.input ?? {})]);
@@ -410,15 +430,23 @@ export class BatchQueue {
 }
 function safeTask(task: Task): Task {
   const redacted = createRedactor(Object.values(task.input ?? {}))(task).value;
-  return { ...redacted, ...(task.id ? { id: task.id } : {}), input: Object.fromEntries(Object.keys(task.input ?? {}).map(k => [k, '[REDACTED]'])) };
+  return { ...redacted, ...(task.id ? { id: task.id } : {}), input: Object.fromEntries(Object.keys(task.input ?? {}).map(k => [k, REDACTED])) };
 }
 
 /** The run profiles a batch lists, in its order; ids no profile has are left out (the plan then has fewer rows). */
 function conditionSets(config: ProjectConfig, request: { profileIds: string[] }): RunConditions[] {
   return [...new Set(request.profileIds)].map(id => config.profiles.find(p => p.id === id)).filter(p => !!p).map(profile => profileConditions(profile));
 }
-/** The run check's warnings as message codes; one the dashboard has no words for is passed on as recorded. */
-function warningMessage(warning: string): BatchMessage {
-  if (warning.startsWith('The analysis model is not on an LLM connection')) return { code: 'analysis-not-llm', text: warning };
-  return { code: 'warning-text', params: { text: warning }, text: warning };
+/** The run check's warnings as message codes; one the dashboard has no words for is passed on as its English text. */
+function warningMessage(warning: RunWarning): BatchMessage {
+  return warning.code === 'analysis-not-llm' ? { code: warning.code, text: warning.text } : { code: 'warning-text', params: { text: warning.text }, text: warning.text };
+}
+/**
+ * What a run needs that only one run at a time can have, on this computer: the kept browser profile (one Chrome profile cannot be
+ * open twice) and the desktop a native screen reader speaks on and takes its keys from (two runs would press into each other's page
+ * and hear each other's speech). The queue starts no run while another holds what it needs; `executeRun` locks both across processes.
+ */
+function exclusiveNeeds(run: RunRecord): ('browser-profile' | 'screen-reader')[] {
+  const spec = run.snapshot.spec;
+  return [...(usesKeptProfile(spec.task.browser) ? ['browser-profile' as const] : []), ...(spec.backend !== 'simulation' ? ['screen-reader' as const] : [])];
 }

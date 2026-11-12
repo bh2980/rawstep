@@ -9,7 +9,6 @@ import type { ServerMessage, ServerMessageCode } from '../shared/messages.js';
 export class HttpError extends Error {
   constructor(readonly status: number, readonly code: ServerMessageCode, readonly params?: Record<string, string | number>) { super(code); }
 }
-export const record = (v: unknown): Record<string, unknown> => v && typeof v === 'object' && !Array.isArray(v) ? v as Record<string, unknown> : {};
 
 /** The message for a failure: a project error by its own code, a refusal by its code, bad input as such, anything else as the generic failure. */
 export function messageOf(error: unknown): ServerMessage {

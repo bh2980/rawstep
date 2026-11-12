@@ -2,12 +2,13 @@
 
 This page is for people who change how Rawstep drives a real VoiceOver or NVDA, or who want to know what a native run can and cannot tell them. It answers: which keys each action presses, how the rotor routines work, and what has not been confirmed on a real screen reader. To set up a server and run on one, see [Screen readers](../../../../docs/screen-readers.md).
 
-The adapter is a native WebSocket client for the [AT Driver draft](https://w3c.github.io/at-driver/). It does not simulate speech: it presses keys through a server and keeps whatever the screen reader says. The runner sees it as a generic backend; this directory owns the wire format and the two key profiles, VoiceOver and NVDA. The backend reports `evidenceProvenance: 'native'`.
+The adapter is a native WebSocket client for the [AT Driver draft](https://w3c.github.io/at-driver/). It does not simulate speech: it presses keys through a server and keeps whatever the screen reader says. The runner sees it as a generic backend; this directory owns the wire format and the two key profiles, VoiceOver and NVDA. Which reader a backend drives is all in its profile: the keys, the routines, and what the reader needs of its host besides keys. `index.ts` never asks which reader it is. The backend reports `evidenceProvenance: 'native'`.
 
 | File | Owns |
 |---|---|
 | `transport.ts` | The WebSocket client: command IDs, timeouts, correlating responses, events |
-| `profiles.ts` | The VoiceOver and NVDA key maps, text entry, the rotor routines |
+| `profiles.ts` | The VoiceOver and NVDA key maps, text entry, the rotor routines, and each reader's host helpers (`hostHelpers`) |
+| `voiceover-applescript.ts` | VoiceOver's host helpers on macOS: where its cursor is (`osascript`), its own commands (AppleScript commander) and the clipboard (`pbcopy`) |
 | `index.ts` | `AtDriverBackend`: runs actions, collects speech into observations |
 
 Node's built-in WebSocket is used by default. `webSocketFactory` supplies a fake for tests.
@@ -17,7 +18,7 @@ Node's built-in WebSocket is used by default. `webSocketFactory` supplies a fake
 The draft defines `session.new`, `interaction.userIntent` with `name: "pressKeys"`, and asynchronous `interaction.capturedOutput` events whose text is `params.data`. These are the only methods Rawstep sends. The draft and the servers inspected below do not define `session.end`, so `close()` ends the session by closing the socket.
 
 - Each command gets a rising numeric ID. Only a response with that exact ID settles it. Late or duplicate responses are kept as `orphanResponse` events and never settle another command.
-- Timeouts: connect 10 s, each command 10 s, close 1 s (all options of `AtDriverClientOptions`).
+- Timeouts: connect 10 s, each command 30 s, close 1 s (all options of `AtDriverClientOptions`). The runner gives a native backend 5 s to close (`RAWSTEP_DEFAULTS.cleanupTimeoutMs.nativeBackend`).
 - A malformed frame, an error frame with no ID, or a closed socket fails the connection. A backend action that times out, fails to send or gets a protocol error closes the session, because that key press could still take effect after the next step.
 - The transport emits a `command` event before the physical send (`backend.command` in a run trace). Another subscriber can cancel between the two, so a command event alone proves neither that the key was sent nor that anything happened. The separate `response` event carries the server's acknowledgement or error.
 - `start`, `execute` and `observe` take `{ signal }`. Cancelling rejects with the signal's reason, removes pending timers and closes the session, because a key press already sent cannot be taken back. A trace observer must abort the signal synchronously if recording fails.
@@ -113,10 +114,10 @@ The action counts as one step in a run. The cursor on the page does not move.
 **`formControls.rotor` opens the list and leaves it open.**
 
 1. Find the list as above. If it is not found, press Escape to close the rotor and stop.
-2. While it is open, `next` presses Down, `previous` presses Up, and `activate` presses Return, which goes to the item without pressing it and closes the rotor. The key `Escape` only closes it.
-3. Any other action closes the rotor first (Escape, then wait for quiet) and then runs.
+2. While it is open, `next` presses Down, `previous` presses Up, and `activate` presses Return, which goes to the item without pressing it and closes the rotor. The backend reports that as `pressed: false`, so the runner and the hints treat it as the move it is, not as a press on the page (the simulation does the same). The key `Escape` only closes it.
+3. Any other action closes the rotor first (Escape, then wait for quiet) and then runs. Getting into a newly loaded page counts: the walk's keys would otherwise go to the list.
 
-If an action fails part way, the rotor is closed before the next action.
+If an action fails part way, the rotor is closed before the next action. A rotor still open when the run ends (a limit or a give-up with the list open) is closed as the backend closes, so the next run does not start with it open.
 
 ## Getting into the page
 

@@ -1,3 +1,4 @@
+import { isRecord } from '@rawstep/core/guards';
 import { useState } from 'react';
 import { Check, Pencil, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -7,7 +8,6 @@ import { Disclosure } from './layout/Disclosure';
 import { Button } from './ui/button';
 import { Collapsible, CollapsibleContent } from './ui/collapsible';
 
-const isRecord = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
 
 /** The source of a script rule as read-only text. It is never executed here. */
 export function ScriptSource({ source }: { source: string }) {

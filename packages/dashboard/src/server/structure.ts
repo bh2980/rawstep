@@ -1,9 +1,9 @@
 import { resolveTask } from '@rawstep/core/contracts';
 import { closeBrowserSession, createBrowserSession, type BrowserSession } from '@rawstep/browser/browser';
-import type { MachineSettings } from '@rawstep/project/config';
+import { browserOpenOf, type MachineSettings } from '@rawstep/project/config';
 import type { PageElement } from '../shared/api.js';
 
-type StructureMachine = Pick<MachineSettings, 'headless' | 'browserExecutablePath' | 'browserEndpoint'>;
+type StructureMachine = Pick<MachineSettings, 'headless' | 'browserExecutablePath' | 'browserEndpoint' | 'proxyServer'>;
 
 /** What a start page looks like to a person using a screen reader. All text comes from the website and is untrusted. */
 export type PageStructure = {
@@ -40,10 +40,14 @@ export function elementsFromAriaSnapshot(snapshot: string): PageElement[] {
   return [...found.values()];
 }
 
-/** Opens the start page of a task in a headless browser, resolving project-relative HTML paths the way a task does. */
+/**
+ * Opens the start page of a task, resolving project-relative HTML paths the way a task does: in the Chrome the person started when
+ * this computer has an address for it (a site that blocks automated browsers shows them its real page there), otherwise in a headless
+ * browser launched as a run launches one, proxy included.
+ */
 export async function openStartPage(options: { url: string; projectDir: string; machine: StructureMachine }): Promise<BrowserSession> {
   const startUrl = resolveTask({ url: options.url, goal: 'read page', verify: { all: [{ titleIncludes: '-' }] } }, options.projectDir).url;
-  return createBrowserSession(startUrl, { headless: true, executablePath: options.machine.browserExecutablePath || undefined, ...(options.machine.browserEndpoint.trim() ? { cdpEndpoint: options.machine.browserEndpoint.trim() } : {}) });
+  return createBrowserSession(startUrl, { headless: true, ...browserOpenOf(options.machine, true) });
 }
 
 /** Reads the page of an open session: title, accessibility tree, live regions, dialogs, forms and notable elements. */

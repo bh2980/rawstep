@@ -1,8 +1,11 @@
 import type { HintTarget } from '@rawstep/reports/hints';
+import { compareSummaries, SUMMARY_SCHEMA_VERSION, type BatchSummary, type SummaryCell } from '@rawstep/reports/compare';
+import { isMeasured, median } from '@rawstep/reports/endings';
 import type { ComparedRun, RunResult, TaskFindings } from '../../shared/api.js';
 import type { RunRecord } from '../../shared/config.js';
 import { t } from '../i18n/index.js';
 import { targetLabel } from '../i18n/labels.js';
+import { describeCellChange, noChangeText } from './batchSummary.js';
 import { countOf, formatSteps } from './format.js';
 import { runStartedAt, type RunRef } from './runs.js';
 
@@ -28,24 +31,28 @@ export function varyingParts(runs: readonly Pick<RunRecord, 'snapshot'>[]): Cond
   return CONDITION_PARTS.filter(part => new Set(runs.map(run => partOf(run, part))).size > 1);
 }
 
-/** What one side of a comparison (a batch, a task, or the runs picked) amounts to: only runs that left a result count. */
-export type Side = { results: readonly RunResult[]; stuck: readonly HintTarget[] };
+/** One run of a side: its result and the elements its user got stuck on. */
+export type SideRun = { result: RunResult; stuck: readonly HintTarget[] };
+/** What one side of a comparison (a batch, a task, or the runs picked) holds: the runs that left a result. */
+export type Side = readonly SideRun[];
 
 const sameTarget = (a: HintTarget, b: HintTarget) => a.role === b.role && a.name === b.name;
 const unique = (targets: readonly HintTarget[]) => targets.reduce<HintTarget[]>((all, target) => all.some(other => sameTarget(other, target)) ? all : [...all, target], []);
-const median = (values: readonly number[]) => { if (!values.length) return null; const s = [...values].sort((a, b) => a - b), m = s.length >> 1; return s.length % 2 ? s[m]! : (s[m - 1]! + s[m]!) / 2; };
 
-/** A side made of one batch's findings: its finished runs and its stuck places. */
-export const sideOfFindings = (findings: Pick<TaskFindings, 'results' | 'stuck'>): Side => ({ results: findings.results, stuck: findings.stuck.map(place => place.target) });
+/** A side made of one batch's findings: its finished runs, each with the stuck places it met. */
+export const sideOfFindings = (findings: Pick<TaskFindings, 'results' | 'stuck'>): Side =>
+  findings.results.map(result => ({ result, stuck: unique(result.stuck.flatMap(item => findings.stuck[item.place] ? [findings.stuck[item.place]!.target] : [])) }));
 
-/** A side made of picked runs: the ones with a result, and every element their users got stuck on. */
+/** A side made of picked runs: the ones with a result, each with every element its user got stuck on. */
 export function sideOfRuns(runs: readonly ComparedRun[]): Side {
-  return { results: runs.flatMap(run => run.result ? [run.result] : []), stuck: unique(runs.flatMap(run => run.stuck.map(item => item.target))) };
+  return runs.flatMap(run => run.result ? [{ result: run.result, stuck: unique(run.stuck.map(item => item.target)) }] : []);
 }
 
-const reachedMoves = (side: Side) => side.results.flatMap(result => result.ending === 'reached' && result.steps !== null ? [result.steps] : []);
-const reachedCount = (side: Side) => side.results.filter(result => result.ending === 'reached').length;
-const longestStretch = (side: Side) => { const values = side.results.flatMap(result => result.stretch === null ? [] : [result.stretch]); return values.length ? Math.max(...values) : null; };
+const reachedMoves = (side: Side) => side.flatMap(({ result }) => result.ending === 'reached' && result.steps !== null ? [result.steps] : []);
+const reachedCount = (side: Side) => side.filter(({ result }) => result.ending === 'reached').length;
+/** The M of "reached N of M": the runs that said something about the user, as everywhere else. A run that was not measured is not in it. */
+const measuredCount = (side: Side) => side.filter(({ result }) => isMeasured(result)).length;
+const stuckPlaces = (side: Side) => unique(side.flatMap(run => run.stuck));
 
 /** Up to three elements by name, then "and n more"; "none" when there are none. */
 function listOf(targets: readonly HintTarget[]): string {
@@ -55,31 +62,48 @@ function listOf(targets: readonly HintTarget[]): string {
 }
 
 /**
- * What changed between two sides, as short sentences built only from their counts: how many runs reached the goal, what reaching it
- * cost, the longest stretch without a goal word, and which stuck places went away or appeared. It says nothing about which side is better.
+ * A side as the cells of a batch summary: one per run profile (results of different users are never mixed), or one for the whole
+ * side when the runs were picked by hand. Results hold no run that broke, so no cell has an error.
  */
-export function describeChange(first: Side, second: Side, labels: { first: string; second: string }): string[] {
-  const empty = [first, second].flatMap((side, index) => side.results.length === 0 ? [index === 0 ? labels.first : labels.second] : []);
+function cellsOf(side: Side, byProfile: boolean, profileName: (id: string) => string): SummaryCell[] {
+  const groups = new Map<string, SideRun[]>();
+  for (const run of side) { const key = byProfile ? run.result.profileId : ''; groups.set(key, [...groups.get(key) ?? [], run]); }
+  return [...groups].map(([profileId, runs]) => {
+    const endings: SummaryCell['endings'] = { reached: 0, 'gave-up': 0, mistaken: 0, unmeasured: 0, error: 0 };
+    for (const { result } of runs) endings[result.ending]++;
+    return {
+      taskId: 'side', taskName: '', profileId, profileName: profileId ? profileName(profileId) : '', runs: runs.length, endings, reachedMoves: reachedMoves(runs),
+      stuck: stuckPlaces(runs).map(target => ({ role: target.role, ...(target.name ? { name: target.name } : {}), runs: runs.filter(run => run.stuck.some(other => sameTarget(other, target))).length })),
+      pageFindings: [],
+    };
+  });
+}
+
+/**
+ * What changed between two sides beyond the spread between repeats, as sentences. The first side is the baseline. It is judged by the
+ * batch summary's own comparison (`compareSummaries`: its noise rules, its counting) and worded with its words, so the same two
+ * batches read the same here as on the batch summary page: there is one engine, not a second one with rules of its own. It says
+ * nothing about which side is better. With `byProfile`, each run profile is compared with itself and named.
+ */
+export function describeChange(first: Side, second: Side, labels: { first: string; second: string }, options: { byProfile?: boolean; profileName?: (id: string) => string } = {}): string[] {
+  const empty = [first, second].flatMap((side, index) => side.length === 0 ? [index === 0 ? labels.first : labels.second] : []);
   if (empty.length) return [t('compareSummary.noRuns', { side: empty.join(', ') })];
-  const lines: string[] = [t('compareSummary.reached', { a: reachedCount(first), aTotal: first.results.length, b: reachedCount(second), bTotal: second.results.length, first: labels.first, second: labels.second, count: first.results.length })];
-  const a = median(reachedMoves(first)), b = median(reachedMoves(second));
-  if (a !== null && b !== null) lines.push(a === b ? t('compareSummary.movesSame', { a: formatSteps(a) }) : t('compareSummary.moves', { a: formatSteps(a), b: formatSteps(b) }));
-  else if (a !== null || b !== null) lines.push(t('compareSummary.movesOne', { side: a !== null ? labels.first : labels.second, n: formatSteps(a ?? b), ...countOf(a ?? b) }));
-  const x = longestStretch(first), y = longestStretch(second);
-  if (x !== null && y !== null && x !== y) lines.push(t('compareSummary.stretch', { a: x, b: y, count: y }));
-  const gone = first.stuck.filter(target => !second.stuck.some(other => sameTarget(target, other))), added = second.stuck.filter(target => !first.stuck.some(other => sameTarget(target, other)));
-  lines.push(gone.length || added.length ? t('compareSummary.stuck', { gone: listOf(gone), added: listOf(added) }) : first.stuck.length ? t('compareSummary.stuckSame') : t('compareSummary.stuckNone'));
-  return lines;
+  const summary = (id: string, side: Side): BatchSummary => ({ schemaVersion: SUMMARY_SCHEMA_VERSION, batch: { id, createdAt: '' }, cells: cellsOf(side, options.byProfile === true, options.profileName ?? (id => id)) });
+  const cells = compareSummaries(summary('first', first), summary('second', second)).cells.map(cell => ({ cell, change: describeCellChange(cell) }));
+  const sides = t('compareSummary.sides', { first: labels.first, second: labels.second });
+  const changed = cells.filter(item => item.change.status === 'changed');
+  if (!changed.length) return [sides, noChangeText(cells.some(item => item.change.status === 'noise') ? 'noise' : 'few')];
+  return [sides, ...changed.flatMap(({ cell, change }) => change.sentences.map(sentence => cells.length > 1 && cell.profileName ? `${cell.profileName}: ${sentence}` : sentence))];
 }
 
 /** What a group of runs shows when there is no before and after to set against each other: the same counts, once. */
 export function describeSet(side: Side): string[] {
-  if (side.results.length === 0) return [t('compareSummary.setNoRuns')];
-  const moves = reachedMoves(side), lines: string[] = [t('compareSummary.setReached', { a: reachedCount(side), total: side.results.length, count: side.results.length })];
+  if (side.length === 0) return [t('compareSummary.setNoRuns')];
+  const moves = reachedMoves(side), stuck = stuckPlaces(side), lines: string[] = [t('compareSummary.setReached', { a: reachedCount(side), total: measuredCount(side), count: measuredCount(side) })];
   if (moves.length) lines.push(moves.length > 1 && Math.min(...moves) !== Math.max(...moves)
     ? t('compareSummary.setMoves', { min: Math.min(...moves), max: Math.max(...moves), n: formatSteps(median(moves)) })
     : t('compareSummary.setMovesSame', { n: formatSteps(moves[0]), ...countOf(moves[0]) }));
-  lines.push(side.stuck.length ? t('compareSummary.setStuck', { list: listOf(side.stuck) }) : t('compareSummary.setStuckNone'));
+  lines.push(stuck.length ? t('compareSummary.setStuck', { list: listOf(stuck) }) : t('compareSummary.setStuckNone'));
   return lines;
 }
 

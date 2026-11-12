@@ -64,7 +64,12 @@
       "import": "./dist/verify/index.js",
       "default": "./dist/verify/index.js"
     },
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./browser/editable": {
+      "types": "./dist/browser/editable.d.ts",
+      "import": "./dist/browser/editable.js",
+      "default": "./dist/browser/editable.js"
+    }
   },
   "engines": {
     "node": ">=22.12.0"

@@ -1,11 +1,13 @@
+import { REDACTED } from '@rawstep/core/redacted';
+import { isActivation } from '@rawstep/core/actions';
 import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import { collectBrowserDiagnostics, verifyLiveProfile, ProfileApplicationError, resolveEnvironmentProfile, type EnvironmentProfile } from '../profiles/index.js';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { mkdir } from 'node:fs/promises';
-import { createBrowserSession, isBotCheckPage, isBotCheckUrl, settlePage, watchPageActivity, BrowserSetupError, BrowserAccessBlockedError, BLOCKED_NEXT, type BrowserSession, type CreateBrowserSessionOptions } from '../browser/index.js';
-import { describeInputs, resolveTask, STOP_SOURCES, type ActionExecution, type AllowedActions, type Backend, type Decision, type DecisionPolicy, type HistoryEntry, type Observation, type PolicyAction, type Task, type VerificationRecord, type VerificationWitness } from '@rawstep/core/contracts';
-import { TraceRecorder, createRedactor, type RunOutcome, type RunTrace, type TraceEvent } from '@rawstep/core/trace';
+import { createBrowserSession, focusIsEditable, isBotCheckPage, isBotCheckUrl, settlePage, watchPageActivity, BrowserSetupError, BrowserAccessBlockedError, BLOCKED_NEXT, type BrowserSession, type CreateBrowserSessionOptions } from '../browser/index.js';
+import { describeInputs, flattenVerifyRules, resolveTask, STOP_SOURCES, type ActionExecution, type AllowedActions, type Backend, type BackendEvent, type BackendReceipt, type Decision, type DecisionPolicy, type HistoryEntry, type Observation, type PolicyAction, type Task, type VerificationRecord, type VerificationWitness, type VerifyRule } from '@rawstep/core/contracts';
+import { TraceRecorder, createRedactor, type RunOutcome, type RunStage, type RunTrace, type TraceEvent } from '@rawstep/core/trace';
 import { RawstepError, findRawstepError } from '@rawstep/core/errors';
 import { verifyTask, type VerificationContext } from '../verify/index.js';
 import type { ObserverEvent, ObserverOptions } from '../observer/index.js';
@@ -34,6 +36,7 @@ export type RunOptions = {
   silentPressWaitMs?: number;
   /** Explicit opt-in: raw input keystrokes and echoed speech may expose secrets. */
   includeSensitiveInputValues?: boolean;
+  /** Whether the launched browser is headless (default false: a real screen reader needs a visible one; `runMockVoiceOverTask` defaults to true). */
   headless?: boolean;
   browserExecutablePath?: string;
   /** Connect to a browser the person started with a remote debugging port instead of launching one (see `cdpEndpoint`). */
@@ -101,7 +104,9 @@ export async function runWithPolicy(source: Task, options: RunOptions): Promise<
   const controller = new AbortController();
   // Page time only: moved later by the time a person spends passing a human check and the time spent waiting for the policy.
   let deadline = Date.now() + task.timeoutMs!;
-  let stage = 'initialization';
+  // A real screen reader needs a visible browser, so that is this runner's default; the simulation's own entry point passes headless.
+  const headless = options.headless ?? false;
+  let stage: RunStage = 'initialization';
   let activeStep = 0;
   let evidenceFailure: Error | undefined;
   const onExternalAbort = () => controller.abort(new RunAborted(options.signal?.reason === 'SIGINT' || options.signal?.reason === 'SIGTERM' ? options.signal.reason : 'requested'));
@@ -149,6 +154,13 @@ export async function runWithPolicy(source: Task, options: RunOptions): Promise<
       }, error => { cleanup(); reject(error); });
     });
   };
+  /** What ends the run whatever it was doing: a cancel, the time budget, or a trace that can no longer be written. */
+  const endsRun = (error: unknown): boolean => controller.signal.aborted || !!evidenceFailure || error instanceof BudgetExceeded;
+  /**
+   * A look at the page the run can do without (the title, where focus is, whether a check is showing): when it fails the run goes on
+   * with `fallback`. What ends the run is never swallowed with it. The one rule for every such look.
+   */
+  const bestEffort = <T, F>(work: () => Promise<T> | T, fallback: F): Promise<T | F> => withinBudget(work).catch((error: unknown) => { if (endsRun(error)) throw error; return fallback; });
   let browser: BrowserSession | undefined;
   let unsubscribe: (() => void) | undefined;
   let active = true;
@@ -179,16 +191,16 @@ export async function runWithPolicy(source: Task, options: RunOptions): Promise<
   // Without a working observer there is no timeline at all, so event rules report "unavailable" rather than "nothing happened".
   const observedTimeline = (): { timeline?: readonly ObserverEvent[] } => browser?.observer?.available ? { timeline } : {};
   const drainObserver = () => { for (const event of browser?.observer?.take() ?? []) timeline.push(event), append(`observer.${event.kind}`, inputTainted ? redactObserverEvent(event) : event, { source: 'browser-diagnostic', timestamp: event.at, redacted: inputTainted }); };
-  const recordBrowserDiagnostic = (type: string, data: unknown) => append(type, inputTainted ? { message: '[REDACTED]', reason: 'Browser diagnostics may contain delayed or form-encoded task input.' } : data, { source: 'browser-diagnostic', redacted: inputTainted });
+  const recordBrowserDiagnostic = (type: string, data: unknown) => append(type, inputTainted ? { message: REDACTED, reason: 'Browser diagnostics may contain delayed or form-encoded task input.' } : data, { source: 'browser-diagnostic', redacted: inputTainted });
   try {
-    unsubscribe = options.backend.subscribe((event: unknown) => {
+    unsubscribe = options.backend.subscribe(event => {
       if (!active) return;
       try {
-      const data = event && typeof event === 'object' ? event as Record<string, unknown> : {};
+      const data: Partial<BackendEvent> = event && typeof event === 'object' ? event : {};
       const storedEvent = inputTainted ? {
         type: data.type ?? 'event', sequence: data.sequence, timestamp: data.timestamp,
         commandId: data.commandId, windowId: data.windowId, method: data.method,
-        payload: '[REDACTED]', reason: 'Possible input keystroke or asynchronous input echo'
+        payload: REDACTED, reason: 'Possible input keystroke or asynchronous input echo'
       } : event;
       const entry = append(`backend.${String(data.type ?? 'event')}`, storedEvent, {
         source: speechSource,
@@ -196,27 +208,27 @@ export async function runWithPolicy(source: Task, options: RunOptions): Promise<
         ...(typeof data.timestamp === 'number' ? { timestamp: new Date(data.timestamp).toISOString() } : {}),
         redacted: inputTainted
       });
-      const candidate = data.output && typeof data.output === 'object' ? data.output as Record<string, unknown> : data;
-      if (typeof candidate.sequence === 'number' && typeof candidate.text === 'string') outputEventIds.set(candidate.sequence, entry.id);
+      // The piece of speech an event carries, in either shape the contract allows.
+      const said = data.output && typeof data.output === 'object' ? data.output : data;
+      if (typeof said.sequence === 'number' && typeof said.text === 'string') outputEventIds.set(said.sequence, entry.id);
       } catch (error) { recordEvidenceFailure(error); }
     });
     stage = 'backend-start';
     const metadata = await withinBudget(() => options.backend.start({ signal: controller.signal }));
     append('backend.metadata', metadata, { source: 'runner' });
     // Each backend owns its host, visibility and pairing rules; the runner only supplies the facts.
-    await withinBudget(() => options.backend.preflight?.({ headless: options.headless ?? false, platform: process.platform, customBrowserSession: !!options.browserSessionFactory }));
-    if (metadata && typeof metadata === 'object') {
-      const value = metadata as { environment?: Record<string, unknown> };
-      if (value.environment) trace.updateEnvironment({
-        screenReader: typeof value.environment.atName === 'string' ? value.environment.atName : 'unknown',
-        screenReaderVersion: typeof value.environment.atVersion === 'string' ? value.environment.atVersion : 'unknown',
-        ...(simulation ? { simulationEnvironment: value.environment } : { native: value.environment })
-      });
-    }
+    await withinBudget(() => options.backend.preflight?.({ headless: headless, platform: process.platform, customBrowserSession: !!options.browserSessionFactory }));
+    // A backend written outside TypeScript can still return anything: only an object's `environment` is read.
+    const reader = metadata && typeof metadata === 'object' && metadata.environment && typeof metadata.environment === 'object' ? metadata.environment : undefined;
+    if (reader) trace.updateEnvironment({
+      screenReader: typeof reader.atName === 'string' ? reader.atName : 'unknown',
+      screenReaderVersion: typeof reader.atVersion === 'string' ? reader.atVersion : 'unknown',
+      ...(simulation ? { simulationEnvironment: reader } : { native: reader })
+    });
     // A launch that completes after the deadline still owns resources and must close them.
     stage = 'browser-start';
     browser = await withinBudget(async () => {
-      const opened = await (options.browserSessionFactory ?? createBrowserSession)(task.url, { headless: options.personCheck ? false : options.headless ?? false, ...(options.personCheck ? { personCheck: true, ...(options.personCheck.userDataDir && !options.browserEndpoint ? { userDataDir: options.personCheck.userDataDir } : {}) } : {}), executablePath: options.browserExecutablePath, ...(options.browserEndpoint ? { cdpEndpoint: options.browserEndpoint, ...(options.copySignIn ? { copySignIn: true } : {}) } : {}), proxyServer: options.proxyServer, ...(options.observe !== undefined ? { observe: options.observe } : {}), navigation: task.navigation, verify: task.verify, profile: task.profile });
+      const opened = await (options.browserSessionFactory ?? createBrowserSession)(task.url, { headless: options.personCheck ? false : headless, ...(options.personCheck ? { personCheck: true, ...(options.personCheck.userDataDir && !options.browserEndpoint ? { userDataDir: options.personCheck.userDataDir } : {}) } : {}), executablePath: options.browserExecutablePath, ...(options.browserEndpoint ? { cdpEndpoint: options.browserEndpoint, ...(options.copySignIn ? { copySignIn: true } : {}) } : {}), proxyServer: options.proxyServer, ...(options.observe !== undefined ? { observe: options.observe } : {}), navigation: task.navigation, verify: task.verify, profile: task.profile });
       if (controller.signal.aborted) { await opened.close(); throw controller.signal.reason; }
       // A page opened bare for a human check gets its guards and the backend only after the check is passed.
       if (!opened.armGuards) try { await options.backend.attachSession?.(opened); } catch (error) { await opened.close(); throw error; }
@@ -239,7 +251,7 @@ export async function runWithPolicy(source: Task, options: RunOptions): Promise<
         const at = typeof browser!.page.url === 'function' ? browser!.page.url() : undefined;
         if (step === 0 || !at || checkedPages.has(at)) { if (at) checkedPages.add(at); return; }
         checkedPages.add(at);
-        if (await withinBudget(() => isBotCheckPage(browser!.page)).catch(error => { if (controller.signal.aborted || evidenceFailure || error instanceof BudgetExceeded) throw error; return false; }))
+        if (await bestEffort(() => isBotCheckPage(browser!.page), false))
           throw new BrowserAccessBlockedError(at, undefined, `The site showed a bot check after step ${step}. ${BLOCKED_NEXT}`);
         return;
       }
@@ -291,10 +303,10 @@ export async function runWithPolicy(source: Task, options: RunOptions): Promise<
       return { documentHasFocus: document.hasFocus(), focused: element ? { tag: element.tagName.toLowerCase(), role: element.getAttribute('role'), autofocus: element.hasAttribute('autofocus') } : null };
     });
     // Best effort: a session that cannot evaluate scripts simply records nothing; cancellation and budgets still apply.
-    const tryInitialFocus = async (): Promise<unknown> => { try { return await withinBudget(readInitialFocus); } catch (error) { if (controller.signal.aborted || evidenceFailure || error instanceof BudgetExceeded) throw error; return undefined; } };
+    const tryInitialFocus = (): Promise<unknown> => bestEffort(readInitialFocus, undefined);
     let initialFocus: unknown = await tryInitialFocus();
     if (initialFocus && typeof initialFocus === 'object' && (initialFocus as { documentHasFocus?: unknown }).documentHasFocus === false) {
-      await withinBudget(() => browser!.page.evaluate(() => window.focus())).catch(error => { if (controller.signal.aborted || evidenceFailure || error instanceof BudgetExceeded) throw error; });
+      await bestEffort(() => browser!.page.evaluate(() => window.focus()), undefined);
       const retried = await tryInitialFocus();
       initialFocus = retried && typeof retried === 'object' ? { ...retried, focusRequested: true } : initialFocus;
       // Native screen readers send real OS keys: without page focus they would land in browser UI or another window.
@@ -307,28 +319,28 @@ export async function runWithPolicy(source: Task, options: RunOptions): Promise<
       append('browser.profile', browser.appliedProfile, { source: 'browser-diagnostic' });
       trace.updateEnvironment({ profile: browser.appliedProfile });
       if (task.profile.at) {
-        const actual = metadata && typeof metadata === 'object' ? (metadata as { environment?: Record<string, unknown> }).environment : undefined;
-        const matches = actual?.atName === task.profile.at.name && (!task.profile.at.version || actual?.atVersion === task.profile.at.version) && (!task.profile.at.configuration || actual?.configuration === task.profile.at.configuration);
+        const actual = reader;
+        const matches = actual?.atName === task.profile.at.name && (!task.profile.at.version || actual?.atVersion === task.profile.at.version);
         append('browser.at-profile', { requested: task.profile.at, actual: actual ?? null, verified: matches }, { source: 'browser-diagnostic' });
-        if (!matches && task.profile.requireApplied) throw new ProfileApplicationError({...browser.appliedProfile,supported:false,settings:[...browser.appliedProfile.settings,{name:'at',requested:task.profile.at,observed:actual??null,status:'mismatch',mechanism:'metadata',detail:'Requested AT name/version/configuration is not proved by the backend handshake.'}]});
+        if (!matches && task.profile.requireApplied) throw new ProfileApplicationError({...browser.appliedProfile,supported:false,settings:[...browser.appliedProfile.settings,{name:'at',requested:task.profile.at,observed:actual??null,status:'mismatch',mechanism:'metadata',detail:'Requested AT name/version is not proved by the backend handshake.'}]});
       }
     }
     if (browser.observer) append('observer.metadata', { available: browser.observer.available, world: 'isolated', policyVisible: false, ...(browser.observer.unavailableReason ? { reason: browser.observer.unavailableReason } : {}), limitations: ['Accessible names are approximated in the page and truncated; form values are never read.', 'Cross-origin iframes running in another process are not observed.'] }, { source: 'browser-diagnostic' });
-    append('browser.metadata', { name: 'chromium', version: browser.browser?.version?.() ?? 'unknown', headless: browser.connected || options.personCheck ? false : options.headless ?? false, ...(browser.connected ? { connected: true } : options.personCheck ? { keptProfile: true } : {}) }, { source: 'browser-diagnostic' });
+    append('browser.metadata', { name: 'chromium', version: browser.browser?.version?.() ?? 'unknown', headless: browser.connected || options.personCheck ? false : headless, ...(browser.connected ? { connected: true } : options.personCheck ? { keptProfile: true } : {}) }, { source: 'browser-diagnostic' });
     append('run.started', { maxSteps: task.maxSteps, timeoutMs: task.timeoutMs, allowedActions, ...(options.conditions ? { conditions: structuredClone(options.conditions) } : {}) });
     /** A page that cannot answer (navigating, closed) has no focused field. */
-    const focusInField = () => withinBudget(() => isEditable(browser!)).catch((error: unknown) => { if (controller.signal.aborted || evidenceFailure || error instanceof BudgetExceeded) throw error; return false; });
+    const focusInField = () => bestEffort(() => isEditable(browser!), false);
     /** `pressed`: if the press said nothing, keep listening without pressing anything. A press that put focus in a field has no more to say. */
     const observe = async (pressed = false): Promise<Observation> => {
       stage = 'observation';
       if (task.profile) {
         const settings = await withinBudget(() => verifyLiveProfile(browser!.page, task.profile!));
-        append('browser.profile-check', inputTainted ? { step: activeStep, verified:settings.every(s=>s.status==='applied'), details: '[REDACTED]' } : { step: activeStep, verified:settings.every(s=>s.status==='applied'), settings }, { source:'browser-diagnostic', redacted:inputTainted });
+        append('browser.profile-check', inputTainted ? { step: activeStep, verified:settings.every(s=>s.status==='applied'), details: REDACTED } : { step: activeStep, verified:settings.every(s=>s.status==='applied'), settings }, { source:'browser-diagnostic', redacted:inputTainted });
         if (task.profile.requireApplied && settings.some(s=>s.status==='mismatch')) throw new ProfileApplicationError({ ...browser!.appliedProfile!, settings, supported:false, verifiedAt:new Date().toISOString() });
       }
       if (task.profile?.diagnostics) {
         const diagnostic = await withinBudget(() => collectBrowserDiagnostics(browser!.page));
-        append('browser.accessibility-diagnostic', inputTainted ? { step: activeStep, details: '[REDACTED]' } : { step: activeStep, diagnostic }, { source: 'browser-diagnostic', redacted: inputTainted });
+        append('browser.accessibility-diagnostic', inputTainted ? { step: activeStep, details: REDACTED } : { step: activeStep, diagnostic }, { source: 'browser-diagnostic', redacted: inputTainted });
       }
       let collected = await withinBudget(() => options.backend.observe({ signal: controller.signal }));
       const silent = () => !collected.speech.some(line => line.trim());
@@ -341,22 +353,22 @@ export async function runWithPolicy(source: Task, options: RunOptions): Promise<
       const ids = collected.outputs.map(output => {
         let id = outputEventIds.get(output.sequence);
         if (!id) {
-          id = append(`${speechSource}.output`, inputTainted ? { sequence: output.sequence, receivedAt: output.receivedAt, text: '[REDACTED]', raw: '[REDACTED]' } : output, { source: speechSource, timestamp: output.receivedAt, redacted: inputTainted }).id;
+          id = append(`${speechSource}.output`, inputTainted ? { sequence: output.sequence, receivedAt: output.receivedAt, text: REDACTED, raw: REDACTED } : output, { source: speechSource, timestamp: output.receivedAt, redacted: inputTainted }).id;
           outputEventIds.set(output.sequence, id);
         }
         return id;
       });
       // A screen reader announces the title when a page loads. The title is passed on only once it was heard in the speech, so the
       // planner never knows more than the simulated user; a page that cannot answer (navigating, closed) simply has none.
-      const pageTitle = typeof browser?.page.title === 'function' ? (await browser.page.title().catch(() => undefined))?.trim() : undefined;
+      const pageTitle = typeof browser?.page.title === 'function' ? (await bestEffort(() => browser!.page.title(), undefined))?.trim() : undefined;
       if (pageTitle && collected.speech.some(line => line.includes(pageTitle))) heardTitles.add(pageTitle);
       const title = pageTitle && heardTitles.has(pageTitle) ? pageTitle : undefined;
       // The simulation marks what a live region said; a real screen reader's output does not say.
-      const announcements = collected.outputs.filter(output => (output.raw as { announcement?: unknown } | undefined)?.announcement === 'live-region').map(output => output.text);
+      const announcements = collected.outputs.filter(output => output.announcement === 'live-region').map(output => output.text);
       const observation: Observation = { kind: 'screenreader', ...(options.backend.evidenceProvenance ? { provenance: options.backend.evidenceProvenance } : {}), speech: [...collected.speech], outputEventIds: ids, window: { id: collected.windowId, startedAt: collected.startedAt, endedAt: collected.endedAt, reason: collected.reason },
         ...(title ? { title: title.slice(0, 300) } : {}), ...(announcements.length ? { announcements } : {}) };
       // Where the cursor sat is for people reading the run: it goes into the trace, never into the observation a policy gets.
-      append(`${speechSource}.observation`, { ...observation, ...(inputTainted ? { speech: ['[REDACTED]'], ...(title ? { title: '[REDACTED]' } : {}), ...(announcements.length ? { announcements: ['[REDACTED]'] } : {}) } : collected.cursor ? { cursor: collected.cursor } : {}), association: 'temporal-only', speechCompletionKnown: false }, { source: speechSource, redacted: inputTainted, collectionWindow: { startedAt: collected.startedAt, endedAt: collected.endedAt } });
+      append(`${speechSource}.observation`, { ...observation, ...(inputTainted ? { speech: [REDACTED], ...(title ? { title: REDACTED } : {}), ...(announcements.length ? { announcements: [REDACTED] } : {}) } : collected.cursor ? { cursor: collected.cursor } : {}), association: 'temporal-only', speechCompletionKnown: false }, { source: speechSource, redacted: inputTainted, collectionWindow: { startedAt: collected.startedAt, endedAt: collected.endedAt } });
       return observation;
     };
     /**
@@ -368,8 +380,7 @@ export async function runWithPolicy(source: Task, options: RunOptions): Promise<
     let enteredDocument: number | undefined;
     const enterPage = async (step: number) => {
       if (!options.backend.enterPage) return;
-      const loaded = await withinBudget(() => browser!.page.evaluate(() => performance.timeOrigin))
-        .catch((error: unknown) => { if (controller.signal.aborted || evidenceFailure || error instanceof BudgetExceeded) throw error; return undefined; });
+      const loaded = await bestEffort(() => browser!.page.evaluate(() => performance.timeOrigin), undefined);
       if (typeof loaded !== 'number' || loaded === enteredDocument) return;
       enteredDocument = loaded;
       stage = 'page-entry';
@@ -394,7 +405,7 @@ export async function runWithPolicy(source: Task, options: RunOptions): Promise<
     };
     const secretOnScreen = async (): Promise<boolean> => {
       if (!secretValues.length) return false;
-      const text = await withinBudget(() => browser!.page.evaluate(() => document.body?.innerText ?? '')).catch(error => { if (controller.signal.aborted || evidenceFailure || error instanceof BudgetExceeded) throw error; return undefined; });
+      const text = await bestEffort(() => browser!.page.evaluate(() => document.body?.innerText ?? ''), undefined);
       return typeof text !== 'string' || secretValues.some(value => text.includes(value));
     };
     /** The whole start page, to show where on it runs got stuck. Very long pages are cut at START_PAGE_MAX_HEIGHT. */
@@ -430,7 +441,7 @@ export async function runWithPolicy(source: Task, options: RunOptions): Promise<
       const baseline = await withinBudget(() => verifyTask(task, browser!, observedTimeline()));
       append('verifier.baseline', { passed: baseline.passed, rules: (baseline.rules ?? []).map(({ ruleIndex, ruleType, passed }) => ({ ruleIndex, ruleType, passed })) }, { source: 'verifier' });
     } catch (error) {
-      if (controller.signal.aborted || evidenceFailure || error instanceof BudgetExceeded) throw error;
+      if (endsRun(error)) throw error;
       // Error text can carry page URLs or echoed values; keep only its type.
       append('verifier.baseline', { error: error instanceof Error ? error.name : 'Error' }, { source: 'verifier' });
     }
@@ -441,10 +452,16 @@ export async function runWithPolicy(source: Task, options: RunOptions): Promise<
       activeStep = step;
       stage = 'policy';
       const onPlannerCall = ({ trigger }: { trigger: string }) => bestEffortEvidence(() => append('policy.planner-call', { step, trigger: /^[a-z-]{1,40}$/.test(trigger) ? trigger : 'other' }, { source: 'policy' }));
-      const decision = await outsideBudget(() => options.policy.decide({ goal: task.goal, ...(task.context ? { context: task.context } : {}), observation: structuredClone(policyView(observation)), history: structuredClone(history.map(entry => ({ ...entry, observation: policyView(entry.observation) }))), allowedActions: structuredClone(allowedActions), inputs: inputDescriptors, signal: controller.signal, onPlannerCall }));
-      for (const evidence of options.policy.takeDecisionEvidence?.() ?? []) {
-        append('policy.evidence', inputTainted ? { step, details: '[REDACTED]', reason: 'Model evidence omitted after text entry.', summary: evidenceSummary(evidence) } : { step, evidence }, { source: 'policy', redacted: inputTainted });
-      }
+      // What the policy did on the way to this decision (plans written, cues checked) is recorded whether or not it got to one: a
+      // planner that fails part-way must not take the record of what came before it down with it.
+      const recordEvidence = () => {
+        for (const evidence of options.policy.takeDecisionEvidence?.() ?? []) {
+          append('policy.evidence', inputTainted ? { step, details: REDACTED, reason: 'Model evidence omitted after text entry.', summary: evidenceSummary(evidence) } : { step, evidence }, { source: 'policy', redacted: inputTainted });
+        }
+      };
+      const deciding = outsideBudget(() => options.policy.decide({ goal: task.goal, ...(task.context ? { context: task.context } : {}), observation: structuredClone(policyView(observation)), history: structuredClone(history.map(entry => ({ ...entry, observation: policyView(entry.observation) }))), allowedActions: structuredClone(allowedActions), inputs: inputDescriptors, signal: controller.signal, onPlannerCall }));
+      const decision = await deciding.catch((error: unknown) => { bestEffortEvidence(recordEvidence); throw error; });
+      recordEvidence();
       try { validateDecision(decision, allowedActions); }
       catch (error) {
         append('policy.rejected', { step, ...rejectedDecisionDetails(decision, inputTainted), reasonCode: 'action-not-allowed', reason: errorMessage(error) }, { source: 'policy', redacted: inputTainted });
@@ -461,7 +478,7 @@ export async function runWithPolicy(source: Task, options: RunOptions): Promise<
         break;
       }
       const action = decision.action;
-      let execution: ActionExecution;
+      let execution: ActionExecution, receipt: BackendReceipt | void = undefined;
       // Watched from before the action, so a request sent at the moment of the click counts.
       const activity = isActivation(action) && typeof browser.page.on === 'function' ? watchPageActivity(browser.page) : undefined;
       try {
@@ -478,25 +495,27 @@ export async function runWithPolicy(source: Task, options: RunOptions): Promise<
               ? 'The typing step\'s protocol payloads, speech and diagnostics are withheld; afterwards only the value is masked.'
               : 'A real screen reader can echo input late and in its own words, so payloads, speech and diagnostics are withheld from here on.' }, { redacted: true });
           }
-          await withinBudget(() => options.backend.execute({ kind: action.kind, text: task.input![action.input]!, sensitive: inputDescriptors[action.input]!.sensitive }, { signal: controller.signal }));
-        } else await withinBudget(() => options.backend.execute(action, { signal: controller.signal }));
+          await withinBudget(() => options.backend.execute({ kind: action.kind, text: task.input![action.input]! }, { signal: controller.signal }));
+        } else receipt = await withinBudget(() => options.backend.execute(action, { signal: controller.signal }));
         execution = { ok: true };
       } catch (error) {
         // An error that names its own run outcome ends the run instead of becoming a failed action.
         if (error instanceof RawstepError && error.outcome) throw error;
-        if (controller.signal.aborted || evidenceFailure || error instanceof BudgetExceeded) throw evidenceFailure ?? controller.signal.reason ?? error;
+        if (endsRun(error)) throw evidenceFailure ?? controller.signal.reason ?? error;
         execution = { ok: false, error: inputTainted ? 'Execution failed after text entry; raw error redacted.' : errorMessage(error), failure: error instanceof NotEditableError ? 'not-editable' : 'backend' };
       }
-      append('action.result', { step, action, ...execution });
+      // A press is an action that names one, unless the backend says it pressed nothing (`activate` picking from an open rotor list).
+      const namesPress = execution.ok && isActivation(action), pressed = namesPress && !(receipt && typeof receipt === 'object' && receipt.pressed === false);
+      append('action.result', { step, action, ...execution, ...(namesPress && !pressed ? { pressed: false } : {}) });
       history.push({ step, decision, observation, execution });
       // An activation may start a route change that renders a moment later: settle on what the page does, not on a fixed wait.
       if (execution.ok) { stage = 'settling'; await withinBudget(() => settlePage(browser!.page, activity)); } else activity?.stop();
       await waitForPerson(step);
       if (execution.ok) await enterPage(step);
-      observation = await observe(execution.ok && isActivation(action));
+      observation = await observe(pressed);
       // Character-by-character echoes of a sensitive value cannot be matched; withhold that step's speech from the policy.
       if (execution.ok && (action.kind === 'typeText' || action.kind === 'replaceText') && inputDescriptors[action.input]!.sensitive) withheldObservations.add(observation);
-      if (execution.ok && isActivation(action)) latestActivation = { step, action, observation };
+      if (pressed) latestActivation = { step, action, observation };
       drainObserver();
       for (const blocked of browser.takeBlockedNavigations()) recordBrowserDiagnostic('browser.navigation-blocked', blocked);
       for (const warning of browser.takeNavigationGuardWarnings()) recordBrowserDiagnostic('browser.navigation-warning', warning);
@@ -536,7 +555,7 @@ export async function runWithPolicy(source: Task, options: RunOptions): Promise<
     if (profileError) bestEffortEvidence(() => {
       // Profile measurements are page-derived and can contain arbitrary delayed or
       // encoded input echoes. Error paths follow the same taint rule as observe().
-      const profile = inputTainted ? { supported: false, details: '[REDACTED]', reason: 'Profile details omitted after text entry.' } : profileError.appliedProfile;
+      const profile = inputTainted ? { supported: false, details: REDACTED, reason: 'Profile details omitted after text entry.' } : profileError.appliedProfile;
       append('browser.profile', profile, { source: 'browser-diagnostic', redacted: inputTainted });
       trace.updateEnvironment({ profile }, { redacted: inputTainted });
     });
@@ -606,7 +625,6 @@ export function validateDecision(decision: unknown, allowed: AllowedActions): as
   if (((action.kind === 'typeText' && allowed.typeText !== false) || (action.kind === 'replaceText' && allowed.replaceText)) && typeof action.input === 'string' && allowed.inputKeys.includes(action.input)) return;
   throw new Error('Policy action is not allowed by the task and backend capabilities.');
 }
-function isActivation(action: PolicyAction): boolean { return (action.kind === 'intent' && action.intent === 'activate') || (action.kind === 'key' && ['Enter','Space'].includes(action.key)); }
 const SAFE_TOKEN = /^[A-Za-z0-9._:-]{1,64}$/;
 /**
  * What survives of policy evidence after a secret was typed: the evidence kind, role, plan bookkeeping (versions, task ids and
@@ -615,10 +633,9 @@ const SAFE_TOKEN = /^[A-Za-z0-9._:-]{1,64}$/;
 function evidenceSummary(evidence: unknown): Record<string, unknown> {
   if (!evidence || typeof evidence !== 'object') return {};
   const source = evidence as Record<string, unknown>, out: Record<string, unknown> = {};
-  for (const key of ['kind', 'role', 'trigger', 'help', 'reason', 'taskId', 'fromStatus', 'toStatus', 'choiceId', 'verified']) if (typeof source[key] === 'string' && SAFE_TOKEN.test(source[key] as string)) out[key] = source[key];
+  for (const key of ['kind', 'role', 'trigger', 'reason', 'taskId', 'fromStatus', 'toStatus', 'choiceId', 'verified']) if (typeof source[key] === 'string' && SAFE_TOKEN.test(source[key] as string)) out[key] = source[key];
   for (const key of ['version', 'planVersion', 'plannerCalls', 'maxPlannerCalls', 'actions']) if (typeof source[key] === 'number') out[key] = source[key];
   if (typeof source.accepted === 'boolean') out.accepted = source.accepted;
-  if (typeof source.rejected === 'number') out.rejected = source.rejected;
   const ending = source.ending;
   if (ending && typeof ending === 'object') {
     const e = ending as Record<string, unknown>;
@@ -628,14 +645,7 @@ function evidenceSummary(evidence: unknown): Record<string, unknown> {
 }
 function errorMessage(error: unknown): string { return error instanceof Error ? error.message : String(error); }
 async function isEditable(browser: BrowserSession): Promise<boolean> {
-  return browser.page.evaluate(() => {
-    if (!document.hasFocus()) return false;
-    let active = document.activeElement;
-    while (active?.shadowRoot?.activeElement) active = active.shadowRoot.activeElement;
-    if (active instanceof HTMLTextAreaElement) return !active.disabled && !active.readOnly;
-    if (active instanceof HTMLInputElement) return !active.disabled && !active.readOnly && ['text','search','email','url','tel','password','number'].includes(active.type);
-    return active instanceof HTMLElement && active.isContentEditable === true;
-  });
+  return browser.page.evaluate(focusIsEditable, null);
 }
 
 function rejectedDecisionDetails(decision: unknown, tainted: boolean): Record<string, unknown> {
@@ -644,18 +654,18 @@ function rejectedDecisionDetails(decision: unknown, tainted: boolean): Record<st
   if (!candidate || typeof candidate !== 'object') return { action: { kind: 'invalid' } };
   const action = candidate as Record<string, unknown>;
   const kind = ['key', 'intent', 'typeText', 'replaceText'].includes(String(action.kind)) ? action.kind : 'invalid';
-  if (tainted) return { action: { kind, details: '[REDACTED]' } };
+  if (tainted) return { action: { kind, details: REDACTED } };
   return { action: { kind, ...Object.fromEntries(['key', 'intent', 'input'].filter(key => typeof action[key] === 'string').map(key => [key, action[key]])) } };
 }
 
 function redactObserverEvent(event: ObserverEvent): Record<string, unknown> {
   const safe: Record<string, unknown> = { ...event };
-  for (const key of ['name', 'text', 'value', 'url'] as const) if (safe[key] !== undefined && safe[key] !== null) safe[key] = '[REDACTED]';
+  for (const key of ['name', 'text', 'value', 'url'] as const) if (safe[key] !== undefined && safe[key] !== null) safe[key] = REDACTED;
   return safe;
 }
 
 function redactVerificationWitness(witness: VerificationWitness): Record<string, unknown> {
-  const safe: Record<string, unknown> = { kind: witness.kind, details: '[REDACTED]' };
+  const safe: Record<string, unknown> = { kind: witness.kind, details: REDACTED };
   if (witness.kind === 'response') { safe.status = witness.status; safe.ok = witness.ok; }
   if (witness.kind === 'visible-text') { safe.matchIndex = witness.matchIndex; safe.visible = witness.visible; if (witness.textSource) safe.textSource = witness.textSource; }
   if ('timestamp' in witness) safe.timestamp = witness.timestamp;
@@ -670,14 +680,14 @@ function redactVerificationWitness(witness: VerificationWitness): Record<string,
   return safe;
 }
 
-/** The words of a task's text goal rules (what the page shows or says when the goal is reached), from nested any/all/not rules too. */
-function goalTexts(rules: readonly unknown[]): string[] {
-  return rules.flatMap(rule => {
-    if (!rule || typeof rule !== 'object') return [];
+/**
+ * The words of a task's text goal rules (what the page shows or says when the goal is reached), from rules nested in `any` too. What a
+ * `not` rule names must not show, so it is not a word of the goal.
+ */
+function goalTexts(rules: readonly VerifyRule[]): string[] {
+  return flattenVerifyRules(rules, { negated: false }).flatMap(rule => {
     const r = rule as Record<string, unknown>;
-    const own = ['textVisible', 'textVisibleExact', 'activatedAnnouncementIncludes', 'titleIncludes'].flatMap(key => typeof r[key] === 'string' ? [r[key] as string] : []);
-    const nested = Array.isArray(r.any) ? goalTexts(r.any) : Array.isArray(r.all) ? goalTexts(r.all) : [];
-    return [...own, ...nested];
+    return ['textVisible', 'textVisibleExact', 'activatedAnnouncementIncludes', 'titleIncludes'].flatMap(key => typeof r[key] === 'string' ? [r[key] as string] : []);
   });
 }
 /**

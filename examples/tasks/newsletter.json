@@ -1,0 +1,34 @@
+{
+  "id": "newsletter",
+  "url": "../../fixtures/newsletter.html",
+  "goal": "Subscribe to the newsletter with your email address.",
+  "maxSteps": 30,
+  "timeoutMs": 180000,
+  "input": {
+    "email": "traveler@example.com"
+  },
+  "inputOptions": {
+    "email": {
+      "sensitive": false,
+      "description": "Your email address"
+    }
+  },
+  "verify": {
+    "all": [
+      {
+        "domEventSeen": {
+          "selector": "form#newsletter",
+          "event": "submit"
+        }
+      },
+      {
+        "textVisible": "Subscribed traveler@example.com"
+      },
+      {
+        "not": {
+          "textVisible": "Tick the box to agree first."
+        }
+      }
+    ]
+  }
+}

@@ -68,7 +68,6 @@ export const traceUi: LocaleShape<typeof ko> = {
     item: 'Run #{{number}}: {{state}}, {{steps}} moves',
     item_one: 'Run #{{number}}: {{state}}, {{steps}} move',
     itemNoSteps: 'Run #{{number}}: {{state}}',
-    errored: 'Ended on an error',
   },
   stepDetail: {
     screenReference: 'not sent to the model',

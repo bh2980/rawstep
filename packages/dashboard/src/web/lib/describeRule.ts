@@ -1,7 +1,7 @@
+import { isRecord } from '@rawstep/core/guards';
 import { t } from '../i18n/index.js';
 import { roleLabel } from '../i18n/labels.js';
 
-const isRecord = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
 const str = (value: unknown): string | undefined => typeof value === 'string' && value ? value : undefined;
 
 /** Event kinds with a label in ruleText.eventKinds. */

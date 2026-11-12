@@ -44,7 +44,22 @@
       "import": "./dist/trace/index.js",
       "default": "./dist/trace/index.js"
     },
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./actions": {
+      "types": "./dist/actions.d.ts",
+      "import": "./dist/actions.js",
+      "default": "./dist/actions.js"
+    },
+    "./guards": {
+      "types": "./dist/guards.d.ts",
+      "import": "./dist/guards.js",
+      "default": "./dist/guards.js"
+    },
+    "./redacted": {
+      "types": "./dist/redacted.d.ts",
+      "import": "./dist/redacted.js",
+      "default": "./dist/redacted.js"
+    }
   },
   "engines": {
     "node": ">=22.12.0"

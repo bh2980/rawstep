@@ -1,7 +1,7 @@
 import { findRawstepError, RawstepError } from '@rawstep/core/errors';
 import { BrowserConnectError, createBrowserSession } from '@rawstep/browser/browser';
 import { AcpAgent, AcpError } from '@rawstep/policies/acp';
-import { providerPreset, type Connection, type MachineSettings } from '@rawstep/project/config';
+import { browserOpenOf, providerPreset, type Connection, type MachineSettings } from '@rawstep/project/config';
 import { checkResult as result } from '@rawstep/project/checks';
 import type { BrowserCheck, ModelCheck } from '../shared/api.js';
 
@@ -25,15 +25,17 @@ export async function signInAgent(connection: Pick<Connection, 'provider'>): Pro
 }
 
 /**
- * Starts the browser a run would use (the Chrome at the configured debugging address, otherwise the configured executable, otherwise
- * Playwright's Chromium, otherwise installed Chrome), reads its version and closes it again. A launched browser is headless; a
- * connected Chrome shows a blank tab for a moment and is then only disconnected.
+ * Checks the browser settings as they stand: when a debugging address is set, the Chrome there (what a task whose browser is
+ * `connect` runs in); otherwise the browser Rawstep launches for every other task (the configured executable, else Playwright's
+ * Chromium, else installed Chrome, through the configured proxy). It reads the version and closes it again. A launched browser is
+ * headless; a connected Chrome shows a blank tab for a moment and is then only disconnected. `rawstep doctor` checks both.
  */
-export async function checkBrowser(machine: Pick<MachineSettings, 'browserExecutablePath' | 'browserEndpoint'>): Promise<BrowserCheck> {
-  const source = machine.browserEndpoint.trim() ? 'connected' : machine.browserExecutablePath.trim() ? 'custom' : 'auto';
+export async function checkBrowser(machine: Pick<MachineSettings, 'browserExecutablePath' | 'browserEndpoint' | 'proxyServer'>): Promise<BrowserCheck> {
+  const opened = browserOpenOf(machine, true);
+  const source = 'cdpEndpoint' in opened ? 'connected' : opened.executablePath ? 'custom' : 'auto';
   let session: Awaited<ReturnType<typeof createBrowserSession>> | undefined;
   try {
-    session = await createBrowserSession('about:blank', { headless: true, observe: false, ...(source === 'connected' ? { cdpEndpoint: machine.browserEndpoint.trim() } : source === 'custom' ? { executablePath: machine.browserExecutablePath.trim() } : {}) });
+    session = await createBrowserSession('about:blank', { headless: true, observe: false, ...opened });
     return { ok: true, name: 'Chromium', version: session.browser?.version() ?? 'unknown', source };
   } catch (error) {
     const connect = findRawstepError(error, e => e instanceof BrowserConnectError) as BrowserConnectError | undefined;

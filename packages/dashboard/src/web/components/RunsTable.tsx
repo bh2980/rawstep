@@ -5,7 +5,7 @@ import type { Experiment } from '../../shared/config';
 import { useHintSummaries, useRequestHintSummaries } from '../hooks/useHintSummaries';
 import type { RouteChange } from '../hooks/useRoute';
 import { formatDate } from '../lib/format';
-import { runStatus } from '../lib/runStrip';
+import { runStatus, type StatusNote } from '../lib/runStrip';
 import { durationSeconds, isFinished, isLive, runConditions, runModelsName, runStartedAt, runStepCount, taskNameOf, type RunRef } from '../lib/runs';
 import { CliMark, startedFromCli } from './CliMark';
 import { HintBadge } from './HintBadge';
@@ -44,8 +44,8 @@ type Props = {
 const rowLink = 'rounded-sm after:absolute after:inset-0 hover:underline underline-offset-2 focus-visible:outline-none! focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-trace';
 const sameDay = (a: number, b: number) => new Date(a).toDateString() === new Date(b).toDateString();
 
-/** What ended a run that was not measured first (`시간 한도`), for a status mark's `why`. `by` is one of the recorded stop sources. */
-export const stopReason = (t: TFunction, by: string | undefined): string | undefined => by ? t(`taskPage.results.by.${by as 'other'}`) : undefined;
+/** The words of a status note (`시간 한도`, `확인 안 됨`), for a status mark's `why`. */
+export const stopReason = (t: TFunction, by: StatusNote | undefined): string | undefined => by ? t(`taskPage.results.by.${by}`) : undefined;
 
 /** Runs in a row of the same batch, in the order given. */
 function batchesInOrder(runs: readonly RunRef[]): { experiment: Experiment; runs: RunRef[] }[] {

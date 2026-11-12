@@ -117,12 +117,12 @@ Every workspace lives in `packages/<name>/src` and is private except `rawstep`. 
 
 | Order | Package | Owns |
 |---|---|---|
-| 1 | `@rawstep/core` | The contracts everything shares: task, actions, observations, backend and policy interfaces (`contracts/`); the page environment schema and built-in names (`profiles/`); the trace format, redaction and persistence (`trace/`); defaults and errors. No dependencies. |
+| 1 | `@rawstep/core` | The contracts everything shares: task, actions, observations, backend and policy interfaces (`contracts/`); the names of the built-in actions and keys and what kind each is (`actions.ts`); the plain-object guards and the redaction marker every package shares (`guards.ts`, `redacted.ts`); the page environment schema and built-in names (`profiles/`); the trace format, its lists of run stages and outcome reasons, redaction and persistence (`trace/`); defaults and errors. No dependencies. |
 | 2 | `@rawstep/policies` | Who decides. The plan document, the planner interface, how Rawstep carries out a plan, plan files (`policy/`); every model call and the planner's standing instructions (`llm/`); coding-agent CLIs over ACP (`acp/`). |
 | 3 | `@rawstep/browser` | The browser and the run: opening pages and keeping navigation in scope (`browser/`), the runner with its budgets, input gates and cancellation (`runner/`), the independent verifier (`verify/`), applying page environments (`profiles/`) and the page observer (`observer/`). |
 | 4 | `@rawstep/screenreaders` | The two screen reader backends and the evidence behind the simulation: the AT Driver client (`at-driver/`), the simulated VoiceOver (`mock-voiceover/`) and the reported-speech corpus (`evidence/`). |
-| 5 | `@rawstep/reports` | Reading a saved trace: friction hints (`hints/`), how a run ended (`endings/`), analysis (`analyze/`) and the HTML and JSON reports (`report/`). |
-| 6 | `@rawstep/project` | What the CLI and the dashboard share: the `rawstep.config.json` schema (`config.ts`), the project store and `.env.local` credentials (`store.ts`), turning a task and a run profile into a run (`plan.ts`, `execution.ts`, `run.ts`), model discovery (`discover.ts`), the demo written by `init` (`demo.ts`) and the AT Driver server starter (`atdriver.ts`). |
+| 5 | `@rawstep/reports` | Reading a saved trace: friction hints (`hints/`), how a run ended and whether it broke (`endings/`), a batch summed up and compared with another (`compare/`), analysis (`analyze/`) and the HTML and JSON reports (`report/`). |
+| 6 | `@rawstep/project` | What the CLI and the dashboard share: the `rawstep.config.json` schema (`config.ts`), the project store and `.env.local` credentials (`store.ts`), whether a task can run under a profile and turning the two into a run (`plan.ts`, `execution.ts`, `run.ts`), the queue that plans and runs batches (`batch.ts`), model discovery (`discover.ts`), the demo written by `init` (`demo.ts`), and the AT Driver server starter with the native screen reader setup check (`atdriver.ts`). |
 | 7 | `@rawstep/dashboard` | The local dashboard: a Node API (`server/`), the types shared with the browser (`shared/`) and the React UI (`web/`). |
 | 8 | `@rawstep/cli` | The commands: `init`, `ui`, `run`, `hints`, `report`, `analyze`, `doctor` (`cli/`). It starts the dashboard for `ui`. |
 | 9 | `rawstep` | The published package. `src/` holds only re-exports (one folder per public import path) and the executable. `tsdown` bundles everything into `dist/`. |
@@ -134,6 +134,10 @@ Every workspace lives in `packages/<name>/src` and is private except `rawstep`. 
 | A field of `rawstep.config.json`, its defaults or its validation | `packages/project/src/config.ts` |
 | The task file format or completion checks | `packages/core/src/contracts/`, `packages/browser/src/verify/` |
 | How a run turns a task and a profile into a result | `packages/project/src/plan.ts`, `execution.ts`, `run.ts` |
+| Whether a run can start (a new precondition, a new reason it cannot) | `checkRun` in `packages/project/src/plan.ts`; the queue's `plan` in `batch.ts` adds keys and plan files. The CLI, `doctor` and the dashboard all ask the queue, so add it there and nowhere else |
+| A new action name, or whether an action counts as a move or a press | `packages/core/src/actions.ts`, then the backend that carries it out |
+| How a run's ending is named, or what counts as a run that broke | `packages/reports/src/endings/`. A new outcome reason goes in `OUTCOME_REASONS` (`packages/core/src/trace/`) first; `runEnding` then does not compile until it places it |
+| What "reached N of M" counts | `measuredRuns` and `ranRuns` in `packages/reports/src/compare/` |
 | What the planner is told, or how a plan is followed | `packages/policies/src/llm/rules.ts`, `packages/policies/src/policy/` |
 | Moves, presses, typing, limits and cancellation | `packages/browser/src/runner/` |
 | Simulated VoiceOver wording or behaviour | `packages/screenreaders/src/mock-voiceover/` ([internals](./packages/screenreaders/src/mock-voiceover/README.md)) |
@@ -171,7 +175,7 @@ CI (`.github/workflows/ci.yml`) runs build, typecheck, `npm test` and the integr
 ## Repository rules
 
 - **Never name a real company or a real website.** Not in code, tests, fixtures, docs, commit messages or pull requests. Write "a real site". Test pages are the local files in `fixtures/`.
-- **Experiments stay outside the repository.** Lab configs, experiment projects, throwaway scripts and internal plan documents live on your machine, not in a commit. Use `.git/info/exclude` to keep them out of `git status`. This repository holds the library, its tests, fixtures, examples and docs.
+- **Experiments stay outside the repository.** Lab configs, experiment projects, throwaway scripts and internal plan documents live on your machine, not in a commit. Use `.git/info/exclude` to keep them out of `git status`. This repository holds the library, its tests, fixtures, examples and docs. The one exception is `experiments/native-voiceover/`: the harness that checks the engine against a real VoiceOver in a VM. It is kept here because `tests/native-voiceover-foundation*.test.ts` run its checks, and it calls the packages' own run executor rather than a copy. Its results stay out of the repository like any other experiment's.
 - **No secrets.** API keys go in `.env.local` or the process environment. `.env.*` files other than `.env.example` are git-ignored. A task file's input values are examples only.
 - **Keep the claim honest.** Simulated speech is never presented as native screen reader output, and a hint is never presented as a verdict. When you add wording, a table or a message that touches this, say what the evidence is.
 - **Use the terms the product uses.** The dashboard UI is in Korean and English, and every visible string goes through the locale files of both languages ([dashboard rules](./packages/dashboard/AGENTS.md#language)). Docs are in English and name dashboard screens by their English labels.

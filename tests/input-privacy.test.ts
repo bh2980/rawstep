@@ -172,17 +172,14 @@ describe('runner input privacy', () => {
     expect(last.speech).toEqual(['[REDACTED]']);
   });
 
-  it('passes sensitive:true by default and sensitive:false when configured to the backend', async () => {
+  it('gives the backend the text to type and nothing about whether it is a secret: withholding is the runner\'s own work', async () => {
     const f = screenReaderFixture();
     await runWithPolicy(task, { ...f, outDir: await out(), policy: recordingPolicy([type('email'), type('nick'), { stop: 'stuck' }]).policy });
-    expect(f.backend.execute).toHaveBeenNthCalledWith(1, { kind: 'typeText', text: secret, sensitive: true }, expect.anything());
-    expect(f.backend.execute).toHaveBeenNthCalledWith(2, { kind: 'typeText', text: 'rawstep-user', sensitive: false }, expect.anything());
-  });
-
-  it('passes sensitive:true for replaceText and for inputs without any inputOptions', async () => {
-    const f = screenReaderFixture();
-    await runWithPolicy({ ...task, inputOptions: undefined }, { ...f, outDir: await out(), policy: recordingPolicy([{ action: { kind: 'replaceText', input: 'nick' } }, { stop: 'stuck' }]).policy });
-    expect(f.backend.execute).toHaveBeenCalledWith({ kind: 'replaceText', text: 'rawstep-user', sensitive: true }, expect.anything());
+    expect(f.backend.execute).toHaveBeenNthCalledWith(1, { kind: 'typeText', text: secret }, expect.anything());
+    expect(f.backend.execute).toHaveBeenNthCalledWith(2, { kind: 'typeText', text: 'rawstep-user' }, expect.anything());
+    const replacing = screenReaderFixture();
+    await runWithPolicy({ ...task, inputOptions: undefined }, { ...replacing, outDir: await out(), policy: recordingPolicy([{ action: { kind: 'replaceText', input: 'nick' } }, { stop: 'stuck' }]).policy });
+    expect(replacing.backend.execute).toHaveBeenCalledWith({ kind: 'replaceText', text: 'rawstep-user' }, expect.anything());
   });
 
   it('withholds the speech right after a sensitive typing step and passes it through for sensitive:false', async () => {
@@ -222,7 +219,7 @@ describe('runner input privacy', () => {
     await runWithPolicy({ ...task, inputOptions: { email: { sensitive: false } } }, { ...f, outDir: await out(), policy });
     expect(speechOf(calls[1]!.observation)).toEqual(['Ready']);
     expect(speechOf(calls[2]!.observation)).toEqual([`Saved ${secret}`]);
-    expect(f.backend.execute).toHaveBeenCalledWith({ kind: 'typeText', text: secret, sensitive: false }, expect.anything());
+    expect(f.backend.execute).toHaveBeenCalledWith({ kind: 'typeText', text: secret }, expect.anything());
   });
 
   it.each(['7', '42', 'abc'])('does not substring-mask a short value (%j) in later speech, but still withholds the typing step', async value => {
@@ -233,7 +230,7 @@ describe('runner input privacy', () => {
     await runWithPolicy({ ...task, input: { email: value }, inputOptions: undefined }, { ...f, outDir: await out(), policy });
     expect(speechOf(calls[1]!.observation)).toEqual(['[typed input withheld]']);
     expect(speechOf(calls[2]!.observation)).toEqual([`Item ${value} of 10 about ${value}`]);
-    expect(f.backend.execute).toHaveBeenCalledWith({ kind: 'typeText', text: value, sensitive: true }, expect.anything());
+    expect(f.backend.execute).toHaveBeenCalledWith({ kind: 'typeText', text: value }, expect.anything());
   });
 
   it('masks a value of exactly 4 characters', async () => {

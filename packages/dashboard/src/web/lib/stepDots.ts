@@ -1,11 +1,9 @@
+import { isNavigation } from '@rawstep/core/actions';
 import type { Hint, RunStepsView, StepView } from '../../shared/api.js';
 import { describeStep } from './describe.js';
 import { t } from '../i18n/index.js';
 import { targetLabel } from '../i18n/labels.js';
 import { planMark } from './plan.js';
-
-const NAVIGATION_KEYS = new Set(['Tab', 'Shift+Tab', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 'PageUp', 'PageDown']);
-const NAVIGATION_INTENTS = new Set(['next', 'previous', 'heading.next', 'heading.previous', 'form.next', 'form.previous', 'link.next', 'link.previous']);
 
 /** `move`: a navigation key or intent, nothing else happened. `press`: the start, a stop, an activation, typing or a page change. */
 export type DotKind = 'move' | 'press';
@@ -14,8 +12,8 @@ export function dotKind(step: Pick<StepView, 'step' | 'action' | 'stop' | 'obser
   const action = step.action;
   if (!action || step.stop) return 'press';
   if (step.observed.some(change => change.kind === 'navigation')) return 'press';
-  if (action.kind === 'key' && action.key && NAVIGATION_KEYS.has(action.key)) return 'move';
-  return action.kind === 'intent' && action.intent && NAVIGATION_INTENTS.has(action.intent) ? 'move' : 'press';
+  // What counts as a move is the hints' own rule (core's action vocabulary), so the rail and the hints agree step by step.
+  return isNavigation(action.kind === 'key' ? { key: action.key } : action.kind === 'intent' ? { intent: action.intent } : {}) ? 'move' : 'press';
 }
 
 /** What a step is drawn as on the rails: `inspect` (◎, a hint points at it) wins over `press` (●) and `move` (·). The step's accessible label always names every one that applies. */

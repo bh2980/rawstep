@@ -4,15 +4,13 @@ import { resolveTask, type Task } from '@rawstep/core/contracts';
 import { readTrace, type RunOutcome, type TraceEvent } from '@rawstep/core/trace';
 import { aggregateHints, extractHints, HINTS_SCHEMA_VERSION, type HintFinding, type HintReport } from '@rawstep/reports/hints';
 import { buildBatchSummary, type BatchSummary } from '@rawstep/reports/compare';
-import { findByIdOrName, modelKeyRequired, profileConditions, firstProfile, type ManagedTask, type Profile, type ProjectConfig, type RunRules } from './config.js';
+import { findByIdOrName, firstProfile, type ManagedTask, type Profile, type ProjectConfig, type RunRules } from './config.js';
 import { ProjectError } from './errors.js';
-import { requireKey } from './finalize.js';
 import { ProjectStore } from './store.js';
-import { assertRunnable, checkRun } from './plan.js';
 import type { RunExecutor } from './execution.js';
-import { BatchQueue, type Executor, type LooseTask, type RunRecord } from './batch.js';
+import { BATCHES_DIR, BatchQueue, type Executor, type LooseTask, type RunRecord } from './batch.js';
 
-export { compareRepeats, finalizeRun, llmAnalyzer, projectAnalyzer, requireKey, type FinalizeOptions, type FinalizeResult } from './finalize.js';
+export { compareRepeats, finalizeRun, llmAnalyzer, projectAnalyzer, requireKey, runRecordOf, type FinalizeOptions, type FinalizeResult } from './finalize.js';
 
 export type RunTaskOptions = {
   /** The directory holding rawstep.config.json. Defaults to the current directory. */
@@ -87,8 +85,11 @@ async function loadTask(store: ProjectStore, config: ProjectConfig, reference: s
   return { entry: { id: looseId, name, file: relative(projectDir, path) }, task, loose: true };
 }
 
-/** The profiles a task usually runs with, in its order; without any, the project's first. */
-function usualProfiles(config: ProjectConfig, entry: ManagedTask): Profile[] {
+/**
+ * The profiles a task runs with when none is named, in its order; without any, the project's first. `rawstep suite` and `runSuite`
+ * use all of them, `rawstep run` and `runTask` the first, and `rawstep doctor` checks the task under each.
+ */
+export function usualProfiles(config: ProjectConfig, entry: ManagedTask): Profile[] {
   const usual = (entry.profiles ?? []).map(id => config.profiles.find(p => p.id === id)).filter((p): p is Profile => !!p);
   return usual.length ? usual : [firstProfile(config)];
 }
@@ -148,8 +149,8 @@ export async function runSuite(options: RunSuiteOptions = {}, internals: { execu
 }
 
 /**
- * Checks every task under every profile as a run would (a missing key or an unusable profile stops it here, before anything runs),
- * then runs them as one batch on the project's queue and reads back each run's outcome and hints.
+ * Plans every task under every profile on the project's queue, which checks each as a run (a missing key or an unusable profile stops
+ * it here with that reason, before anything runs), then runs them as one batch and reads back each run's outcome and hints.
  */
 async function runBatch(store: ProjectStore, config: ProjectConfig, tasks: { entry: ManagedTask; task: Task; loose: boolean }[], choice: { all: Profile[] } | { byTask: Record<string, Profile[]> }, options: RunTaskOptions, internals: { execute?: RunExecutor }) {
   const profilesOf = (taskId: string) => 'all' in choice ? choice.all : choice.byTask[taskId]!;
@@ -157,14 +158,6 @@ async function runBatch(store: ProjectStore, config: ProjectConfig, tasks: { ent
   const repeat = options.repeat ?? 1;
   if (!Number.isInteger(repeat) || repeat < 1 || repeat > MAX_REPEAT) throw new ProjectError('invalid-repeat', `The repeat count must be an integer from 1 to ${MAX_REPEAT}.`);
   if (options.parallel !== undefined && (!Number.isInteger(options.parallel) || options.parallel < 1 || options.parallel > 8)) throw new ProjectError('invalid-parallel', 'The number of runs at once must be an integer from 1 to 8.');
-  const warnings = new Set<string>();
-  for (const { entry, task, loose } of tasks) for (const profile of profilesOf(entry.id)) {
-    const check = assertRunnable(checkRun({ config, task, ...(loose ? {} : { taskEntry: entry }), runRules: options.runRules, ...profileConditions(profile) }));
-    for (const warning of check.warnings) warnings.add(warning);
-    if (check.plannerModel) await requireKey(store, check.plannerModel);
-    // Analysis never blocks a run: without its key the runs get the rule-based analysis only.
-    if (check.analysisModel && modelKeyRequired(check.analysisModel) && !await store.credential(check.analysisModel)) warnings.add(`The key for the analysis model "${check.analysisModel.name}" is not set; the runs get the rule-based analysis only.`);
-  }
   const signal = options.signal ?? new AbortController().signal;
   const cancelled = () => new ProjectError('cancelled', 'The run was cancelled. Traces written so far are kept.');
   if (signal.aborted) throw cancelled();
@@ -183,8 +176,11 @@ async function runBatch(store: ProjectStore, config: ProjectConfig, tasks: { ent
   });
   const queue = new BatchQueue(store, { via: 'cli', ...(options.parallel ? { parallel: options.parallel } : {}), ...(executor ? { executor } : {}), ...(options.onEvent ? { onRunEvent: (_batch, _run, event) => options.onEvent!(event) } : {}), ...(onRunEnd ? { onRunEnd } : {}) });
   const loose: Record<string, LooseTask> = Object.fromEntries(tasks.filter(t => t.loose).map(({ entry, task }) => [entry.id, { entry, task }]));
-  const experiment = await queue.create({ taskIds: tasks.map(t => t.entry.id), profileIds: profiles.map(p => p.id), repeats: repeat,
+  // The queue's plan is the one check of whether each run can start; its warnings are what is worth knowing that stops nothing.
+  const planned = await queue.plan({ taskIds: tasks.map(t => t.entry.id), profileIds: profiles.map(p => p.id), repeats: repeat,
     ...('byTask' in choice ? { profilesByTask: Object.fromEntries(tasks.map(t => [t.entry.id, profilesOf(t.entry.id).map(p => p.id)])) } : {}), ...(options.runRules ? { runRules: options.runRules } : {}), ...(options.note ? { note: options.note } : {}) }, loose);
+  const warnings = new Set(planned.rows.flatMap(row => row.warnings.map(warning => warning.text ?? warning.code)));
+  const experiment = await queue.start(planned);
   // A cancel stops what is waiting and the runs going; what they did is kept and finished (hints, report) before the cancel is reported.
   const stop = () => void queue.cancel(experiment.id).catch(() => {});
   signal.addEventListener('abort', stop, { once: true });
@@ -192,7 +188,7 @@ async function runBatch(store: ProjectStore, config: ProjectConfig, tasks: { ent
   if (signal.aborted) throw cancelled();
   const runs: BatchRun[] = [];
   for (const record of experiment.runs) runs.push(await readRun(queue, experiment.id, record, profiles));
-  const dir = await store.file('.rawstep/experiments/' + experiment.id);
+  const dir = await store.file(BATCHES_DIR + '/' + experiment.id);
   // The queue wrote the batch's summary.json when its last run ended; the result carries the same, read from these runs.
   const summary = buildBatchSummary({ id: experiment.id, createdAt: experiment.createdAt, ...(experiment.request.note ? { note: experiment.request.note } : {}) }, runs);
   return { batch: { id: experiment.id, dir }, summary, conditions: experiment.runs[0]?.snapshot.spec.conditions ?? {}, warnings: [...warnings], runs };

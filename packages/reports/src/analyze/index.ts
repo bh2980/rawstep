@@ -1,3 +1,4 @@
+import { isRecord } from '@rawstep/core/guards';
 import { mkdir, readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -34,9 +35,6 @@ export interface AnalysisReport extends AnalyzerResult {
 }
 export type AnalysisFailure = "cancelled" | "timeout" | "invalid-result" | "analyzer-error";
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
-}
 function freezeDeep<T>(value: T): T {
   if (value && typeof value === "object") {
     Object.freeze(value);

@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { launchTestBrowser } from './helpers/browser.js';
 import { chromium, type Browser, type BrowserContext } from 'playwright';
 import { MockVoiceOverBackend, MOCK_VOICEOVER_PROFILE } from '@rawstep/screenreaders/mock-voiceover/backend';
+import { getAtDriverProfile } from '@rawstep/screenreaders/at-driver';
+import { focusIsEditable } from '@rawstep/browser/browser/editable';
 
 let browser: Browser;
 const cleanup: (() => Promise<void>)[] = [];
@@ -167,11 +169,22 @@ describe('browser-backed simulated English VoiceOver profile in real Chromium', 
     const actual = [...f.initial.speech];
     for (let index = 0; index < 6; index++) actual.push(...await f.intent('next'));
     expect(actual).toEqual(['Welcome, heading, level 2', 'Read this introduction', 'Continue, button', 'Transparent, button', 'Far below', 'Unavailable, button, disabled', 'End of content']);
-    expect(await f.page.evaluate(() => document.activeElement === document.body)).toBe(true);
+    // Focus went with the cursor onto each button it could take, and stayed on the last one: text and a disabled button take none.
+    expect(await f.page.evaluate(() => document.activeElement?.textContent)).toBe('Transparent');
     expect(f.metadata).toMatchObject({ backend: 'mock-voiceover', profile: MOCK_VOICEOVER_PROFILE, evidenceProvenance: 'simulation', environment: { nativeScreenReader: false } });
     expect(JSON.stringify(f.events)).not.toMatch(/backendDOMNodeId|childIds|Hidden secret/);
     expect(f.loaded.outputs[0]?.raw).toMatchObject({ evidenceProvenance: 'simulation', announcement: 'page-title' });
     expect(f.initial.outputs[0]?.raw).toMatchObject({ evidenceProvenance: 'simulation', semantic: { name: 'Welcome', role: 'heading' } });
+  });
+
+  it('moves keyboard focus with the cursor, so a dialog gives focus back to the button that opened it', async () => {
+    const f = await fixture(`<p>Intro</p><button id="open" onclick="document.querySelector('dialog').showModal()">Open settings</button>
+      <dialog aria-label="Settings"><button onclick="this.closest('dialog').close()">Close</button></dialog>`);
+    expect(await f.intent('next')).toEqual(['Open settings, button']);
+    expect(await f.page.evaluate(() => document.activeElement?.id)).toBe('open');
+    expect(await f.intent('activate')).toEqual(['Close, button']);
+    await f.intent('activate');
+    expect(await f.page.evaluate(() => document.activeElement?.id)).toBe('open');
   });
 
   it('keeps its cursor independent of unchanged DOM focus and follows real Tab/Shift+Tab focus changes', async () => {
@@ -263,6 +276,25 @@ describe('browser-backed simulated English VoiceOver profile in real Chromium', 
     await expect(f.backend.execute({ kind: 'typeText', text: 'Forbidden' })).rejects.toThrow('actually focused');
   });
 
+  it('presses the same named keys as the real screen reader backends: select-all and Backspace empty a field', async () => {
+    const f = await fixture('<input aria-label="Name" value="Old name">');
+    await f.backend.execute({ kind: 'intent', intent: 'activate' });
+    await f.backend.observe();
+    await f.key('Mod+A');
+    await f.key('Backspace');
+    expect(await f.page.locator('input').inputValue()).toBe('');
+    expect(new MockVoiceOverBackend().capabilities.keys).toEqual(getAtDriverProfile('voiceover').capabilities.keys);
+    expect(new MockVoiceOverBackend().capabilities.keys).toEqual(getAtDriverProfile('nvda').capabilities.keys);
+  });
+
+  it('refuses text for a focused field marked aria-disabled, as the runner\'s gate does', async () => {
+    const f = await fixture('<div aria-disabled="true"><input aria-label="Locked"></div>');
+    await f.key('Tab');
+    await expect(f.backend.execute({ kind: 'typeText', text: 'Forbidden' })).rejects.toThrow('actually focused');
+    expect(await f.page.evaluate(focusIsEditable, null)).toBe(false);
+    expect(await f.page.locator('input').inputValue()).toBe('');
+  });
+
   it.each([
     '<input aria-label="Read only" readonly>', '<textarea aria-label="Read only" readonly></textarea>',
     '<input type="checkbox" aria-label="Check">', '<div role="textbox" aria-label="Not actually editable" tabindex="0"></div>',
@@ -325,7 +357,7 @@ describe('browser-backed simulated English VoiceOver profile in real Chromium', 
     expect(typed).toHaveBeenCalledTimes(1);
     await expect(f.backend.execute({ kind: 'intent', intent: 'interact' })).rejects.toThrow('Unsupported');
     await expect(f.backend.execute({ kind: 'intent', intent: 'rotor' })).rejects.toThrow('Unsupported');
-    await expect(f.backend.execute({ kind: 'key', key: 'PageDown' })).rejects.toThrow('Unsupported');
+    await expect(f.backend.execute({ kind: 'key', key: 'F13' })).rejects.toThrow('Unsupported');
     expect(await f.page.locator('input').inputValue()).toBe('a');
   });
 

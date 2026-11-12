@@ -1,6 +1,6 @@
+import { isRecord } from '@rawstep/core/guards';
 export type RawEventLike = { type: string; data: unknown };
 
-const isRecord = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
 
 /**
  * Groups recorded trace events by the step they belong to. A decision names its step; events without a number

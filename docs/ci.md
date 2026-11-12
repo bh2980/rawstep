@@ -65,7 +65,7 @@ When `--baseline` is provided, `--fail-on` defaults to `reach`. You can pass a c
 | :--- | :--- | :--- |
 | **`reach`** *(default)* | The share of measured runs that reached the goal dropped compared to the baseline. | Judged only when both sides have at least 2 measured runs. A change of one run or less on the smaller side is noise. |
 | **`moves`** | Reaching the goal took significantly more moves than in the baseline. | Judged only when both sides have at least 2 runs that reached the goal. The new median must fall outside the baseline's `min`..`max`, widened on each side by 3 moves or 20% of the baseline median, whichever is more. |
-| **`stuck`** | An element became a new **stuck place**: it appears in at least 50% of the new batch's measured runs for that `(task, profile)` cell and in none of the baseline's. | Compares stuck elements per cell; a place seen in fewer than half the runs is noise. |
+| **`stuck`** | An element became a new **stuck place**: it appears in at least 50% of the new batch's runs that ran for that `(task, profile)` cell (every run but the ones that ended on an error, measured or not) and in none of the baseline's. | Compares stuck elements per cell; a place seen in fewer than half the runs is noise. |
 | **`missing`** | A `(task, profile)` pair present in the baseline is absent from the new batch. A pair with no measured runs is reported as "not compared" and never fails. | Ensures coverage wasn't accidentally dropped. |
 
 ---

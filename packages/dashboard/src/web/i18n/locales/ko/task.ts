@@ -39,7 +39,7 @@ export const taskUi = {
       guesses: '{{n}}번',
       endings: { reached: '해냄', 'gave-up': '포기함', mistaken: '잘못 끝냄', unmeasured: '측정 못 함' },
       endingsShort: { reached: '해냄', 'gave-up': '포기', mistaken: '잘못 끝냄', unmeasured: '측정 못 함' },
-      by: { unconfirmed: '확인 안 됨', 'planner-calls': '계획 호출 한도', 'no-allowed-action': '허용된 동작 없음', 'max-steps': '최대 행동 수', timeout: '시간 한도', 'repetition-guard': '반복 감시', 'model-uncertain': '모델이 확신 못 함', 'planner-timeout': '플래너가 제때 답하지 않음', blocked: '사이트가 브라우저를 막음', environment: '페이지 환경을 적용하지 못함', other: '기타' },
+      by: { unconfirmed: '확인 안 됨', 'planner-calls': '계획 호출 한도', 'no-allowed-action': '허용된 동작 없음', 'max-steps': '최대 행동 수', timeout: '시간 한도', 'repetition-guard': '반복 감시', 'model-uncertain': '모델이 확신 못 함', 'planner-timeout': '계획 모델이 제때 답하지 않음', blocked: '사이트가 브라우저를 막음', environment: '페이지 환경을 적용하지 못함', other: '기타' },
       byCount: '{{label}} {{count}}',
       none: '없음',
       giveUpTitle: '포기한 이유',
@@ -364,9 +364,6 @@ export const taskUi = {
     liveInterruptions: '사용자가 이동하는 동안 라이브 영역이 스스로 계속 읽어, 이동할 때 들리는 말을 가렸습니다.',
     backtracking: '같은 두 요소 사이를 한 실행에서 최대 {{max}}번 이동했습니다.',
     backtrackingPlain: '같은 두 요소 사이를 오가며 탐색 방향이 바뀌었습니다.',
-    earlyStopGuard: '반복 감시 장치가 실행을 중단했습니다.',
-    earlyStopStuck: '막혔다고 판단해 실행이 멈췄습니다.',
-    earlyStopUncertain: '확신하지 못한다고 판단해 실행이 멈췄습니다.',
   },
   runPage: {
     breadcrumb: '경로',

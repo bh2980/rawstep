@@ -1,0 +1,17 @@
+{
+  "id": "remove-item",
+  "url": "../../fixtures/remove-item.html",
+  "goal": "Remove the mug from the cart.",
+  "maxSteps": 20,
+  "timeoutMs": 180000,
+  "verify": {
+    "all": [
+      {
+        "script": {
+          "description": "The mug is no longer in the cart list",
+          "source": "() => ![...document.querySelectorAll('#items li')].some(item => item.textContent.includes('Demo mug'))"
+        }
+      }
+    ]
+  }
+}

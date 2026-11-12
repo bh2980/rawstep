@@ -75,7 +75,7 @@ There is no viewport, opacity or tab-order filter: if Chromium exposes it, it is
 | `links.list` | One announcement of every link name: `Links, 2 items: Home; Cart`. The cursor does not move. With none: `Links, no items`. |
 | `formControls.rotor` | Opens the rotor on form controls (buttons included) at the first one in page order. Two utterances: `Form controls, N items`, then the first item. While open: `next` and `previous` move one item and speak it (they stop at the ends, they do not wrap); `activate` moves the cursor to that item without pressing it and closes the rotor; `Escape` closes it and speaks the current stop; any other action closes it first. With none: `Form controls, no items`. Typing to filter the list is not modelled. |
 | `activate` | Clicks or focuses the object under the cursor (see below), then speaks the current stop. |
-| `Tab`, `Shift+Tab`, `Enter`, `Space`, `Escape`, arrow keys, `Home`, `End` | Sent to the page as real key presses. The cursor follows any focus change, then the current stop is spoken. Arrow, `Home` and `End` reach the page as with Quick Nav off, so menus, tabs and radio groups that move focus with them are announced at the new focus. `Enter` or `Space` on a disabled focused object fails. |
+| `Tab`, `Shift+Tab`, `Enter`, `Shift+Enter`, `Space`, `Escape`, `Backspace`, `Delete`, arrow keys, `Home`, `End`, `PageUp`, `PageDown`, `Mod+A` | The same named keys as the real screen reader backends (core's `BACKEND_KEYS`). Sent to the page as real key presses; `Mod+A` is the browser's select-all. The cursor follows any focus change, then the current stop is spoken. Arrow, `Home` and `End` reach the page as with Quick Nav off, so menus, tabs and radio groups that move focus with them are announced at the new focus. `Enter` or `Space` on a disabled focused object fails. |
 | `typeText`, `replaceText` | Types a named task input character by character into the focused field. See below. |
 
 Which of these a planner may use is set by the run profile's allowed actions; the backend supports all of them. An action it does not list fails before anything happens.
@@ -274,7 +274,7 @@ If you add a rule, add the reported speech that backs it to the table above, or 
 ## Tests
 
 - `tests/mock-voiceover-evidence.test.ts`: the 13 VoiceOver wording cases, simulation provenance, the secure-field rule and that internal roles are never spoken.
-- `tests/mock-voiceover-browser.integration.test.ts`: the backend against real Chromium: static text, independent focus, dynamic node changes, native and broken custom widgets, dialog focus, real key presses, secure fields, input focus changes and cancellation.
+- `tests/mock-voiceover-browser.integration.test.ts`: the backend against real Chromium: static text, focus following the cursor, dynamic node changes, native and broken custom widgets, dialog focus, real key presses, secure fields, input focus changes and cancellation.
 - `tests/mock-runner.integration.test.ts`, `tests/observer-browser.integration.test.ts`: runs through the runner on the simulation.
 - `tests/evidence-corpus.test.ts`, `tests/evidence-coverage.test.ts`, `tests/evidence-corpus-browser.integration.test.ts`: the corpus, coverage summary and abstaining mock.
 

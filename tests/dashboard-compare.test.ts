@@ -11,7 +11,7 @@ import { HINT_SOURCES, type Hint, type HintKind, type HintReport } from '@rawste
 import type { ComparedRun, RunComparison, RunResult } from '../packages/dashboard/src/shared/api.js';
 import { parseRoute, routeSearch } from '../packages/dashboard/src/web/hooks/useRoute.js';
 import { i18n } from '../packages/dashboard/src/web/i18n/index.js';
-import { compareDifferences, describeChange, describeRuns, describeSet, groupRuns, sideOfRuns, varyingParts, type CompareRun } from '../packages/dashboard/src/web/lib/compare.js';
+import { compareDifferences, describeChange, describeRuns, describeSet, groupRuns, sideOfRuns, varyingParts, type CompareRun, type Side } from '../packages/dashboard/src/web/lib/compare.js';
 import type { RunRef } from '../packages/dashboard/src/web/lib/runs.js';
 import { connection, profileWith } from './helpers/project-config.js';
 
@@ -89,39 +89,42 @@ describe('comparing runs across tasks', () => {
 });
 
 const result = (extra: Partial<RunResult>): RunResult => ({ experimentId: 'e', runId: 'r', profileId: 'p', ending: 'reached', steps: 10, stretch: null, wrongGuesses: 0, stuck: [], differs: false, ...extra });
-const side = (results: Partial<RunResult>[], stuck: { role: string; name?: string }[] = []) => ({ results: results.map(extra => result(extra)), stuck });
+/** A side from its runs; `on` lists the elements a run's user got stuck on. */
+const side = (runs: (Partial<RunResult> & { on?: { role: string; name?: string }[] })[]): Side => runs.map(({ on = [], ...extra }) => ({ result: result(extra), stuck: on }));
 
-describe('the sentence at the top of a comparison', () => {
-  const labels = { first: 'before', second: 'after' };
+describe('the sentences at the top of a comparison', () => {
+  const labels = { first: 'before', second: 'after' }, sides = 'Baseline: before. Compared with it: after.';
 
-  it('says what changed in plain counts, never which side is better', () => {
-    const before = side([{ ending: 'reached', steps: 34, stretch: 12 }, { ending: 'gave-up', steps: 20 }, { ending: 'gave-up', steps: 22 }], [subscribe]);
-    const after = side([{ steps: 16, stretch: 4 }, { steps: 16 }, { steps: 20 }]);
+  it('lists only what changed beyond the spread between repeats, judged and worded as the batch summary page does', () => {
+    const before = side([{ steps: 34 }, { ending: 'gave-up', steps: 20, on: [subscribe] }, { ending: 'gave-up', steps: 22, on: [subscribe] }, { ending: 'gave-up', steps: 25, on: [subscribe] }]);
+    const after = side([{ steps: 16 }, { steps: 16 }, { steps: 20 }, { steps: 18 }]);
     expect(describeChange(before, after, labels)).toEqual([
-      'Reached the goal in 1 of 3 runs (before) and 3 of 3 (after).',
-      'Median moves of the runs that reached the goal went from 34 to 16.',
-      'The longest stretch without a goal word went from 12 to 4 moves.',
-      'Stuck places no longer seen: button “Subscribe”. New: none.',
+      sides,
+      'Reached the goal in 4 of 4 runs, against 1 of 4 in the baseline.',
+      'No longer a stuck place: button “Subscribe” (in the baseline: 3 of 4 runs).',
     ]);
-    // New places are named too, a few at a time; the same places on both sides are said to be the same.
-    const four = [1, 2, 3, 4].map(n => ({ role: 'link', name: `Link ${n}` }));
-    expect(describeChange(side([{}]), side([{}], four), labels).at(-1)).toBe('Stuck places no longer seen: none. New: link “Link 1”, link “Link 2”, link “Link 3” and 1 more.');
-    expect(describeChange(side([{}], [subscribe]), side([{}], [subscribe]), labels).at(-1)).toBe('The stuck places are the same on both sides.');
-    expect(describeChange(side([{}]), side([{}]), labels).at(-1)).toBe('No stuck places on either side.');
-  });
-
-  it('keeps one run and one move in the singular, and says so when a side reached the goal in no run', () => {
-    expect(describeChange(side([{ ending: 'gave-up' }]), side([{ steps: 1 }]), labels).slice(0, 2)).toEqual([
-      'Reached the goal in 0 of 1 run (before) and 1 of 1 (after).',
-      'Only the runs after reached the goal, in a median of 1 move.',
-    ]);
-    expect(describeChange(side([{ steps: 8 }]), side([{ steps: 8 }]), labels)[1]).toBe('Median moves of the runs that reached the goal stayed at 8.');
+    // One run going the other way is within the spread between repeats: it is not listed as a change.
+    expect(describeChange(side([{}, {}, { ending: 'gave-up' }]), side([{}, {}, {}]), labels)).toEqual([sides, 'Within noise']);
+    // One run a side cannot tell a change from chance.
+    expect(describeChange(side([{ ending: 'gave-up', on: [subscribe] }]), side([{ steps: 1 }]), labels)).toEqual([sides, 'No longer a stuck place: button “Subscribe” (in the baseline: 1 of 1 runs).']);
+    expect(describeChange(side([{}]), side([{}]), labels)).toEqual([sides, 'Too few repeats to tell']);
+    // A run that was not measured is beside the rate, not in it: two measured runs a side are what the reach is judged on.
+    expect(describeChange(side([{}, {}, { ending: 'unmeasured', by: 'timeout' }]), side([{}, {}, { ending: 'unmeasured', by: 'timeout' }]), labels)).toEqual([sides, 'Within noise']);
     // A side with nothing finished has nothing to set against.
     expect(describeChange(side([]), side([{}]), labels)).toEqual(['No run has finished before, so there is nothing to compare.']);
   });
 
+  it('compares each run profile with itself and names it, so results of different users are not mixed', () => {
+    const four = (profileId: string, ending: RunResult['ending']) => [1, 2, 3, 4].map(() => ({ profileId, ending }));
+    const before = side([...four('a', 'reached'), ...four('b', 'gave-up')]), after = side([...four('a', 'reached'), ...four('b', 'reached')]);
+    const names: Record<string, string> = { a: 'Item by item', b: 'By headings' };
+    expect(describeChange(before, after, labels, { byProfile: true, profileName: id => names[id]! })).toEqual([sides, 'By headings: Reached the goal in 4 of 4 runs, against 0 of 4 in the baseline.']);
+    // Mixed into one side, the same runs would read as 4 of 8 against 8 of 8.
+    expect(describeChange(before, after, labels)).toEqual([sides, 'Reached the goal in 8 of 8 runs, against 4 of 8 in the baseline.']);
+  });
+
   it('describes runs that have nothing to be set against once, by their counts', () => {
-    expect(describeSet(side([{ steps: 4 }, { steps: 10 }, { ending: 'gave-up' }], [subscribe]))).toEqual([
+    expect(describeSet(side([{ steps: 4 }, { steps: 10 }, { ending: 'gave-up', on: [subscribe] }]))).toEqual([
       'Reached the goal in 2 of 3 runs.', 'The runs that reached the goal took 4 to 10 moves, typically 7.', 'Stuck places: button “Subscribe”.']);
     expect(describeSet(side([{ steps: 1 }]))).toEqual(['Reached the goal in 1 of 1 run.', 'The runs that reached the goal all took 1 move.', 'No stuck places.']);
   });
@@ -129,10 +132,10 @@ describe('the sentence at the top of a comparison', () => {
   it('reads in Korean in the dashboard\'s formal style, with the same numbers', async () => {
     await i18n.changeLanguage('ko');
     try {
-      expect(describeChange(side([{ ending: 'gave-up' }, { steps: 34 }, { ending: 'gave-up' }], [subscribe]), side([{ steps: 16 }, { steps: 16 }, { steps: 20 }]), { first: '전', second: '후' })).toEqual([
-        '목표에 닿은 실행은 3번 중 1번(전), 3번 중 3번(후)입니다.',
-        '목표에 닿은 실행의 행동 수는 보통 34번에서 16번으로 바뀌었습니다.',
-        '더는 보이지 않는 막힌 곳: 버튼 “Subscribe”. 새로 생긴 막힌 곳: 없음.',
+      const before = side([{ steps: 34 }, { ending: 'gave-up' }, { ending: 'gave-up' }, { ending: 'gave-up' }]), after = side([{ steps: 16 }, { steps: 16 }, { steps: 20 }, { steps: 18 }]);
+      expect(describeChange(before, after, { first: '전', second: '후' })).toEqual([
+        '기준: 전. 비교한 쪽: 후.',
+        '목표에 닿은 실행이 4번 중 4번입니다. 기준은 4번 중 1번입니다.',
       ]);
     } finally { await i18n.changeLanguage('en'); }
   });
@@ -159,9 +162,10 @@ describe('which runs are set against which', () => {
   it('describes a before-fix task against an after-fix task by the task names', () => {
     const before = run('Subscribe, before', 'e1', 1, '2026-10-01T00:00:00Z'), after = run('Subscribe, after', 'e2', 1, '2026-10-02T00:00:00Z');
     const lines = describeRuns([item(after, { result: result({ steps: 16 }) }), item(before, { result: result({ ending: 'gave-up', steps: 40 }), stuck: [{ target: subscribe, step: 4 }] })]);
-    expect(lines[0]).toBe('Reached the goal in 0 of 1 run (Subscribe, before) and 1 of 1 (Subscribe, after).');
-    expect(lines.at(-1)).toBe('Stuck places no longer seen: button “Subscribe”. New: none.');
-    expect(sideOfRuns([{ experimentId: 'e', runId: 'r', taskId: 't', profileId: 'p', result: null, stuck: [{ target: subscribe, step: 1 }] }]).results).toEqual([]);
+    // The earlier task is the baseline; the stuck place seen in its one run is gone in the later one.
+    expect(lines).toEqual(['Baseline: Subscribe, before. Compared with it: Subscribe, after.', 'No longer a stuck place: button “Subscribe” (in the baseline: 1 of 1 runs).']);
+    // A picked run without a result is on no side.
+    expect(sideOfRuns([{ experimentId: 'e', runId: 'r', taskId: 't', profileId: 'p', result: null, stuck: [{ target: subscribe, step: 1 }] }])).toEqual([]);
   });
 
   it('tells when the runs differ in the profile, the goal or the rest of the conditions', () => {

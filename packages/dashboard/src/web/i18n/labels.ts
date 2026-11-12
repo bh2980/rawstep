@@ -25,15 +25,6 @@ export function targetLabel(target: { role: string; name?: string } | undefined)
   return target.name ? t('hints.text.targetNamed', { role: roleLabel(target.role), name: target.name }) : roleLabel(target.role);
 }
 
-/** The label for a recorded outcome reason; unknown reasons are shown as recorded. */
-export function outcomeReasonLabel(reason: string): string {
-  return has(core.run.outcomeReasons, reason) ? lookup(`run.outcomeReasons.${reason}`) : reason;
-}
-
-export function runStateLabel(state: string): string {
-  return has(core.runStates, state) ? lookup(`runStates.${state}`) : state;
-}
-
 /** Label for a recorded intent such as 'next' or 'heading.next'; unknown intents are shown as recorded. */
 export function intentLabel(intent: string): string {
   if (has(core.steps.intents, intent)) return lookup(`steps.intents.${intent}`);

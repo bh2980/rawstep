@@ -1,4 +1,5 @@
-import type { BatchSummary, CellComparison, SummaryCell, SummaryComparison } from '@rawstep/reports/compare';
+import { measuredRuns, ranRuns, type BatchSummary, type CellComparison, type SummaryCell, type SummaryComparison } from '@rawstep/reports/compare';
+import { median } from '@rawstep/reports/endings';
 import type { TaskBatch } from '../../shared/api.js';
 import type { Experiment } from '../../shared/config.js';
 import { t } from '../i18n/index.js';
@@ -17,26 +18,24 @@ export function experimentBatch(experiment: Experiment): TaskBatch {
 export const batchesNewestFirst = (experiments: readonly Experiment[], except?: string): Experiment[] =>
   experiments.filter(experiment => experiment.id !== except).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
-const median = (values: readonly number[]): number | null => {
-  if (!values.length) return null;
-  const sorted = [...values].sort((a, b) => a - b), middle = sorted.length >> 1;
-  return sorted.length % 2 ? sorted[middle]! : (sorted[middle - 1]! + sorted[middle]!) / 2;
-};
-
-/** What a summary cell says in numbers. `measured` leaves out runs that ended on an error: they say nothing about the page. */
+/**
+ * What a summary cell says in numbers, counted as the comparison counts them (`measuredRuns`, `ranRuns`). `measured` is the runs that
+ * said something about the user (reached, gave up, said done): the M of "reached N of M". `ran` also has the runs that were not
+ * measured, and leaves out only the ones that ended on an error: the M of "stuck in N of M", since hints are counted over those.
+ */
 export type CellFacts = {
-  runs: number; measured: number; reached: number; unconfirmed: number; gaveUp: number; mistaken: number; unmeasured: number; errors: number;
+  runs: number; measured: number; ran: number; reached: number; unconfirmed: number; gaveUp: number; mistaken: number; unmeasured: number; errors: number;
   median: number | null; min: number | null; max: number | null;
 };
 export function cellFacts(cell: SummaryCell): CellFacts {
   const moves = cell.reachedMoves;
-  return { runs: cell.runs, measured: cell.runs - cell.endings.error, reached: cell.endings.reached, unconfirmed: cell.unconfirmed ?? 0, gaveUp: cell.endings['gave-up'], mistaken: cell.endings.mistaken,
+  return { runs: cell.runs, measured: measuredRuns(cell), ran: ranRuns(cell), reached: cell.endings.reached, unconfirmed: cell.unconfirmed ?? 0, gaveUp: cell.endings['gave-up'], mistaken: cell.endings.mistaken,
     unmeasured: cell.endings.unmeasured, errors: cell.endings.error, median: median(moves), min: moves.length ? Math.min(...moves) : null, max: moves.length ? Math.max(...moves) : null };
 }
 
 const place = (item: { role: string; name?: string }) => targetLabel({ role: item.role, ...(item.name ? { name: item.name } : {}) });
 /** "버튼 “결제” · 3번 중 2번": a stuck place of a cell with the runs it came up in. */
-export const stuckText = (cell: SummaryCell, item: SummaryCell['stuck'][number]): string => t('batchSummary.stuckPlace', { place: place(item), runs: item.runs, total: cellFacts(cell).measured });
+export const stuckText = (cell: SummaryCell, item: SummaryCell['stuck'][number]): string => t('batchSummary.stuckPlace', { place: place(item), runs: item.runs, total: cellFacts(cell).ran });
 
 export type CellChange = { status: 'changed' | 'noise' | 'few'; sentences: string[] };
 /**
@@ -56,9 +55,9 @@ export function describeCellChange(cell: CellComparison): CellChange {
         return head && base && cell.movesBand && head.median !== null && base.min !== null && base.max !== null
           ? [t('batchSummary.changes.moves', { median: head.median, low: cell.movesBand[0], high: cell.movesBand[1], min: base.min, max: base.max })] : [];
       case 'stuck-new':
-        return change.place && head ? [t('batchSummary.changes.stuckNew', { place: place(change.place), runs: change.place.runs, total: head.measured })] : [];
+        return change.place && head ? [t('batchSummary.changes.stuckNew', { place: place(change.place), runs: change.place.runs, total: head.ran })] : [];
       case 'stuck-gone':
-        return change.place && base ? [t('batchSummary.changes.stuckGone', { place: place(change.place), runs: change.place.runs, total: base.measured })] : [];
+        return change.place && base ? [t('batchSummary.changes.stuckGone', { place: place(change.place), runs: change.place.runs, total: base.ran })] : [];
       case 'cell-new': return [t('batchSummary.changes.cellNew')];
       case 'cell-gone': return [t('batchSummary.changes.cellGone')];
     }
@@ -93,7 +92,7 @@ export const SUMMARY_CSV_COLUMNS = ['batch', 'date', 'task', 'profile', 'runs', 
 export function summaryCsv(summary: BatchSummary): string {
   return csvText([SUMMARY_CSV_COLUMNS, ...summary.cells.map(cell => { const f = cellFacts(cell);
     return [summary.batch.note ?? summary.batch.id, summary.batch.createdAt, cell.taskName, cell.profileName, f.runs, f.reached, f.unconfirmed, f.gaveUp, f.mistaken, f.unmeasured, f.errors, f.median, f.min, f.max,
-      cell.stuck.map(item => `${placeName(item)} (${item.runs}/${f.measured})`).join('; '), cell.pageFindings.length]; })]);
+      cell.stuck.map(item => `${placeName(item)} (${item.runs}/${f.ran})`).join('; '), cell.pageFindings.length]; })]);
 }
 
 /** One run of the run export. */

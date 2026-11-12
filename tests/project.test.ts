@@ -145,6 +145,19 @@ describe('project store', () => {
       await expect(store.read()).rejects.toMatchObject({ code: 'old-config', message: expect.stringMatching(new RegExp(`version ${version}.*rawstep init`)) });
     }
   });
+  it('refuses a broken config with the same readable lines when it is saved as when it is read, and a broken page environment as a config problem', async () => {
+    const dir = await root(), store = new ProjectStore(dir), initial = await store.initialize();
+    const broken = JSON.parse(JSON.stringify(defaultConfig()));
+    broken.profiles[0].runRules.failureLimit = 500;
+    const saved = await store.save(broken, initial.revision).catch(e => e as ProjectError);
+    expect(saved).toMatchObject({ code: 'invalid-config', message: 'rawstep.config.json · profiles[0].runRules.failureLimit: must be at most 100 (now: 500)' });
+    // What only the reference check finds is a config problem too, not an unnamed failure.
+    const odd = JSON.parse(JSON.stringify(defaultConfig()));
+    odd.profiles[0].page = 'no-such-environment';
+    await expect(store.save(odd, initial.revision)).rejects.toMatchObject({ code: 'invalid-config', message: expect.stringContaining('rawstep.config.json is not valid') });
+    await writeFile(store.path, JSON.stringify(odd));
+    await expect(store.read()).rejects.toMatchObject({ code: 'invalid-config', message: expect.stringContaining('rawstep.config.json is not valid') });
+  });
   it('says what is wrong with a config as readable lines with the path and the value found, not as a JSON array', async () => {
     const dir = await root(), store = new ProjectStore(dir);
     const broken = JSON.parse(JSON.stringify(defaultConfig()));
@@ -216,15 +229,12 @@ describe('project store', () => {
     expect((error as ProjectError).message).toBe('IDs must be unique: profiles has the ID "default" more than once.');
     const base = setup();
     expect(() => store.validateReferences({ ...base, tasks: [...base.tasks, { id: base.tasks[0]!.id, name: 'Other', file: 'other.json' }] })).toThrow(expect.objectContaining({ code: 'duplicate-id', message: 'IDs must be unique: tasks has the ID "task" more than once.' }));
-    expect(() => store.validateReferences({ ...base, connections: [...base.connections, { ...base.connections[0]! }] })).toThrow(expect.objectContaining({ code: 'duplicate-id', message: 'IDs must be unique: connections has the ID "a" more than once.' }));
     expect(() => store.validateReferences({ ...base, tasks: [...base.tasks, { id: 'other', name: 'Other', file: base.tasks[0]!.file }] })).toThrow(expect.objectContaining({ code: 'duplicate-task-file', message: 'Task file paths must be unique: "task.json" is used by more than one task.' }));
     await expect(store.save(setup(), initial.revision, { file: 'rawstep.config.json', task })).rejects.toMatchObject({ code: 'task-file-reserved' });
     expect(() => store.validateReferences({ ...setup(), profiles: [{ ...defaultProfile(), page: 'no-such-environment' }] })).toThrow();
   });
   it.each([
     ['duplicate-id', (c: ProjectConfig) => { c.profiles.push(defaultProfile('default', 'Again')); }],
-    ['profile-connection-missing', (c: ProjectConfig) => { Object.assign(c.profiles[0]!, profileWith('default', 'ghost')); }],
-    ['analysis-connection-missing', (c: ProjectConfig) => { c.project.analysis.model = { connectionId: 'ghost', modelId: 'writer' }; }],
     ['duplicate-task-file', (c: ProjectConfig) => { c.tasks.push({ id: 'other', name: 'Other', file: 'task.json' }); }],
   ])('validates references: %s', async (code, change) => {
     const store = new ProjectStore(await root()), config = setup(); change(config);
@@ -512,7 +522,7 @@ describe('first profile of a project', () => {
     expect(record.combo).not.toHaveProperty('structure'); expect(record).not.toHaveProperty('preset');
     for (const gone of ['executor', 'followPlan', 'prompt']) expect(record.combo).not.toHaveProperty(gone);
     const spec = runSpecOf(task as never, conditions, check);
-    expect(spec).toMatchObject({ backend: 'simulation', plannerModel: { id: 'setup-llm', modelId: 'planner' }, plannerInstructions: '', conditions: record });
+    expect(spec).toMatchObject({ backend: 'simulation', planner: { model: { id: 'setup-llm', modelId: 'planner' }, instructions: '' }, conditions: record });
     for (const gone of ['mode', 'executor', 'model', 'prompt']) expect(spec).not.toHaveProperty(gone);
   });
 });
@@ -554,7 +564,7 @@ describe('run checks', () => {
   });
   it('never blocks a run on analysis: a model on a connection that is gone only warns, only the project\'s analysis model is used', () => {
     const bad = check(setup(), c => { c.project.analysis.model = { connectionId: 'ghost', modelId: 'writer' }; });
-    expect(bad.problem).toBeUndefined(); expect(bad.analysisModel).toBeUndefined(); expect(bad.warnings).toEqual([expect.stringMatching(/not on an LLM connection.*rules only/)]);
+    expect(bad.problem).toBeUndefined(); expect(bad.analysisModel).toBeUndefined(); expect(bad.warnings).toEqual([{ code: 'analysis-not-llm', text: expect.stringMatching(/not on an LLM connection.*rules only/) }]);
     const project = check(setup(), c => { withLlm(c); c.project.analysis.model = { connectionId: 'llm', modelId: 'writer' }; });
     expect(project.problem).toBeUndefined(); expect(project.warnings).toEqual([]); expect(project.analysisModel).toMatchObject({ id: 'llm', modelId: 'writer' });
     expect(check(setup()).warnings).toEqual([]);
@@ -594,8 +604,8 @@ describe('run checks', () => {
     it('hand the planner and its added instructions to the run spec, and nothing of an executor', () => {
       const config = setup(); Object.assign(config.profiles[0]!, profileWith('default', 'setup-llm', 'planner', 'Default', 'Plan in small steps'));
       const spec = runSpecOf(task as never, profileConditions(config.profiles[0]!), assertRunnable(check(config)));
-      expect(spec).toMatchObject({ plannerModel: { id: 'setup-llm', modelId: 'planner' }, plannerInstructions: 'Plan in small steps' });
-      expect(spec).not.toHaveProperty('plannerPlan');
+      expect(spec).toMatchObject({ planner: { model: { id: 'setup-llm', modelId: 'planner' }, instructions: 'Plan in small steps' } });
+      expect(spec.planner).not.toHaveProperty('plan');
     });
   });
   describe('assistive technology', () => {
@@ -648,7 +658,7 @@ describe('runTask', () => {
     const { dir } = await project(), { calls, execute } = player(recorded(['Tab', 'Enter'], 'success'));
     const result = await runTask('task', { projectDir: dir }, { execute });
     expect(calls).toHaveLength(1);
-    expect(calls[0]!.spec).toMatchObject({ backend: 'simulation', plannerModel: { id: 'setup-llm' }, task: { goal: 'Complete fixture' }, environment: expect.objectContaining({ id: 'default' }) });
+    expect(calls[0]!.spec).toMatchObject({ backend: 'simulation', planner: { model: { id: 'setup-llm' } }, task: { goal: 'Complete fixture' }, environment: expect.objectContaining({ id: 'default' }) });
     expect(calls[0]!.spec).not.toHaveProperty('mode'); expect(calls[0]!.spec).not.toHaveProperty('model'); expect(calls[0]!.spec).not.toHaveProperty('prompt');
     expect(calls[0]!.spec.permissions.intents).toContain('next');
     expect(dirname(calls[0]!.outDir)).toBe(result.batch.dir); expect(dirname(result.batch.dir)).toBe(join(dir, '.rawstep', 'experiments'));
@@ -700,8 +710,8 @@ describe('runTask', () => {
     await runTask('task', { projectDir: dir, profile: 'Small screen' }, { execute });
     await runTask('task', { projectDir: dir, profile: 'Default' }, { execute });
     await runTask('task', { projectDir: dir, profile: 'Wide' }, { execute });
-    expect(calls.map(c => c.spec.plannerModel!.id)).toEqual(['b', 'b', 'setup-llm', 'a']);
-    expect(calls[0]!.spec.plannerModel).toMatchObject({ modelId: 'plan-b', name: 'b · plan-b' });
+    expect(calls.map(c => c.spec.planner.model!.id)).toEqual(['b', 'b', 'setup-llm', 'a']);
+    expect(calls[0]!.spec.planner.model).toMatchObject({ modelId: 'plan-b', name: 'b · plan-b' });
     expect(calls.map(c => (c.spec.environment as { id: string }).id)).toEqual(['narrow', 'narrow', 'default', 'default']);
     expect(calls[3]!.spec.permissions.keys).toEqual(['Tab']); expect(calls[3]!.spec.conditions).toMatchObject({ profile: { id: 'wide', name: 'Wide' }, actionSet: { id: 'wide' } });
     await expect(runTask('task', { projectDir: dir, profile: 'nope' }, { execute })).rejects.toMatchObject({ code: 'profile-not-found', message: expect.stringContaining('Small screen (small)') });
@@ -711,12 +721,12 @@ describe('runTask', () => {
     const { dir } = await project(config => { config.profiles.push(profileWith('second', 'b', 'plan-b', 'Second', 'Plan in small steps')); });
     const { calls, execute } = player(recorded(['Enter'], 'success'), recorded(['Enter'], 'success'));
     await runTask('task', { projectDir: dir }, { execute });
-    expect(calls[0]!.spec.plannerModel!.id).toBe('setup-llm'); expect(calls[0]!.spec.environment).toEqual(expect.objectContaining({ id: 'default' }));
-    expect(calls[0]!.spec.plannerInstructions).toBe('');
+    expect(calls[0]!.spec.planner.model!.id).toBe('setup-llm'); expect(calls[0]!.spec.environment).toEqual(expect.objectContaining({ id: 'default' }));
+    expect(calls[0]!.spec.planner.instructions).toBe('');
     expect(calls[0]!.spec.conditions).toMatchObject({ profile: { id: 'default', name: 'Default' } });
     // A named profile is used instead of the first.
     await runTask('task', { projectDir: dir, profile: 'second' }, { execute });
-    expect(calls[1]!.spec.plannerModel).toMatchObject({ id: 'b', modelId: 'plan-b' }); expect(calls[1]!.spec.plannerInstructions).toBe('Plan in small steps');
+    expect(calls[1]!.spec.planner.model).toMatchObject({ id: 'b', modelId: 'plan-b' }); expect(calls[1]!.spec.planner.instructions).toBe('Plan in small steps');
   });
   it('merges run rules as the profile\'s and then the options\'', async () => {
     const { dir } = await project(config => { config.profiles[0]!.runRules = resolveRunRules(config.profiles[0]!, { maxPlannerCalls: 8, stepActionLimit: 20, failureLimit: 3 }); });
@@ -746,7 +756,7 @@ describe('runTask', () => {
     const { calls, execute } = player(recorded(['Enter'], 'success'));
     const mixed = await project(config => { delete config.profiles[0]!.planner; config.profiles.push(profileWith('second', 'b')); });
     await runTask('task', { projectDir: mixed.dir, profile: 'second' }, { execute });
-    expect(calls[0]!.spec.plannerModel!.id).toBe('b');
+    expect(calls[0]!.spec.planner.model!.id).toBe('b');
     await expect(runTask('task', { projectDir: mixed.dir }, { execute })).rejects.toMatchObject({ code: 'planner-model-invalid' });
   });
   it('needs the planner\'s key and hands it to the run, with the planner\'s added instructions', async () => {
@@ -759,7 +769,7 @@ describe('runTask', () => {
     await store.setCredential('openai', 'sk-planner-key');
     const reader = await runTask('task', { projectDir: dir }, { execute });
     expect(calls).toHaveLength(1);
-    expect(calls[0]!.spec).toMatchObject({ plannerModel: { id: 'planner', modelId: 'plan-model' }, plannerInstructions: 'Be careful.' }); expect(calls[0]!.plannerApiKey).toBe('sk-planner-key');
+    expect(calls[0]!.spec).toMatchObject({ planner: { model: { id: 'planner', modelId: 'plan-model' }, instructions: 'Be careful.' } }); expect(calls[0]!.plannerApiKey).toBe('sk-planner-key');
     expect(reader.warnings).toEqual([]); expect(reader.conditions).toMatchObject({ combo: { planner: 'planner · plan-model' } });
   });
   it('passes the profile\'s screen reader to the run', async () => {
@@ -773,10 +783,10 @@ describe('runTask', () => {
     await writeFile(join(dir, 'other.json'), JSON.stringify({ ...task, goal: 'Other goal' }));
     const { calls, execute } = player(recorded(['Enter'], 'success'), recorded(['Enter'], 'success'));
     await runTask('other.json', { projectDir: dir }, { execute });
-    expect(calls[0]!.spec.task.goal).toBe('Other goal'); expect(calls[0]!.spec.plannerModel!.id).toBe('setup-llm');
+    expect(calls[0]!.spec.task.goal).toBe('Other goal'); expect(calls[0]!.spec.planner.model!.id).toBe('setup-llm');
     // The registered task's own file is recognized, and runs with the first profile too: a task names none.
     await runTask('./task.json', { projectDir: dir }, { execute });
-    expect(calls[1]!.spec.task.goal).toBe('Complete fixture'); expect(calls[1]!.spec.plannerModel!.id).toBe('setup-llm');
+    expect(calls[1]!.spec.task.goal).toBe('Complete fixture'); expect(calls[1]!.spec.planner.model!.id).toBe('setup-llm');
     await expect(runTask('missing.json', { projectDir: dir }, { execute })).rejects.toMatchObject({ code: 'task-not-found', message: expect.stringContaining('Known tasks: task') });
     await writeFile(join(dir, 'broken.json'), '{nope');
     await expect(runTask('broken.json', { projectDir: dir }, { execute })).rejects.toMatchObject({ code: 'invalid-task' });

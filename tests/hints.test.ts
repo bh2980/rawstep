@@ -107,6 +107,45 @@ describe("friction hints", () => {
     expect(kinds([...press(1, "Tab"), ...press(2, "Shift+Tab")])).not.toContain("backtracking");
   });
 
+  it("counts quick navigation as moves: jumping heading by heading adds to the keys before a press, and going back is a reversal", () => {
+    const jump = (step: number, intent: string): Pair[] => [["policy.decision", { step, decision: { action: { kind: "intent", intent } } }], result(step), heard(`step ${step}`)];
+    const there = Array.from({ length: 10 }, (_, index) => jump(index + 1, index % 2 ? "link.next" : "heading.next")).flat();
+    const report = extractHints(trace([...there, ...jump(11, "activate")]));
+    expect(find(report, "excess-keystrokes")[0]).toMatchObject({ steps: [1, 11], detail: { count: 10, keys: { "heading.next": 5, "link.next": 5 } } });
+    const back = extractHints(trace([...jump(1, "heading.next"), ...jump(2, "heading.previous"), ...jump(3, "next")]));
+    expect(find(back, "backtracking")[0]).toMatchObject({ steps: [2, 3], detail: { reversals: 2 } });
+    // A list that is read out or a press has no direction.
+    expect(kinds([...jump(1, "next"), ...jump(2, "headings.list"), ...jump(3, "previous"), ...jump(4, "activate"), ...jump(5, "next")])).not.toContain("backtracking");
+  });
+
+  it("does not take an activate that pressed nothing (a pick from an open rotor list) for a press", () => {
+    const act = (step: number, intent: string, pressed?: false): Pair[] => [["policy.decision", { step, decision: { action: { kind: "intent", intent } } }], ["action.result", { step, ok: true, ...(pressed === false ? { pressed } : {}) }], heard(`step ${step}`)];
+    const moves = Array.from({ length: 10 }, (_, index) => act(index + 1, "next")).flat();
+    // Ten moves and a pick: no press ended the stretch, so there is no "keys before activating" to report.
+    expect(kinds([...moves, ...act(11, "activate", false)])).not.toContain("excess-keystrokes");
+    expect(kinds([...moves, ...act(11, "activate")])).toContain("excess-keystrokes");
+    // A page change after a pick is not an unannounced answer to a press.
+    const changed = (pressed?: false) => extractHints(trace([...act(1, "activate", pressed), observer("state", 1, { attr: "aria-expanded", role: "button", name: "Menu" })]));
+    expect(find(changed(false), "missing-announcement")).toEqual([]);
+    expect(find(changed(), "missing-announcement")).toHaveLength(1);
+  });
+
+  it("still counts new plans and give-ups after a secret was typed, from the summary the runner keeps, and says what it cannot list", () => {
+    const kept = (step: number, summary: Record<string, unknown>): Pair => ["policy.evidence", { step, details: "[REDACTED]", reason: "Model evidence omitted after text entry.", summary }];
+    const report = extractHints(trace([
+      ...press(1, "Tab"), kept(2, { kind: "orchestration-plan", trigger: "no-change", version: 2 }), ...press(2, "Tab"),
+      kept(3, { kind: "orchestration-plan", trigger: "task-limit", version: 3 }), kept(3, { kind: "orchestration-give-up", accepted: false }), ...press(3, "Tab"),
+      kept(4, { kind: "orchestration-give-up", accepted: true }),
+    ], { status: "failure", reason: "policy-stuck", policyStopSource: "user-gave-up", step: 4, steps: 3 }));
+    expect(find(report, "replan")[0]).toMatchObject({ steps: [2], detail: { trigger: "no-change", version: 2 } });
+    expect(find(report, "task-limit")[0]).toMatchObject({ steps: [3], detail: { version: 3 } });
+    expect(find(report, "wanted-to-give-up")[0]!.summary).toContain("the reason was withheld");
+    expect(find(report, "early-stop")[0]!.summary).toContain("The user gave up: (the reason was withheld");
+    expect(find(report, "expectation-broken")).toEqual([]);
+    expect(report.limitations.join(" ")).toContain("Plans written after a secret was typed are withheld");
+    expect(extractHints(trace([...press(1, "Tab")])).limitations.join(" ")).not.toContain("withheld");
+  });
+
   it("reports observed focus loss after the initial step and ignores it at step 0", () => {
     const pairs: Pair[] = [observer("focus-lost", 0, { role: "button", name: "Gone", reason: "removed" }), ...press(1, "Tab"), ...press(2, "Enter"), observer("focus-lost", 2, { role: "button", name: "Dismiss", reason: "removed" })];
     const report = extractHints(trace(pairs));

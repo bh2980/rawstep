@@ -7,7 +7,7 @@ import { describeAfterRunFailure, describeApiError, describeRunFailure, errorKin
 import { generateEnvName, keyStatus } from '../packages/dashboard/src/web/lib/connections.js';
 import { choiceName, comboBlocker, comboSummary, environmentViewport, profileReady, sameValue, unsupportedActions } from '../packages/dashboard/src/web/lib/conditions.js';
 import { runConditions } from '../packages/dashboard/src/web/lib/runs.js';
-import { displayState, recentRuns, resultLabel } from '../packages/dashboard/src/web/lib/runStrip.js';
+import { recentRuns, runStatus } from '../packages/dashboard/src/web/lib/runStrip.js';
 import { failureDetail, publicOutcome } from '../packages/dashboard/src/server/queue.js';
 import { ProjectError } from '@rawstep/project/errors';
 import { DEFAULT_PERMISSIONS, defaultConfig, defaultProfile } from '@rawstep/project/config';
@@ -96,17 +96,18 @@ describe('error states', () => {
 });
 
 describe('result and run strip helpers', () => {
-  it('draws and words a run that ended on an error as undecided, not as a goal that was missed', () => {
-    expect(displayState({ state: 'failure', outcome: { status: 'failure', reason: 'error' } })).toBe('inconclusive');
-    expect(displayState({ state: 'failure', outcome: { status: 'failure', reason: 'verification-failed' } })).toBe('failure');
-    expect(displayState({ state: 'success', outcome: { status: 'success' } })).toBe('success');
-    expect(resultLabel({ state: 'failure', outcome: { status: 'failure', reason: 'error' } })).toBe('실행 오류로 끝남');
-    // A finished run is worded by how it ended: a limit is not the user failing.
-    expect(resultLabel({ state: 'inconclusive', outcome: { status: 'inconclusive', reason: 'maxSteps' } })).toBe('측정 못 함 (최대 행동 수)');
-    expect(resultLabel({ state: 'failure', outcome: { status: 'failure', reason: 'policy-stuck', stopSource: 'user-gave-up' } })).toBe('포기함');
-    expect(resultLabel({ state: 'failure', outcome: { status: 'failure', reason: 'verification-failed' } })).toBe('잘못 끝냄');
-    expect(resultLabel({ state: 'success', outcome: { status: 'success' } })).toBe('해냄');
-    expect(resultLabel({ state: 'success' })).toBe('목표 도달');
+  it('gives a run that broke the status of an error, never an ending, and every other finished run its ending with what to say beside it', () => {
+    expect(runStatus({ state: 'failure', outcome: { status: 'failure', reason: 'error' } })).toEqual({ status: 'error' });
+    expect(runStatus({ state: 'failure', outcome: { status: 'failure', reason: 'trace-persistence-error' } })).toEqual({ status: 'error' });
+    // A run that never started has no outcome at all.
+    expect(runStatus({ state: 'failure' })).toEqual({ status: 'error' });
+    // A finished run is named by how it ended: a limit is not the user failing.
+    expect(runStatus({ state: 'inconclusive', outcome: { status: 'inconclusive', reason: 'maxSteps' } })).toEqual({ status: 'unmeasured', by: 'max-steps' });
+    expect(runStatus({ state: 'failure', outcome: { status: 'failure', reason: 'policy-stuck', policyStopSource: 'user-gave-up' } })).toEqual({ status: 'gave-up' });
+    expect(runStatus({ state: 'failure', outcome: { status: 'failure', reason: 'verification-failed' } })).toEqual({ status: 'mistaken' });
+    expect(runStatus({ state: 'success', outcome: { status: 'success' } })).toEqual({ status: 'reached' });
+    expect(runStatus({ state: 'success', outcome: { status: 'success', goalConfirmed: false } })).toEqual({ status: 'reached', by: 'unconfirmed' });
+    expect(runStatus({ state: 'running' })).toEqual({ status: 'running' });
   });
 
   it('takes the newest finished runs of one task, oldest first', () => {
@@ -179,7 +180,7 @@ describe('settings helpers', () => {
     expect(unsupportedActions({ actions: quick }, capabilities)).toEqual({ simulation: ['form.next'], voiceover: [], nvda: ['form.next'] });
     const config = defaultConfig();
     // A run names its profile as recorded; older runs fall back to their preset or combo, then to the project's profile by id.
-    const spec = (conditions: unknown) => ({ backend: 'simulation', plannerModel: { name: 'm' }, conditions });
+    const spec = (conditions: unknown) => ({ backend: 'simulation', planner: { model: { name: 'm' }, instructions: '' }, conditions });
     const ran = (conditions: unknown, profileId?: string) => runConditions({ snapshot: { spec: spec(conditions) }, ...(profileId ? { profileId } : {}) } as never, config).profile;
     expect(ran({ profile: { id: 'default', name: 'Recorded' } }, 'default')).toBe('Recorded');
     expect(ran({ preset: { name: 'Old preset' }, combo: { name: 'Old combo' } })).toBe('Old preset');

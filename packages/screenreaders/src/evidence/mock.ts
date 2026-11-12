@@ -1,4 +1,3 @@
-import { createBrowserSession } from '@rawstep/browser/browser';
 import type { Task } from '@rawstep/core/contracts';
 import { MockVoiceOverBackend } from '../mock-voiceover/backend.js';
 import { runWithPolicy, type RunOptions } from '@rawstep/browser/runner';
@@ -16,6 +15,6 @@ export function createCorpusMockBackend(input:CorpusMockOptions):MockVoiceOverBa
   }});
 }
 export function runCorpusMockTask(task:Task,options:Omit<RunOptions,'backend'> & { corpus:CorpusMockOptions }){
-  const backend=createCorpusMockBackend(options.corpus);const factory=options.browserSessionFactory??createBrowserSession;
-  return runWithPolicy(task,{...options,backend,headless:options.headless??true,browserSessionFactory:async(url,config)=>{const session=await factory(url,config);backend.attachSession(session);return session;}});
+  // The runner hands the opened session to the backend itself.
+  return runWithPolicy(task,{...options,backend:createCorpusMockBackend(options.corpus),headless:options.headless??true});
 }

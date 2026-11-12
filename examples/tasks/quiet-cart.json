@@ -1,0 +1,14 @@
+{
+  "id": "quiet-cart",
+  "url": "../../fixtures/quiet-cart.html",
+  "goal": "Add the mug to the cart.",
+  "maxSteps": 20,
+  "timeoutMs": 180000,
+  "verify": {
+    "all": [
+      {
+        "textVisible": "Cart (1)"
+      }
+    ]
+  }
+}

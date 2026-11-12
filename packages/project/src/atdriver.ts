@@ -1,6 +1,9 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { connect } from 'node:net';
+import { AtDriverBackend, checkVoiceOverPlace } from '@rawstep/screenreaders/at-driver';
+import { atEndpointOf, type AtBackend, type MachineSettings } from './config.js';
 import { ProjectError } from './errors.js';
+import { nativeBackendProblem } from './plan.js';
 
 export type AtDriverHandle = {
   /** Whether Rawstep started the server (and will stop it) or found one already running. */
@@ -67,4 +70,53 @@ export async function ensureAtDriver({ endpoint, command, cwd, signal, timeoutMs
       await new Promise(resolve => setTimeout(resolve, POLL_MS));
     }
   } catch (error) { await stop(); throw error; }
+}
+
+type NativeBackend = Exclude<AtBackend, 'simulation'>;
+/** The steps of the setup check, replaceable so a caller can check without a server or a screen reader (tests). */
+export type NativeCheckSteps = {
+  ensure?: (options: AtDriverOptions) => Promise<AtDriverHandle>;
+  /** Opens a session with the AT Driver server and returns what it said about itself. */
+  session?: (options: { profile: NativeBackend; url: string }) => Promise<unknown>;
+  /** VoiceOver only: asks where its cursor is, as a run does to get into each page. */
+  cursor?: () => Promise<unknown>;
+};
+export type NativeCheck = {
+  /** Whether the check started the AT Driver server with the saved command (it stopped it again). */
+  started: boolean;
+  /** What the AT Driver server said about itself, when a session opened. */
+  metadata?: unknown;
+  /**
+   * What stands in the way of a run, in the order a run would meet it: `setup` (the wrong operating system or address: nothing else
+   * was tried), `server` (nothing answers and no command starts one), `session` (the server would not open a session), `cursor`
+   * (VoiceOver would not say where its cursor is). Empty when a run could start.
+   */
+  problems: { stage: 'setup' | 'server' | 'session' | 'cursor'; error: unknown }[];
+};
+/**
+ * Checks that a native screen reader run could start on this computer, the way a run starts one: the reader fits this operating
+ * system and its address is on this host, an AT Driver server answers (started with the saved command when nothing answers yet, and
+ * stopped again), a session opens, and for VoiceOver its cursor can be read. The one check behind `rawstep doctor` and the dashboard's
+ * check button, so neither passes what a run would fail on. It checks the connection, never real speech.
+ */
+export async function checkNativeScreenReader(options: { backend: NativeBackend; machine: MachineSettings; command?: string | undefined; cwd?: string; signal?: AbortSignal }, steps: NativeCheckSteps = {}): Promise<NativeCheck> {
+  const { backend, machine } = options, setup = nativeBackendProblem(backend, machine);
+  if (setup) return { started: false, problems: [{ stage: 'setup', error: setup }] };
+  const url = atEndpointOf(machine, backend), problems: NativeCheck['problems'] = [];
+  let started = false, metadata: unknown;
+  try {
+    const driver = await (steps.ensure ?? ensureAtDriver)({ endpoint: url, command: options.command, ...(options.cwd ? { cwd: options.cwd } : {}), ...(options.signal ? { signal: options.signal } : {}) });
+    started = driver.started;
+    try {
+      metadata = await (steps.session ?? (async target => { const reader = new AtDriverBackend(target); try { return await reader.start({ signal: AbortSignal.timeout(5000) }); } finally { await reader.close(); } }))({ profile: backend, url });
+    } catch (error) { problems.push({ stage: 'session', error }); }
+    finally { await driver.stop(); }
+  } catch (error) { problems.push({ stage: 'server', error }); }
+  // VoiceOver's cursor is asked through AppleScript and System Events, each with a macOS permission of its own: it is worth knowing
+  // about even when the server is not up yet.
+  if (backend === 'voiceover') {
+    try { await (steps.cursor ?? (() => checkVoiceOverPlace(undefined, AbortSignal.timeout(30_000))))(); }
+    catch (error) { problems.push({ stage: 'cursor', error }); }
+  }
+  return { started, ...(metadata !== undefined ? { metadata } : {}), problems };
 }

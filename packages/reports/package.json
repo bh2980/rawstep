@@ -61,6 +61,6 @@
   "dependencies": {
     "@rawstep/core": "workspace:*",
     "@rawstep/policies": "workspace:*",
-    "zod": "4.6.5"
+    "zod": "4.6.7"
   }
 }

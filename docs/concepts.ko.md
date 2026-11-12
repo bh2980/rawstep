@@ -77,7 +77,7 @@ Rawstep은 실행 결과를 단순한 성공/실패 두 가지로만 나누지 �
 - **막힌 지점 (`expectation-broken`):** 사용자가 특정 변화를 기대하며 버튼을 누르거나 값을 입력했는데(계획의 `cue` 및 `assumptions`에 기록됨) 아무 반응이 없거나 기대와 다른 결과가 나오면, 해당 요소와 깨진 가정을 막힌 지점으로 기록합니다.
 - **마찰 힌트 (`hints.json`):** 실행 기록에서 16가지 유형의 마찰 힌트를 추출합니다.
   - **페이지 힌트 (`source: 'page'`):** 브라우저와 스크린리더 동작에서 직접 관찰된 문제 (`excess-keystrokes`, `focus-lost`, `focus-left-page`, `focus-not-visible`, `modal-focus-outside`, `missing-announcement`, `live-interruptions`).
-  - **실행 힌트 (`source: 'run'`):** 실행 전반에서 나타난 패턴 (`slow-run`, `goal-met-at-start`, `replan`, `task-limit`, `wanted-to-give-up`, `goal-word-stretch`).
-  - **모델 힌트 (`source: 'model'`):** 이동 방향 번복 및 깨진 기대 (`backtracking`, `early-stop`, `expectation-broken`).
+  - **실행 힌트 (`source: 'run'`):** 실행 전반에서 나타난 패턴 (`slow-run`, `goal-met-at-start`, `replan`, `task-limit`, `wanted-to-give-up`, `goal-word-stretch`, `early-stop`).
+  - **모델 힌트 (`source: 'model'`):** 이동 방향 번복 및 깨진 기대 (`backtracking`, `expectation-broken`).
 
 16가지 마찰 힌트의 상세 조건은 **[결과, 트레이스 및 힌트 레퍼런스](./reference/results.ko.md)**에서 확인할 수 있습니다.

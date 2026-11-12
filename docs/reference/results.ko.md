@@ -43,7 +43,11 @@
 
 ## 3. 실행 종료 상태 (`RunEnding`)
 
-`runEnding(outcome, stopSource?)`(`rawstep/hints`, 루트 `rawstep`에서도 내보냄)가 계산합니다. 트레이스의 `outcome`과, 두 번째 인자로 `outcome.policyStopSource`(실행을 멈춘 주체)를 받아 `{ ending, by? }`를 반환하며, 실행에 `outcome`이 없으면 `undefined`를 반환합니다. `by`는 `unmeasured`일 때만 붙습니다.
+`runEnding(outcome)`(`rawstep/hints`, 루트 `rawstep`에서도 내보냄)가 계산합니다. 트레이스의 `outcome`을 받아 실행을 멈춘 주체(`outcome.policyStopSource`)를 거기서 읽고 `{ ending, by? }`를 반환합니다. `by`는 `unmeasured`일 때만 붙습니다.
+
+**깨진** 실행에는 종료 상태가 없습니다. `outcome`이 없거나, 취소됐거나(`status: "aborted"`), `reason`이 `"error"` 또는 `"trace-persistence-error"`이면 `runEnding`은 `undefined`를 반환합니다. 이 판정만 따로 쓰려면 `runBroke(outcome)`를 쓰세요. 깨진 실행은 사용자나 페이지에 대해 알려 주는 것이 없으므로 네 가지 종료 상태에 넣지 않고 따로 셉니다(배치 요약의 `error`).
+
+"M번 중 N번 도달" 같은 수치에서 M은 **측정된** 실행, 즉 `reached`, `gave-up`, `mistaken`으로 끝난 실행의 수입니다(`measuredRuns`, 종료 상태 하나에는 `isMeasured`). 측정하지 못한 실행은 비율 옆에 따로 적고 비율에는 넣지 않습니다. CLI, 배치 요약, 비교, 대시보드가 모두 이렇게 셉니다.
 
 | `ending` | `outcome.status` / `reason` / 중단 주체 | 설명 |
 | :--- | :--- | :--- |
@@ -65,7 +69,7 @@
 | `'planner-timeout'` | `reason: "planner-timeout"` |
 | `'blocked'` | `reason: "access-blocked"` |
 | `'environment'` | `reason: "unsupported-profile"` |
-| `'other'` | 그 외 모든 결과 |
+| `'other'` | `reason: "unsupported-pattern"`, 또는 이 버전이 모르는 reason |
 
 중단 주체를 `reason`보다 먼저 확인하므로, 둘 다 있으면 중단 주체가 우선합니다.
 
@@ -119,6 +123,7 @@
 | **`task-limit`** | `observed` | 계획의 세부 작업이 허용된 최대 이동 횟수(`stepActionLimit`) 동안 기대한 음성 단서를 듣지 못했을 때. |
 | **`wanted-to-give-up`** | `observed` | 아직 확인해 보지 않은 가정이 남아 있는 상태에서 플래너가 조기 포기를 시도했을 때 (실행기가 남은 가정을 먼저 시도하도록 포기를 보류함). |
 | **`goal-word-stretch`** | `observed` | 목표(`goal`)와 관련된 단어를 전혀 듣지 못한 채 긴 구간 동안 연속으로 이동만 했을 때. |
+| **`early-stop`** | `observed` | 목표에 도달하기 전에 실행이 종료되었을 때 (`user-gave-up`, `policy-stuck`, `policy-uncertain`, `exploration-guard`, `orchestration-limit`, `no-allowed-action`). 실행이 어떻게 멈췄는지를 알려 줍니다. 집계되는 것은 실행의 종료 상태(3절)이므로 이 힌트는 발견 사항으로 모으지 않습니다. |
 
 ### 4.3 모델 힌트 (`source: "model"`)
 
@@ -126,4 +131,3 @@
 | :--- | :--- | :--- |
 | **`expectation-broken`** | `observed` | 계획 문서의 가정이 깨진 것으로 기록되었을 때 (예: 최근 3번의 동작 이내에 버튼을 누르거나 폼을 제출했으나 기대한 변화가 나타나지 않음). 배치 요약에서는 **막힌 지점**으로 집계됩니다. |
 | **`backtracking`** | `observed` | 앞으로 가기(`next`, `Tab`, `ArrowDown`, `ArrowRight`)와 뒤로 가기(`previous`, `Shift+Tab`, `ArrowUp`, `ArrowLeft`) 사이에서 이동 방향을 `>= 2`번(`backtrackReversals`) 이상 번복했을 때. |
-| **`early-stop`** | `observed` | 목표에 도달하기 전에 실행이 종료되었을 때 (`user-gave-up`, `policy-stuck`, `policy-uncertain`, `exploration-guard`, `orchestration-limit`, `no-allowed-action`). |

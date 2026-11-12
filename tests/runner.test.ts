@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { Backend, BackendAction, Task, DecisionPolicy, VerificationRecord } from '@rawstep/core/contracts';
+import type { Backend, BackendAction, BackendEvent, Task, DecisionPolicy, VerificationRecord } from '@rawstep/core/contracts';
 import { BrowserAccessBlockedError, type BrowserSession } from '@rawstep/browser/browser';
 import { runWithPolicy } from '@rawstep/browser/runner';
 import type { ObserverEvent, PageObserver } from '@rawstep/browser/observer';
@@ -16,12 +16,12 @@ afterEach(async () => { vi.unstubAllGlobals(); await Promise.all(dirs.splice(0).
 async function out() { const path = await mkdtemp(join(tmpdir(),'rawstep-runner-v2-')); dirs.push(path); return path; }
 const task: Task = { id:'test',url:'https://example.com/task',goal:'Activate start',maxSteps:3,timeoutMs:2000,verify:{all:[{titleIncludes:'Done'}]} };
 function fixture(said: string | string[] = 'Real captured utterance') {
-  const listeners = new Set<(event: unknown) => void>();
+  const listeners = new Set<(event: BackendEvent) => void>();
   let sequence = 0;
   const lines = Array.isArray(said) ? said : [said];
   const backend: Backend = {
     capabilities:{intents:['next','activate'],keys:['Tab','Enter'],textEntry:true,replaceText:true},
-    start:vi.fn(async () => ({screenReader:'mock',screenReaderVersion:'unknown'})),
+    start:vi.fn(async () => ({environment:{atName:'mock',atVersion:'unknown'}})),
     execute:vi.fn(async (action:BackendAction) => ({id:'command-1',action})),
     observe:vi.fn(async () => { const text = lines[Math.min(sequence,lines.length-1)]!; const output = {sequence:++sequence,receivedAt:new Date().toISOString(),text,raw:{method:'interaction.capturedOutput',params:{data:text}}}; for(const listener of listeners) listener({type:'output',output}); return {windowId:`w-${sequence}`,startedAt:new Date().toISOString(),endedAt:new Date().toISOString(),reason:'quiet',outputs:[output],speech:[output.text]}; }),
     close:vi.fn(async () => {}),
@@ -194,7 +194,7 @@ describe('model-neutral runner',()=>{
   it('allows only named task inputs, gates editability, and redacts input values on disk',async()=>{
     const f=fixture();const dir=await out();
     const trace=await runWithPolicy({...task,input:{email:'private@example.test'}},{...f,outDir:dir,policy:new ScriptedPolicy([{action:{kind:'typeText',input:'email'}}])});
-    expect(f.backend.execute).toHaveBeenCalledWith({kind:'typeText',text:'private@example.test',sensitive:true}, {signal:expect.any(AbortSignal)});
+    expect(f.backend.execute).toHaveBeenCalledWith({kind:'typeText',text:'private@example.test'}, {signal:expect.any(AbortSignal)});
     expect(await readFile(join(dir,'trace.json'),'utf8')).not.toContain('private@example.test');expect(trace.privacy.inputValues).toBe('redacted');
   });
   it('fails text-entry safely for a noneditable target',async()=>{
@@ -534,5 +534,38 @@ describe('listening on after a press that said nothing', () => {
       await runWithPolicy(noTask, { ...f, verifier: notYet(), outDir: await out(), ...(wait ? { silentPressWaitMs: wait } : {}), policy: new ScriptedPolicy([decision, { stop: 'stuck' }]) });
       expect(f.backend.observe).toHaveBeenCalledTimes(2);
     }
+  });
+});
+
+describe('what a policy did before it failed to decide', () => {
+  it('stays in the trace: evidence gathered before the decision threw is recorded with the step, and the run ends on the error', async () => {
+    const f = fixture();
+    let evidence: unknown[] = [];
+    const policy: DecisionPolicy = {
+      async decide() { evidence = [{ kind: 'orchestration-plan', trigger: 'initial', version: 1 }, { kind: 'orchestration-cue', verified: true }]; throw new Error('planner unreachable'); },
+      takeDecisionEvidence() { return evidence.splice(0); },
+    };
+    const trace = await runWithPolicy(task, { ...f, verifier: vi.fn(async (): Promise<VerificationRecord> => ({ passed: false, failures: ['not yet'] })), outDir: await out(), policy });
+    expect(trace.outcome).toMatchObject({ status: 'failure', reason: 'error', stage: 'policy' });
+    expect(trace.events.filter(e => e.type === 'policy.evidence').map(e => e.data)).toEqual([
+      { step: 1, evidence: { kind: 'orchestration-plan', trigger: 'initial', version: 1 } }, { step: 1, evidence: { kind: 'orchestration-cue', verified: true } },
+    ]);
+  });
+});
+
+describe('an activate that pressed nothing', () => {
+  it('is recorded as such when the backend says so, and is not the activation a goal rule counts from', async () => {
+    const f = fixture();
+    (f.backend.execute as ReturnType<typeof vi.fn>).mockImplementation(async () => ({ pressed: false }));
+    const verifier = vi.fn(async (_task: Task, _browser: unknown, context?: { latestActivation?: unknown }): Promise<VerificationRecord> => ({ passed: false, failures: [context?.latestActivation ? 'had an activation' : 'no activation yet'] }));
+    const trace = await runWithPolicy(task, { ...f, verifier, outDir: await out(), policy: new ScriptedPolicy([{ action: { kind: 'intent', intent: 'activate' } }, { stop: 'stuck' }]) });
+    expect(trace.events.find(e => e.type === 'action.result')?.data).toMatchObject({ step: 1, ok: true, pressed: false });
+    expect(trace.events.filter(e => e.type === 'verifier.result').map(e => (e.data as { failures: string[] }).failures[0])).not.toContain('had an activation');
+    // The same action from a backend that says nothing is a press, as its name says.
+    const pressing = fixture(), seen: string[] = [];
+    const verify = vi.fn(async (_task: Task, _browser: unknown, context?: { latestActivation?: unknown }): Promise<VerificationRecord> => { seen.push(context?.latestActivation ? 'activation' : 'none'); return { passed: false, failures: ['not yet'] }; });
+    const pressed = await runWithPolicy(task, { ...pressing, verifier: verify, outDir: await out(), policy: new ScriptedPolicy([{ action: { kind: 'intent', intent: 'activate' } }, { stop: 'stuck' }]) });
+    expect(pressed.events.find(e => e.type === 'action.result')?.data).not.toHaveProperty('pressed');
+    expect(seen).toContain('activation');
   });
 });

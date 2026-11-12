@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Your orders - Demo shop</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+  </head>
+  <body>
+    <main>
+      <h1>Your orders</h1>
+      <!-- Each order opens its details in place. No order offers an invoice: a task that asks for one cannot be done here. -->
+      <ul id="orders"></ul>
+      <p><a href="#help" id="help">Help with an order</a></p>
+      <p id="help-text" hidden>Write to help@example.com with your order number.</p>
+    </main>
+    <script>
+      const orders = [["1042", "Demo mug", "Delivered", "$12"], ["1038", "Demo poster", "Delivered", "$20"], ["1031", "Demo cap", "Cancelled", "$15"]];
+      const list = document.getElementById("orders");
+      for (const [number, item, state, total] of orders) {
+        const row = document.createElement("li");
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = `Order ${number} details`;
+        button.setAttribute("aria-expanded", "false");
+        const details = document.createElement("p");
+        details.hidden = true;
+        details.textContent = `${item}. ${state}. Total ${total}.`;
+        button.addEventListener("click", () => {
+          details.hidden = !details.hidden;
+          button.setAttribute("aria-expanded", String(!details.hidden));
+        });
+        row.append(button, details);
+        list.append(row);
+      }
+      document.getElementById("help").addEventListener("click", (event) => { event.preventDefault(); document.getElementById("help-text").hidden = false; });
+    </script>
+  </body>
+</html>

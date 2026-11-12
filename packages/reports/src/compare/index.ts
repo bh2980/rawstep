@@ -4,7 +4,7 @@
  * what changed beyond noise. Pure and free of Node APIs, so the dashboard uses it too.
  */
 import type { Hint, HintTarget } from '../hints/index.js';
-import { goalUnconfirmed, isStuck, runEnding, type RunEnding } from '../endings/index.js';
+import { goalUnconfirmed, isStuck, median, runBroke, runEnding, type RunEnding } from '../endings/index.js';
 
 export const SUMMARY_SCHEMA_VERSION = '1.0' as const;
 /** How the runs of one task under one profile ended, a run that broke counted apart: it says nothing about the page. */
@@ -20,7 +20,7 @@ export type SummaryCell = {
   reachedMoves: number[];
   /** How many of the runs that reached the goal had nothing to show the user knew: a note, not an ending. Left out when none did. */
   unconfirmed?: number;
-  /** Where pressing did not respond as the user expected. */
+  /** Where pressing did not respond as the user expected, with how many of the runs that ran (`ranRuns`) it came up in. */
   stuck: SummaryPlace[];
   /** Page findings (focus, announcements, dialogs…) by kind and element. */
   pageFindings: (SummaryPlace & { kind: string })[];
@@ -37,7 +37,6 @@ export type SummaryRun = {
   hints: { steps: number; hints: readonly Hint[] };
 };
 
-const brokeRun = (outcome: SummaryRun['outcome']) => !outcome || outcome.status === 'aborted' || outcome.reason === 'error' || outcome.reason === 'trace-persistence-error';
 const placeKey = (target: HintTarget | undefined) => target ? `${target.role}\u0000${target.name ?? ''}` : '';
 /** Elements and how many runs each came up in, from one hint list per run. */
 function places(perRun: readonly (readonly Hint[])[], pick: (hint: Hint) => boolean, keyOf: (hint: Hint) => string = hint => placeKey(hint.target)) {
@@ -58,13 +57,15 @@ export function buildBatchSummary(batch: BatchSummary['batch'], runs: readonly S
     const first = group[0]!, endings: SummaryEndings = { reached: 0, 'gave-up': 0, mistaken: 0, unmeasured: 0, error: 0 }, reachedMoves: number[] = [];
     let unconfirmed = 0;
     for (const run of group) {
-      if (brokeRun(run.outcome)) { endings.error++; continue; }
-      const ended = runEnding(run.outcome, run.outcome!.policyStopSource)!;
+      const ended = runEnding(run.outcome);
+      if (!ended) { endings.error++; continue; }
       endings[ended.ending]++;
       if (ended.ending === 'reached') reachedMoves.push(run.hints.steps);
       if (goalUnconfirmed(run.outcome)) unconfirmed++;
     }
-    const counted = group.filter(run => !brokeRun(run.outcome)).map(run => run.hints.hints);
+    // Hints are counted over every run that ran to an ending, measured or not (`ranRuns`): a place that did not respond is a fact
+    // about the page whichever limit ended the run later.
+    const counted = group.filter(run => !runBroke(run.outcome)).map(run => run.hints.hints);
     const stuck = places(counted, hint => hint.kind === 'expectation-broken' && isStuck(hint)).map(({ hint, runs }) => ({ role: hint.target!.role, ...(hint.target!.name ? { name: hint.target!.name } : {}), runs }));
     const pageFindings = places(counted, hint => hint.source === 'page', hint => `${hint.kind}\u0000${placeKey(hint.target)}`)
       .map(({ hint, runs }) => ({ kind: hint.kind, role: hint.target!.role, ...(hint.target!.name ? { name: hint.target!.name } : {}), runs }));
@@ -106,10 +107,15 @@ export type NoiseRules = {
 };
 export const DEFAULT_NOISE: Readonly<NoiseRules> = Object.freeze({ minRuns: 2, movesShare: 0.2, movesSlack: 3, stuckShare: 0.5 });
 
-/** Runs that said something about the user: reached, gave up, or said done when it was not. Not measured and broken runs did not. */
-const counted = (cell: SummaryCell) => cell.endings.reached + cell.endings['gave-up'] + cell.endings.mistaken;
+/**
+ * Runs that said something about the user: reached, gave up, or said done when it was not. Not measured and broken runs did not.
+ * This is the M of every "reached N of M": the CLI, the dashboard and the comparison all count it here.
+ */
+export const measuredRuns = (cell: SummaryCell): number => cell.endings.reached + cell.endings['gave-up'] + cell.endings.mistaken;
+/** Runs that ran to an ending, measured or not: all but the ones that broke. The M of "stuck in N of M runs", since hints are counted over these. */
+export const ranRuns = (cell: SummaryCell): number => cell.runs - cell.endings.error;
+const counted = measuredRuns;
 const unconfirmedRuns = (cell: SummaryCell) => cell.unconfirmed ?? 0;
-const median = (values: readonly number[]) => { const s = [...values].sort((a, b) => a - b), m = s.length >> 1; return s.length % 2 ? s[m]! : (s[m - 1]! + s[m]!) / 2; };
 const placeName = (place: SummaryPlace) => `${place.role}${place.name ? ` "${place.name}"` : ''}`;
 
 /**
@@ -117,7 +123,8 @@ const placeName = (place: SummaryPlace) => `${place.role}${place.name ? ` "${pla
  * (reached, gave up or said done: a run that was not measured or broke says nothing about the user);
  * a change in the reached share that one run going the other way explains (1 / the smaller side's runs) is noise. Moves: judged when
  * both sides have two runs that reached the goal; the head's median outside the base's range widened by `movesShare` or `movesSlack`
- * is a change. Stuck places: new when in `stuckShare` of the head's runs and none of the base's, gone the other way.
+ * is a change. Stuck places: new when in `stuckShare` of the head's runs that ran (measured or not) and none of the base's, gone the
+ * other way.
  */
 export function compareSummaries(base: BatchSummary, head: BatchSummary, rules: Partial<NoiseRules> = {}): SummaryComparison {
   const r = { ...DEFAULT_NOISE, ...rules };
@@ -148,17 +155,19 @@ export function compareSummaries(base: BatchSummary, head: BatchSummary, rules: 
     }
     let moves: CellComparison['moves'] = 'too-few-runs', movesBand: [number, number] | undefined;
     if (b.reachedMoves.length >= 2 && h.reachedMoves.length >= 2) {
-      const low = Math.min(...b.reachedMoves), high = Math.max(...b.reachedMoves), slack = Math.max(r.movesSlack, median(b.reachedMoves) * r.movesShare);
+      const low = Math.min(...b.reachedMoves), high = Math.max(...b.reachedMoves), slack = Math.max(r.movesSlack, median(b.reachedMoves)! * r.movesShare);
       movesBand = [Math.max(0, Math.floor(low - slack)), Math.ceil(high + slack)];
-      const m = median(h.reachedMoves);
+      const m = median(h.reachedMoves)!;
       if (m < movesBand[0] || m > movesBand[1]) {
         moves = 'changed';
         changes.push(change(m > movesBand[1] ? 'moves-up' : 'moves-down', `Reaching the goal took a median of ${m} moves, outside the baseline's ${movesBand[0]}–${movesBand[1]} (its runs: ${low}–${high}).`));
       } else moves = 'within-noise';
     }
     const inBase = new Map(b.stuck.map(place => [placeName(place), place])), inHead = new Map(h.stuck.map(place => [placeName(place), place]));
-    for (const [name, place] of inHead) if (!inBase.has(name) && nh && place.runs / nh >= r.stuckShare) changes.push(change('stuck-new', `New stuck place: ${name}, in ${place.runs} of ${nh} runs.`, place));
-    for (const [name, place] of inBase) if (!inHead.has(name) && nb && place.runs / nb >= r.stuckShare) changes.push(change('stuck-gone', `Stuck place no longer seen: ${name} (was in ${place.runs} of ${nb} runs).`, place));
+    // A stuck place is counted over the runs that ran, so its share is of those: not of the measured runs the reach is judged on.
+    const rb = ranRuns(b), rh = ranRuns(h);
+    for (const [name, place] of inHead) if (!inBase.has(name) && rh && place.runs / rh >= r.stuckShare) changes.push(change('stuck-new', `New stuck place: ${name}, in ${place.runs} of ${rh} runs.`, place));
+    for (const [name, place] of inBase) if (!inHead.has(name) && rb && place.runs / rb >= r.stuckShare) changes.push(change('stuck-gone', `Stuck place no longer seen: ${name} (was in ${place.runs} of ${rb} runs).`, place));
     cells.push({ ...who, base: b, head: h, reach, moves, ...(movesBand ? { movesBand } : {}), changes });
   }
   return { base: base.batch, head: head.batch, cells, changes: cells.flatMap(cell => cell.changes) };

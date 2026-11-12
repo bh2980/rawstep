@@ -35,12 +35,14 @@ Rawstep은 세 가지 스크린리더 백엔드를 지원합니다.
 | **`"voiceover"`** | macOS (`darwin`) | macOS VoiceOver + AT Driver 서버 (`ws://localhost:4382/session`) | macOS에서 실제 Apple VoiceOver 동작을 검증할 때. |
 | **`"nvda"`** | Windows (`win32`) | Windows NVDA + AT Driver 서버 (`ws://localhost:3031/session`) | Windows에서 실제 NVDA 동작을 검증할 때. |
 
+검증 범위: 시뮬레이션은 macOS와 Linux에서 변경할 때마다 테스트하고, Windows에서는 아직 테스트하지 않았습니다. `voiceover`는 실험적입니다. Rawstep의 테스트 페이지와 공개 사이트 몇 곳에서, macOS 가상 머신 한 대로 확인했습니다. `nvda`는 실제 Windows 컴퓨터에서 아직 테스트하지 않았습니다.
+
 ---
 
 ## 3. 시뮬레이션된 VoiceOver (`"simulation"`)
 
 `MockVoiceOverBackend`(`@rawstep/screenreaders/mock-voiceover`)는 운영체제에 구애받지 않는 내장 스크린리더 시뮬레이터입니다.
-- Chrome DevTools Protocol(`Accessibility.getFullAXTree`)을 통해 Chromium의 실시간 접근성 트리를 읽고, DOM 포커스와는 별도로 가상 스크린리더 커서를 유지합니다.
+- Chrome DevTools Protocol(`Accessibility.getFullAXTree`)을 통해 Chromium의 실시간 접근성 트리를 읽고, 자체 스크린리더 커서를 둡니다. VoiceOver의 기본 동작처럼, 커서가 포커스를 받을 수 있는 항목으로 가면 키보드 포커스도 따라가고, 페이지가 포커스를 옮기면 커서가 그 항목으로 갑니다.
 - 직접 작성한 영어 문구 규칙(`formatSimulatedSpeech`)으로 역할, 이름, 헤딩 레벨, 랜드마크, 다이얼로그 경계, 라이브 리전(`aria-live`, `role="alert"`, `role="status"`), 상태(`expanded`, `collapsed`, `checked`, `disabled`, `required`)를 음성 문구로 조합합니다. 이 중 일부 규칙은 [Accessibility Supported (`a11ysupport.io`)](https://github.com/accessibilitysupported/a11ysupport.io)에 보고된 실제 VoiceOver 발화 13가지 사례로 확인했고, 나머지는 Rawstep에서 정한 것입니다. 별도의 증거 모듈에는 Accessibility Supported와 공개된 [W3C ARIA-AT](https://github.com/w3c-cg/aria-at) 보고서에서 가져온 제3자 보고 결과 2,914건(발화 기록이 아니라 보고된 결과)이 들어 있으며, 어디까지 근거가 있고 어디가 비어 있는지 재는 데만 쓰입니다. 실행 중에는 쓰이지 않습니다.
 - 모든 트레이스에 `evidenceProvenance: "simulation"`을 기록해 실제 운영체제 스크린리더 실행 결과와 혼동되지 않도록 구분합니다.
 

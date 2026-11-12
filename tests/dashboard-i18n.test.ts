@@ -2,7 +2,6 @@ import { afterAll, describe, expect, it } from 'vitest';
 import { SERVER_MESSAGE_CODES } from '../packages/dashboard/src/shared/messages.js';
 import { browserLanguage, i18n, resources, serverText } from '../packages/dashboard/src/web/i18n/index.js';
 import { countOf } from '../packages/dashboard/src/web/lib/format.js';
-import { resultLabel } from '../packages/dashboard/src/web/lib/runStrip.js';
 
 type Tree = { readonly [key: string]: string | Tree };
 
@@ -89,8 +88,8 @@ describe('dashboard languages', () => {
 
   it('words results and server messages in the language shown, with the CLI\'s terms in English', async () => {
     await i18n.changeLanguage('en');
-    expect(resultLabel({ state: 'success', outcome: { status: 'success' } })).toBe('Reached the goal');
-    expect(resultLabel({ state: 'failure', outcome: { status: 'failure', reason: 'policy-stuck', stopSource: 'user-gave-up' } })).toBe('Gave up');
+    expect(i18n.t('taskPage.results.endings.reached')).toBe('Reached the goal');
+    expect(i18n.t('taskPage.results.endings.gave-up')).toBe('Gave up');
     // The CLI points people at these two places by name.
     expect(i18n.t('nav.settings')).toBe('Settings');
     expect(i18n.t('settingsNav.sections.connections')).toBe('AI connections');
@@ -99,7 +98,7 @@ describe('dashboard languages', () => {
     expect(serverText({ code: 'not-a-code' })).toBe(en.get('serverMessages.request-failed'));
     expect(i18n.t('taskList.count', { count: 1 })).not.toBe(i18n.t('taskList.count', { count: 2 }));
     await i18n.changeLanguage('ko');
-    expect(resultLabel({ state: 'success', outcome: { status: 'success' } })).toBe('해냄');
+    expect(i18n.t('taskPage.results.endings.reached')).toBe('해냄');
     expect(serverText({ code: 'too-many-combinations', params: { max: 1000 } })).toBe('한 번에 실행할 수 있는 조합은 최대 1000개입니다.');
   });
 });

@@ -549,6 +549,14 @@ describe("AT Driver backend", () => {
     expect(await run({ kind: "intent", intent: "previous" })).toEqual([[AT_DRIVER_KEYS.ArrowUp]]);
     expect(await run({ kind: "intent", intent: "activate" })).toEqual([[AT_DRIVER_KEYS.Enter]]);
     expect(await run({ kind: "intent", intent: "next" })).toEqual([[...vo, AT_DRIVER_KEYS.ArrowRight]]);
+    // Picking from the list goes to the item and presses nothing on the page: the receipt says so. With no list open, activate is a press.
+    await run({ kind: "intent", intent: "formControls.rotor" });
+    const picking = driver.execute({ kind: "intent", intent: "activate" }); await vi.advanceTimersByTimeAsync(5_000);
+    expect(await picking).toMatchObject({ pressed: false });
+    await settle(driver);
+    const pressing = driver.execute({ kind: "intent", intent: "activate" }); await vi.advanceTimersByTimeAsync(5_000);
+    expect(await pressing).not.toHaveProperty("pressed");
+    await settle(driver);
     expect(getAtDriverProfile("voiceover").capabilities.intents).toEqual(expect.arrayContaining(["links.list", "formControls.rotor"]));
     expect(getAtDriverProfile("nvda").capabilities.intents).not.toEqual(expect.arrayContaining(["formControls.rotor"]));
     await driver.close();
@@ -575,6 +583,23 @@ describe("AT Driver backend", () => {
     expect(await run({ kind: "key", key: "Escape" })).toEqual([[AT_DRIVER_KEYS.Escape]]);
     expect(await run({ kind: "intent", intent: "next" })).toEqual([[...vo, AT_DRIVER_KEYS.ArrowRight]]);
     await driver.close();
+  });
+
+  it("closes a rotor list left open when the run ends, so the next run's reader starts where its backend believes it is", async () => {
+    const { socket, backend: driver } = await backend();
+    await settle(driver);
+    socket.onSend = command => { socket.reply(command.id); if ((command.params.keys as string[]).includes("u")) socket.output("Form Controls"); };
+    const opened = driver.execute({ kind: "intent", intent: "formControls.rotor" });
+    await vi.advanceTimersByTimeAsync(5_000); await opened;
+    await settle(driver);
+    await driver.close();
+    expect(socket.sent.at(-1)!.params.keys).toEqual([AT_DRIVER_KEYS.Escape]);
+    expect(socket.closeCalls).toBe(1);
+    // With no rotor open, closing presses nothing.
+    const { socket: quiet, backend: plain } = await backend();
+    await settle(plain);
+    await plain.close();
+    expect(quiet.sent).toHaveLength(1);
   });
 
   it("moves back by heading, control or link on VoiceOver through its own commands, not keys, closing an open rotor first", async () => {
@@ -937,6 +962,22 @@ describe('real VoiceOver speech', () => {
       else expect(result).toMatchObject({ code: 'page entry failed' });
     }
   });
+  it('closes a rotor list the last action left open before walking to a new page, so the walk\'s keys do not go to the list', async () => {
+    const { cursorLocator, moving } = onScreen(ON);
+    const { socket, backend: driver } = await backend('voiceover', { cursorLocator });
+    await settle(driver);
+    scripted(socket, { [name([...vo, 'u'])]: [['Form Controls menu', ' On item Query edit text']] });
+    await finish(driver.execute({ kind: 'intent', intent: 'formControls.rotor' }));
+    await settle(driver);
+    const before = sent(socket).length;
+    moving(socket, { [name(interact)]: [{ say: ['In Page web content main'], at: IN }] });
+    expect(await finish(driver.enterPage())).toEqual({ entered: true, moves: 0 });
+    expect(sent(socket).slice(before)).toEqual([[AT_DRIVER_KEYS.Escape], interact]);
+    // The rotor is closed for the backend too: next moves the cursor, not the list.
+    await settle(driver);
+    await finish(driver.execute({ kind: 'intent', intent: 'next' }));
+    expect(sent(socket).at(-1)).toEqual(next);
+  });
   it('looks for the page in the window of the browser that shows it', async () => {
     const { screen, cursorLocator } = onScreen(IN);
     const { backend: driver } = await backend('voiceover', { cursorLocator });
@@ -1018,6 +1059,15 @@ describe('AT Driver host preconditions', () => {
     expect(() => make('ws://localhost/session').preflight({ ...ok, headless: true })).toThrow(/headless is unsupported/);
     expect(() => make('ws://example.test/session', 'nvda').preflight({ platform: 'linux', headless: true, customBrowserSession: true })).not.toThrow();
     expect(() => make('ws://localhost/session').preflight({ platform: 'linux', headless: true, customBrowserSession: true })).not.toThrow();
+  });
+  it('takes what a reader needs of its host from the profile: VoiceOver has helpers for this machine, NVDA needs none, and the backend follows the contract', () => {
+    const voiceover = getAtDriverProfile('voiceover'), nvda = getAtDriverProfile('nvda');
+    expect([voiceover.platform, nvda.platform]).toEqual(['darwin', 'win32']);
+    expect(Object.keys(voiceover.hostHelpers ?? {}).sort()).toEqual(['clipboard', 'commander', 'cursorLocator']);
+    expect(nvda.hostHelpers).toBeUndefined();
+    expect(nvda.pageEntry).toBeUndefined(); expect(nvda.commands).toEqual({}); expect(nvda.pasteText({ kind: 'typeText', text: '배' })).toBeUndefined();
+    // A native bridge asks the runner for the longer close budget.
+    expect(make('ws://localhost/session').cleanupTimeoutMs).toBe(5_000);
   });
   it('refuses a paired VoiceOver on another machine unless the helpers that reach that Mac are passed in', () => {
     const paired = { platform: 'linux', headless: true, customBrowserSession: true };

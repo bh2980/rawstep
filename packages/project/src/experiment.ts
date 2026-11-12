@@ -40,11 +40,11 @@ export type RunRecord = Combination & {
   /** What the run was made with: the run spec (its task without secret values) and the task's name at the time. */
   snapshot: { taskName: string; spec: RunSpec };
   /**
-   * `stage` and `step` say how far a failed run got, `stopSource` who ended a run that stopped itself (the user giving up, a limit),
+   * `stage` and `step` say how far a failed run got, `policyStopSource` who ended a run that stopped itself (the user giving up, a limit),
    * `goalConfirmed: false` a run that reached the goal with nothing to show the user knew, `goalStep` where its goal check passed when it went on after that;
    * nothing else of the recorded outcome (its raw error text) is kept.
    */
-  outcome?: { status: string; reason?: string; steps?: number; stage?: string; step?: number; stopSource?: string; goalConfirmed?: false; goalStep?: number };
+  outcome?: { status: string; reason?: string; steps?: number; stage?: string; step?: number; policyStopSource?: string; goalConfirmed?: false; goalStep?: number };
   analysisStatus: 'pending' | 'complete' | 'failed' | 'skipped'; reportStatus: 'pending' | 'complete' | 'failed' | 'skipped';
   /** Codes (`analysis-failed`, `report-failed`) or the analyzer's own recorded error text; shown only with the raw record. */
   analysisError?: string; reportError?: string; analysisModel?: Model;

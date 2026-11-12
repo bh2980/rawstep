@@ -4,18 +4,18 @@
  */
 export const SERVER_MESSAGE_CODES = [
   // Errors of the project layer (ProjectError codes).
-  'no-config', 'invalid-config', 'config-conflict', 'config-exists', 'old-config', 'invalid-task', 'invalid-repeat', 'no-analysis-model',
-  'cancelled', 'duplicate-id', 'duplicate-task-file', 'path-outside-project', 'symlink-outside-project', 'task-file-missing',
-  'task-not-found', 'task-file-reserved', 'task-file-not-registered', 'task-file-exists', 'task-variant-invalid',
-  'profile-connection-missing', 'analysis-connection-missing', 'invalid-credential', 'credential-target', 'missing-credential',
-  'missing-planner-credential', 'invalid-provider', 'invalid-base-url', 'model-http', 'model-empty', 'model-too-large', 'model-json',
-  'model-unreachable', 'model-list-missing', 'agent-missing', 'agent-signed-out', 'unsupported-action', 'unknown-input',
+  'no-config', 'invalid-config', 'config-conflict', 'old-config', 'invalid-task',
+  'duplicate-id', 'duplicate-task-file', 'path-outside-project', 'symlink-outside-project', 'task-file-missing',
+  'task-not-found', 'task-file-unreadable', 'task-file-reserved', 'task-file-not-registered', 'task-file-exists', 'task-variant-invalid',
+  'invalid-credential', 'credential-target', 'missing-credential',
+  'invalid-provider', 'invalid-base-url', 'model-http', 'model-empty', 'model-too-large', 'model-json',
+  'model-unreachable', 'model-timeout', 'model-list-missing', 'agent-missing', 'agent-signed-out', 'agent-start-failed', 'unsupported-action', 'unknown-input',
   'voiceover-macos', 'nvda-windows', 'at-driver-not-running', 'at-driver-start-failed', 'endpoint-not-loopback',
-  'planner-model-invalid', 'plan-file-task', 'plan-file-invalid',
+  'planner-model-invalid', 'plan-file-task', 'plan-file-invalid', 'browser-endpoint-missing', 'screen-reader-busy',
   // The dashboard server's own.
   'request-failed', 'invalid-input', 'invalid-json', 'request-too-large', 'loopback-only', 'origin-not-allowed', 'api-not-found',
-  'get-required', 'bad-file-path', 'revision-required', 'connection-not-found', 'page-read-busy', 'native-os-mismatch',
-  'at-driver-session-failed', 'task-run-active', 'custom-key-per-connection', 'connection-key-env-required', 'suggest-model-missing',
+  'get-required', 'bad-file-path', 'revision-required', 'connection-not-found', 'page-read-busy',
+  'at-driver-session-failed', 'voiceover-cursor-unavailable', 'task-run-active', 'custom-key-per-connection', 'connection-key-env-required', 'suggest-model-missing',
   'suggest-failed', 'start-page-unreadable', 'run-id-required', 'report-not-ready', 'screenshot-missing', 'trace-missing',
   'batch-not-for-task', 'plan-changed', 'too-many-combinations', 'shutting-down', 'select-supported', 'retry-no-task-file',
   'retry-run-active', 'task-changed', 'experiment-not-found', 'run-not-found', 'delete-run-active', 'batch-running-elsewhere', 'browser-profile-busy', 'summary-not-ready',

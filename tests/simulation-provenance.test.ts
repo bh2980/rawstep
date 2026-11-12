@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import type { Backend, BackendAction } from '@rawstep/core/contracts';
+import type { Backend, BackendAction, BackendEvent } from '@rawstep/core/contracts';
 import type { BrowserSession } from '@rawstep/browser/browser';
 import { runWithPolicy } from '@rawstep/browser/runner';
 
@@ -10,7 +10,7 @@ const dirs:string[]=[];
 afterEach(async()=>{await Promise.all(dirs.splice(0).map(path=>rm(path,{recursive:true,force:true})));});
 async function directory(){const value=await mkdtemp(join(tmpdir(),'rawstep-simulation-source-'));dirs.push(value);return value;}
 function fixture(){
- const listeners=new Set<(value:unknown)=>void>();let sequence=0;let entered=false;
+ const listeners=new Set<(value:BackendEvent)=>void>();let sequence=0;let entered=false;
  const backend:Backend={evidenceProvenance:'simulation',capabilities:{intents:['next'],keys:[],textEntry:true,replaceText:false},
   start:async()=>({backend:'mock-voiceover',evidenceProvenance:'simulation',environment:{atName:'Mock VoiceOver',atVersion:'simulation'}}),
   subscribe:listener=>{listeners.add(listener);return()=>listeners.delete(listener);},

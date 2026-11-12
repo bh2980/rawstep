@@ -1,0 +1,67 @@
+{
+  "strategy": "Open order 1042 and look for its invoice.",
+  "criteria": [
+    {
+      "id": "C1",
+      "text": "The invoice was downloaded"
+    }
+  ],
+  "assumptions": [
+    {
+      "id": "A1",
+      "text": "An order's details offer its invoice"
+    }
+  ],
+  "phases": [
+    {
+      "title": "Do it",
+      "criteria": [
+        "C1"
+      ],
+      "tasks": [
+        {
+          "goal": "Move to order 1042",
+          "done": "Hear the Order 1042 details button",
+          "cue": {
+            "name": "Order 1042 details",
+            "role": "button"
+          },
+          "activates": false,
+          "moves": [
+            "next"
+          ]
+        },
+        {
+          "goal": "Open the order's details",
+          "done": "Hear \"Delivered\"",
+          "cue": "Delivered",
+          "activates": true,
+          "serves": [
+            "C1"
+          ]
+        },
+        {
+          "goal": "Move to the invoice download",
+          "done": "Hear the invoice link",
+          "cue": {
+            "name": "invoice",
+            "role": "link"
+          },
+          "activates": false,
+          "moves": [
+            "next"
+          ]
+        },
+        {
+          "goal": "Download the invoice",
+          "done": "Hear \"Invoice downloaded\"",
+          "cue": "Invoice downloaded",
+          "activates": true,
+          "serves": [
+            "C1"
+          ]
+        }
+      ]
+    }
+  ]
+}

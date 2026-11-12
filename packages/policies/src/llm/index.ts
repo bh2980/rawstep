@@ -141,7 +141,8 @@ export function createLlmModel(options: LlmModelOptions): LlmModel {
 /** A coding-agent CLI as a model. The agent process starts on the first call; `close()` ends it. */
 export function createAgentModel(options: { agent: AcpAgent; modelId: string; timeoutMs?: number; reasoningEffort?: string }): LlmModel & { close(): Promise<void> } {
   if (!options.modelId?.trim()) throw new Error('An explicit model ID is required.');
-  const timeoutMs = options.timeoutMs ?? RAWSTEP_DEFAULTS.modelTimeoutMs;
+  // An agent's turn is slower than one API call, so it has its own default budget.
+  const timeoutMs = options.timeoutMs ?? RAWSTEP_DEFAULTS.agentModelTimeoutMs;
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 2_147_483_647) throw new Error('Invalid LLM timeout.');
   return { agent: options.agent, modelId: options.modelId, timeoutMs, ...(options.reasoningEffort ? { reasoningEffort: options.reasoningEffort } : {}), close: () => options.agent.close() };
 }

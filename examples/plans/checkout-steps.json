@@ -1,0 +1,67 @@
+{
+  "strategy": "Go from the cart to shipping and place the order, leaving the delivery speed as it is.",
+  "criteria": [
+    {
+      "id": "C1",
+      "text": "The page says the order was placed"
+    }
+  ],
+  "assumptions": [
+    {
+      "id": "A1",
+      "text": "Standard delivery is already selected"
+    }
+  ],
+  "phases": [
+    {
+      "title": "Do it",
+      "criteria": [
+        "C1"
+      ],
+      "tasks": [
+        {
+          "goal": "Move to the link that continues to shipping",
+          "done": "Hear the Continue to shipping link",
+          "cue": {
+            "name": "Continue to shipping",
+            "role": "link"
+          },
+          "activates": false,
+          "moves": [
+            "next"
+          ]
+        },
+        {
+          "goal": "Open the shipping page",
+          "done": "Hear \"Shipping\"",
+          "cue": "Shipping",
+          "activates": true,
+          "serves": [
+            "C1"
+          ]
+        },
+        {
+          "goal": "Move to the button that places the order",
+          "done": "Hear the Place order button",
+          "cue": {
+            "name": "Place order",
+            "role": "button"
+          },
+          "activates": false,
+          "moves": [
+            "next"
+          ]
+        },
+        {
+          "goal": "Place the order",
+          "done": "Hear \"Order placed\"",
+          "cue": "Order placed",
+          "activates": true,
+          "serves": [
+            "C1"
+          ]
+        }
+      ]
+    }
+  ]
+}

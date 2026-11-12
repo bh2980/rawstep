@@ -68,15 +68,20 @@ describe('a fixed plan in the orchestrated policy', () => {
     await one.decide(input());
     expect(await one.decide(input({ history: [press], observation: said('Something else') }))).toEqual({ stop: 'stuck', stopSource: 'user-gave-up' });
   });
-  it('keeps every task when nothing is stuck: a goal item heard on the way or taking stock of the effort', async () => {
-    const request: PlanRequest = { goal: 'g', trigger: 'start', speech: [], actions: [], attempts: [], effort: { moves: 0, sinceLastLook: 0, withoutGoalWords: 0, longestWithoutGoalWords: 0 } };
-    const planner = fixed(), first = await planner.plan(request);
-    const doc = applyDraft(undefined, first.draft, { goal: 'g', step: 1, trigger: 'start' });
-    for (const trigger of ['goal-heard', 'effort-review'] as const) {
-      const again = await planner.plan({ ...request, trigger, document: doc });
-      expect(again.draft.phases.flatMap(p => p.tasks.map(t => t.keep))).toEqual(planTasks(doc).map(t => t.id));
-      expect(again.draft.rationale).toBe('Fixed plan: unchanged.');
+  it('is not asked to review when nothing is stuck: a goal item heard on the way leaves the plan at version 1', async () => {
+    const planner = fixed();
+    let calls = 0;
+    const plan = planner.plan.bind(planner);
+    planner.plan = async (...args) => { calls++; return plan(...args); };
+    const policy = new OrchestratedSpeechPolicy(planner, { reviewEvery: 2 });
+    let history: HistoryEntry[] = [];
+    // Each item is new and names the goal ("phone", "cart") without being the task's cue: a model planner would be asked about it.
+    for (const [step, heard] of ['Phone deals, link', 'Cart, link', 'Phone cases, link'].entries()) {
+      expect(await policy.decide(input({ observation: said(heard), history }))).toEqual({ action: { kind: 'intent', intent: 'next' } });
+      history = [...history, acted(step + 1, heard)];
     }
+    expect(calls).toBe(1);
+    expect(policy.planDocument()!.version).toBe(1);
   });
   it('abandons a stuck task instead of rewriting the plan, and gives up when no task is left', async () => {
     const policy = new OrchestratedSpeechPolicy(fixed(), { noChangeLimit: 2, maxPlannerCalls: 5 });

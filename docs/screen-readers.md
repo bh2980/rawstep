@@ -35,12 +35,14 @@ Rawstep supports three screen-reader backends:
 | **`"voiceover"`** | macOS (`darwin`) | macOS VoiceOver + AT Driver server (`ws://localhost:4382/session`) | Verifying real Apple VoiceOver behavior on macOS. |
 | **`"nvda"`** | Windows (`win32`) | Windows NVDA + AT Driver server (`ws://localhost:3031/session`) | Verifying real NVDA behavior on Windows. |
 
+How far each has been checked: the simulation is tested on every change on macOS and Linux, and not yet on Windows. `voiceover` is experimental: it has been checked on Rawstep's own test pages and a few public sites, in one macOS virtual machine. `nvda` has not been tested on a real Windows machine yet.
+
 ---
 
 ## 3. Simulated VoiceOver (`"simulation"`)
 
 `MockVoiceOverBackend` (`@rawstep/screenreaders/mock-voiceover`) is Rawstep's built-in, cross-platform screen-reader simulator:
-- Reads Chromium's live Accessibility Tree via Chrome DevTools Protocol (`Accessibility.getFullAXTree`) and maintains an independent virtual cursor alongside DOM focus.
+- Reads Chromium's live Accessibility Tree via Chrome DevTools Protocol (`Accessibility.getFullAXTree`) and keeps a cursor of its own. Keyboard focus follows that cursor onto any item that can take focus, as VoiceOver does by default, and a focus change made by the page moves the cursor.
 - Formats spoken announcements with hand-written English wording rules (`formatSimulatedSpeech`). Some are checked against thirteen cases of VoiceOver output that people reported to [Accessibility Supported (`a11ysupport.io`)](https://github.com/accessibilitysupported/a11ysupport.io); the rest are choices made in Rawstep. A separate evidence module holds 2,914 third-party reported-result records (from Accessibility Supported and published [W3C ARIA-AT](https://github.com/w3c-cg/aria-at) reports; results, not transcripts) to measure how much is covered and where the gaps are. Runs do not use it.
 - Announces roles, accessible names, heading levels, landmarks, dialog boundaries, live regions (`aria-live`, `role="alert"`, `role="status"`), and states (`expanded`, `collapsed`, `checked`, `disabled`, `required`).
 - Stamps every trace with `evidenceProvenance: "simulation"` so simulated runs are never confused with native OS screen-reader runs.

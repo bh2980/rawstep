@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Demo mug - Demo shop</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+  </head>
+  <body>
+    <header>
+      <a href="#cart" id="cart">Cart (0)</a>
+    </header>
+    <main>
+      <h1>Demo mug</h1>
+      <p>$12</p>
+      <!-- The cart count at the top changes, and nothing is announced: a sighted user sees it, a screen reader user hears nothing. -->
+      <button id="add" type="button">Add to cart</button>
+    </main>
+    <script>
+      let count = 0;
+      document.getElementById("add").addEventListener("click", () => {
+        count += 1;
+        document.getElementById("cart").textContent = `Cart (${count})`;
+      });
+    </script>
+  </body>
+</html>

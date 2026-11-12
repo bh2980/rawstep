@@ -1,3 +1,5 @@
+import { REDACTED } from '@rawstep/core/redacted';
+import { isRecord } from '@rawstep/core/guards';
 import type { Hint, StepView } from '../../shared/api.js';
 import { t } from '../i18n/index.js';
 import { intentLabel } from '../i18n/labels.js';
@@ -15,8 +17,6 @@ export function describeStep(step: Pick<StepView, 'step' | 'action' | 'stop'>): 
   return t('steps.unknownAction');
 }
 
-const REDACTED = '[REDACTED]';
-const isRecord = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
 const str = (value: unknown): string | undefined => typeof value === 'string' && value ? value : undefined;
 const num = (value: unknown): number | undefined => typeof value === 'number' && Number.isFinite(value) ? value : undefined;
 
@@ -25,6 +25,22 @@ function target(value: unknown): string | undefined {
   const name = str(value.name);
   const role = str(value.role) ?? t('hints.text.element');
   return name && name !== REDACTED ? t('hints.text.targetNamed', { role, name }) : role;
+}
+
+/**
+ * What stopped a run that someone other than a custom model stopped, from an `early-stop` hint's detail: the repetition guard, a
+ * limit, or the user giving up. Undefined when the model itself stopped (the caller words that).
+ */
+function earlyStopBySource(detail: Record<string, unknown>): string | undefined {
+  const source = str(detail.stopSource);
+  if (source === 'exploration-guard') return t('hints.text.earlyStopGuard');
+  if (source === 'orchestration-limit') return t('hints.text.earlyStopPlanLimit');
+  if (source === 'no-allowed-action') return t('hints.text.earlyStopNoAction');
+  if (source === 'user-gave-up') {
+    const reason = str((detail.giveUp as Record<string, unknown> | undefined)?.reason);
+    return reason ? t('hints.text.earlyStopGaveUp', { reason }) : t('hints.text.earlyStopGaveUpWithheld');
+  }
+  return undefined;
 }
 
 function keyCounts(value: unknown): string | undefined {
@@ -88,13 +104,8 @@ export function describeHint(hint: Pick<Hint, 'kind' | 'summary' | 'detail'> & P
       return t('hints.text.liveInterruptions', { moves: d.moves, example });
     }
     case 'early-stop': {
-      if (str(d.stopSource) === 'exploration-guard') return t('hints.text.earlyStopGuard');
-      if (str(d.stopSource) === 'orchestration-limit') return t('hints.text.earlyStopPlanLimit');
-      if (str(d.stopSource) === 'no-allowed-action') return t('hints.text.earlyStopNoAction');
-      if (str(d.stopSource) === 'user-gave-up') {
-        const reason = str((d.giveUp as Record<string, unknown> | undefined)?.reason);
-        return reason ? t('hints.text.earlyStopGaveUp', { reason }) : t('hints.text.earlyStopGaveUpWithheld');
-      }
+      const stopped = earlyStopBySource(d);
+      if (stopped) return stopped;
       if (str(d.reason) === 'policy-stuck') return t('hints.text.earlyStopStuck');
       if (str(d.reason) === 'policy-uncertain') return t('hints.text.earlyStopUncertain');
       break;

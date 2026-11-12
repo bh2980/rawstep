@@ -1,9 +1,9 @@
+import { isRecord } from '@rawstep/core/guards';
 import type { HintFinding } from '../../shared/api.js';
 import { t } from '../i18n/index.js';
 import { formatSteps } from './format.js';
 
 type Detail = Record<string, unknown>;
-const isRecord = (value: unknown): value is Detail => !!value && typeof value === 'object' && !Array.isArray(value);
 const str = (value: unknown): string | undefined => typeof value === 'string' && value ? value : undefined;
 
 /** The numbers recorded under `key` in every occurrence of a finding. */
@@ -37,10 +37,6 @@ export function describeFinding(finding: Pick<HintFinding, 'kind' | 'counts' | '
       const reversals = numbers(finding, 'reversals');
       return reversals.length ? t('findings.backtracking', { max: Math.max(...reversals) }) : t('findings.backtrackingPlain');
     }
-    case 'early-stop':
-      if (str(detail.stopSource) === 'exploration-guard') return t('findings.earlyStopGuard');
-      if (str(detail.reason) === 'policy-stuck') return t('findings.earlyStopStuck');
-      return str(detail.reason) === 'policy-uncertain' ? t('findings.earlyStopUncertain') : undefined;
     default: return undefined;
   }
 }

@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Newsletter - Demo shop</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>.error { color: #b00020; }</style>
+  </head>
+  <body>
+    <main>
+      <h1>Newsletter</h1>
+      <form id="newsletter" novalidate>
+        <label>Email <input id="email" type="email" name="email" autocomplete="off" /></label>
+        <button type="submit">Subscribe</button>
+        <!-- The box the form needs comes after its button, and the error below is only shown: it is not announced and focus does not move. -->
+        <label><input id="agree" type="checkbox" /> I agree to receive emails</label>
+        <p id="error" class="error" hidden>Tick the box to agree first.</p>
+      </form>
+      <p id="status" role="status"></p>
+    </main>
+    <script>
+      document.getElementById("newsletter").addEventListener("submit", (event) => {
+        event.preventDefault();
+        const error = document.getElementById("error");
+        const agreed = document.getElementById("agree").checked;
+        const email = document.getElementById("email").value.trim();
+        error.hidden = agreed && email !== "";
+        if (!error.hidden) { document.getElementById("status").textContent = ""; document.title = "Newsletter - Demo shop"; return; }
+        document.getElementById("status").textContent = `Subscribed ${email}`;
+        document.title = "Subscribed - Demo shop";
+      });
+    </script>
+  </body>
+</html>
