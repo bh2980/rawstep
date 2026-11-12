@@ -47,6 +47,6 @@
     "@ai-sdk/openai-compatible": "3.0.63",
     "@rawstep/core": "workspace:*",
     "ai": "7.0.128",
-    "zod": "4.6.5"
+    "zod": "4.6.7"
   }
 }

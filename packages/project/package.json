@@ -94,7 +94,7 @@
     "@rawstep/browser": "workspace:*",
     "@rawstep/screenreaders": "workspace:*",
     "@rawstep/reports": "workspace:*",
-    "zod": "4.6.5"
+    "zod": "4.6.7"
   },
   "peerDependencies": {
     "playwright": "^1.59.1"
