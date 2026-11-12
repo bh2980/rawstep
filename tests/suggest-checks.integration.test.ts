@@ -34,7 +34,7 @@ async function project() {
 }
 
 const model = (baseURL: string): Model => ({ id: 'm', provider: 'custom', baseURL, modelId: 'test-llm', name: 'Test', timeoutMs: 10000 });
-const machine = { headless: true, browserExecutablePath: process.env.RAWSTEP_TEST_BROWSER_PATH ?? '', browserEndpoint: '' };
+const machine = { headless: true, browserExecutablePath: process.env.RAWSTEP_TEST_BROWSER_PATH ?? '', browserEndpoint: '', proxyServer: '' };
 
 describe('completion check suggestions', () => {
   it('validates proposals, marks rules already true at start, and never runs proposed scripts', async () => {

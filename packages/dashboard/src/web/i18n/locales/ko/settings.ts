@@ -155,7 +155,7 @@ export const settings = {
     showBrowserHint: '끄면 창을 띄우지 않고 백그라운드에서 실행합니다. 켜면 실행 과정을 직접 볼 수 있습니다.',
     parallelRuns: '동시 실행 수',
     parallelRunsHint: '한 번에 함께 돌리는 실행의 수입니다. 1에서 8까지 쓸 수 있습니다.',
-    parallelRunsInfo: '실행마다 브라우저를 따로 띄우므로 많을수록 이 컴퓨터가 느려집니다. 계획 모델이나 에이전트 CLI가 한꺼번에 오는 호출을 느리게 받거나 거절할 수 있습니다. 직접 띄우지 않은 브라우저에서 사람이 봇 확인을 통과하는 작업의 실행은 이 값과 상관없이 한 번에 하나씩 돕니다. 대시보드와 명령줄(rawstep suite)이 같은 값을 씁니다.',
+    parallelRunsInfo: '실행마다 브라우저를 따로 띄우므로 많을수록 이 컴퓨터가 느려집니다. 계획 모델이나 에이전트 CLI가 한꺼번에 오는 호출을 느리게 받거나 거절할 수 있습니다. 직접 띄우지 않은 브라우저에서 사람이 봇 확인을 통과하는 작업의 실행은 이 값과 상관없이 한 번에 하나씩 돕니다. 실제 스크린리더로 하는 실행도 마찬가지입니다. 한 데스크톱에는 스크린리더가 하나뿐이기 때문입니다. 대시보드와 명령줄(rawstep suite)이 같은 값을 씁니다.',
     parallelRunsInvalid: '동시 실행 수는 1에서 8 사이의 정수여야 합니다.',
     browserEndpoint: '내가 띄운 Chrome의 주소 (CDP, 선택)',
     browserEndpointHint: '직접 띄워 둔 Chrome에서 실행해 봇 판정을 줄입니다. Rawstep은 Chrome DevTools Protocol(CDP)로 연결합니다.',

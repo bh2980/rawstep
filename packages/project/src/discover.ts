@@ -1,3 +1,4 @@
+import { asRecord } from '@rawstep/core/guards';
 import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import { modelBaseURL } from '@rawstep/policies/llm';
 import { AcpAgent, AcpError } from '@rawstep/policies/acp';
@@ -14,7 +15,6 @@ export async function boundedJson(response: Response): Promise<unknown> {
   try { return JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { throw new ProjectError('model-json', 'The model server did not send valid JSON.', 502); }
 }
 /** A plain object view of untrusted JSON; anything else becomes `{}`. */
-const record = (v: unknown): Record<string, unknown> => v && typeof v === 'object' && !Array.isArray(v) ? v as Record<string, unknown> : {};
 export type DiscoverOptions = { timeoutMs?: number; fetch?: typeof fetch };
 /**
  * A model a connection offers. `efforts`: the reasoning levels a coding-agent CLI offers (the same for each of its models), with its
@@ -71,11 +71,11 @@ export async function discover(target: Pick<DiscoverRequest, 'provider' | 'baseU
     }
   }
   const path = provider === 'anthropic' ? 'models?limit=1000' : 'models';
-  const rows = record(await get(path)).data;
+  const rows = asRecord(await get(path)).data;
   if (!Array.isArray(rows)) throw new ProjectError('model-list-missing', 'The server has no model list API. Register the model ID by hand.', 502);
   const result: DiscoveredModel[] = [];
   for (const raw of rows) {
-    const m = record(raw), arch = record(m.architecture);
+    const m = asRecord(raw), arch = asRecord(m.architecture);
     const listed = m.id;
     if (typeof listed !== 'string' || !listed || (apiKey && JSON.stringify(m).includes(apiKey))) continue;
     const modelId = provider === 'google' ? listed.replace(/^models\//, '') : listed;

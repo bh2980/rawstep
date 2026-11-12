@@ -34,7 +34,6 @@ describe('finding descriptions', () => {
     expect(describeFinding(finding('focus-not-visible', [{ inViewport: false }]))).toContain('화면 밖');
     expect(describeFinding(finding('focus-left-page', [{}]))).toBe('키보드 포커스가 페이지 밖으로 이동했습니다.');
     expect(describeFinding(finding('modal-focus-outside', [{ dialog: { role: 'dialog' } }]))).toContain('안으로 이동하지 않았습니다');
-    expect(describeFinding(finding('early-stop', [{ reason: 'policy-uncertain' }]))).toContain('확신하지');
   });
 
   it('uses the largest number across occurrences for model findings', () => {

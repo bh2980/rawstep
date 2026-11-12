@@ -10,15 +10,15 @@ Rawstep은 단일 패키지(`rawstep`)로 배포되며 기능별 서브패스(`r
 | :--- | :--- |
 | **`rawstep`** | 루트 진입점. `runTask`, `runSuite`, `extractHints`, `aggregateHints`, `runEnding`, `readTrace`, `OrchestratedSpeechPolicy`, `LlmPlanner`, `MockVoiceOverBackend`, `AtDriverBackend`, `writeReport` 및 핵심 타입들을 재내보내기합니다. |
 | **`rawstep/project`** | `runTask`, `runSuite`, `ProjectStore`, `initProject`, `parseConfig`, `defaultConfig`, `PROVIDERS`, `ProjectError`. |
-| **`rawstep/contracts`** | `resolveTask`, `validateNavigation`, `describeInputs`, `matchesText`, `Task`, `VerifyRule`, `DecisionPolicy`, `Backend`, `ScreenReaderObservation`. |
+| **`rawstep/contracts`** | `resolveTask`, `validateNavigation`, `describeInputs`, `matchesText`, `flattenVerifyRules`, `Task`, `VerifyRule`, `DecisionPolicy`, `Backend`, `ScreenReaderObservation`. |
 | **`rawstep/policy`** | `OrchestratedSpeechPolicy`, `FixedPlanner`, `followPlan`, `applyDraft`, `renderPlanMarkdown`, `speechChoices`, `ScriptedPolicy`, `loadPolicy`. |
 | **`rawstep/runner`** | 저수준 실행 함수 `runWithPolicy(task, options)`, `RunOptions`, `validateDecision`, `confirmationHeard`. |
 | **`rawstep/mock-voiceover`** | `MockVoiceOverBackend`, `runMockVoiceOverTask`, `formatSimulatedSpeech`, `MOCK_VOICEOVER_PROFILE`. |
 | **`rawstep/at-driver`** | `AtDriverBackend`, `AtDriverClient`, `getAtDriverProfile`, `AT_DRIVER_KEYS`, `AtDriverError`. |
-| **`rawstep/hints`** | `extractHints`, `aggregateHints`, `writeHints`, `selectReference`, `summarizeRun`, `runEnding`, `DEFAULT_HINT_THRESHOLDS`, `HINTS_SCHEMA_VERSION` (`"3.0"`), `buildBatchSummary`, `compareSummaries`, `SUMMARY_SCHEMA_VERSION` (`"1.0"`). |
+| **`rawstep/hints`** | `extractHints`, `aggregateHints`, `writeHints`, `selectReference`, `summarizeRun`, `runEnding`, `runBroke`, `isMeasured`, `DEFAULT_HINT_THRESHOLDS`, `HINTS_SCHEMA_VERSION` (`"3.0"`), `buildBatchSummary`, `compareSummaries`, `measuredRuns`, `ranRuns`, `SUMMARY_SCHEMA_VERSION` (`"1.0"`). |
 | **`rawstep/report`** | `renderReportHtml`, `writeReport`, `summarizeTrace`. |
 | **`rawstep/analyze`** | `analyzeTrace`, `analyzeSavedTrace`, `deterministicAnalyzer`, `LlmTraceAnalyzer`, `readAnalysis`. |
-| **`rawstep/trace`** | `TraceRecorder`, `FileTraceSink`, `MemoryTraceSink`, `readTrace`, `validateTrace`, `createRedactor`, `TRACE_SCHEMA_VERSION` (`"3.0"`). |
+| **`rawstep/trace`** | `TraceRecorder`, `FileTraceSink`, `MemoryTraceSink`, `readTrace`, `validateTrace`, `createRedactor`, `TRACE_SCHEMA_VERSION` (`"3.0"`), `OUTCOME_REASONS`, `RUN_STAGES`. |
 | **`rawstep/verify`** | `verifyTask`, `evaluateVerifyRule`, `runScriptCheck`, `formatVerificationFeedback`. |
 | **`rawstep/browser`** | `createBrowserSession`, `closeBrowserSession`, `settlePage`, `isBotCheckPage`, `watchPageActivity`. |
 | **`rawstep/profiles`** | `resolveEnvironmentProfile`, `BUILTIN_PROFILES`, `DEFAULT_PROFILE`, `applyProfile`, `verifyLiveProfile`, `collectBrowserDiagnostics`. |
@@ -45,8 +45,7 @@ const taskResult = await runTask('checkout', {
 });
 
 for (const run of taskResult.runs) {
-  const stopSource = run.outcome?.policyStopSource;
-  const ending = runEnding(run.outcome, typeof stopSource === 'string' ? stopSource : undefined);
+  const ending = runEnding(run.outcome);
   console.log(run.runId, ending?.ending ?? 'no outcome', `moves=${run.hints.steps}`);
 }
 
@@ -126,8 +125,7 @@ const trace = await runMockVoiceOverTask(
   }
 );
 
-const stopSource = trace.outcome?.policyStopSource;
-console.log('종료 상태:', runEnding(trace.outcome, typeof stopSource === 'string' ? stopSource : undefined));
+console.log('종료 상태:', runEnding(trace.outcome));
 console.log('추출된 힌트:', extractHints(trace).hints);
 ```
 

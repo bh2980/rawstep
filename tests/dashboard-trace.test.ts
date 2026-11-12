@@ -3,7 +3,6 @@ import type { HintFinding, StepView } from '../packages/dashboard/src/shared/api
 import { i18n } from '../packages/dashboard/src/web/i18n/index.js';
 import { evidenceRefs, splitEvidence } from '../packages/dashboard/src/web/lib/findings.js';
 import { formatClock } from '../packages/dashboard/src/web/lib/format.js';
-import { runGlyphKind, runStripLabel } from '../packages/dashboard/src/web/lib/runStrip.js';
 import { goalWordHeardAt, liveCurrentLine, planSegments, railKeyTarget, railSpans, sameSpeech, stackRows, stepGlyph, stepRows, type StepItem } from '../packages/dashboard/src/web/lib/stepDots.js';
 import { nextThemePreference, parseThemePreference, readThemePreference, resolveTheme, THEME_KEY, writeThemePreference } from '../packages/dashboard/src/web/lib/theme.js';
 
@@ -55,25 +54,6 @@ describe('live status line', () => {
     expect(formatClock(3723)).toBe('1:02:03');
     expect(formatClock(-3)).toBe('00:00');
     expect(formatClock(Number.NaN)).toBe('00:00');
-  });
-});
-
-describe('run strip', () => {
-  it('draws reached filled, not reached striped, and everything else hollow', () => {
-    expect(runGlyphKind('success')).toBe('reached');
-    expect(runGlyphKind('failure')).toBe('missed');
-    expect(runGlyphKind('inconclusive')).toBe('inconclusive');
-    expect(runGlyphKind('cancelled')).toBe('inconclusive');
-    expect(runGlyphKind('interrupted')).toBe('inconclusive');
-    expect(runGlyphKind('running')).toBe('live');
-    expect(runGlyphKind('queued')).toBe('live');
-  });
-
-  it('gives each glyph an accessible name with the number, outcome and action count', () => {
-    expect(runStripLabel(12, 'success', 11)).toBe('실행 #12: 목표 도달, 행동 11번');
-    expect(runStripLabel(3, 'failure', 20)).toBe('실행 #3: 목표 못 닿음, 행동 20번');
-    expect(runStripLabel(4, 'inconclusive', undefined)).toBe('실행 #4: 판단 불가');
-    expect(runStripLabel(5, 'running', undefined)).toBe('실행 #5: 실행 중');
   });
 });
 

@@ -1,3 +1,4 @@
+import { asRecord } from '@rawstep/core/guards';
 import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import { isFilePlanner, type ActionSet, type AtBackend, type Combo, type Connection, type Profile } from '@rawstep/project/config';
 import type { ConfigView } from '../../shared/config.js';
@@ -39,13 +40,12 @@ export function unsupportedActions(actionSet: Pick<ActionSet, 'actions'>, capabi
   return Object.fromEntries(AT_BACKENDS.map(backend => [backend, [...keys.filter(k => !capabilities[backend].keys.includes(k)), ...intents.filter(i => !capabilities[backend].intents.includes(i))]])) as Record<AtBackend, string[]>;
 }
 
-const record = (value: unknown): Record<string, unknown> => value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
 const positive = (value: unknown, fallback: number) => typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : fallback;
 
 /** The page size an environment runs at: its own viewport, a built-in preset it names, or the default. */
 export function environmentViewport(profile: unknown, presets: Record<string, unknown>): { width: number; height: number } {
-  const environment = typeof profile === 'string' ? record(presets[profile]) : record(profile);
-  const viewport = record(environment.viewport);
+  const environment = typeof profile === 'string' ? asRecord(presets[profile]) : asRecord(profile);
+  const viewport = asRecord(environment.viewport);
   return { width: positive(viewport.width, RAWSTEP_DEFAULTS.viewport.width), height: positive(viewport.height, RAWSTEP_DEFAULTS.viewport.height) };
 }
 

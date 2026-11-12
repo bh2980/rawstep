@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import { existsSync } from 'node:fs';
 import { mkdtemp, rm, writeFile, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -171,13 +172,15 @@ describe('GET /api/experiments/:id/summary', () => {
     } }); apps.push(app);
     const experiment = await app.queue.create({ taskIds: ['before', 'after'], profileIds: ['default'], repeats: 2, note: 'the fix' });
     await waitFor(() => experiment.runs.every(run => run.reportStatus === 'complete'));
+    // The queue writes the batch's summary after its last run's report: wait for it, so the files below are not read half-changed.
+    const file = join(dir, '.rawstep/experiments', experiment.id, 'summary.json');
+    await waitFor(() => existsSync(file));
     // The moves of a run come from its hints.json.
     for (const run of experiment.runs) {
       const stuck = run.taskId === 'before' ? [hint('expectation-broken', subscribe, { assumption: { id: 'A1', text: 'It is a button' }, pressed: 3 })] : [];
       await writeFile(join(dir, '.rawstep/experiments', experiment.id, run.id, 'hints.json'), JSON.stringify({ runId: `trace-${run.id}`, steps: run.taskId === 'before' ? 34 : 10 + run.repeat * 6, hints: stuck }));
     }
     // The queue wrote the summary when the last run ended; remove it to see one written on request from the runs' own files.
-    const file = join(dir, '.rawstep/experiments', experiment.id, 'summary.json');
     await rm(file, { force: true });
     const response = await fetch(`${app.url}/api/experiments/${experiment.id}/summary`);
     expect(response.status).toBe(200);

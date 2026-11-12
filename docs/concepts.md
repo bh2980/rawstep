@@ -77,7 +77,7 @@ Even when a run ends as **`reached`**, Rawstep looks closely at what it took to 
 - **Stuck Places (`expectation-broken`):** When the user activates a control or types into a field expecting a specific change (recorded in the plan's `cue` and `assumptions`), and nothing happens or the expectation fails, Rawstep records the element and the broken expectation as a stuck place.
 - **Friction Hints (`hints.json`):** Rawstep extracts 16 specific hint types grouped by source:
   - **Page hints (`source: 'page'`):** Issues observed directly in browser/AT behavior (`excess-keystrokes`, `focus-lost`, `focus-left-page`, `focus-not-visible`, `modal-focus-outside`, `missing-announcement`, `live-interruptions`).
-  - **Run hints (`source: 'run'`):** Run-wide patterns (`slow-run`, `goal-met-at-start`, `replan`, `task-limit`, `wanted-to-give-up`, `goal-word-stretch`).
-  - **Model hints (`source: 'model'`):** Navigation reversals and broken expectations (`backtracking`, `early-stop`, `expectation-broken`).
+  - **Run hints (`source: 'run'`):** Run-wide patterns (`slow-run`, `goal-met-at-start`, `replan`, `task-limit`, `wanted-to-give-up`, `goal-word-stretch`, `early-stop`).
+  - **Model hints (`source: 'model'`):** Navigation reversals and broken expectations (`backtracking`, `expectation-broken`).
 
 See **[Results, Traces & Hints Reference](./reference/results.md)** for the full catalog of all 16 friction hints and their exact triggers.

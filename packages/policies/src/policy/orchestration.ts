@@ -1,3 +1,4 @@
+import { LIST_INTENTS } from '@rawstep/core/actions';
 import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import type { Decision, DecisionPolicy, HistoryEntry } from '@rawstep/core/contracts';
 import type { ChoiceCandidate, ModelFailure } from './choice.js';
@@ -52,6 +53,11 @@ export type CueResult = { matches: boolean; reason?: string; model: { id: string
 export interface Planner {
   plan(request: PlanRequest, options: { signal: AbortSignal }): Promise<PlanResult>;
   /**
+   * A plan that cannot change during the run (a plan file). It is not asked to review when nothing is stuck (a finished phase, a
+   * goal item heard on the way, taking stock of the effort): it could only answer with the same plan, and that would be recorded as a new version.
+   */
+  readonly fixed?: true;
+  /**
    * Whether `heard` is the item the task's cue describes. A planner that cannot judge this (a plan file) leaves it out, and only a
    * cue heard as written ends a task.
    */
@@ -82,14 +88,14 @@ export type OrchestrationOptions = SpeechPolicyOptions & {
    */
   survey?: 'none' | 'headings';
 };
-const DEFAULTS = { ...RAWSTEP_DEFAULTS.orchestration, failureLimit: 2, noChangeLimit: 3, oscillationLimit: 4 };
+const DEFAULTS = RAWSTEP_DEFAULTS.orchestration;
 /** Task changes in one runner step at most: finishing tasks or replanning never loops without an action. */
 const MAX_CALLS_PER_STEP = 8;
 /**
  * Moves a task makes once. A rotor list is opened once, and next and previous then move in it: opening it again would start the list
  * over. A list that is read out and closes says the same thing again, and the cursor stays where it was.
  */
-const ONCE_PER_TASK = new Set(['formControls.rotor', 'headings.list', 'links.list']);
+const ONCE_PER_TASK = new Set<string>(LIST_INTENTS);
 /** Items with the cue's name in another role put to the planner per task: walking a list of look-alikes must not become a call per item. */
 const OTHER_ROLE_QUESTIONS = 2;
 /** The choice ID an action has among the offered ones (`intent:next`, `type:query`…). */
@@ -233,7 +239,9 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
     this.taskEvent(done, 'active');
     // A finished phase is reviewed before the next one starts (with nothing left, the final review covers it), unless it went as
     // planned: then a review only costs a planner call.
-    if (needsCheckpoint(phase) && !wentAsPlanned(phase!) && currentTask(doc)) { await this.replan(input, step, 'checkpoint'); markCheckpoint(this.doc!, phase!.title, step); return; }
+    // The review is a planner call like any other: with none left it is skipped and the plan goes on as written, as an item is not
+    // asked about then. The call limit holds for every call, not only the ones a problem asks for.
+    if (!this.planner.fixed && needsCheckpoint(phase) && !wentAsPlanned(phase!) && currentTask(doc) && !this.outOfCalls()) { await this.replan(input, step, 'checkpoint'); markCheckpoint(this.doc!, phase!.title, step); return; }
     this.startTask(input);
   }
   /** Asks the planner whether the item the cursor is on is what the task's cue describes (once per item and task). */
@@ -274,7 +282,7 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
     // time in the run: walking back past an item already heard (the product just added, on the way to the cart) is not news.
     const item = currentItem(input.observation, []);
     const heardBefore = (text: string) => input.history.some(h => currentItem(h.observation, []) === text);
-    if (since.length && item && !this.noticed.has(item) && goalNamed(input.goal, item) && matchCue(task, item) === 'no' && !heardBefore(item)) { this.noticed.add(item); return 'goal-heard'; }
+    if (!this.planner.fixed && since.length && item && !this.noticed.has(item) && goalNamed(input.goal, item) && matchCue(task, item) === 'no' && !heardBefore(item)) { this.noticed.add(item); return 'goal-heard'; }
     // Counted since the task (re)started, so a task the planner keeps after the limit gets a fresh budget instead of tripping it again.
     // A task that keeps hearing new items is making its way (walking a long page item by item), not stuck: only actions since the
     // last newly heard item count.
@@ -283,7 +291,7 @@ export class OrchestratedSpeechPolicy implements DecisionPolicy {
     for (const item of spoken) { if (item && !heard.has(item)) { heard.add(item); sinceNew = 0; } else sinceNew++; }
     if (sinceNew >= this.limits.stepActionLimit) return 'task-limit';
     // However well a walk goes, after this many moves the user takes stock: keep going, change the approach or give up.
-    if (input.history.length - this.planFrom >= this.limits.reviewEvery) return 'effort-review';
+    if (!this.planner.fixed && input.history.length - this.planFrom >= this.limits.reviewEvery) return 'effort-review';
     return undefined;
   }
   /** The effort so far, from what each action left the cursor on. */

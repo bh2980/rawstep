@@ -1,11 +1,12 @@
 import { createHash } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { STOP_SOURCES } from "@rawstep/core/contracts";
 import { validateTrace, writeJsonAtomic, type RunTrace } from "@rawstep/core/trace";
 import { validateAnalysisReport, type AnalysisReport } from "../analyze/index.js";
-import { goalUnconfirmed, isStuck, isWrongGuess, runEnding, runMoves, type EndingOf, type RunEnding } from "../endings/index.js";
+import { goalUnconfirmed, isStuck, isWrongGuess, runEnding, runMoves, type EndingOf, type RunEnding, type UnmeasuredBy } from "../endings/index.js";
 import type { Hint, HintReport } from "../hints/index.js";
-import { record } from "../internal/guards.js";
+import { asRecord } from "@rawstep/core/guards";
 import { actionLabel, eventGrounds, summarizeTrace, type ReportSummary } from "./summary.js";
 
 export { summarizeTrace } from "./summary.js";
@@ -41,28 +42,32 @@ export const REPORT_SCRIPT_HASH = `'sha256-${createHash("sha256").update(REPORT_
 /** The policy of the report: no remote loads and no script but the one above. A server adds what it needs (`img-src data:`, `sandbox allow-scripts`). */
 export const REPORT_CSP = `default-src 'none'; style-src 'unsafe-inline'; script-src ${REPORT_SCRIPT_HASH}; base-uri 'none'; form-action 'none'`;
 
-/** How a run ended, in the words of the question Rawstep answers. These are the cost of reaching the goal and where the user stopped, not a grade. */
+/**
+ * How a run ended, in the words of the question Rawstep answers. These are the cost of reaching the goal and where the user stopped,
+ * not a grade. The words are the dashboard's and the CLI's (`taskPage.results.endings` and `.by` in the dashboard's locale files):
+ * the report is read next to them, so one ending has one name.
+ */
 const ENDINGS: Record<RunEnding, [string, string]> = {
-  reached: ["Reached the goal", "목표에 닿음"],
+  reached: ["Reached the goal", "해냄"],
   "gave-up": ["Gave up", "포기함"],
-  mistaken: ["Said it was done, but the goal was not reached", "끝났다고 했지만 목표에는 닿지 않음"],
+  mistaken: ["Said it was done, but the goal was not reached", "잘못 끝냄"],
   unmeasured: ["Not measured", "측정 못 함"],
 };
-const STOPPED_BY: Record<string, [string, string]> = {
+const STOPPED_BY: Record<UnmeasuredBy, [string, string]> = {
   "planner-calls": ["the planner-call limit", "계획 호출 한도"],
   "no-allowed-action": ["no allowed action", "허용된 동작 없음"],
   "max-steps": ["the move limit", "최대 행동 수"],
   timeout: ["the time limit", "시간 한도"],
   "repetition-guard": ["the repetition guard", "반복 감시"],
-  "model-uncertain": ["the model was not sure", "모델이 확신하지 못함"],
+  "model-uncertain": ["the model was not sure", "모델이 확신 못 함"],
   "planner-timeout": ["the planner did not answer in time", "계획 모델이 제때 답하지 않음"],
   blocked: ["the site blocked the browser", "사이트가 브라우저를 막음"],
   environment: ["the page environment could not be applied", "페이지 환경을 적용하지 못함"],
-  other: ["another cause", "다른 원인"],
+  other: ["another cause", "기타"],
 };
 
 function endingOf(trace: RunTrace): EndingOf | undefined {
-  return runEnding(trace.outcome, typeof trace.outcome?.policyStopSource === "string" ? trace.outcome.policyStopSource : undefined);
+  return runEnding(trace.outcome);
 }
 function targetText(target: { role: string; name?: string } | undefined): string {
   return target ? `${target.role}${target.name ? ` “${target.name}”` : ""}` : "";
@@ -125,7 +130,11 @@ function renderEnding(trace: RunTrace, summary: ReportSummary): string {
   const outcome = trace.outcome, ending = endingOf(trace), e = escapeHtml;
   const moves = runMoves(outcome) ?? summary.actions.length;
   const after = typeof outcome?.goalStep === "number" ? summary.actions.length - outcome.goalStep : 0;
-  const label = ending ? bi(ENDINGS[ending.ending][0], ENDINGS[ending.ending][1]) : bi("Not finished", "끝나지 않음");
+  // A run with an outcome and no ending broke (an error, a cancel): it says nothing about the user, and is never worded as an ending.
+  const label = ending ? bi(ENDINGS[ending.ending][0], ENDINGS[ending.ending][1])
+    : !outcome ? bi("Not finished", "끝나지 않음")
+    : outcome.status === "aborted" ? bi("Cancelled: says nothing about the user or the page", "취소됨: 사용자나 페이지에 대해 알려 주는 것이 없음")
+    : bi("Ended on an error: says nothing about the user or the page", "오류로 끝남: 사용자나 페이지에 대해 알려 주는 것이 없음");
   const by = ending?.by ? STOPPED_BY[ending.by] : undefined;
   const started = Date.parse(trace.startedAt), ended = trace.endedAt ? Date.parse(trace.endedAt) : NaN;
   const seconds = Number.isFinite(started) && Number.isFinite(ended) && ended >= started ? ((ended - started) / 1000).toFixed(1) : undefined;
@@ -143,11 +152,11 @@ function renderSummary(trace: RunTrace, summary: ReportSummary): string {
   const hasNative = summary.modalities.includes("screenreader") || summary.modality === "unknown";
   const hasSimulation = summary.modalities.includes("simulation");
   const outcome = trace.outcome;
-  const cancellation = record(outcome?.cancellation);
+  const cancellation = asRecord(outcome?.cancellation);
   const failure = summary.firstFailure;
   return `<section aria-labelledby="outcome"><h2 id="outcome">${bi("Recorded run outcome", "기록된 실행 결과")}</h2>
 <p class="outcome">${e(outcome?.status ?? "unfinished")}${outcome?.reason ? `: ${e(outcome.reason)}` : ""}</p>
-${typeof outcome?.policyStopSource === "string" && ["model", "planner", "exploration-guard", "user-gave-up", "orchestration-limit", "no-allowed-action"].includes(outcome.policyStopSource) ? `<p>${bi("Stop source:", "멈춘 주체:")} ${e(outcome.policyStopSource)}</p>` : ""}
+${typeof outcome?.policyStopSource === "string" && (STOP_SOURCES as readonly string[]).includes(outcome.policyStopSource) ? `<p>${bi("Stop source:", "멈춘 주체:")} ${e(outcome.policyStopSource)}</p>` : ""}
 ${typeof outcome?.error === "string" ? `<p>${e(outcome.error)}</p>` : ""}
 ${typeof outcome?.stage === "string" ? `<p>${bi(`Stage: ${e(outcome.stage)}${typeof outcome.step === "number" ? ` · step ${e(outcome.step)}` : ""}`, `단계: ${e(outcome.stage)}${typeof outcome.step === "number" ? ` · ${e(outcome.step)}번째 행동` : ""}`)}</p>` : ""}
 ${typeof cancellation.signal === "string" ? `<p>${bi(`Cancellation: ${e(cancellation.signal)}`, `취소: ${e(cancellation.signal)}`)}</p>` : ""}

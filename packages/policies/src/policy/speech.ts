@@ -1,19 +1,23 @@
+import { ACTIVATE_INTENT, type KnownIntent } from '@rawstep/core/actions';
 import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import { inputLabel, moveSpeech, type AllowedActions, type Decision, type DecisionPolicy, type HistoryEntry, type InputDescriptor, type Observation } from '@rawstep/core/contracts';
 
 /**
  * What each screen reader intent does, in plain words, as the planner reads the actions it may plan with. The item the cursor is
- * on goes in `currentItem`, never in a label.
+ * on goes in `currentItem`, never in a label. Every intent a built-in backend offers has a label: one added to core's list does not
+ * compile until it has one here.
  */
-const INTENT_LABELS: Record<string, string> = {
+const INTENT_LABELS: Record<Exclude<KnownIntent, typeof ACTIVATE_INTENT>, string> = {
   next: 'Move to the next item', previous: 'Move to the previous item',
   'heading.next': 'Jump to the next heading', 'heading.previous': 'Jump to the previous heading', 'form.next': 'Jump to the next form control',
   'form.previous': 'Jump to the previous form control', 'link.next': 'Jump to the next link', 'link.previous': 'Jump to the previous link',
   readCurrent: 'Read the current item again', readFocused: 'Read the focused element',
   'headings.list': "Read the list of the page's headings, which then closes: the cursor stays where it was", 'links.list': "Read the list of the page's links, which then closes: the cursor stays where it was",
   'formControls.rotor': "Open the rotor's list of form controls, buttons included (it says \"Form controls\" and the first item). While it is open, next and previous move through the list, and activate moves the cursor to that item without pressing it",
+  interact: 'Go into the current item (a group, table or other container) to move among what is inside it',
+  stopInteracting: 'Come back out of the container the cursor is inside',
 };
-const intentLabel = (intent: string) => intent === 'activate' ? 'Activate the current item' : INTENT_LABELS[intent] ?? `Screen reader intent: ${intent}`;
+const intentLabel = (intent: string) => intent === ACTIVATE_INTENT ? 'Activate the current item' : Object.hasOwn(INTENT_LABELS, intent) ? INTENT_LABELS[intent as keyof typeof INTENT_LABELS] : `Screen reader intent: ${intent}`;
 /**
  * The item the screen reader cursor is on, as last spoken: the last line of the latest speech that said anything (an activation
  * can say nothing). A screen reader user knows what they are on; the label for activating names it.

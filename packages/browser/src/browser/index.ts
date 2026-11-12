@@ -1,7 +1,9 @@
 import { applyProfile, installProfileStyles, type AppliedProfile, type EnvironmentProfile } from '../profiles/index.js';
 import { chromium, type Browser, type BrowserContext, type Page } from "playwright";
-import type { ResolvedNavigationPolicy, VerifySpec } from "@rawstep/core/contracts";
+import { flattenVerifyRules, type ResolvedNavigationPolicy, type VerifySpec } from "@rawstep/core/contracts";
 import { DEFAULT_VIEWPORT, SETTLE_MS } from "./constants.js";
+export { focusIsEditable } from "./editable.js";
+import { isLoopbackHostname } from "@rawstep/core/defaults";
 import { RawstepError } from "@rawstep/core/errors";
 import { installNavigationRequestBoundary } from "./navigation-boundary.js";
 import { installPageObserver, type ObserverOptions, type PageObserver } from "../observer/index.js";
@@ -64,8 +66,6 @@ export type BrowserSession = {
     blocked: BlockedNavigationRecord[];
     warnings: NavigationGuardWarningRecord[];
   };
-  /** Exact native window owned by a trusted prepaired factory, when applicable. */
-  nativeTargetWindowId?: number;
   /** The operating system's process ID of the browser that shows the page, when the browser could say. */
   browserProcessId?: number;
   /** Isolated-world change recorder for hints and goal signals; never visible to the policy. */
@@ -135,24 +135,28 @@ export type CreateBrowserSessionOptions = {
 
 /** What to do about a site that blocks the browser: Rawstep never answers a check itself. */
 export const BLOCKED_NEXT = 'Rawstep does not answer checks: set the task\'s browser so a person passes it in a visible window (browser.personCheck), or so it runs in a Chrome you started yourself (browser.mode "connect", with copySignIn for a page behind a sign-in).';
-/** Hosts that serve human checks (Cloudflare Turnstile/challenges, hCaptcha, reCAPTCHA). */
-const BOT_CHECK_HOSTS = /(^|\.)(challenges\.cloudflare\.com|hcaptcha\.com|recaptcha\.net)$/;
+/**
+ * The addresses that serve human checks (Cloudflare Turnstile/challenges, hCaptcha, reCAPTCHA), as data: the host's test below and
+ * the guard script inside the page both read these, so a check address the one lets through the other lets through too.
+ */
+const BOT_CHECK_ADDRESSES = Object.freeze({ hosts: '(^|\\.)(challenges\\.cloudflare\\.com|hcaptcha\\.com|recaptcha\\.net)$', hostWithPath: Object.freeze({ host: 'www.google.com', path: '/recaptcha' }), query: '__cf_chl' });
 export function isBotCheckUrl(url: string): boolean {
   try {
-    const parsed = new URL(url);
-    return BOT_CHECK_HOSTS.test(parsed.hostname) || (parsed.hostname === 'www.google.com' && parsed.pathname.startsWith('/recaptcha')) || parsed.search.includes('__cf_chl');
+    const parsed = new URL(url), { hosts, hostWithPath, query } = BOT_CHECK_ADDRESSES;
+    return new RegExp(hosts).test(parsed.hostname) || (parsed.hostname === hostWithPath.host && parsed.pathname.startsWith(hostWithPath.path)) || parsed.search.includes(query);
   } catch { return false; }
 }
 /**
- * Whether the page is a human-check interstitial instead of the site: a check address, a check title, or the marks a Cloudflare
- * challenge page carries even when the site brands it (its challenge form or orchestration script, or a short page with a Ray ID).
- * A check widget inside an ordinary page (an invisible reCAPTCHA next to ads, a Turnstile box on a form) is not one.
+ * Whether the page is a human-check or access-denied interstitial instead of the site: a check address, a check title, or the marks a
+ * Cloudflare challenge page carries even when the site brands it (its challenge form or orchestration script, or a short page with a
+ * Ray ID). A check widget inside an ordinary page (an invisible reCAPTCHA next to ads, a Turnstile box on a form) is not one.
+ * The one test for this: every kind of run asks here, so a read-only run and any other agree on what a blocked start page is.
  */
 export async function isBotCheckPage(page: Page): Promise<boolean> {
   // A page that cannot answer (closing, navigating) is not taken for a check: detecting one must never break a run itself.
   if (isBotCheckUrl(await Promise.resolve().then(() => page.url()).catch(() => ''))) return true;
   const title = String(await Promise.resolve().then(() => page.title()).catch(() => '') ?? '');
-  if (/just a moment|attention required|checking your browser|verify (you are|you're) human|잠시만 기다려|보안 확인/i.test(title)) return true;
+  if (/just a moment|attention required|checking your browser|verify (you are|you're) human|access denied|robot check|잠시만 기다려|보안 확인/i.test(title)) return true;
   return true === await Promise.resolve().then(() => page.evaluate(() => {
     if (document.querySelector('#challenge-form, #challenge-running, #cf-challenge-running, script[src*="/cdn-cgi/challenge-platform/h/"]')) return true;
     const text = document.body?.innerText ?? '';
@@ -172,7 +176,7 @@ export function validateCdpEndpoint(value: string): string {
   let endpoint: URL;
   try { endpoint = new URL(value.trim()); } catch { throw new Error('Browser address must be a URL such as http://localhost:9222.'); }
   if (!['http:', 'https:', 'ws:', 'wss:'].includes(endpoint.protocol) || endpoint.username || endpoint.password) throw new Error('Browser address must be an http(s) or ws(s) URL without credentials, such as http://localhost:9222.');
-  if (!['localhost', '127.0.0.1', '[::1]'].includes(endpoint.hostname)) throw new Error('Browser address must be on this computer (localhost, 127.0.0.1 or [::1]).');
+  if (!isLoopbackHostname(endpoint.hostname)) throw new Error('Browser address must be on this computer (localhost, 127.0.0.1 or [::1]).');
   return endpoint.href.replace(/\/$/, '');
 }
 
@@ -464,7 +468,6 @@ export async function createBrowserSession(
       if(initialResponse && [401,403,407,429].includes(initialResponse.status()))throw new BrowserAccessBlockedError(initialResponse.url(),initialResponse.status(),`The site answered HTTP ${initialResponse.status()} to the start address: it refuses this browser (or asks to sign in). ${BLOCKED_NEXT}`);
       await waitForNetworkIdleBestEffort(page);
       if(!personCheck && await isBotCheckPage(page))throw new BrowserAccessBlockedError(page.url(),initialResponse?.status(),`The site shows a bot check instead of the page. ${BLOCKED_NEXT}`);
-      if(options.navigation?.readOnly){const title=await page.title();const challenge=await page.locator('iframe[src*="captcha" i],iframe[src*="challenge" i]').count();if(challenge||/access denied|verify (you are|you're) human|just a moment|robot check/i.test(title))throw new BrowserAccessBlockedError(page.url(),initialResponse?.status(),'Public read-only page presents an access or human-verification barrier; no challenge interaction attempted.');}
       const appliedProfile = options.profile ? await applyProfile(page, options.profile) : undefined;
       if (appliedProfile) session.appliedProfile = appliedProfile;
       if (observer) session.observer = observer;
@@ -614,7 +617,8 @@ function resolveDomEventRecorderConfigs(verify?: VerifySpec): DomEventRecorderCo
   }
 
   const deduped = new Map<string, DomEventRecorderConfig>();
-  for (const rule of verify.all) {
+  // Nested rules too: a `domEventSeen` under `not` or `any` is checked against the same record, so it needs its recorder as well.
+  for (const rule of flattenVerifyRules(verify.all)) {
     if (!("domEventSeen" in rule)) {
       continue;
     }
@@ -789,29 +793,21 @@ async function installDocumentNavigationGuard(
       return;
     }
 
-    const reason = getNavigationBlockReason(targetUrl, context);
-    if (!reason) {
-      return;
-    }
-
-    context.onBlockedNavigation(targetUrl, reason);
+    // The page already cancelled this navigation, so it is always recorded: the host's own reading only says why. Should the two ever
+    // disagree, the block is still in the record instead of a navigation that silently went nowhere.
+    context.onBlockedNavigation(targetUrl, getNavigationBlockReason(targetUrl, context) ?? `Blocked navigation to ${targetUrl}: the page's navigation guard stopped it.`);
   });
   const initScript = createDocumentNavigationGuardScript({
     bindingName,
     policy: serializeNavigationPolicy(context.policy),
     allowedOrigin: context.allowedOrigin,
     startUrlPrefix: context.startUrlPrefix,
+    ...(context.allowBotChecks ? { botChecks: BOT_CHECK_ADDRESSES } : {}),
     reportViaBinding: true
   });
   await page.addInitScript({ content: initScript });
   try {
-    await page.evaluate(createDocumentNavigationGuardScript({
-      bindingName,
-      policy: serializeNavigationPolicy(context.policy),
-      allowedOrigin: context.allowedOrigin,
-      startUrlPrefix: context.startUrlPrefix,
-      reportViaBinding: true
-    }));
+    await page.evaluate(initScript);
   } catch (error) {
     context.onInstallWarning(createNavigationGuardInstallWarning(
       "script",
@@ -822,14 +818,19 @@ async function installDocumentNavigationGuard(
 
 }
 
+/**
+ * The guard that runs inside the page. It has to decide at once whether to cancel a click or a submit, so it cannot ask the host: it
+ * carries its own copy of the scope rules (`isAllowedNavigation` in the script), fed with the same policy and, when a person passes
+ * human checks in this run, the same check addresses the host lets through (`botChecks`). Keep the two in step:
+ * `getNavigationBlockReason` is the host's.
+ */
 function createDocumentNavigationGuardScript(config: {
   bindingName: string;
-  policy:
-    | { strategy: "same-origin" }
-    | { strategy: "start-url-prefix" }
-    | { strategy: "allow-url-list"; allowUrlList: string[] };
+  /** The whole resolved policy: the script reads its strategy, `denyUrlIncludes` and `readOnly`. */
+  policy: ResolvedNavigationPolicy;
   allowedOrigin: string;
   startUrlPrefix: string;
+  botChecks?: typeof BOT_CHECK_ADDRESSES;
   reportViaBinding: boolean;
 }): string {
   return `(${DOCUMENT_NAVIGATION_GUARD_INSTALLER_SOURCE})(${JSON.stringify(config)})`;
@@ -897,8 +898,20 @@ const DOCUMENT_NAVIGATION_GUARD_INSTALLER_SOURCE = String.raw`function(config) {
     } catch { return false; }
   };
 
+  // A person passes human checks in this run: the check's own addresses load, as on the host (isBotCheckUrl).
+  const isBotCheck = function(targetUrl) {
+    if (!config.botChecks) return false;
+    try {
+      const parsed = new URL(targetUrl);
+      return new RegExp(config.botChecks.hosts).test(parsed.hostname)
+        || (parsed.hostname === config.botChecks.hostWithPath.host && parsed.pathname.startsWith(config.botChecks.hostWithPath.path))
+        || parsed.search.includes(config.botChecks.query);
+    } catch { return false; }
+  };
+
   const isAllowedNavigation = function(targetUrl) {
     const normalizedTargetUrl = normalizeTargetUrlInPage(targetUrl);
+    if (isBotCheck(normalizedTargetUrl)) return true;
     try {
       const parsed = new URL(normalizedTargetUrl);
       if (!["http:", "https:", "file:"].includes(parsed.protocol) || parsed.username || parsed.password) {

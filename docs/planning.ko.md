@@ -135,4 +135,4 @@ API 호출 없이 빠르고 동일하게 재현되는 실행이 필요할 때(`r
 ```
 
 - `{task}` 자리는 실행할 태스크 파일 이름(확장자 `.json` 제외)으로 자동 치환됩니다 (예: `tasks/checkout.json`을 실행하면 `plans/checkout.json`을 읽음).
-- `planFile` 플래너(`FixedPlanner`)를 사용할 때는 실행 도중 계획이 바뀌지 않습니다. 세부 작업이 막히면(`failures`, `no-change`, `oscillation`, `task-limit`. 예를 들어 `stepActionLimit` 안에 목표 단서를 듣지 못한 경우) 해당 세부 작업을 중단하고 파일의 다음 세부 작업으로 넘어갑니다. 단계 점검과 진행 점검(`checkpoint`, `effort-review`)에서는 계획을 그대로 둡니다. 남은 세부 작업이 없는데 목표에 도달하지 못했다면, 작성된 계획의 작업이 바닥났다는 이유로 `gave-up`으로 끝납니다.
+- `planFile` 플래너(`FixedPlanner`)를 사용할 때는 실행 도중 계획이 바뀌지 않습니다. 세부 작업이 막히면(`failures`, `no-change`, `oscillation`, `task-limit`. 예를 들어 `stepActionLimit` 안에 목표 단서를 듣지 못한 경우) 해당 세부 작업을 중단하고 파일의 다음 세부 작업으로 넘어갑니다. 막힌 것이 없을 때의 점검(`checkpoint`, `goal-heard`, `effort-review`)은 계획 파일에 묻지 않으므로, 세부 작업을 중단하기 전까지 계획은 1판 그대로입니다. 남은 세부 작업이 없는데 목표에 도달하지 못했다면, 작성된 계획의 작업이 바닥났다는 이유로 `gave-up`으로 끝납니다.

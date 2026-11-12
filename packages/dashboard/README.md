@@ -101,7 +101,7 @@ All paths start with `/api`. Bodies and responses are JSON unless noted. Errors 
 | `POST /connections/models` | List a connection's models |
 | `POST /connections/sign-in` | Start a coding-agent CLI's own sign-in, on the person's request |
 | `POST /browser/check` | Start the browser once and read its version |
-| `POST /backend/check` | Check the Chromium for the simulation, or open an AT Driver session for VoiceOver or NVDA (starts the server with the saved command if none answers) |
+| `POST /backend/check` | Check the Chromium for the simulation, or make the setup check of a native screen reader that `rawstep doctor` makes: its operating system and address, an AT Driver session (the server is started with the saved command if none answers), and for VoiceOver that its cursor can be read |
 | `GET`, `PUT /machine/at-driver-command` | Read and write `RAWSTEP_AT_DRIVER_COMMAND` in `.env.local` |
 | `GET /files` | Project files, relative paths |
 | `POST /suggest-checks` | Ask the suggestion model for completion checks for a start page and goal |

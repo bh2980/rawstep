@@ -7,7 +7,8 @@ export type EnvironmentProfile = {
   forcedColors: 'none' | 'active';
   contrast: 'no-preference' | 'more';
   reducedMotion: 'no-preference' | 'reduce';
-  at?: { name: string; version?: string; configuration?: string };
+  /** The screen reader the run expects, checked against the name and version the backend reports: what a backend can prove. */
+  at?: { name: string; version?: string };
   diagnostics: boolean;
   /** Refuse runs whose requested environment cannot be independently observed. */
   requireApplied: boolean;

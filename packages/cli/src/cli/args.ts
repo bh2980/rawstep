@@ -168,11 +168,13 @@ Configuration:
   (do not commit it) or the process environment.
 
 Run defaults:
-  --profile  <id|name>; the run profile to use; without it, the project's first profile
+  --profile  <id|name>; the run profile to use; without it, run uses the task's first usual profile (tasks[].profiles) and suite
+             each task's usual profiles; a task with none uses the project's first profile
   --rule     <name>=<value>, repeatable; overrides one run rule for these runs (the profile's, then these), e.g. --rule maxPlannerCalls=20 --rule survey=headings;
              see the runRules section of docs/reference/config.md for the rules
   --repeat   1; repeats are compared with the fastest run that reached the goal
-  --parallel machine.parallelRuns (1); how many runs go at once, each its own browser. Tasks where a person passes bot checks in a launched browser go one at a time
+  --parallel machine.parallelRuns (1); how many runs go at once, each its own browser. Tasks where a person passes bot checks in a launched browser go one at a time,
+             and so do runs on a native screen reader
   --note     what this batch is for ("made Add to cart a button"), shown with it in the dashboard
   Runs are saved as one batch in <project>/.rawstep/experiments/<id>/, one folder per run, with summary.json; the dashboard lists them.
 

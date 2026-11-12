@@ -199,7 +199,7 @@ describe("evidence-first report", () => {
     expect(html.indexOf('id="outcome"')).toBeGreaterThan(html.indexOf('id="ending"'));
     // The ending is a cost in words, with no pass mark.
     expect([...document.querySelectorAll(".ending .l-en")].map(node => node.textContent)).toEqual(["Reached the goal", "11 moves"]);
-    expect([...document.querySelectorAll(".ending .l-ko")].map(node => node.textContent)).toEqual(["목표에 닿음", "11번 행동"]);
+    expect([...document.querySelectorAll(".ending .l-ko")].map(node => node.textContent)).toEqual(["해냄", "11번 행동"]);
     expect(html).not.toMatch(/✓|✔|class="pass/);
     const footer = document.querySelector("body > footer")!;
     expect(footer.textContent).toContain("report-test");
@@ -219,7 +219,7 @@ describe("evidence-first report", () => {
       broke([12], { assumption: { id: "A2", text: "The form follows the heading" } }),
       broke([14], { assumption: { id: "A3", text: "x" }, trigger: "goal-heard", pressed: 13 }, { role: "heading", name: "Hammer" }),
       { kind: "goal-word-stretch", source: "run", certainty: "observed", steps: [2, 20], summary: "", detail: { moves: 18 }, evidence: [] },
-      { kind: "early-stop", source: "model", certainty: "observed", steps: [34], summary: "", detail: { stopSource: "user-gave-up", giveUp: { reason: "Nothing subscribes", tried: ["A1"] } }, evidence: [] },
+      { kind: "early-stop", source: "run", certainty: "observed", steps: [34], summary: "", detail: { stopSource: "user-gave-up", giveUp: { reason: "Nothing subscribes", tried: ["A1"] } }, evidence: [] },
     ] };
     const hard = new JSDOM(renderReportHtml(trace, undefined, { hints })).window.document.querySelector("#hard")!.closest("section")!;
     const english = [...hard.querySelectorAll("li .l-en")].map(node => node.textContent);

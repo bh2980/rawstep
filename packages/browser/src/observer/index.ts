@@ -1,4 +1,5 @@
 import type { CDPSession, Page } from 'playwright';
+import { OBSERVED_EVENT_KINDS, type ObservedEventKind } from '@rawstep/core/contracts';
 
 /**
  * Page observer: records focus, ARIA state, live-region, dialog and SPA navigation changes as they happen,
@@ -6,7 +7,7 @@ import type { CDPSession, Page } from 'playwright';
  * page scripts cannot see or patch it, and nothing it records is ever shown to the decision policy.
  */
 /** page-blur: keyboard focus left the page (browser UI or another window); page-focus: it came back. */
-export type ObserverEventKind = 'focus' | 'focus-lost' | 'appeared' | 'disappeared' | 'live-region' | 'state' | 'submit' | 'navigation' | 'page-blur' | 'page-focus';
+export type ObserverEventKind = ObservedEventKind;
 /** x and y are the box's top-left corner in CSS pixels from the viewport's top-left; the box can extend past the viewport. */
 export type ObserverRect = { x: number; y: number; width: number; height: number };
 export type ObserverEvent = {
@@ -49,7 +50,7 @@ export type PageObserver = {
 
 export const OBSERVER_WORLD = 'rawstep-observer';
 const BINDING = '__rawstepObserve';
-const KINDS: readonly string[] = ['focus', 'focus-lost', 'appeared', 'disappeared', 'live-region', 'state', 'submit', 'navigation', 'page-blur', 'page-focus'];
+const KINDS: readonly string[] = OBSERVED_EVENT_KINDS;
 
 /** Install before the first navigation so the observer sees the initial document. */
 export async function installPageObserver(page: Page, options: ObserverOptions = {}): Promise<PageObserver> {

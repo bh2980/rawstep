@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { TraceRecorder } from '@rawstep/core/trace';
 import { BatchQueue, type Experiment } from '@rawstep/project/batch';
-import { lockBrowserProfile, type RunExecutor } from '@rawstep/project/execution';
+import { lockBrowserProfile, lockScreenReader, type RunExecutor } from '@rawstep/project/execution';
 import { runSuite, runTask, type RunProgress } from '@rawstep/project/run';
 import { resolveTask } from '@rawstep/core/contracts';
 import { ProjectStore, initProject } from '@rawstep/project/store';
@@ -105,6 +105,69 @@ describe('batches shared by the CLI and the dashboard', () => {
     expect(JSON.parse(await readFile(profile + '.lock', 'utf8')).pid).toBe(process.pid);
     await taken();
     await expect(readFile(profile + '.lock')).rejects.toThrow();
+  });
+
+  it('lets one run at a time have this computer\'s screen reader, across processes', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'rawstep-lock-')); dirs.push(dir);
+    const release = await lockScreenReader(dir);
+    await expect(lockScreenReader(dir)).rejects.toMatchObject({ code: 'screen-reader-busy', status: 409 });
+    await release();
+    await writeFile(join(dir, 'native-screen-reader.lock'), JSON.stringify({ pid: await deadPid(), host: hostname() }));
+    await (await lockScreenReader(dir))();
+    await expect(readFile(join(dir, 'native-screen-reader.lock'))).rejects.toThrow();
+  });
+
+  // A native profile passes the run check only on its own OS.
+  const native = process.platform === 'darwin' ? 'voiceover' as const : process.platform === 'win32' ? 'nvda' as const : undefined;
+  it.skipIf(!native)('starts native screen reader runs one at a time whatever the parallel limit, while simulation runs go on beside them', async () => {
+    const { dir, store } = await project();
+    const { config, revision } = await store.read();
+    config.profiles.push({ ...config.profiles.find(p => p.id === 'written-plan')!, id: 'native', name: 'Native', screenReader: native!, actions: { intents: ['next', 'previous', 'activate'], keys: [], typeText: false, replaceText: false } });
+    await store.save(config, revision);
+    let reader = 0, mostReader = 0, all = 0, mostAll = 0;
+    const execute: RunExecutor = async (spec, run) => {
+      const speaks = spec.backend !== 'simulation'; all++; mostAll = Math.max(mostAll, all); if (speaks) { reader++; mostReader = Math.max(mostReader, reader); }
+      await new Promise(resolve => setTimeout(resolve, 30));
+      all--; if (speaks) reader--;
+      return recorded(spec, run);
+    };
+    const result = await runSuite({ projectDir: dir, tasks: ['demo'], profiles: ['native', 'written-plan'], repeat: 3, parallel: 4 }, { execute });
+    expect(result.runs).toHaveLength(6);
+    expect(mostReader).toBe(1); expect(mostAll).toBeGreaterThan(1);
+  });
+
+  it('runs with this computer\'s settings as they are when the run starts, so a retry uses a setting corrected since', async () => {
+    const { dir, store } = await project();
+    const seen: string[] = [];
+    const queue = new BatchQueue(store, { executor: async (run, task, outDir) => { seen.push(run.snapshot.spec.settings.machine.browserExecutablePath); return recorded({ ...run.snapshot.spec, task }, { outDir, signal: new AbortController().signal }); } });
+    const before = await store.read();
+    before.config.machine.browserExecutablePath = '/wrong/chrome';
+    await store.save(before.config, before.revision);
+    const first = await queue.create({ taskIds: ['demo'], profileIds: ['written-plan'], repeats: 1 });
+    await queue.whenDone(first.id);
+    const fixed = await store.read();
+    fixed.config.machine.browserExecutablePath = '/right/chrome';
+    await store.save(fixed.config, fixed.revision);
+    const again = await queue.retry(first.id, first.runs[0]!.id, (await queue.previewRetry(first.id, first.runs[0]!.id)).revision);
+    await queue.whenDone(again.id);
+    expect(seen).toEqual(['/wrong/chrome', '/right/chrome']);
+    // The record keeps what each run really used.
+    expect(again.runs[0]!.snapshot.spec.settings.machine.browserExecutablePath).toBe('/right/chrome');
+    await queue.close();
+  });
+
+  it('stops a batch with the reason of the run that cannot start, and says so in the plan before anything is started', async () => {
+    const { dir, store } = await project();
+    const { config, revision } = await store.read();
+    config.profiles.push({ ...config.profiles.find(p => p.id === 'written-plan')!, id: 'no-plan', name: 'No plan', planner: { planFile: 'missing/plan.json' } });
+    await store.save(config, revision);
+    const queue = new BatchQueue(store, { executor: async () => { throw new Error('must not run'); } });
+    const rows = (await queue.plan({ taskIds: ['demo'], profileIds: ['written-plan', 'no-plan'], repeats: 1 })).rows;
+    expect(rows.map(row => [row.profileId, row.supported, row.reason?.code])).toEqual([['written-plan', true, undefined], ['no-plan', false, 'plan-file-invalid']]);
+    await expect(queue.create({ taskIds: ['demo'], profileIds: ['written-plan', 'no-plan'], repeats: 1 })).rejects.toMatchObject({ code: 'plan-file-invalid', message: expect.stringContaining('missing/plan.json') });
+    await expect(queue.create({ taskIds: ['demo'], profileIds: ['written-plan'], repeats: 1, selected: ['nothing'] })).rejects.toMatchObject({ code: 'select-supported' });
+    expect(queue.experiments).toEqual([]);
+    await expect(runTask('demo', { projectDir: dir, profile: 'no-plan' }, { execute: recorded })).rejects.toMatchObject({ code: 'plan-file-invalid' });
   });
 
   it('runs each task with its usual profiles when no profile is named, and every task with the named ones otherwise', async () => {

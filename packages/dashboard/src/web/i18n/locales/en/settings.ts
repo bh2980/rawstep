@@ -158,7 +158,7 @@ export const settings: LocaleShape<typeof ko> = {
     showBrowserHint: 'Off runs in the background without opening a window. On lets you watch the run yourself.',
     parallelRuns: 'Runs at once',
     parallelRunsHint: 'How many runs go at the same time, from 1 to 8.',
-    parallelRunsInfo: 'Each run opens its own browser, so more runs slow this computer down. Planner models and agent CLIs may answer many calls at a time slowly or refuse them. Runs of tasks where a person passes bot checks in a browser Rawstep launches go one at a time whatever this number is. The dashboard and the command line (rawstep suite) use the same value.',
+    parallelRunsInfo: 'Each run opens its own browser, so more runs slow this computer down. Planner models and agent CLIs may answer many calls at a time slowly or refuse them. Runs of tasks where a person passes bot checks in a browser Rawstep launches go one at a time whatever this number is, and so do runs on a real screen reader: one desktop has one screen reader. The dashboard and the command line (rawstep suite) use the same value.',
     parallelRunsInvalid: 'Runs at once must be a whole number from 1 to 8.',
     browserEndpoint: 'Address of a Chrome you started yourself (CDP, optional)',
     browserEndpointHint: 'Runs in a Chrome you already started, to reduce bot detection. Rawstep connects over the Chrome DevTools Protocol (CDP).',

@@ -1,5 +1,8 @@
+import { BACKEND_KEYS, type KnownIntent } from '@rawstep/core/actions';
+// The page function alone: this file needs nothing else of the browser package at run time.
+import { focusIsEditable } from '@rawstep/browser/browser/editable';
 import type { CDPSession, Page } from '@rawstep/browser/types';
-import type { Backend, BackendAction, BackendOperationOptions, BackendOutput, BackendSession, BackendSpeechObservation, CursorLocation } from '@rawstep/core/contracts';
+import type { Backend, BackendAction, BackendEvent, BackendMetadata, BackendOperationOptions, BackendOutput, BackendSession, BackendSpeechObservation, CursorLocation } from '@rawstep/core/contracts';
 import { formatSimulatedSpeech, type SimulatedSemanticNode } from './semantics.js';
 
 export { formatSimulatedSpeech, type SimulatedSemanticNode } from './semantics.js';
@@ -21,7 +24,7 @@ export const MOCK_VOICEOVER_LIMITATIONS = Object.freeze([
   'Arrow, Home and End keys go to the page as keystrokes, as in VoiceOver with Quick Nav off: menus, tabs and radio groups that move focus with them are announced at the new focus.',
 ]);
 
-const intents = Object.freeze(['next', 'previous', 'readCurrent', 'readFocused', 'activate', 'heading.next', 'heading.previous', 'form.next', 'form.previous', 'link.next', 'link.previous', 'headings.list', 'links.list', 'formControls.rotor']);
+const intents = Object.freeze(['next', 'previous', 'readCurrent', 'readFocused', 'activate', 'heading.next', 'heading.previous', 'form.next', 'form.previous', 'link.next', 'link.previous', 'headings.list', 'links.list', 'formControls.rotor'] as const satisfies readonly KnownIntent[]);
 const formRoles = new Set(['button', 'checkbox', 'radio', 'switch', 'textbox', 'searchbox', 'combobox', 'spinbutton', 'slider', 'listbox']);
 /** Cursor moves: one object, or (quick navigation, as VoiceOver's VO-Command-H / VO-Command-J) to the next object of a kind. */
 const moves: Readonly<Record<string, { step: 1 | -1; match?: (role: string) => boolean; none: string }>> = Object.freeze({
@@ -34,7 +37,7 @@ const moves: Readonly<Record<string, { step: 1 | -1; match?: (role: string) => b
   'link.next': { step: 1, match: role => role === 'link', none: 'No more links' },
   'link.previous': { step: -1, match: role => role === 'link', none: 'No previous link' },
 });
-const keys = Object.freeze(['Tab', 'Shift+Tab', 'Enter', 'Space', 'Escape', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End']);
+const keys: readonly string[] = BACKEND_KEYS;
 const textRoles = new Set(['StaticText', 'InlineTextBox']);
 const namedLeafRoles = new Set(['button', 'link', 'checkbox', 'radio', 'switch', 'textbox', 'searchbox', 'combobox', 'spinbutton', 'slider', 'heading', 'menuitem', 'menuitemcheckbox', 'menuitemradio', 'tab', 'option']);
 // Separators are decorative here; VoiceOver's object navigation does not stop on a plain rule.
@@ -57,7 +60,7 @@ type AXNode = {
 type CursorNode = { identity: string; backendDOMNodeId?: number; axId: string; semantic: SimulatedSemanticNode; unmodeledContext?: boolean };
 export type MockWordingOptions = { profile: string; metadata?: unknown; capabilities?: Backend['capabilities']; format: (node: SimulatedSemanticNode | undefined, context: { sourceCommand: string; unmodeledContext: boolean }) => { speech: string; evidence: unknown } };
 type Window = { id: string; startedAt: string; outputs: BackendOutput[] };
-type ActionReceipt = { backend: 'mock-voiceover'; evidenceProvenance: 'simulation'; acknowledged: true; activation?: 'dom-click-untrusted' | 'dom-focus'; };
+type ActionReceipt = { backend: 'mock-voiceover'; evidenceProvenance: 'simulation'; acknowledged: true; activation?: 'dom-click-untrusted' | 'dom-focus'; /** false: `activate` went to the rotor list's item and pressed nothing. */ pressed?: false };
 
 /** Browser-backed testing adapter. It never connects to or claims to measure native VoiceOver. */
 export class MockVoiceOverBackend implements Backend {
@@ -86,7 +89,7 @@ export class MockVoiceOverBackend implements Backend {
   private liveTexts?: Map<string, string>;
   /** Live-region text that changed, spoken after the speech of the action that changed it. */
   private pendingLive: string[] = [];
-  private listeners = new Set<(event: unknown) => void>();
+  private listeners = new Set<(event: BackendEvent) => void>();
 
   attachSession(session: BackendSession): void {
     const page = session.page as Page;
@@ -95,7 +98,7 @@ export class MockVoiceOverBackend implements Backend {
     this.page = page;
   }
 
-  async start({ signal }: BackendOperationOptions = {}): Promise<unknown> {
+  async start({ signal }: BackendOperationOptions = {}): Promise<BackendMetadata & Record<string, unknown>> {
     signal?.throwIfAborted();
     if (this.state !== 'new') throw new Error('Mock VoiceOver backend has already started or closed.');
     this.state = 'ready';
@@ -107,12 +110,12 @@ export class MockVoiceOverBackend implements Backend {
     };
   }
 
-  subscribe(listener: (event: unknown) => void): () => void {
+  subscribe(listener: (event: BackendEvent) => void): () => void {
     this.listeners.add(listener);
     return () => { this.listeners.delete(listener); };
   }
 
-  private emit(event: unknown): void {
+  private emit(event: BackendEvent & Record<string, unknown>): void {
     for (const listener of this.listeners) {
       try { listener(structuredClone(event)); } catch { /* Subscribers own their failures. */ }
     }
@@ -157,6 +160,8 @@ export class MockVoiceOverBackend implements Backend {
     const output: BackendOutput = {
       sequence: ++this.sequence, receivedAt: new Date().toISOString(), text,
       raw: { evidenceProvenance: 'simulation', profile: this.wording?.profile ?? MOCK_VOICEOVER_PROFILE, semanticSource: 'chromium-accessibility-tree', announcement: kind },
+      // What the runner reads: the page said this on its own. `raw` keeps the kind for the record.
+      ...(kind === 'live-region' ? { announcement: kind } : {}),
     };
     this.beginWindow().outputs.push(output);
     this.emit({ type: 'output', timestamp: Date.parse(output.receivedAt), evidenceProvenance: 'simulation', windowId: this.window!.id, output });
@@ -286,6 +291,8 @@ export class MockVoiceOverBackend implements Backend {
         this.announceText(formatSimulatedSpeech(rotor.items[rotor.index]!.semantic), 'rotor');
       } else if (rotor && action.kind === 'intent' && action.intent === 'activate') {
         this.rotor = undefined;
+        // Picking from the list moves the cursor to the item: nothing on the page was pressed.
+        receipt.pressed = false;
         const item = rotor.items[rotor.index]!;
         this.cursor = this.nodes.some(node => node.identity === item.identity) ? item.identity : this.cursor;
         this.announce(this.current(), undefined, true);
@@ -317,7 +324,8 @@ export class MockVoiceOverBackend implements Backend {
           if (['Enter', 'Space'].includes(action.key) && this.nodes.find(node => node.identity === this.focusedIdentity)?.semantic.disabled) {
             throw new Error('Cannot activate a disabled focused accessible object.');
           }
-          await this.getPage().keyboard.press(action.key);
+          // Select-all is Command+A on macOS and Control+A elsewhere: the browser's own name for that is ControlOrMeta.
+          await this.getPage().keyboard.press(action.key === 'Mod+A' ? 'ControlOrMeta+A' : action.key);
         }
         else await this.enterText(action, signal);
         signal?.throwIfAborted();
@@ -369,16 +377,8 @@ export class MockVoiceOverBackend implements Backend {
     });
     const assertEditable = async () => {
       signal?.throwIfAborted();
-      const editable = await originalFocus.evaluate(original => {
-        if (!document.hasFocus()) return false;
-        let active = document.activeElement;
-        while (active?.shadowRoot?.activeElement) active = active.shadowRoot.activeElement;
-        if (active !== original) return false;
-        if (!(active instanceof HTMLElement) || active.closest('[inert], [aria-disabled="true"]')) return false;
-        if (active instanceof HTMLTextAreaElement) return !active.disabled && !active.readOnly;
-        if (active instanceof HTMLInputElement) return !active.disabled && !active.readOnly && ['text', 'search', 'email', 'url', 'tel', 'password', 'number'].includes(active.type);
-        return active.isContentEditable;
-      });
+      // The runner's own gate (`focusIsEditable`), with the focus held where typing began.
+      const editable = await originalFocus.evaluate(focusIsEditable);
       signal?.throwIfAborted();
       if (!editable) throw new Error('Text entry requires an actually focused editable field.');
     };

@@ -1,21 +1,9 @@
 import { useTranslation } from 'react-i18next';
 import type { RouteChange } from '../../hooks/useRoute';
-import type { RunGlyphKind, RunStatus } from '../../lib/runStrip';
+import type { RunStatus } from '../../lib/runStrip';
 import { cn } from '../../lib/utils';
 import { Link } from '../Link';
 import { StatusShape } from '../StatusMark';
-
-/**
- * One run as a small square, as the run list, run header and comparison still draw it: filled when the goal was reached, striped
- * when not, hollow when undecided; a hollow one with a dot is still running. Status shapes (`StatusShape`) replace it screen by screen.
- */
-export function RunGlyph({ kind, className }: { kind: RunGlyphKind; className?: string }) {
-  const base = 'grid size-3 shrink-0 place-items-center rounded-[2px]';
-  if (kind === 'reached') return <span aria-hidden="true" className={cn(base, 'bg-reach', className)} />;
-  if (kind === 'missed') return <span aria-hidden="true" className={cn(base, 'glyph-missed', className)} />;
-  if (kind === 'live') return <span aria-hidden="true" className={cn(base, 'border-[1.5px] border-trace', className)}><span className="size-1 rounded-full bg-trace" /></span>;
-  return <span aria-hidden="true" className={cn(base, 'border-[1.5px] border-muted-foreground', className)} />;
-}
 
 export type RunStripItem = {
   id: string;

@@ -74,7 +74,7 @@ export function RunHeader({ runRef, numbers, view, pageProps, navigate }: Props)
     <Time key="time" value={run.startedAt ?? experiment.createdAt} />,
     live && <StatusMark key="live" status={status} />,
     elapsed !== undefined && <span key="clock" className="tabular-nums">{formatClock(elapsed)}</span>,
-    by && <StatusMark key="by" status={status} why={t(`taskPage.results.by.${by as 'other'}`)} />,
+    by && <StatusMark key="by" status={status} why={t(`taskPage.results.by.${by}`)} />,
     conditions.profile,
     <span key="model" title={conditions.planner}>{runModelsName(run)}</span>,
     live ? run.state === 'running' && <span key="n" className="tabular-nums">{t('runHeader.liveStep', { n: latest })} / {maxSteps}</span>

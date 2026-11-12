@@ -8,11 +8,11 @@ import { readFile } from 'node:fs/promises';
 import { planFileSchema } from '@rawstep/policies/policy';
 import {
   atEndpointOf, comboPlanner, isFilePlanner, planFileOf, projectAnalysisModel, resolveRunSettings, type LlmPlannerChoice,
-  type ActionSet, type AtBackend, type Conditions, type ManagedTask, type Model, type Permissions,
+  type ActionSet, type AtBackend, type Conditions, type MachineSettings, type ManagedTask, type Model, type Permissions,
   type ProjectConfig, type RunRulesOverride, type RunSettings,
 } from './config.js';
 import { ProjectError } from './errors.js';
-import type { RunSpec } from './execution.js';
+import type { PlanFile, RunSpec } from './execution.js';
 import type { ProjectStore } from './store.js';
 
 /** What a backend can do: the simulation or a native screen reader over AT Driver. */
@@ -42,6 +42,7 @@ export type RunCheckInput = RunConditions & {
   /** Run rules for these runs only, over the profile's. */
   runRules?: RunRulesOverride | undefined;
 };
+export type RunWarning = { code: 'analysis-not-llm' | 'proxy-not-used'; text: string };
 export type RunCheck = {
   settings: RunSettings;
   /** The action set's actions, filtered by the backend and the task. */
@@ -52,8 +53,8 @@ export type RunCheck = {
   plannerPlanFile?: string;
   /** The project's LLM that explains the run. Never blocks a run. */
   analysisModel?: Model;
-  /** Things worth knowing that do not stop the run (an analysis model that is not an LLM). */
-  warnings: string[];
+  /** Things worth knowing that do not stop the run (an analysis model that is not an LLM), each with a stable code and the English text. */
+  warnings: RunWarning[];
   /** Why this combination cannot run; the other fields are still the best available values for display. */
   problem?: ProjectError;
 };
@@ -70,7 +71,7 @@ export function checkRun({ config, task, taskEntry, runRules, profile, combo, ac
   const filePlanner = isFilePlanner(combo.planner) ? combo.planner : undefined;
   // Only `{task}` needs the task's file name; a constant plan path works for any task, registered or not.
   const plannerPlanFile = !filePlanner ? undefined : !filePlanner.planFile.includes('{task}') ? filePlanner.planFile : taskEntry?.file ? planFileOf(filePlanner, { file: taskEntry.file }) : undefined;
-  const warnings: string[] = [];
+  const warnings: RunWarning[] = [];
   let permissions = structuredClone(actionSet.actions);
   const models = { ...(analysisModel ? { analysisModel } : {}),
     ...(plannerModel ? { plannerModel, plannerInstructions: (combo.planner as LlmPlannerChoice).instructions } : {}), ...(plannerPlanFile ? { plannerPlanFile } : {}) };
@@ -79,17 +80,26 @@ export function checkRun({ config, task, taskEntry, runRules, profile, combo, ac
   catch (error) { return { settings, permissions, ...models, warnings, problem: error as ProjectError }; }
   if (filePlanner && !plannerPlanFile) return fail('plan-file-task', 'A plan file needs a task file to fill in {task}.');
   if (!plannerModel && !plannerPlanFile) return fail('planner-model-invalid', 'Runs plan, so the profile needs a planner: a model on an LLM connection or a plan file.');
-  if (backend === 'voiceover' && process.platform !== 'darwin') return fail('voiceover-macos', 'Run VoiceOver on macOS.');
-  if (backend === 'nvda' && process.platform !== 'win32') return fail('nvda-windows', 'Run NVDA on Windows.');
-  if (backend !== 'simulation') {
-    const endpoint = new URL(atEndpointOf(config.machine, backend));
-    if (!['ws:', 'wss:'].includes(endpoint.protocol) || !isLoopbackHostname(endpoint.hostname) || endpoint.username || endpoint.password) return fail('endpoint-not-loopback', 'Native screen reader runs need a loopback AT Driver WebSocket address on this host.');
-  }
+  const native = backend === 'simulation' ? undefined : nativeBackendProblem(backend, config.machine);
+  if (native) return { settings, permissions, ...models, warnings, problem: native };
   // The profile says to use a Chrome you started yourself; where it listens is this computer's to say.
   if (task.browser?.mode === 'connect' && !config.machine.browserEndpoint.trim()) return fail('browser-endpoint-missing', 'This task runs in a Chrome you started yourself, but this computer has no address for it. Start Chrome with --remote-debugging-port and set machine.browserEndpoint (Settings › This computer).');
-  if (task.browser?.mode === 'connect' && config.machine.proxyServer) warnings.push('machine.proxyServer does not apply: this task uses a Chrome you started yourself, which has its own proxy settings.');
-  if (config.project.analysis.model && !analysisModel) warnings.push('The analysis model is not on an LLM connection, so the run is analysed by rules only.');
+  if (task.browser?.mode === 'connect' && config.machine.proxyServer) warnings.push({ code: 'proxy-not-used', text: 'machine.proxyServer does not apply: this task uses a Chrome you started yourself, which has its own proxy settings.' });
+  if (config.project.analysis.model && !analysisModel) warnings.push({ code: 'analysis-not-llm', text: 'The analysis model is not on an LLM connection, so the run is analysed by rules only.' });
   return { settings, permissions, ...models, warnings };
+}
+/**
+ * Why a native screen reader cannot run on this computer with these settings, or nothing: the reader runs on its own operating system
+ * only, and its AT Driver server must listen on this host. The one rule for this: the run check and the setup check (`rawstep doctor`,
+ * the dashboard's check button) both ask here.
+ */
+export function nativeBackendProblem(backend: Exclude<AtBackend, 'simulation'>, machine: MachineSettings): ProjectError | undefined {
+  if (backend === 'voiceover' && process.platform !== 'darwin') return new ProjectError('voiceover-macos', 'Run VoiceOver on macOS.');
+  if (backend === 'nvda' && process.platform !== 'win32') return new ProjectError('nvda-windows', 'Run NVDA on Windows.');
+  // The address is free text in the config: one that is not a URL at all is the same problem as one that points elsewhere.
+  const address = atEndpointOf(machine, backend), endpoint = URL.canParse(address) ? new URL(address) : undefined;
+  if (!endpoint || !['ws:', 'wss:'].includes(endpoint.protocol) || !isLoopbackHostname(endpoint.hostname) || endpoint.username || endpoint.password) return new ProjectError('endpoint-not-loopback', 'Native screen reader runs need a loopback AT Driver WebSocket address on this host.');
+  return undefined;
 }
 /** The check result of a run that must go ahead: throws the problem, otherwise returns the settings. */
 export function assertRunnable(check: RunCheck): Omit<RunCheck, 'problem'> {
@@ -111,17 +121,21 @@ export function conditionsRecord(c: RunConditions, check: Omit<RunCheck, 'proble
     runRules: structuredClone(check.settings.runRules),
   };
 }
-/** The run spec of a check that passed. */
-export function runSpecOf(task: Task, c: RunConditions, check: Omit<RunCheck, 'problem'>): RunSpec {
+/**
+ * The run spec of a check that passed. A profile that plans from a file needs that file read first (`loadPlanFile`, as `plan`): the
+ * spec carries the plan itself, never just its path.
+ */
+export function runSpecOf(task: Task, c: RunConditions, check: Omit<RunCheck, 'problem'>, plan?: PlanFile): RunSpec {
+  if (!check.plannerModel && !plan) throw new Error('A run that follows a plan file needs the file read first: pass what loadPlanFile returns.');
   return { task, settings: check.settings, environment: resolveEnvironmentProfile(c.pageEnvironment.profile), backend: c.atEnvironment.backend, permissions: check.permissions,
     conditions: conditionsRecord(c, check),
-    ...(check.plannerModel ? { plannerModel: check.plannerModel, plannerInstructions: check.plannerInstructions ?? '' } : {}) };
+    planner: check.plannerModel ? { model: check.plannerModel, instructions: check.plannerInstructions ?? '' } : { plan: plan! } };
 }
 /**
  * The plan file a check named, read and validated, for the run spec (content and fingerprint, so a run records exactly the plan it
  * ran with). Throws `plan-file-invalid` when the file is missing or is not a plan draft.
  */
-export async function loadPlanFile(store: Pick<ProjectStore, 'file'>, path: string): Promise<NonNullable<RunSpec['plannerPlan']>> {
+export async function loadPlanFile(store: Pick<ProjectStore, 'file'>, path: string): Promise<PlanFile> {
   let text: string;
   try { text = await readFile(await store.file(path, true), 'utf8'); }
   catch { throw new ProjectError('plan-file-invalid', `The plan file ${path} cannot be read.`); }

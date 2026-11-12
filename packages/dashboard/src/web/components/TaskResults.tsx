@@ -88,7 +88,7 @@ function ProfileTable({ data, nameOf, numbers, navigate, taskId }: Ctx) {
           <td className={cell}>
             <span className="flex min-w-0 items-center gap-1.5 whitespace-nowrap">
               {group.reached > 0 && <StatusShape status="reached" />}
-              <span className="tabular-nums">{t('taskPage.results.reachedOf', { runs: group.runs, reached: group.reached })}</span>
+              <span className="tabular-nums">{group.measured > 0 ? t('taskPage.results.reachedOf', { runs: group.measured, reached: group.reached }) : t('batchSummary.nothingMeasured')}</span>
               {others && <span className="truncate text-ink-2" title={others}>· {others}</span>}
             </span>
             {group.unconfirmed > 0 && <span className="block text-sm text-ink-2 tabular-nums" title={t('taskPage.results.unconfirmedInfo')}>{t('taskPage.results.unconfirmedCount', { unconfirmed: group.unconfirmed, reached: group.reached })}</span>}

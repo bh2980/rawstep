@@ -6,7 +6,7 @@ import { ZodError } from 'zod';
 import { resolveTask, type Task } from '@rawstep/core/contracts';
 import { resolveEnvironmentProfile } from '@rawstep/browser/profiles';
 import { modelBaseURL } from '@rawstep/policies/llm';
-import { CONFIG_FILE, KEYED_PROVIDERS, configProblems, configSchema, credentialId, defaultConfig, modelKeyEnvNames, parseConfig, type Connection, type ProjectConfig, type ProviderId } from './config.js';
+import { CONFIG_FILE, KEYED_PROVIDERS, configProblems, credentialId, defaultConfig, modelKeyEnvNames, parseConfig, type Connection, type ProjectConfig, type ProviderId } from './config.js';
 import { DEMO_FILES, demoConfig } from './demo.js';
 export { DEMO_DIR, demoConfig, findAgentCli } from './demo.js';
 import { ProjectError } from './errors.js';
@@ -63,9 +63,7 @@ export class ProjectStore {
     try { json = JSON.parse(raw); } catch (e) { throw new ProjectError('invalid-config', `${CONFIG_FILE} is not valid JSON: ${e instanceof Error ? e.message : String(e)}`); }
     const version = json && typeof json === 'object' ? (json as { version?: unknown }).version : undefined;
     if (typeof version === 'number' && Number.isInteger(version) && version >= 1 && version <= 6) throw new ProjectError('old-config', `${CONFIG_FILE} is version ${version}, which this Rawstep does not read. Start a new project with \`rawstep init\` and copy the tasks over.`);
-    try { config = parseConfig(json); }
-    catch (e) { throw new ProjectError('invalid-config', e instanceof ZodError ? configProblems(e, json).join('\n') : `${CONFIG_FILE} is not valid: ${e instanceof Error ? e.message : String(e)}`); }
-    this.validateReferences(config);
+    config = this.validConfig(json);
     // The revision changes when a task file does. A file that cannot be read is a problem of its task only, and the revision still
     // moves when it appears or breaks differently.
     const taskProblems: Record<string, TaskProblem> = {};
@@ -79,22 +77,33 @@ export class ProjectStore {
     }));
     return { config, revision: digest(JSON.stringify({ raw, files })), taskProblems };
   }
+  /**
+   * A config value checked in full, the one way: the schema, then what the schema cannot say (`validateReferences`). Whatever is
+   * wrong comes back as one kind of error, `invalid-config` with the lines that say where, or the specific code of a broken
+   * reference: reading the file and saving from the dashboard refuse the same config with the same words.
+   */
+  private validConfig(value: unknown): ProjectConfig {
+    try {
+      const config = parseConfig(value);
+      this.validateReferences(config);
+      return config;
+    } catch (e) {
+      if (e instanceof ProjectError) throw e;
+      throw new ProjectError('invalid-config', e instanceof ZodError ? configProblems(e, value).join('\n') : `${CONFIG_FILE} is not valid: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
   validateReferences(config: ProjectConfig) {
     for (const connection of config.connections) if (connection.baseURL) modelBaseURL(connection.baseURL);
+    // What the schema already refuses (a connection id used twice, a planner or analysis model on a connection that does not exist)
+    // is not checked again here: every config comes through the schema first (`validConfig`).
     for (const [kind, ids] of [
-      ['connections', config.connections.map(item => item.id)],
       ['tasks', config.tasks.map(item => item.id)],
       ['profiles', config.profiles.map(item => item.id)],
     ] as const) {
       const twice = ids.find((id, index) => ids.indexOf(id) !== index);
       if (twice !== undefined) throw new ProjectError('duplicate-id', `IDs must be unique: ${kind} has the ID ${JSON.stringify(twice)} more than once.`);
     }
-    const known = (connectionId: string) => config.connections.some(c => c.id === connectionId);
-    for (const profile of config.profiles) {
-      if (profile.planner && !('planFile' in profile.planner) && !known(profile.planner.connectionId)) throw new ProjectError('profile-connection-missing', 'A profile plans with a connection that does not exist.');
-      resolveEnvironmentProfile(profile.page);
-    }
-    if (config.project.analysis.model && !known(config.project.analysis.model.connectionId)) throw new ProjectError('analysis-connection-missing', 'Post-run analysis uses a connection that does not exist.');
+    for (const profile of config.profiles) resolveEnvironmentProfile(profile.page);
     const fileTwice = config.tasks.map(t => t.file).find((file, i, files) => files.indexOf(file) !== i);
     if (fileTwice !== undefined) throw new ProjectError('duplicate-task-file', `Task file paths must be unique: ${JSON.stringify(fileTwice)} is used by more than one task.`);
     const byId = new Map(config.tasks.map(t => [t.id, t]));
@@ -184,7 +193,7 @@ export class ProjectStore {
     const work = this.pending.then(async () => {
       const current = await this.read();
       if (current.revision !== revision) throw new ProjectError('config-conflict', 'The configuration was changed outside this window. Reload it and apply your change again.', 409);
-      const config = configSchema.parse(value); this.validateReferences(config);
+      const config = this.validConfig(value);
       // A task being added needs a usable file; tasks that were already registered are not this save's business.
       const checkAdded = async () => { for (const added of config.tasks) if (added.file !== taskWrite?.file && !current.config.tasks.some(t => t.file === added.file)) await this.task(added.file); };
       if (!taskWrite) await checkAdded();

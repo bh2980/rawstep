@@ -43,7 +43,11 @@ Each cell in `cells` groups runs by `(taskId, profileId)` and records:
 
 ## 3. Run Endings (`RunEnding`)
 
-Computed by `runEnding(outcome, stopSource?)` (`rawstep/hints`, also exported from the root `rawstep`). It takes the trace's `outcome` and, as the second argument, `outcome.policyStopSource` (who stopped the run), and returns `{ ending, by? }`, or `undefined` when the run has no outcome. `by` is set only for `unmeasured`.
+Computed by `runEnding(outcome)` (`rawstep/hints`, also exported from the root `rawstep`). It takes the trace's `outcome`, reads who stopped the run from it (`outcome.policyStopSource`), and returns `{ ending, by? }`. `by` is set only for `unmeasured`.
+
+A run that **broke** has no ending: `runEnding` returns `undefined` when there is no outcome, the run was cancelled (`status: "aborted"`), or it ended on `reason: "error"` or `"trace-persistence-error"`. `runBroke(outcome)` is that test on its own. Such a run says nothing about the user or the page and is counted apart (`error` in a batch summary), never among the four endings.
+
+Counts of the form "reached N of M" use the **measured** runs as M: the ones that ended as `reached`, `gave-up` or `mistaken` (`measuredRuns`, and `isMeasured` for one ending). A run that was not measured is listed beside the rate, not in it. The CLI, the batch summary, the comparison and the dashboard all count this way.
 
 | `ending` | `outcome.status` / `reason` / stop source | Description |
 | :--- | :--- | :--- |
@@ -65,7 +69,7 @@ Computed by `runEnding(outcome, stopSource?)` (`rawstep/hints`, also exported fr
 | `'planner-timeout'` | `reason: "planner-timeout"` |
 | `'blocked'` | `reason: "access-blocked"` |
 | `'environment'` | `reason: "unsupported-profile"` |
-| `'other'` | any other outcome |
+| `'other'` | `reason: "unsupported-pattern"`, or a reason this version does not know |
 
 A stop source is checked before `reason`, so it wins when both are present.
 
@@ -119,6 +123,7 @@ Repeated occurrences of the same page hint (except `excess-keystrokes`) on the s
 | **`task-limit`** | `observed` | A plan subtask ran out of its allotted actions (`stepActionLimit`) without hearing its expected cue. |
 | **`wanted-to-give-up`** | `observed` | The planner tried to give up while open assumptions remained untried (refused by orchestration so remaining approaches could be tested first). |
 | **`goal-word-stretch`** | `observed` | Long stretch of consecutive moves without hearing any words related to the task's goal. |
+| **`early-stop`** | `observed` | The run ended before reaching the goal (`user-gave-up`, `policy-stuck`, `policy-uncertain`, `exploration-guard`, `orchestration-limit`, or `no-allowed-action`). It says how the run stopped; the run's ending (section 3) is what is counted, so this hint is not gathered into findings. |
 
 ### 4.3 Model Hints (`source: "model"`)
 
@@ -126,4 +131,3 @@ Repeated occurrences of the same page hint (except `excess-keystrokes`) on the s
 | :--- | :--- | :--- |
 | **`expectation-broken`** | `observed` | An assumption in the plan document was marked `broken` (for example, pressing a button or submitting a form within the last 3 actions did not produce the expected result). Also surfaced as a **Stuck Place** in batch summaries. |
 | **`backtracking`** | `observed` | Navigation direction reversed between forward (`next`, `Tab`, `ArrowDown`, `ArrowRight`) and backward (`previous`, `Shift+Tab`, `ArrowUp`, `ArrowLeft`) `>= 2` (`backtrackReversals`) times. |
-| **`early-stop`** | `observed` | The run ended before reaching the goal (`user-gave-up`, `policy-stuck`, `policy-uncertain`, `exploration-guard`, `orchestration-limit`, or `no-allowed-action`). |

@@ -1,4 +1,8 @@
-/** Single source for runtime defaults shared by the runner, policies, CLI and dashboard. Isomorphic: no Node imports. */
+/**
+ * The one place a default value is written: what a run from a project uses when nothing says otherwise. The config schema, the policies
+ * and the dashboard read their defaults here. The low-level runner (`runWithPolicy`) is the exception by design: its waiting options
+ * (`silentPressWaitMs`, `confirmationGrace`) are off unless passed, and a project run passes these values. Isomorphic: no Node imports.
+ */
 export const RAWSTEP_DEFAULTS = Object.freeze({
   task: Object.freeze({ maxSteps: 40, timeoutMs: 120_000 }),
   viewport: Object.freeze({ width: 1280, height: 800 }),
@@ -6,6 +10,8 @@ export const RAWSTEP_DEFAULTS = Object.freeze({
   settleMs: 120,
   /** How long the simulated user keeps listening after a press that said nothing, before deciding nothing happened. */
   silentPressWaitMs: 5_000,
+  /** Actions a run goes on after the goal is reached when nothing the user heard said so (the `confirmationGrace` run rule). */
+  confirmationGrace: 5,
   /** Bounded resource cleanup; native screen-reader bridges get longer to release OS state. */
   cleanupTimeoutMs: Object.freeze({ default: 2_000, nativeBackend: 5_000 }),
   /** Per-request budget for planner and analysis model calls. */
@@ -16,9 +22,10 @@ export const RAWSTEP_DEFAULTS = Object.freeze({
   policy: Object.freeze({ maxUnchangedTransitions: 4 }),
   /**
    * Planner runs: planner calls a run may make (a cost limit), moves between the planner's looks at the effort spent, actions on one
-   * task without hearing anything new before a new plan, and past actions the planner remembers.
+   * task without hearing anything new before a new plan, past actions the planner remembers, and what asks for a new plan on one task:
+   * failed actions in a row, actions in a row that changed nothing, and turns back and forth between the same two items.
    */
-  orchestration: Object.freeze({ maxPlannerCalls: 40, reviewEvery: 60, stepActionLimit: 12, plannerHistoryLimit: 60 }),
+  orchestration: Object.freeze({ maxPlannerCalls: 40, reviewEvery: 60, stepActionLimit: 12, plannerHistoryLimit: 60, failureLimit: 2, noChangeLimit: 3, oscillationLimit: 4 }),
 });
 
 /** Hostnames treated as this machine. `URL#hostname` keeps IPv6 brackets; bare `::1` is accepted too. */

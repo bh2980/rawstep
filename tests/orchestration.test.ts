@@ -174,6 +174,17 @@ describe('orchestrated speech policy', () => {
     await p2.decide(input({ history: [acted(1, 'activate', 'Open, link')], observation: said('New page') }));
     expect(pressing.requests.map(r => r.trigger)).toEqual(['start', 'checkpoint']);
   });
+  it('skips the review of a finished phase when no planner call is left, and goes on with the plan as written', async () => {
+    const then = { goal: 'Then', done: 'x', cue: 'x' };
+    const pressPlan = { ...draft({}), phases: [{ title: 'Open', tasks: [{ goal: 'Press it', done: 'It opens', cue: '', activates: true }] }, { title: 'Next', tasks: [then] }] };
+    const pressing = planner(pressPlan, pressPlan);
+    // The one call the run may make is the first plan: the review would be a second.
+    const policy = new OrchestratedSpeechPolicy(pressing.planner, { maxPlannerCalls: 1 });
+    await policy.decide(input());
+    expect(await policy.decide(input({ history: [acted(1, 'activate', 'Open, link')], observation: said('New page') }))).toEqual({ action: { kind: 'intent', intent: 'next' } });
+    expect(pressing.requests.map(r => r.trigger)).toEqual(['start']);
+    expect(policy.planDocument()).toMatchObject({ version: 1, current: 't2' });
+  });
   it('asks for a new plan after failed actions, with the attempts linked to their tasks', async () => {
     const p = planner(draft({ Find: ['Find the button'] }), draft({ Find: ['Move by form controls'] }, 'Both moves failed.'));
     // (one phase, so no checkpoint call in between)

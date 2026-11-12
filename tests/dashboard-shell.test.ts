@@ -27,24 +27,17 @@ describe('routes', () => {
     expect(routeSearch({ task: 'abc', run: 'r1', tab: 'settings' })).toBe('?task=abc&run=r1');
     expect(routeSearch({ task: 'abc', tab: 'settings', step: 2 })).toBe('?task=abc&tab=settings');
     expect(parseRoute('')).toEqual({ view: 'tasks', tab: 'overview' });
-    expect(parseRoute('?view=connections')).toEqual({ view: 'settings', section: 'connections', tab: 'overview' });
     expect(parseRoute('?view=profiles')).toEqual({ view: 'profiles', tab: 'overview' });
-    // The old addresses of 실행 프로필 (a part of 설정, and before that 실험 조건) open its page.
-    expect(parseRoute('?view=conditions')).toEqual({ view: 'profiles', tab: 'overview' });
-    expect(parseRoute('?view=settings&section=profiles')).toEqual({ view: 'profiles', tab: 'overview' });
-    expect(parseRoute('?view=home')).toEqual({ view: 'tasks', tab: 'overview' });
     expect(parseRoute('?view=settings&section=machine')).toEqual({ view: 'settings', section: 'machine', tab: 'overview' });
     expect(parseRoute('?view=nonsense')).toMatchObject({ view: 'tasks' });
     expect(parseRoute('?view=settings&section=nonsense')).toEqual({ view: 'settings', tab: 'overview' });
-    // Old and unknown pages fall back to the task list; the old 연결 address opens its part of 설정.
-    expect(parseRoute('?view=agents')).toMatchObject({ view: 'tasks' });
+    // An unknown page falls back to the task list, and an unknown part of 설정 to its first part.
     expect(parseRoute('?task=abc&run=r1&step=2')).toEqual({ view: 'tasks', task: 'abc', run: 'r1', tab: 'overview', step: 2 });
     expect(parseRoute('?task=abc&tab=settings')).toMatchObject({ task: 'abc', tab: 'settings' });
     expect(parseRoute('?task=abc&tab=nonsense')).toMatchObject({ tab: 'overview' });
     expect(parseRoute('?task=abc&step=2')).not.toHaveProperty('step');
     expect(parseRoute('?view=runs&run=r1')).not.toHaveProperty('run');
     for (const search of ['?view=runs', '?view=settings', '?view=profiles', '?view=settings&section=connections', '?view=settings&section=machine', '?view=settings&section=rules', '?task=new', '?task=a&tab=check', '?task=a&tab=runs', '?task=a&run=b&step=0']) expect(routeSearch(parseRoute(search))).toBe(search);
-    expect(routeSearch(parseRoute('?view=settings&section=profiles'))).toBe('?view=profiles');
   });
 });
 

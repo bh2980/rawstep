@@ -1,5 +1,6 @@
 /** Minimal AT Driver wire client. No browser, policy, or screen-reader semantics. */
-import { isRecord, positiveMilliseconds } from "../internal/guards.js";
+import { isRecord } from "@rawstep/core/guards";
+import { positiveMilliseconds } from "../internal/guards.js";
 export interface WebSocketLike {
   readonly readyState: number;
   addEventListener(type: string, listener: (event: any) => void): void;

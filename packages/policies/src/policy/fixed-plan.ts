@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { PlanDocument, PlanDraft } from './plan-document.js';
+import { draftTaskOf, type PlanDocument, type PlanDraft } from './plan-document.js';
 import type { Planner, PlanRequest, PlanResult } from './orchestration.js';
 
 const ref = z.string().regex(/^[A-Z][0-9]{1,3}$/);
@@ -21,6 +21,9 @@ export const planDraftSchema = z.object({
   }).strict()).max(6),
   giveUp: z.object({ reason: z.string().min(1).max(500), tried: z.array(ref).max(10) }).strict().optional(),
 }).strict();
+// The schema and the `PlanDraft` type say the same shape twice (a model's reply is parsed, a planner written in code is typed), so
+// they are tied here: whatever the schema accepts must be a `PlanDraft`. A field added to one and not the other stops compiling.
+const _draftsAgree: z.infer<typeof planDraftSchema> extends PlanDraft ? true : never = true; void _draftsAgree;
 /**
  * A draft from a planner model, read against the plan document it revises. A long run piles up assumptions; past the limit, settled
  * ones (held or broken) that no task relies on are left out instead of failing the run. Leaving one out loses nothing when the
@@ -56,9 +59,7 @@ function draftOfDocument(value: unknown): unknown {
   return {
     strategy: doc.strategy, criteria: (doc.criteria ?? []).map(ref), assumptions: (doc.assumptions ?? []).map(ref),
     phases: doc.phases.map(phase => ({ title: phase.title, criteria: [...phase.criteria],
-      tasks: phase.tasks.map(task => ({ goal: task.goal, done: task.done, cue: { name: task.cue, ...(task.cueRole ? { role: task.cueRole } : {}), ...(task.cueState ? { state: task.cueState } : {}) },
-        ...(task.activates !== undefined ? { activates: task.activates } : {}), ...(task.moves ? { moves: [...task.moves] } : {}), ...(task.types ? { types: task.types } : {}),
-        serves: [...task.serves], relies: [...task.relies] })) })),
+      tasks: phase.tasks.map(draftTaskOf) })),
   };
 }
 
@@ -70,6 +71,7 @@ function draftOfDocument(value: unknown): unknown {
  * gives up, unless the run's own checks found the goal reached first.
  */
 export class FixedPlanner implements Planner {
+  readonly fixed = true;
   constructor(readonly draft: PlanDraft, readonly source: { file: string; sha256: string }) {}
   async plan(request: PlanRequest): Promise<PlanResult> {
     const result = (draft: PlanDraft, ranOut?: true): PlanResult => ({ draft, model: { id: this.source.file, runtime: 'fixed-plan' }, prompt: { id: 'rawstep-fixed-plan', version: this.source.sha256.slice(0, 12), sha256: this.source.sha256 }, ...(ranOut ? { ranOut } : {}) });
@@ -77,12 +79,10 @@ export class FixedPlanner implements Planner {
     const doc = request.document;
     const kept = (drop?: string): PlanDraft => ({
       ...structuredClone(this.draft), complete: false,
-      rationale: drop ? `Fixed plan: task ${drop} was abandoned after "${request.trigger}"; the plan does not change, so the next task starts.` : 'Fixed plan: unchanged.',
+      rationale: drop ? `Fixed plan: task ${drop} was abandoned after "${request.trigger}"; the plan does not change, so the next task starts.` : 'Fixed plan: the next task starts.',
       phases: doc.phases.map(phase => ({ title: phase.title, criteria: [...phase.criteria],
-        tasks: phase.tasks.filter(task => task.id !== drop).map(task => ({ keep: task.id, goal: task.goal, done: task.done, cue: { name: task.cue, ...(task.cueRole ? { role: task.cueRole } : {}), ...(task.cueState ? { state: task.cueState } : {}) }, ...(task.activates !== undefined ? { activates: task.activates } : {}), ...(task.moves ? { moves: [...task.moves] } : {}), ...(task.types ? { types: task.types } : {}), serves: [...task.serves], relies: [...task.relies] })) })),
+        tasks: phase.tasks.filter(task => task.id !== drop).map(task => ({ keep: task.id, ...draftTaskOf(task) })) })),
     });
-    // A phase review, a goal item heard on the way, or taking stock of the effort: nothing is stuck, so the plan goes on as it is.
-    if (request.trigger === 'checkpoint' || request.trigger === 'goal-heard' || request.trigger === 'effort-review') return result(kept());
     const open = openTasks(doc);
     // Nothing left to try: the plan claims nothing, it ends. The goal can already hold here, when the user never heard so.
     if (request.trigger === 'plan-finished' || open.length <= (doc.current ? 1 : 0)) return result({ ...kept(doc.current), rationale: 'Fixed plan: every task has been tried.',

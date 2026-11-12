@@ -10,7 +10,7 @@ import { MAX_COMPARE, describeChange, differingParts, sideOfFindings } from '../
 import { countOf, formatSteps } from '../lib/format';
 import type { RunRef } from '../lib/runs';
 import { cn } from '../lib/utils';
-import { CompareSummary, ENOUGH_RUNS } from './CompareSummary';
+import { CompareSummary } from './CompareSummary';
 import { Link } from './Link';
 import { Dash, SectionHead } from './PageHeader';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
@@ -57,11 +57,12 @@ export function BatchCompare({ before, after, profiles, runs, minimalSteps, navi
   /** One run opens itself; several open side by side (when they fit). */
   const openRuns = (list: readonly RunResult[]): Go | undefined => list.length === 1 ? openRun(list[0], t('runCompare.open'))
     : list.length >= 2 && list.length <= MAX_COMPARE ? { to: { view: 'runs', compare: list.map(result => result.runId) }, title: t('runCompare.sideRuns', { count: list.length }) } : undefined;
-  const lines = describeChange(sideOfFindings(before), sideOfFindings(after), { first: t('compareSummary.before'), second: t('compareSummary.after') });
+  // A task's two batches, profile by profile: the same comparison the batch summary page makes.
+  const lines = describeChange(sideOfFindings(before), sideOfFindings(after), { first: t('compareSummary.before'), second: t('compareSummary.after') }, { byProfile: true, profileName: id => nameOf({ profileId: id }) });
   return <section aria-labelledby="compare-title">
     <SectionHead id="compare-title" title={t('taskPage.batch.compareTitle')} />
     <div className="border-t border-edge py-3">
-      <CompareSummary lines={lines} few={Math.min(before.results.length, after.results.length) < ENOUGH_RUNS} />
+      <CompareSummary lines={lines} />
       <dl className="mt-2 grid gap-1 text-sm">
         {[{ label: t('taskPage.batch.before'), findings: before }, { label: t('taskPage.batch.after'), findings: after }].map(({ label, findings }) => { const batch = batchOf(findings);
           return <div key={label} className="flex min-w-0 gap-3">
@@ -94,7 +95,7 @@ export function BatchCompare({ before, after, profiles, runs, minimalSteps, navi
         };
         return <TableRow key={groupKey(key)} className="align-top hover:bg-transparent">
           <TableHead scope="row" className="h-auto truncate py-2.5 text-base font-medium text-foreground">{nameOf(key)}</TableHead>
-          <TableCell className="h-auto py-2.5 tabular-nums"><Change before={a ? `${a.reached} / ${a.runs}` : undefined} after={b ? `${b.reached} / ${b.runs}` : undefined} beforeGo={openRuns(rb)} afterGo={openRuns(ra)} navigate={navigate} /></TableCell>
+          <TableCell className="h-auto py-2.5 tabular-nums"><Change before={a ? `${a.reached} / ${a.measured}` : undefined} after={b ? `${b.reached} / ${b.measured}` : undefined} beforeGo={openRuns(rb)} afterGo={openRuns(ra)} navigate={navigate} /></TableCell>
           <TableCell className="h-auto py-2.5 tabular-nums"><Change before={a ? formatSteps(a.medianSteps) : undefined} after={b ? formatSteps(b.medianSteps) : undefined} unit navigate={navigate}
             beforeGo={openRun(nearestToTypical(rb, a?.medianSteps ?? null), t('runCompare.medianRun'))} afterGo={openRun(nearestToTypical(ra, b?.medianSteps ?? null), t('runCompare.medianRun'))} />
             {minimalSteps !== undefined && <div className="text-sm text-ink-2">{t('taskPage.results.minimal', { n: minimalSteps, count: minimalSteps })}</div>}</TableCell>

@@ -1,10 +1,10 @@
+import { asRecord } from '@rawstep/core/guards';
 import { useEffect, useState } from 'react';
 import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
 import { useTranslation } from 'react-i18next';
 import { Advanced, Choice, Field } from './forms';
 
 type Json = Record<string, unknown>;
-const object = (v: unknown): Json => v && typeof v === 'object' && !Array.isArray(v) ? v as Json : {};
 const format = (value: unknown) => JSON.stringify(value, null, 2);
 
 type Props = {
@@ -23,9 +23,9 @@ type Props = {
 export function EnvironmentFields({ value, onChange, presets, id, hidePreset }: Props) {
   const { t } = useTranslation();
   const preset = typeof value === 'string' ? value : 'custom';
-  const resolved = typeof value === 'string' ? { ...object(presets[value]), id: value } : object(value);
+  const resolved = typeof value === 'string' ? { ...asRecord(presets[value]), id: value } : asRecord(value);
   const custom = (part: Json) => onChange({ ...resolved, id, ...part });
-  const viewport = { ...RAWSTEP_DEFAULTS.viewport, ...object(resolved.viewport) };
+  const viewport = { ...RAWSTEP_DEFAULTS.viewport, ...asRecord(resolved.viewport) };
   const [text, setText] = useState(() => format(value));
   const [invalid, setInvalid] = useState(false);
   useEffect(() => {

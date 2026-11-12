@@ -57,7 +57,7 @@ describe('native experiment preparation (no native screen reader runs)', () => {
     // The product's preflight builds a VoiceOver run spec only on macOS, where the experiment runs.
     if (process.platform === 'darwin') {
       const c = CASES.find(c => c.id === 'S01-button')!, spec = await specFor(c, dir, config);
-      expect(spec.plannerModel).toMatchObject({ provider: 'grok', modelId: 'grok-4.7' }); expect(spec.plannerPlan).toBeUndefined(); expect(spec.task.goal).toBe(c.userGoal);
+      expect(spec.planner.model).toMatchObject({ provider: 'grok', modelId: 'grok-4.7' }); expect(spec.planner.plan).toBeUndefined(); expect(spec.task.goal).toBe(c.userGoal);
     }
     await expect(readFile(join(dir, 'plans/S01-button.json'), 'utf8')).rejects.toThrow();
     expect(plannedAttempts(CASES, 1, 'grok-4.7').find(a => a.caseId === 'S01-button')?.model).toBe('grok-4.7');

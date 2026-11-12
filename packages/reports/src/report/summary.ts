@@ -1,5 +1,5 @@
 import type { RunTrace, TraceEvent } from "@rawstep/core/trace";
-import { record } from "../internal/guards.js";
+import { asRecord } from "@rawstep/core/guards";
 import { summarizeTraceEvidence, type EvidenceModality } from "../analyze/index.js";
 
 export interface ReportCounts {
@@ -66,7 +66,7 @@ function firstFailure(trace: RunTrace): ReportFailure | null {
     (trace.outcome.reason === undefined || ["verification-failed", "policy-stuck", "maxSteps"].includes(trace.outcome.reason))
     ? [...trace.events].reverse().find(event => event.type === "verifier.result") : undefined;
   for (const event of trace.events) {
-    const data = record(event.data);
+    const data = asRecord(event.data);
     const failed = (event.type === "action.result" && data.ok === false) ||
       (event === finalVerification && data.passed === false) ||
       ["run.error", "run.aborted", "backend.error", "policy.rejected", "browser.navigation-blocked"].includes(event.type);
@@ -96,9 +96,9 @@ export function summarizeTrace(trace: RunTrace): ReportSummary {
   const actions: ReportAction[] = [];
   const verification: ReportVerification[] = [];
   for (const event of trace.events) {
-    const data = record(event.data);
-    if (event.type === "policy.decision" && record(data.decision).action) {
-      actions.push({ step: stepOf(data), action: record(data.decision).action, status: "not-recorded", decisionEventId: event.id, verificationEventIds: [] });
+    const data = asRecord(event.data);
+    if (event.type === "policy.decision" && asRecord(data.decision).action) {
+      actions.push({ step: stepOf(data), action: asRecord(data.decision).action, status: "not-recorded", decisionEventId: event.id, verificationEventIds: [] });
     }
     if (event.type === "action.result") {
       const action: ReportAction = [...actions].reverse().find(item => item.step === stepOf(data) && !item.resultEventId) ??
@@ -111,7 +111,7 @@ export function summarizeTrace(trace: RunTrace): ReportSummary {
     if (event.type === "verifier.result") {
       verification.push({ eventId: event.id, step: stepOf(data), passed: typeof data.passed === "boolean" ? data.passed : undefined,
         failures: strings(data.failures), rules: Array.isArray(data.rules) ? data.rules.map((rule, index) => {
-          const item = record(rule);
+          const item = asRecord(rule);
           return { ruleIndex: typeof item.ruleIndex === "number" ? item.ruleIndex : index, ruleType: typeof item.ruleType === "string" ? item.ruleType : "unspecified",
             passed: typeof item.passed === "boolean" ? item.passed : undefined,
             ...(typeof item.failure === "string" ? { failure: item.failure } : {}),
@@ -127,7 +127,7 @@ export function summarizeTrace(trace: RunTrace): ReportSummary {
 }
 
 export function actionLabel(action: unknown): string {
-  const data = record(action);
+  const data = asRecord(action);
   if (data.kind === "key" && typeof data.key === "string") return `Key: ${data.key}`;
   if (data.kind === "intent" && typeof data.intent === "string") return `Intent: ${data.intent}`;
   if (["typeText", "replaceText"].includes(String(data.kind)) && typeof data.input === "string") return `${data.kind}: input ${data.input}`;
@@ -135,6 +135,6 @@ export function actionLabel(action: unknown): string {
 }
 
 export function eventGrounds(event: TraceEvent): unknown {
-  const { step: _step, ruleIndex: _index, ruleType: _type, passed: _passed, failure: _failure, ...grounds } = record(event.data);
+  const { step: _step, ruleIndex: _index, ruleType: _type, passed: _passed, failure: _failure, ...grounds } = asRecord(event.data);
   return grounds;
 }

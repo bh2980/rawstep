@@ -1,7 +1,7 @@
 import { useMemo, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ComparedRun } from '../../shared/api';
-import { CompareSummary, ENOUGH_RUNS } from '../components/CompareSummary';
+import { CompareSummary } from '../components/CompareSummary';
 import { EmptyState } from '../components/layout/EmptyState';
 import { ErrorState } from '../components/layout/ErrorState';
 import { Dash, PageHeader } from '../components/PageHeader';
@@ -56,7 +56,7 @@ export function ComparePage({ pageProps, runs, ids, navigate }: Props) {
     {comparison.error && !comparison.data && <ErrorState view={dataFailureView(t('runCompare.failed'), comparison.error)} />}
     {comparison.data && <>
       <section aria-label={t('runCompare.summaryLabel')} className="mb-4 grid gap-2">
-        <CompareSummary lines={describeRuns(items)} few={groups.some(group => group.items.length < ENOUGH_RUNS)} />
+        <CompareSummary lines={describeRuns(items)} />
         <div aria-label={t('runCompare.differencesLabel')} role="group" className={cn('grid gap-0.5 text-sm', differs ? 'text-foreground' : 'text-ink-2')}>
           {differences.profiles.length > 0 && <p>{t('runCompare.profilesDiffer', { list: differences.profiles.join(', ') })}</p>}
           {differences.goals.length > 0 && <p>{t('runCompare.goalsDiffer')}</p>}

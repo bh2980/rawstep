@@ -395,9 +395,6 @@ export const taskUi: LocaleShape<typeof ko> = {
     liveInterruptions: 'A live region kept announcing on its own while the user moved, talking over what each move said.',
     backtracking: 'It went back and forth between the same two elements up to {{max}} times in one run.',
     backtrackingPlain: 'It went back and forth between the same two elements, so the direction of travel changed.',
-    earlyStopGuard: 'The repetition guard stopped the run.',
-    earlyStopStuck: 'The run stopped because the model judged it was stuck.',
-    earlyStopUncertain: 'The run stopped because the model judged it was not sure.',
   },
   runPage: {
     breadcrumb: 'Path',

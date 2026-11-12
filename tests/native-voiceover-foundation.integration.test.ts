@@ -40,7 +40,9 @@ describe('native experiment fixtures and independent oracles', () => {
         await page.getByRole('button', { name: 'Finish check' }).click();
         await page.waitForFunction(() => document.documentElement.dataset.completed === 'true');
       } else {
+        // An installed clock still runs with real time, and a millisecond of it would fire the timer before `delay - 1`: hold it still.
         await page.clock.install();
+        await page.clock.pauseAt(Date.now() + 1000);
         await page.getByRole('button', { name: 'Finish check' }).click();
         const delay = mode === 'late' ? 4500 : mode === 'delayed' ? 1500 : 0;
         if (delay) {

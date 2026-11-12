@@ -174,7 +174,8 @@ describe("run", () => {
     expect(out).toContain("Run 1 of 2: reached the goal · 7 moves");
     // A limit ending the run says nothing about the user: not measured, with the limit named.
     expect(out).toContain("Run 2 of 2: not measured (max steps) · 40 moves");
-    expect(out).toContain("Could a first-time user do it? reached the goal in 1 of 2 runs · not measured 1");
+    // The rate is over the measured runs, as in the batch summary and the comparison: the run that was not measured is counted beside it.
+    expect(out).toContain("Could a first-time user do it? reached the goal in 1 of 1 runs · not measured 1");
     expect(out).toContain("Cost of reaching it: 7 moves");
     expect(out.indexOf("Page")).toBeLessThan(out.indexOf("Model"));
     expect(out).toContain('button "Pay" · focus-lost · 2 of 2 runs');
@@ -206,7 +207,7 @@ describe("run", () => {
       detail: { assumption: { id: "A3", text: "Pressing Size announces it as selected" }, pressed: 16, gaveUpOn: true } };
     const guess = { ...stuck, target: { role: "cell", name: "1%" }, steps: [30], detail: { assumption: { id: "A4", text: "Buy comes after the table" } } };
     const out = formatRunResult({ ...result, runs: [{ ...where, runId: "r1", outDir: "/p/run-1", outcome: { status: "failure", reason: "policy-stuck", policyStopSource: "user-gave-up" }, hints: { schemaVersion: "3.0", runId: "r1", taskId: "t", steps: 34, durationMs: 1, goalReached: false, limitations: [],
-      hints: [stuck, guess, { kind: "early-stop", source: "model", certainty: "observed", steps: [34], summary: "The user gave up", evidence: [], detail: { stopSource: "user-gave-up", giveUp: { reason: "Size never selects", tried: ["A3"] } } },
+      hints: [stuck, guess, { kind: "early-stop", source: "run", certainty: "observed", steps: [34], summary: "The user gave up", evidence: [], detail: { stopSource: "user-gave-up", giveUp: { reason: "Size never selects", tried: ["A3"] } } },
         { kind: "goal-word-stretch", source: "run", certainty: "observed", steps: [3, 11], summary: "9 moves", evidence: [], detail: { moves: 9 } },
         ...[["failures", 12], ["failures", 20], ["no-change", 25]].map(([trigger, step]) => ({ kind: "replan" as const, source: "run" as const, certainty: "observed" as const, steps: [step as number], summary: "replanned", evidence: [], detail: { trigger } }))] } }],
       findings: [{ kind: "expectation-broken", source: "model", target: stuck.target, runs: 1, totalRuns: 1, occurrences: [{ runId: "r1", steps: [17], certainty: "observed", detail: stuck.detail }] },
@@ -274,9 +275,9 @@ describe("run", () => {
     expect(await runCli(["suite", "--tag", "shop", "--profile", "default", "--repeat", "2"], { ...io, runSuite })).toBe(3);
     expect(runSuite).toHaveBeenCalledWith(expect.objectContaining({ projectDir: directory, tags: ["shop"], profiles: ["default"], repeat: 2 }));
     const out = text(io.stdout);
-    expect(out).toContain("Task: reached the goal in 1 of 2 runs · not measured 1\n  cost of reaching it: 7 moves");
+    expect(out).toContain("Task: reached the goal in 1 of 1 runs · not measured 1\n  cost of reaching it: 7 moves");
     expect(out).toContain("Checkout: reached the goal in 1 of 1 runs");
-    expect(out).toContain("All 3 runs: reached the goal in 2 of 3 runs · not measured 1");
+    expect(out).toContain("All 3 runs: reached the goal in 2 of 2 runs · not measured 1");
     expect(out).toContain("Batch: /p/.rawstep/experiments/b");
     expect(formatSuiteResult({ ...suite, runs: [reached, other], groups: suite.groups.map(g => ({ ...g, runs: g.runs.filter(r => r !== unmeasured) })) })).toContain("All 2 runs: reached the goal in 2 of 2 runs");
   });
@@ -385,6 +386,20 @@ describe("offline analysis and reports", () => {
     expect(await runCli(["report", "trace.json", "--analysis", "analysis.json"], io)).toBe(0);
     expect(await readFile(join(directory, "trace.json"), "utf8")).toBe(source);
     expect(await readFile(join(directory, "report.html"), "utf8")).toContain("cli-test");
+  });
+  it("writes a batch run's report again as the batch wrote it: with the analysis next to the trace and the task's name the batch recorded", async () => {
+    const root = await temporaryDirectory(), batch = join(root, "batch"), run = join(batch, "run-1");
+    await mkdir(run, { recursive: true });
+    await writeFile(join(run, "trace.json"), JSON.stringify(fixtureTrace()));
+    await writeFile(join(batch, "experiment.json"), JSON.stringify({ runs: [{ id: "run-1", analysisInstructions: "Look at focus", snapshot: { taskName: "Checkout as a guest" } }] }));
+    const io = output(run);
+    // Before any analysis there is none to put in.
+    expect(await runCli(["report", "trace.json"], io)).toBe(0);
+    expect(JSON.parse(await readFile(join(run, "report.json"), "utf8")).analysis).toBeNull();
+    expect(await runCli(["analyze", "trace.json"], io)).toBe(0);
+    expect(await runCli(["report", "trace.json"], io)).toBe(0);
+    expect(JSON.parse(await readFile(join(run, "report.json"), "utf8")).analysis).toMatchObject({ status: "completed" });
+    expect(await readFile(join(run, "report.html"), "utf8")).toContain("Checkout as a guest");
   });
   it("refuses analysis from a different run", async () => {
     const directory = await temporaryDirectory();
@@ -558,6 +573,15 @@ describe("doctor", () => {
     const ready = output(demo);
     expect(await runCli(["doctor"], { ...ready, launchBrowser: async () => {} })).toBe(0);
     expect(text(ready.stdout)).toMatch(/ok    Profile Written plan \(no model\): follows the plan file rawstep\/demo\/plan.json/);
+  });
+  it("checks the browser Rawstep launches even when a Chrome of your own is set, and that Chrome as well, each as a run opens it", async () => {
+    const directory = await project(config => { config.machine.browserEndpoint = "http://localhost:9222"; config.machine.browserExecutablePath = "/opt/chrome"; config.machine.proxyServer = "http://localhost:8080"; });
+    const io = output(directory), launchBrowser = vi.fn(async (options: { cdpEndpoint?: string }) => { if (options.cdpEndpoint) throw new Error("nothing listens there"); });
+    expect(await runCli(["doctor"], { ...io, launchBrowser })).toBe(1);
+    // Every task without `browser.mode: "connect"` still launches a browser: an address for your own Chrome must not hide that check.
+    expect(launchBrowser.mock.calls).toEqual([[{ executablePath: "/opt/chrome", proxyServer: "http://localhost:8080" }], [{ cdpEndpoint: "http://localhost:9222" }]]);
+    expect(text(io.stdout)).toContain("ok    Browser: launched /opt/chrome");
+    expect(text(io.stdout)).toMatch(/FAIL  Your Chrome: nothing listens there\. Start Chrome with `--remote-debugging-port=9222/);
   });
   it("fails when the browser cannot launch, with the way out", async () => {
     const io = output(await project());
@@ -739,25 +763,53 @@ describe("doctor", () => {
     expect(await runCli(["doctor"], { ...proxy, launchBrowser: async () => {} })).toBe(1);
     expect(text(proxy.stdout)).toContain("machine.proxyServer: proxyServer must be a credential-free HTTP(S) or SOCKS URL");
   });
-  it("probes the endpoint of each native screen reader environment once, with the machine's address or the usual one", async () => {
+  it("checks each native screen reader once as a run would start it: only the one this operating system runs is probed, at the machine's address or the usual one", async () => {
     const directory = await project(config => {
       const base = config.profiles[0]!;
       config.profiles.push({ ...base, id: "vo", name: "VoiceOver", screenReader: "voiceover" }, { ...base, id: "vo2", name: "VoiceOver again", screenReader: "voiceover" }, { ...base, id: "nvda", name: "NVDA", screenReader: "nvda" });
       config.machine.atEndpoints.voiceover = "ws://127.0.0.1:9333";
     });
+    // A run with a reader of another operating system cannot start, so doctor says that instead of probing a server for it.
+    const here = process.platform === "darwin" ? "voiceover" : process.platform === "win32" ? "nvda" : undefined;
+    const url = { voiceover: "ws://127.0.0.1:9333", nvda: "ws://localhost:3031/session" };
     const io = output(directory), checkNativeBackend = vi.fn(async () => ({})), checkVoiceOverCursor = vi.fn(async () => ({}));
-    expect(await runCli(["doctor"], { ...io, launchBrowser: async () => {}, checkNativeBackend, checkVoiceOverCursor })).toBe(0);
-    expect(checkNativeBackend).toHaveBeenCalledTimes(2);
-    expect(checkNativeBackend).toHaveBeenCalledWith({ profile: "voiceover", url: "ws://127.0.0.1:9333" });
-    expect(checkNativeBackend).toHaveBeenCalledWith({ profile: "nvda", url: "ws://localhost:3031/session" });
-    expect(text(io.stdout)).toContain("ok    Screen reader: voiceover AT Driver answered");
-    expect(text(io.stdout)).toContain("ok    Screen reader: nvda AT Driver answered");
-    expect(checkVoiceOverCursor).toHaveBeenCalledTimes(1);
-    expect(text(io.stdout)).toContain("ok    VoiceOver cursor: Rawstep can read where VoiceOver's cursor is");
+    expect(await runCli(["doctor"], { ...io, launchBrowser: async () => {}, checkNativeBackend, checkVoiceOverCursor })).toBe(1);
+    expect(checkNativeBackend.mock.calls).toEqual(here ? [[{ profile: here, url: url[here] }]] : []);
+    if (here) expect(text(io.stdout)).toContain(`ok    Screen reader: ${here} AT Driver answered at ${url[here]}`);
+    if (here !== "voiceover") expect(text(io.stdout)).toContain("FAIL  Screen reader: voiceover: Run VoiceOver on macOS.");
+    if (here !== "nvda") expect(text(io.stdout)).toContain("FAIL  Screen reader: nvda: Run NVDA on Windows.");
+    expect(checkVoiceOverCursor).toHaveBeenCalledTimes(here === "voiceover" ? 1 : 0);
+    if (here === "voiceover") expect(text(io.stdout)).toContain("ok    VoiceOver cursor: Rawstep can read where VoiceOver's cursor is");
     const failing = output(directory);
     expect(await runCli(["doctor"], { ...failing, launchBrowser: async () => {}, checkNativeBackend: async () => { throw new Error("ECONNREFUSED"); }, checkVoiceOverCursor: async () => { throw new Error("Not authorized to send Apple events to VoiceOver"); } })).toBe(1);
-    expect(text(failing.stdout)).toContain("FAIL  Screen reader: voiceover AT Driver at ws://127.0.0.1:9333: ECONNREFUSED");
-    expect(text(failing.stdout)).toContain("FAIL  VoiceOver cursor: Not authorized to send Apple events to VoiceOver");
+    if (here) expect(text(failing.stdout)).toContain(`FAIL  Screen reader: ${here} AT Driver at ${url[here]}: ECONNREFUSED. Start the AT Driver server`);
+    if (here === "voiceover") expect(text(failing.stdout)).toContain("FAIL  VoiceOver cursor: Not authorized to send Apple events to VoiceOver");
+  });
+
+  it("starts the AT Driver server with the saved command when nothing answers, as a run does, and says when there is no command", async () => {
+    const here = process.platform === "darwin" ? "voiceover" as const : process.platform === "win32" ? "nvda" as const : undefined;
+    if (!here) return;
+    const directory = await project(config => { config.profiles.push({ ...config.profiles[0]!, id: "native", name: "Native", screenReader: here }); config.machine.atEndpoints[here] = "ws://127.0.0.1:9"; });
+    // Nothing listens on the discard port and no command is saved: the same answer a run gets.
+    const io = output(directory);
+    expect(await runCli(["doctor"], { ...io, launchBrowser: async () => {}, checkVoiceOverCursor: async () => ({}) })).toBe(1);
+    expect(text(io.stdout)).toContain(`FAIL  Screen reader: ${here} AT Driver at ws://127.0.0.1:9: No AT Driver server answers at ws://127.0.0.1:9`);
+  });
+
+  it("checks each task under its usual profiles with the queue's own plan, and says what no other line does", async () => {
+    const directory = await project(config => {
+      config.profiles[0]!.planner = { planFile: "plan.json" };
+      config.profiles.push({ ...config.profiles[0]!, id: "odd", name: "Odd keys", actions: { ...config.profiles[0]!.actions, keys: ["F13"] } });
+      config.tasks.push({ id: "pay", name: "Pay", file: "pay.json", profiles: [config.profiles[0]!.id, "odd"] });
+    });
+    await writeFile(join(directory, "pay.json"), JSON.stringify({ url: "https://shop.example/", goal: "Pay", verify: { all: [{ titleIncludes: "Thanks" }] } }));
+    await writeFile(join(directory, "plan.json"), JSON.stringify({ strategy: "Press Pay", criteria: [], assumptions: [], phases: [{ title: "Pay", tasks: [{ goal: "Press Pay", done: "Thanks is heard", cue: "Pay", activates: true }] }] }));
+    const io = output(directory);
+    expect(await runCli(["doctor"], { ...io, launchBrowser: async () => {} })).toBe(1);
+    const out = text(io.stdout);
+    expect(out).toContain("FAIL  Task pay under Odd keys: cannot run: This assistive technology does not support: F13.");
+    // The task's other profile can run it, so nothing more is said about that pair.
+    expect(out.split("\n").filter(line => line.includes("Task pay under"))).toHaveLength(1);
   });
 });
 

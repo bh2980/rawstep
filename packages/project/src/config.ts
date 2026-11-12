@@ -118,7 +118,7 @@ export const runRulesSchema = z.object({
    * Actions the run goes on after the goal is reached when the user heard nothing saying so (a confirmation shown
    * but not announced). 0 stops at once, as before. The extra actions are the user's not knowing whether it worked.
    */
-  confirmationGrace: count(0, 100, 5),
+  confirmationGrace: count(0, 100, RAWSTEP_DEFAULTS.confirmationGrace),
   /**
    * With a planner: planner calls a run may make (plans, questions about a heard item, and asking again after an unusable reply). A cost limit: a run that reaches it ends unmeasured (it is
    * not known whether the task can be done), never as the user failing. The user gives up only by the planner's own decision.
@@ -129,9 +129,9 @@ export const runRulesSchema = z.object({
   /** With a planner: actions on one task without hearing anything new before a new plan is requested. */
   stepActionLimit: count(1, 1000, RAWSTEP_DEFAULTS.orchestration.stepActionLimit),
   /** With a planner: failed actions in a row on one task before a new plan is requested. */
-  failureLimit: count(1, 100, 2),
+  failureLimit: count(1, 100, RAWSTEP_DEFAULTS.orchestration.failureLimit),
   /** With a planner: actions in a row on one task that changed nothing before a new plan is requested. */
-  noChangeLimit: count(1, 100, 3),
+  noChangeLimit: count(1, 100, RAWSTEP_DEFAULTS.orchestration.noChangeLimit),
   /**
    * With a planner: past actions the planner is given when it plans, each with what was heard before it. Older ones are forgotten;
    * the plan document it wrote stays. Lower it for a user who does not remember the whole page.
@@ -234,8 +234,9 @@ export const taskSchema = z.object({
   /** Labels to group tasks by ("checkout", "login"): runs pick tasks by them (`rawstep suite --tag`), lists filter by them. */
   tags: z.array(tagSchema).max(10).optional(),
   /**
-   * The run profiles this task usually runs with (each a screen reader user to try it as): the run dialog picks them, and
-   * `rawstep run` and `suite` use them unless told otherwise. Without them, the project's first profile.
+   * The run profiles this task usually runs with (each a screen reader user to try it as): the run dialog picks them, `rawstep suite`
+   * runs the task under each of them and `rawstep run` under the first, unless told otherwise (`usualProfiles`). Without them, the
+   * project's first profile.
    */
   profiles: z.array(id).max(20).optional(),
 }).strict();
@@ -257,6 +258,17 @@ function validProxyServer(value: string): boolean {
     const proxy = new URL(value);
     return ['http:', 'https:', 'socks4:', 'socks5:'].includes(proxy.protocol) && !!proxy.hostname && !proxy.username && !proxy.password && !proxy.search && !proxy.hash && (!proxy.pathname || proxy.pathname === '/');
   } catch { return false; }
+}
+/**
+ * How a browser is opened on this computer: connected to the Chrome the person started (`connect`, when an address for it is set),
+ * otherwise launched with the configured executable and proxy. The one reading of these machine settings: a run, `rawstep doctor` and
+ * the dashboard's checks and page readers all open their browser through it, so a check opens what a run would. The names are the
+ * browser session's (`createBrowserSession`).
+ */
+export function browserOpenOf(machine: Pick<MachineSettings, 'browserExecutablePath' | 'browserEndpoint' | 'proxyServer'>, connect: boolean): { cdpEndpoint: string } | { executablePath?: string; proxyServer?: string } {
+  const endpoint = machine.browserEndpoint.trim(), executablePath = machine.browserExecutablePath.trim(), proxyServer = machine.proxyServer.trim();
+  if (connect && endpoint) return { cdpEndpoint: endpoint };
+  return { ...(executablePath ? { executablePath } : {}), ...(proxyServer ? { proxyServer } : {}) };
 }
 /** Settings that belong to the computer running Rawstep, not to an experiment. */
 export const machineSchema = z.object({

@@ -1,5 +1,4 @@
 import type { Hint } from '../../../../shared/api.js';
-import type { RunState } from '../../../../shared/config.js';
 
 type HintKind = Hint['kind'];
 
@@ -49,15 +48,6 @@ export const core = {
     counts: '실행 중 {{running}} · 대기 {{queued}}',
     disconnected: '서버 연결 끊김',
   },
-  runStates: {
-    queued: '대기',
-    running: '실행 중',
-    success: '목표 도달',
-    failure: '목표 못 닿음',
-    inconclusive: '판단 불가',
-    cancelled: '취소됨',
-    interrupted: '중단됨',
-  } satisfies Record<RunState, string>,
   task: {
     compare: '여러 조건 비교',
     unknownTitle: '작업을 찾을 수 없습니다',
@@ -85,20 +75,6 @@ export const core = {
     downloadTrace: 'trace 다운로드',
     stopQueue: '남은 실행도 모두 중지',
     simulationNotice: '모의 VoiceOver 실행 (실제 네이티브 발화 아님)',
-    outcomeReasons: {
-      'verified': '마지막 행동 뒤 완료 확인이 모두 맞음',
-      'verification-failed': '마지막 행동 뒤 완료 확인이 맞지 않음',
-      'policy-stuck': '막혔다고 판단해 중단',
-      'policy-uncertain': '확신하지 못한다고 판단해 중단',
-      'maxSteps': '최대 행동 수 도달',
-      'timeout': '시간 초과',
-      'error': '실행 중 오류',
-      'aborted': '중단됨',
-      'trace-persistence-error': 'trace 저장 오류',
-      'unsupported-profile': '지원하지 않는 환경',
-      'access-blocked': '접근이 차단됨',
-      'unsupported-pattern': '지원하지 않는 패턴',
-    },
     retryTitle: '같은 조건으로 재실행',
     retryChanged: '현재 작업 파일과 다른 항목: {{fields}}',
     retryUnchanged: '입력값 외 작업 조건에 변경이 없습니다.',

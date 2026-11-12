@@ -123,7 +123,7 @@ API 키는 `rawstep.config.json`에 적지 않고 `.env.local`(파일 권한 `06
   - 헤딩 탐색: `'heading.next'`, `'heading.previous'`, `'headings.list'`
   - 폼 컨트롤 탐색: `'form.next'`, `'form.previous'`, `'formControls.rotor'`
   - 링크 탐색: `'link.next'`, `'link.previous'`, `'links.list'`
-- `keys` (`string[]`): 허용할 물리 키보드 키. 시뮬레이션(`screenReader: "simulation"`)은 `'Tab'`, `'Shift+Tab'`, `'Enter'`, `'Space'`, `'Escape'`, `'ArrowUp'`, `'ArrowDown'`, `'ArrowLeft'`, `'ArrowRight'`, `'Home'`, `'End'`만 지원합니다. 실제 AT Driver 백엔드(`voiceover`, `nvda`)는 여기에 `'Backspace'`, `'Delete'`, `'PageUp'`, `'PageDown'`, `'Shift+Enter'`, `'Mod+A'`도 지원합니다.
+- `keys` (`string[]`): 허용할 물리 키보드 키. 시뮬레이션과 실제 AT Driver 백엔드(`voiceover`, `nvda`)가 같은 키를 받으므로 프로필의 뜻이 어디서나 같습니다. `'Tab'`, `'Shift+Tab'`, `'Enter'`, `'Shift+Enter'`, `'Space'`, `'Escape'`, `'Backspace'`, `'Delete'`, `'ArrowUp'`, `'ArrowDown'`, `'ArrowLeft'`, `'ArrowRight'`, `'Home'`, `'End'`, `'PageUp'`, `'PageDown'`, `'Mod+A'`(전체 선택. macOS에서는 Command+A, 그 밖에서는 Control+A)를 지원합니다.
 - `typeText` (`boolean`): 선언된 태스크 입력값 타이핑 허용 여부.
 - `replaceText` (`boolean`): 기존 입력창 텍스트를 지우고 선언된 태스크 입력값으로 덮어쓰기 허용 여부.
 - `inputKeys` (`string[]`, 선택): `task.input` 중 타이핑을 허용할 키 이름 목록.
@@ -132,7 +132,7 @@ API 키는 `rawstep.config.json`에 적지 않고 `.env.local`(파일 권한 `06
 
 `profile.page`에는 **9가지 내장 프리셋 이름** 중 하나 또는 커스텀 `EnvironmentProfile` 객체를 지정할 수 있습니다.
 - 내장 프리셋: `'default'` (`1280×800`, 변경 없음), `'narrow'` (`320×800`), `'text-200'` (글자 2배), `'spacing'` (WCAG 텍스트 간격: 줄 높이 1.5, 글자 간격 `0.12em`, 단어 간격 `0.16em`, 문단 간격 `2em`), `'reflow-text'` (`320×800`에 글자 2배), `'forced-colors'`, `'contrast'` (`prefers-contrast: more`), `'dark'`, `'reduced-motion'`.
-- 커스텀 객체 필드 (모두 선택이며 생략한 항목은 `default` 값을 따르고, 알 수 없는 키는 오류): `id` (`/^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/`), `viewport` (`{ width, height }`, 둘 다 필수인 정수: width `240..7680`, height `200..4320`), `textScale` (`1..4`), `colorScheme` (`'light' | 'dark' | 'no-preference'`), `forcedColors` (`'none' | 'active'`), `contrast` (`'no-preference' | 'more'`), `reducedMotion` (`'no-preference' | 'reduce'`), `textSpacing` (네 키 모두 필수: `lineHeight` `1..4`, `letterSpacingEm` `0..1`, `wordSpacingEm` `0..2`, `paragraphSpacingEm` `0..5`), `at` (`{ name, version?, configuration? }`, 각 500자 이내 문자열이며 `name`은 비어 있으면 안 됨: 실행이 기대하는 스크린리더로, 백엔드가 알려 주는 값과 대조합니다), `diagnostics` (`boolean`, 기본값 `true`), `requireApplied` (`boolean`, 기본값 `true`: 요청한 설정이 적용되지 않았거나 `at`이 일치하지 않으면 실행이 중단됨).
+- 커스텀 객체 필드 (모두 선택이며 생략한 항목은 `default` 값을 따르고, 알 수 없는 키는 오류): `id` (`/^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/`), `viewport` (`{ width, height }`, 둘 다 필수인 정수: width `240..7680`, height `200..4320`), `textScale` (`1..4`), `colorScheme` (`'light' | 'dark' | 'no-preference'`), `forcedColors` (`'none' | 'active'`), `contrast` (`'no-preference' | 'more'`), `reducedMotion` (`'no-preference' | 'reduce'`), `textSpacing` (네 키 모두 필수: `lineHeight` `1..4`, `letterSpacingEm` `0..1`, `wordSpacingEm` `0..2`, `paragraphSpacingEm` `0..5`), `at` (`{ name, version? }`, 각 500자 이내 문자열이며 `name`은 비어 있으면 안 됨: 실행이 기대하는 스크린리더로, 백엔드가 알려 주는 값과 대조합니다), `diagnostics` (`boolean`, 기본값 `true`), `requireApplied` (`boolean`, 기본값 `true`: 요청한 설정이 적용되지 않았거나 `at`이 일치하지 않으면 실행이 중단됨).
 
 ### 3.4 `screenReader`
 - `'simulation'` *(기본값)*: 내장 Chromium 접근성 트리 시뮬레이터 (`MockVoiceOverBackend`).

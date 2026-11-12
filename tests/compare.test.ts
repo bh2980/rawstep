@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { goalUnconfirmed, runEnding, runMoves } from '@rawstep/reports/endings';
+import { goalUnconfirmed, isMeasured, median, runBroke, runEnding, runMoves } from '@rawstep/reports/endings';
 import { buildBatchSummary, cellText, compareSummaries, gatedChanges, junitXml, notComparedText, summaryMarkdown, uncheckedCells, validateBatchSummary, type BatchSummary, type SummaryCell, type SummaryRun } from '@rawstep/reports/compare';
 import type { Hint } from '@rawstep/reports/hints';
 
@@ -15,7 +15,7 @@ describe('batch summaries compared with the spread between repeats in mind', () 
   it('counts a run that passed the goal check as reached, whether or not the user knew', () => {
     const unsure = { status: 'success', reason: 'verified', goalConfirmed: false };
     expect(runEnding({ status: 'success', reason: 'verified' })).toEqual({ ending: 'reached' });
-    expect(runEnding(unsure, 'user-gave-up')).toEqual({ ending: 'reached' });
+    expect(runEnding({ ...unsure, policyStopSource: 'user-gave-up' })).toEqual({ ending: 'reached' });
     expect(goalUnconfirmed(unsure)).toBe(true);
     expect(goalUnconfirmed({ status: 'success' })).toBe(false);
     expect(goalUnconfirmed({ status: 'failure', goalConfirmed: false })).toBe(false);
@@ -70,6 +70,35 @@ describe('batch summaries compared with the spread between repeats in mind', () 
     expect(gatedChanges(compared, ['reach'])).toEqual([]);
     expect(gatedChanges(compared, ['moves', 'stuck', 'missing']).map(c => c.kind)).toEqual(['moves-up', 'stuck-new', 'cell-gone']);
     expect(() => gatedChanges(compared, ['speed'])).toThrow(/Unknown gate speed/);
+  });
+
+  it('has one test for a run that broke, and gives such a run no ending', () => {
+    for (const outcome of [undefined, { status: 'aborted' }, { status: 'failure', reason: 'error' }, { status: 'failure', reason: 'trace-persistence-error' }]) {
+      expect(runBroke(outcome)).toBe(true);
+      expect(runEnding(outcome)).toBeUndefined();
+      expect(isMeasured(runEnding(outcome))).toBe(false);
+    }
+    expect(runBroke({ status: 'inconclusive', reason: 'timeout' })).toBe(false);
+    // Who stopped the run is read from the outcome itself, and wins over the reason.
+    expect(runEnding({ status: 'failure', reason: 'policy-stuck', policyStopSource: 'orchestration-limit' })).toEqual({ ending: 'unmeasured', by: 'planner-calls' });
+    expect(runEnding({ status: 'failure', reason: 'policy-stuck', policyStopSource: 'user-gave-up' })).toEqual({ ending: 'gave-up' });
+    expect(runEnding({ status: 'inconclusive', reason: 'unsupported-pattern' })).toEqual({ ending: 'unmeasured', by: 'other' });
+    expect(runEnding({ status: 'inconclusive', reason: 'a reason from a newer Rawstep' })).toEqual({ ending: 'unmeasured', by: 'other' });
+    expect([isMeasured({ ending: 'reached' }), isMeasured({ ending: 'gave-up' }), isMeasured({ ending: 'mistaken' }), isMeasured({ ending: 'unmeasured', by: 'timeout' })]).toEqual([true, true, true, false]);
+    expect([median([]), median([3]), median([4, 1, 3]), median([1, 2, 3, 10])]).toEqual([null, 3, 3, 2.5]);
+  });
+
+  it('counts a stuck place over the runs that ran, measured or not, on both sides of its share', () => {
+    // One run reached and three hit a limit after getting stuck on the same button: the place came up in 4 of the 4 runs that ran.
+    const stuck = { role: 'button', name: 'Pay', runs: 4 };
+    const head = summary('b', [cell('pay', [10], { unmeasured: 3 }, [stuck])]), base = summary('a', [cell('pay', [10, 11])]);
+    expect(compareSummaries(base, head).changes.filter(c => c.kind === 'stuck-new').map(c => c.text)).toEqual(['New stuck place: button "Pay", in 4 of 4 runs.']);
+    // No run of the head was measured: reach cannot be judged, the stuck place still is.
+    const none = compareSummaries(base, summary('b', [cell('pay', [], { unmeasured: 2 }, [{ ...stuck, runs: 2 }])]));
+    expect(none.cells[0]!.reach).toBe('too-few-runs');
+    expect(gatedChanges(none, ['stuck']).map(c => c.text)).toEqual(['New stuck place: button "Pay", in 2 of 2 runs.']);
+    // A run that broke is not one that ran.
+    expect(compareSummaries(base, summary('b', [cell('pay', [10, 10, 10], { error: 5 }, [{ ...stuck, runs: 1 }])])).changes.filter(c => c.kind === 'stuck-new')).toEqual([]);
   });
 
   it('sums up runs per task and profile from their outcomes and hints, and reads back its own files only', () => {

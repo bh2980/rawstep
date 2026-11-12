@@ -247,12 +247,6 @@
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; }
 }
 
-/* Run strip glyphs: shape carries the meaning (filled / striped / hollow), colour only reinforces it. */
-.glyph-missed {
-  background: repeating-linear-gradient(135deg, var(--missed) 0 2px, transparent 2px 4px);
-  border: 1.5px solid var(--missed);
-}
-
 /*
  * Selected-row rail: one straight 3px band the full height of the row. It is a pseudo element, not a border,
  * so it never inherits a corner radius; lists that carry rails are square-cornered and never clip it.

@@ -58,7 +58,6 @@ export const traceUi = {
     group: '최근 실행 {{count}}번의 결과',
     item: '실행 #{{number}}: {{state}}, 행동 {{steps}}번',
     itemNoSteps: '실행 #{{number}}: {{state}}',
-    errored: '실행 오류로 끝남',
   },
   stepDetail: {
     screenReference: '모델에게 보내지 않음',

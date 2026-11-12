@@ -1,5 +1,7 @@
+import { isRecord } from '@rawstep/core/guards';
 import { dirname, join } from 'node:path';
-import { readTrace, traceFilePath, writeJsonAtomic, type RunOutcome, type RunTrace, type TraceEvent } from '@rawstep/core/trace';
+import { isActivation, isNavigation, moveDirection } from '@rawstep/core/actions';
+import { readTrace, REDACTED, traceFilePath, writeJsonAtomic, type RunOutcome, type RunTrace, type TraceEvent } from '@rawstep/core/trace';
 import { goalLeads } from '@rawstep/policies/policy';
 import { runMoves } from '../endings/index.js';
 
@@ -17,9 +19,10 @@ export type HintKind =
 /**
  * Where a hint comes from. page: the page itself behaved this way (focus, announcements, dialogs, tab order).
  * model: the simulated user wandered or stopped early, which may say more about the planner than the page.
- * run: about the run as a whole (length against the fastest run, goal already met at start), and orchestration events — a new
- * plan, a task running out of actions. These mark where the plan needed revising; the page may have made that point hard, or the
- * plan may have been wrong.
+ * run: about the run as a whole (length against the fastest run, goal already met at start, how it stopped early), and
+ * orchestration events — a new plan, a task running out of actions. These mark where the plan needed revising; the page may have
+ * made that point hard, or the plan may have been wrong. How a run ended is counted as its ending (`runEnding`), so an early stop is
+ * not gathered into findings a second time.
  * expectation-broken is a model hint too: the simulated user expected something of the page that did not hold. Whether the page
  * or the expectation was wrong is for a person to judge.
  */
@@ -28,10 +31,10 @@ export type HintSource = 'page' | 'model' | 'run';
 export type HintTarget = { role: string; name?: string };
 export const HINT_SOURCES: Readonly<Record<HintKind, HintSource>> = Object.freeze({
   'slow-run': 'run', 'goal-met-at-start': 'run', 'replan': 'run', 'task-limit': 'run',
-  'wanted-to-give-up': 'run', 'goal-word-stretch': 'run',
+  'wanted-to-give-up': 'run', 'goal-word-stretch': 'run', 'early-stop': 'run',
   'excess-keystrokes': 'page', 'focus-lost': 'page', 'focus-left-page': 'page', 'focus-not-visible': 'page',
   'modal-focus-outside': 'page', 'missing-announcement': 'page', 'live-interruptions': 'page',
-  'backtracking': 'model', 'early-stop': 'model', 'expectation-broken': 'model',
+  'backtracking': 'model', 'expectation-broken': 'model',
 });
 export type Hint = {
   kind: HintKind;
@@ -73,15 +76,13 @@ export type HintOptions = { reference?: Readonly<RunTrace>; thresholds?: Partial
 
 /** A press this many actions or fewer before an expectation broke is what broke it: the user may move a little to check first. */
 const PRESS_WINDOW = 3;
-const NAVIGATION_KEYS = ['Tab', 'Shift+Tab', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 'PageUp', 'PageDown'];
-const FORWARD = ['Tab', 'ArrowDown', 'ArrowRight', 'next'], BACKWARD = ['Shift+Tab', 'ArrowUp', 'ArrowLeft', 'previous'];
 const ANNOUNCING_SURFACES = ['alert', 'alertdialog', 'dialog', 'status', 'log'];
-const REDACTED = '[REDACTED]';
 
-type Action = { step: number; eventId: string; key?: string; intent?: string; text?: boolean; ok?: boolean };
+type Action = { step: number; eventId: string; key?: string; intent?: string; text?: boolean; ok?: boolean; /** false: an `activate` that pressed nothing (it picked from an open rotor list), as the run recorded it. */ pressed?: false };
+/** The action pressed something on the page: it names a press and the run did not record that it pressed nothing. */
+const pressedSomething = (action: Action) => isActivation(action) && action.pressed !== false;
 type ObserverRecord = { id: string; step: number; kind: string; role?: string | null; name?: string; visible?: boolean; inViewport?: boolean; modalOpen?: boolean; inDialog?: boolean; reason?: string; sameDocument?: boolean; attr?: string };
 
-const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
 const label = (o: { role?: string | null; name?: string }) => o.name && o.name !== REDACTED ? `${o.role ?? 'element'} "${o.name}"` : (o.role ?? 'element');
 const keyOf = (a: Action) => a.key ?? a.intent;
 const targetOf = (o: { role?: string | null; name?: string } | undefined): HintTarget | undefined =>
@@ -102,8 +103,6 @@ function collapseRepeats(hints: Hint[]): Hint[] {
   }
   return out;
 }
-const isActivation = (a: Action) => a.key === 'Enter' || a.key === 'Space' || a.intent === 'activate';
-const isNavigation = (a: Action) => (a.key !== undefined && NAVIGATION_KEYS.includes(a.key)) || a.intent === 'next' || a.intent === 'previous';
 
 export function summarizeRun(trace: Readonly<RunTrace>): RunSummary {
   const started = Date.parse(trace.startedAt), ended = trace.endedAt ? Date.parse(trace.endedAt) : NaN;
@@ -118,25 +117,27 @@ export function selectReference(traces: readonly Readonly<RunTrace>[]): Readonly
 
 function collect(trace: Readonly<RunTrace>) {
   const announced: { step: number; id: string; lines: string[] }[] = [];
-  const actions: Action[] = [], observer: ObserverRecord[] = [], evidence: { step: number; id: string; data: Record<string, unknown> }[] = [], diagnostics: { step: number; id: string; data: Record<string, unknown> }[] = [];
+  const actions: Action[] = [], observer: ObserverRecord[] = [], evidence: { step: number; id: string; data: Record<string, unknown>; withheld: boolean }[] = [], diagnostics: { step: number; id: string; data: Record<string, unknown> }[] = [];
   let step = 0;
   for (const event of trace.events as readonly TraceEvent[]) {
-    const data = record(event.data) ? event.data : {};
+    const data = isRecord(event.data) ? event.data : {};
     if (event.type === 'policy.decision' && typeof data.step === 'number') {
       step = data.step;
-      const action = record(data.decision) && record(data.decision.action) ? data.decision.action : undefined;
+      const action = isRecord(data.decision) && isRecord(data.decision.action) ? data.decision.action : undefined;
       if (action) actions.push({ step, eventId: event.id, ...(typeof action.key === 'string' ? { key: action.key } : {}), ...(typeof action.intent === 'string' ? { intent: action.intent } : {}), ...(action.kind === 'typeText' || action.kind === 'replaceText' ? { text: true } : {}) });
     } else if (event.type === 'action.result' && typeof data.step === 'number') {
-      const action = actions.find(a => a.step === data.step); if (action) action.ok = data.ok === true;
+      const action = actions.find(a => a.step === data.step); if (action) { action.ok = data.ok === true; if (data.pressed === false) action.pressed = false; }
     } else if (event.type.startsWith('observer.') && typeof data.step === 'number' && typeof data.kind === 'string') {
       observer.push({ ...(data as Omit<ObserverRecord, 'id'>), id: event.id });
-    } else if (event.type === 'policy.evidence' && typeof data.step === 'number' && record(data.evidence)) {
-      evidence.push({ step: data.step, id: event.id, data: data.evidence });
+    } else if (event.type === 'policy.evidence' && typeof data.step === 'number' && (isRecord(data.evidence) || isRecord(data.summary))) {
+      // After a secret was typed the runner keeps only a summary of each piece of evidence: its kind, trigger, versions and counts,
+      // never plan wording. That is enough to count new plans and give-ups; what an expectation said is gone (`withheld`).
+      evidence.push(isRecord(data.evidence) ? { step: data.step, id: event.id, data: data.evidence, withheld: false } : { step: data.step, id: event.id, data: data.summary as Record<string, unknown>, withheld: true });
     } else if (event.type.endsWith('.observation') && Array.isArray(data.announcements) && step > 0) {
       // Lines a live region said on its own after a move; withheld lines (after a secret was typed) say nothing.
-      const lines = data.announcements.filter((line): line is string => typeof line === 'string' && line !== '[REDACTED]');
+      const lines = data.announcements.filter((line): line is string => typeof line === 'string' && line !== REDACTED);
       if (lines.length) announced.push({ step, id: event.id, lines });
-    } else if (event.type === 'browser.accessibility-diagnostic' && typeof data.step === 'number' && record(data.diagnostic)) {
+    } else if (event.type === 'browser.accessibility-diagnostic' && typeof data.step === 'number' && isRecord(data.diagnostic)) {
       diagnostics.push({ step: data.step, id: event.id, data: data.diagnostic });
     }
   }
@@ -165,7 +166,7 @@ export function extractHints(trace: Readonly<RunTrace>, options: HintOptions = {
   let segment: Action[] = [];
   for (const action of actions) {
     if (isNavigation(action)) { segment.push(action); continue; }
-    if (isActivation(action) && segment.length >= t.keystrokesToTarget) {
+    if (pressedSomething(action) && segment.length >= t.keystrokesToTarget) {
       const target = [...observer].reverse().find(o => o.kind === 'focus' && o.step < action.step);
       add({ kind: 'excess-keystrokes', certainty: 'observed', steps: [segment[0]!.step, action.step],
         summary: `${segment.length} navigation keys before activating ${target ? label(target) : 'the focused control'}.`,
@@ -177,8 +178,8 @@ export function extractHints(trace: Readonly<RunTrace>, options: HintOptions = {
 
   const reversals: Action[] = [];
   for (let i = 1; i < actions.length; i++) {
-    const a = keyOf(actions[i - 1]!), b = keyOf(actions[i]!);
-    if (a && b && ((FORWARD.includes(a) && BACKWARD.includes(b)) || (BACKWARD.includes(a) && FORWARD.includes(b)))) reversals.push(actions[i]!);
+    // Quick navigation counts as a move with a direction too: next heading then previous heading is going back.
+    if (moveDirection(actions[i - 1]!) * moveDirection(actions[i]!) === -1) reversals.push(actions[i]!);
   }
   if (reversals.length >= t.backtrackReversals) add({ kind: 'backtracking', certainty: 'observed', steps: reversals.map(a => a.step),
     summary: `Navigation direction reversed ${reversals.length} times.`, detail: { reversals: reversals.length }, evidence: reversals.map(a => a.eventId) }, focusBefore(reversals[0]!.step - 1));
@@ -202,7 +203,7 @@ export function extractHints(trace: Readonly<RunTrace>, options: HintOptions = {
     summary: `Focus moved to ${label(focus)}, which was ${focus.visible === false ? 'hidden' : 'outside the viewport'}.`,
     detail: { target: { role: focus.role, name: focus.name }, visible: focus.visible, inViewport: focus.inViewport }, evidence: [focus.id] }, focus);
   for (const d of diagnostics) {
-    const focus = record(d.data.focus) ? d.data.focus : {};
+    const focus = isRecord(d.data.focus) ? d.data.focus : {};
     if (focus.centerOccluded === true || focus.indicator === 'not-detected') add({ kind: 'focus-not-visible', certainty: 'suspected', steps: [d.step],
       summary: focus.centerOccluded === true ? 'Another element may cover the focused control.' : 'No outline or box-shadow focus indicator was detected.',
       detail: { centerOccluded: focus.centerOccluded, indicator: focus.indicator }, evidence: [d.id] }, focusBefore(d.step));
@@ -217,7 +218,7 @@ export function extractHints(trace: Readonly<RunTrace>, options: HintOptions = {
   }
 
   // A page change with nothing a screen reader would announce: no live region, surface, focus move or page load.
-  for (const action of actions.filter(a => isActivation(a) && a.ok !== false)) {
+  for (const action of actions.filter(a => pressedSomething(a) && a.ok !== false)) {
     const events = at(action.step);
     const domChanged = events.some(o => o.kind === 'state' || o.kind === 'navigation' || o.kind === 'appeared' || o.kind === 'disappeared');
     const lastFocus = [...observer].reverse().find(o => o.kind === 'focus' && o.step <= action.step);
@@ -228,13 +229,13 @@ export function extractHints(trace: Readonly<RunTrace>, options: HintOptions = {
     // Attributed to the control that was activated (focused before this step), the element whose result went unannounced.
     if (domChanged && !announced && observer.length) add({ kind: 'missing-announcement', certainty: 'suspected', steps: [action.step],
       summary: `${keyOf(action)} changed the page, but no announcement, focus move or page load was recorded.`,
-      detail: { changes: events.map(o => o.kind === 'state' ? `${o.attr} on ${label(o)}` : o.kind) },
+      detail: { action: keyOf(action), changes: events.map(o => o.kind === 'state' ? `${o.attr} on ${label(o)}` : o.kind) },
       evidence: [action.eventId, ...events.map(o => o.id)] }, focusBefore(action.step - 1));
   }
 
   // A live region that keeps talking (a rotating banner, a viewer count) cuts into what every move says, and a real screen reader
   // user hears it too. Counted only after moves that did not press anything: an announcement a press caused is the page answering.
-  const interrupted = announced.filter(a => { const action = actions.find(x => x.step === a.step); return !action || !isActivation(action); });
+  const interrupted = announced.filter(a => { const action = actions.find(x => x.step === a.step); return !action || !pressedSomething(action); });
   if (interrupted.length >= t.liveInterruptions) {
     const lines = [...new Set(interrupted.flatMap(a => a.lines))];
     const region = observer.find(o => o.kind === 'live-region' && interrupted.some(a => a.step === o.step));
@@ -254,7 +255,7 @@ export function extractHints(trace: Readonly<RunTrace>, options: HintOptions = {
   // The user wanted to give up but named no approach that had failed: Rawstep asked for another plan. The wish itself is part of the cost.
   for (const item of evidence.filter(e => e.data.kind === 'orchestration-give-up' && e.data.accepted === false)) add({
     kind: 'wanted-to-give-up', certainty: 'observed', steps: [item.step],
-    summary: `The user wanted to give up (${String(item.data.reason ?? '')}), but ${String(item.data.refused ?? 'without a failed approach')}; the run went on.`,
+    summary: `The user wanted to give up (${typeof item.data.reason === 'string' && !item.withheld ? item.data.reason : 'the reason was withheld, because a secret had been typed before it'}), but ${String(item.data.refused ?? 'without a failed approach')}; the run went on.`,
     detail: { reason: item.data.reason, refused: item.data.refused, effort: item.data.effort }, evidence: [item.id] });
 
   // Where the user's expectations broke: each assumption the planner marked broken. When the user had pressed something in the few
@@ -267,17 +268,17 @@ export function extractHints(trace: Readonly<RunTrace>, options: HintOptions = {
   // The object under the cursor, and where it was, when each step's action was decided: what a press acted on.
   const cursorAtDecision = new Map<number, { object: typeof cursorObject; at: typeof cursorAt }>();
   for (const event of trace.events as readonly TraceEvent[]) {
-    const data = record(event.data) ? event.data : {};
+    const data = isRecord(event.data) ? event.data : {};
     if (event.type === 'policy.decision' && typeof data.step === 'number') { observedAt = data.step; cursorAtDecision.set(data.step, { object: cursorObject, at: cursorAt }); }
-    else if (event.type === 'backend.output' && record(data.output) && record(data.output.raw) && record(data.output.raw.semantic)) {
+    else if (event.type === 'backend.output' && isRecord(data.output) && isRecord(data.output.raw) && isRecord(data.output.raw.semantic)) {
       const semantic = data.output.raw.semantic;
       cursorObject = { ...(typeof semantic.role === 'string' ? { role: semantic.role } : {}), ...(typeof semantic.name === 'string' && semantic.name ? { name: semantic.name } : {}) };
-    } else if (event.type === 'simulation.observation' || event.type === 'screen-reader.observation') cursorAt = record(data.cursor) ? { ...data.cursor, step: observedAt } : undefined;
-    else if (event.type === 'policy.evidence' && typeof data.step === 'number' && record(data.evidence) && data.evidence.kind === 'orchestration-plan') {
-      const revision = record(data.evidence.revision) ? data.evidence.revision : undefined, doc = record(data.evidence.document) ? data.evidence.document : undefined;
+    } else if (event.type === 'simulation.observation' || event.type === 'screen-reader.observation') cursorAt = isRecord(data.cursor) ? { ...data.cursor, step: observedAt } : undefined;
+    else if (event.type === 'policy.evidence' && typeof data.step === 'number' && isRecord(data.evidence) && data.evidence.kind === 'orchestration-plan') {
+      const revision = isRecord(data.evidence.revision) ? data.evidence.revision : undefined, doc = isRecord(data.evidence.document) ? data.evidence.document : undefined;
       const broken = Array.isArray(revision?.broken) ? revision.broken.filter((id): id is string => typeof id === 'string') : [];
-      const assumptions = Array.isArray(doc?.assumptions) ? doc.assumptions.filter(record) : [];
-      const step = data.step, press = actions.filter(a => a.step < step).slice(-PRESS_WINDOW).reverse().find(isActivation);
+      const assumptions = Array.isArray(doc?.assumptions) ? doc.assumptions.filter(isRecord) : [];
+      const step = data.step, press = actions.filter(a => a.step < step).slice(-PRESS_WINDOW).reverse().find(pressedSomething);
       const on = press ? cursorAtDecision.get(press.step) : { object: cursorObject, at: cursorAt };
       for (const id of broken) {
         const text = assumptions.find(a => a.id === id)?.text;
@@ -296,7 +297,7 @@ export function extractHints(trace: Readonly<RunTrace>, options: HintOptions = {
     const lead = goalLeads(goal);
     let after = 0, current: { from: number; to: number; ids: string[] } | undefined, longest: typeof current;
     for (const event of trace.events as readonly TraceEvent[]) {
-      const data = record(event.data) ? event.data : {};
+      const data = isRecord(event.data) ? event.data : {};
       if (event.type === 'policy.decision' && typeof data.step === 'number') { after = data.step; continue; }
       if ((event.type !== 'simulation.observation' && event.type !== 'screen-reader.observation') || after === 0) continue;
       const item = Array.isArray(data.speech) ? [...data.speech].reverse().find((line): line is string => typeof line === 'string' && !!line.trim()) : undefined;
@@ -311,9 +312,9 @@ export function extractHints(trace: Readonly<RunTrace>, options: HintOptions = {
 
   // Goal rules that already held before any action make "reached the goal" weak evidence. `not` rules hold at start by design.
   const baseline = (trace.events as readonly TraceEvent[]).find(e => e.type === 'verifier.baseline');
-  const baseRules = baseline && record(baseline.data) && Array.isArray(baseline.data.rules) ? (baseline.data.rules as { ruleIndex?: number; ruleType?: string; passed?: boolean }[]).filter(r => r.passed === true && r.ruleType !== 'not') : [];
+  const baseRules = baseline && isRecord(baseline.data) && Array.isArray(baseline.data.rules) ? (baseline.data.rules as { ruleIndex?: number; ruleType?: string; passed?: boolean }[]).filter(r => r.passed === true && r.ruleType !== 'not') : [];
   if (baseline && baseRules.length) {
-    const all = record(baseline.data) && baseline.data.passed === true;
+    const all = isRecord(baseline.data) && baseline.data.passed === true;
     add({ kind: 'goal-met-at-start', certainty: all ? 'observed' : 'suspected', steps: [0],
       summary: all ? 'Every goal rule already held before the first action.' : `${baseRules.length} goal rule(s) already held before the first action.`,
       detail: { rules: baseRules.map(r => ({ ruleIndex: r.ruleIndex, ruleType: r.ruleType })) }, evidence: [baseline.id] });
@@ -337,6 +338,7 @@ export function extractHints(trace: Readonly<RunTrace>, options: HintOptions = {
   const limitations = ['Hints point to steps worth reviewing; they do not establish accessibility defects or conformance.'];
   if (!observer.length) limitations.push('No page observer events were recorded, so focus, announcement and dialog hints are unavailable.');
   if (observer.some(o => o.name === REDACTED)) limitations.push('Names and text after text entry are redacted; those hints keep structure only.');
+  if (evidence.some(e => e.withheld && e.data.kind === 'orchestration-plan')) limitations.push('Plans written after a secret was typed are withheld, so expectations that broke after it (stuck places, wrong guesses) are not listed. New plans and give-ups are still counted.');
   return { schemaVersion: HINTS_SCHEMA_VERSION, ...run, taskId: String(trace.task.id),
     ...(outcome ? { outcome: { status: outcome.status, ...(outcome.reason ? { reason: outcome.reason } : {}) } } : {}),
     ...(reference ? { reference } : {}), hints: collapsed, limitations };

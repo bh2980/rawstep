@@ -179,7 +179,7 @@ describe('checking the assistive technology backend', () => {
     const foreign = process.platform === 'darwin' ? 'nvda' : 'voiceover';
     if (process.platform === 'darwin' || process.platform === 'win32') {
       const refused = await call(app.url, 'POST', '/api/backend/check', { backend: foreign, machine: {} });
-      expect(refused.status).toBe(400); expect(((await refused.json()) as { error: object }).error).toEqual({ code: 'native-os-mismatch' });
+      expect(refused.status).toBe(400); expect(((await refused.json()) as { error: object }).error).toEqual({ code: foreign === 'nvda' ? 'nvda-windows' : 'voiceover-macos' });
     }
   });
 });

@@ -113,8 +113,8 @@ export type RunStepsView = {
   plan?: RunPlanView;
 };
 
-/** Hints for one run, compared against the shortest goal-reaching run of the same task, if any. */
-export type RunHintsView = HintReport & { referenceRun?: { experimentId: string; runId: string } };
+/** The hints of one run as the queue saved them: compared with the fastest repeat that reached the goal under the same profile in the same batch, if any. */
+export type RunHintsView = HintReport;
 
 /** One batch of runs (an experiment) that ran a task. */
 export type TaskBatch = { experimentId: string; createdAt: string; note?: string; /** Where the batch was started from, when its owner recorded it (the command line shows as "CLI" in lists). */ via?: BatchOwner['via']; runs: number; finished: number };
@@ -130,16 +130,17 @@ export type TaskFindings = {
   /** Every batch that ran the task, newest first. */
   batches: TaskBatch[];
   facts: {
-    /** Finished runs of the task. */
+    /** Finished runs of the task, without the ones that broke (they say nothing about the page). */
     runs: number;
+    /**
+     * Of those, the runs that said something about the user (reached, gave up, said done when it was not): the M of "reached N of M",
+     * as in the batch summary and the CLI. A run that was not measured is in `runs` and not here.
+     */
+    measured: number;
     /** Finished runs that reached the goal. */
     reached: number;
     /** Of those, the runs with nothing to show the user knew: a note beside `reached`, not a result of its own. */
     unconfirmed: number;
-    /** Median action count over finished runs that have one; null when none do. */
-    medianSteps: number | null;
-    /** The goal-reaching run with the fewest actions. */
-    fastest: { experimentId: string; runId: string; steps: number } | null;
     /** The same figures for each run profile the task ran with, so results of different users are never mixed. */
     byProfile: ProfileFacts[];
   };
@@ -156,7 +157,8 @@ export type TaskFindings = {
 /** How one run profile did on a task. */
 export type ProfileFacts = {
   profileId: string;
-  runs: number; reached: number;
+  /** `measured` is the runs that reached, gave up or said done when it was not: the M of "reached N of M". `runs` also has the ones not measured. */
+  runs: number; measured: number; reached: number;
   /** How the runs ended, and which limit ended the unmeasured ones. */
   endings: Record<RunEnding, number>; unmeasuredBy: Partial<Record<UnmeasuredBy, number>>;
   /** Moves of the runs that reached the goal, up to where the goal check passed: what reaching it cost. */
@@ -165,10 +167,6 @@ export type ProfileFacts = {
   unconfirmed: number;
   /** The longest run of moves without a goal word that still meant something, and the run it was in. */
   longestStretch: { moves: number; runId: string; /** The first and last action of the stretch. */ steps?: [number, number] } | null;
-  /** Median, over the runs, of the user's guesses about where something is that turned out wrong; null without runs. */
-  wrongGuesses: number | null;
-  /** The page element the most runs of this profile got stuck on, if any. */
-  topTarget: { role: string; name?: string } | null;
   /** What the newest run of the profile ran with (combination and screen reader environment names). */
   conditions: { combo?: string; at?: string };
   /** Runs of the profile whose conditions differ from its newest run's (the profile was changed between runs). */
