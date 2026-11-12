@@ -35,6 +35,8 @@ Rawstep은 세 가지 스크린리더 백엔드를 지원합니다.
 | **`"voiceover"`** | macOS (`darwin`) | macOS VoiceOver + AT Driver 서버 (`ws://localhost:4382/session`) | macOS에서 실제 Apple VoiceOver 동작을 검증할 때. |
 | **`"nvda"`** | Windows (`win32`) | Windows NVDA + AT Driver 서버 (`ws://localhost:3031/session`) | Windows에서 실제 NVDA 동작을 검증할 때. |
 
+검증 범위: 시뮬레이션은 macOS와 Linux에서 변경할 때마다 테스트하고, Windows에서는 아직 테스트하지 않았습니다. `voiceover`는 실험적입니다. Rawstep의 테스트 페이지와 공개 사이트 몇 곳에서, macOS 가상 머신 한 대로 확인했습니다. `nvda`는 실제 Windows 컴퓨터에서 아직 테스트하지 않았습니다.
+
 ---
 
 ## 3. 시뮬레이션된 VoiceOver (`"simulation"`)

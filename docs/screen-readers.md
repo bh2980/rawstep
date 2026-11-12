@@ -35,6 +35,8 @@ Rawstep supports three screen-reader backends:
 | **`"voiceover"`** | macOS (`darwin`) | macOS VoiceOver + AT Driver server (`ws://localhost:4382/session`) | Verifying real Apple VoiceOver behavior on macOS. |
 | **`"nvda"`** | Windows (`win32`) | Windows NVDA + AT Driver server (`ws://localhost:3031/session`) | Verifying real NVDA behavior on Windows. |
 
+How far each has been checked: the simulation is tested on every change on macOS and Linux, and not yet on Windows. `voiceover` is experimental: it has been checked on Rawstep's own test pages and a few public sites, in one macOS virtual machine. `nvda` has not been tested on a real Windows machine yet.
+
 ---
 
 ## 3. Simulated VoiceOver (`"simulation"`)
