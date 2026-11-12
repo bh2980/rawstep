@@ -97,7 +97,12 @@ export type Attempt = {
   verdict: 'not-run' | 'running' | 'passed' | 'failed' | 'unverified';
   expected: Case['expected']; checks?: { name: string; passed: boolean }[];
   engineOutcome?: RunTrace['outcome']; error?: string; trace?: string;
-  foreground?: { commandId?: string; pid?: number; executable?: string; matched: boolean; error?: string }[];
+  /** One entry per key: the app in front just before it. `error`: the check could not be made. `ms`: how long the check took. */
+  foreground?: { commandId?: string; pid?: number; executable?: string; matched: boolean; error?: string; ms?: number }[];
+  /** The machine's one-minute load average when the attempt started: a busy machine slows the reader, the browser and the harness. */
+  load?: number;
+  /** Set when the first try was thrown away because the harness could not make its foreground check. */
+  retried?: { error: string; load: number; trace?: string };
   injection?: { kind: string; triggered: boolean; atEvent?: string };
   evidence?: { nativeSession: boolean; keysAcknowledged: number; outputsAfterKey: number; completionHeard: boolean; completionKnown: false; attribution: 'temporal-only'; plannerCalls: number };
 };
