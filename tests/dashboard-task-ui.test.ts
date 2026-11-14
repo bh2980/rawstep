@@ -90,8 +90,8 @@ describe('step dots', () => {
 describe('raw events by step', () => {
   it('puts unnumbered events with the latest decision and early ones with step 0', () => {
     const events = [
-      { type: 'browser.screenshot', data: {} }, { type: 'policy.decision', data: { step: 1 } }, { type: 'action.result', data: { step: 1 } },
-      { type: 'browser.screenshot', data: {} }, { type: 'policy.decision', data: { step: 2 } }, { type: 'observer.focus', data: { step: 2 } },
+      { type: 'surface.screenshot', data: {} }, { type: 'policy.decision', data: { step: 1 } }, { type: 'action.result', data: { step: 1 } },
+      { type: 'surface.screenshot', data: {} }, { type: 'policy.decision', data: { step: 2 } }, { type: 'observer.focus', data: { step: 2 } },
     ];
     const groups = eventsByStep(events);
     expect([...groups.keys()]).toEqual([0, 1, 2]);

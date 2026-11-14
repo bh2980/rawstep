@@ -141,21 +141,25 @@ export class AtDriverBackend implements Backend {
   }
 
   /** Keeps which browser shows the page, so getting into it looks at that browser's window. */
-  attachSession(session: BackendSession): void { this.browserProcessId = session.browserProcessId; }
+  attachSession(session: BackendSession): void {
+    if (session.kind !== "web") throw new RawstepError("backend-precondition", `The AT Driver backend drives a screen reader over a browser page, not a ${String(session.kind)} surface.`);
+    this.browserProcessId = session.browserProcessId;
+  }
 
   /**
    * Without a trusted paired session factory, the AT server, OS screen reader and visible browser must share this host. A paired
    * reader on another machine that needs host helpers also needs them passed in: the profile's own run on this machine.
    */
   preflight(context: BackendRunContext): void {
-    if (context.customBrowserSession) {
+    if (context.surface.kind !== "web") throw new RawstepError("backend-precondition", `The AT Driver backend drives a screen reader over a browser page, not a ${String(context.surface.kind)} surface.`);
+    if (context.surface.customSession) {
       const local = !this.options.cursorLocator || !this.options.commander || !this.options.clipboard;
       if (this.profile.hostHelpers && local && this.options.url && !isLoopbackUrl(this.options.url)) throw new RawstepError("backend-precondition", `A ${this.profile.atName} on another machine needs cursorLocator, commander and clipboard that reach that machine: the default ones run on this one.`);
       return;
     }
     if (this.profile.platform !== context.platform) throw new RawstepError("backend-precondition", "The native AT server and browser must run on the same supported host. Run RawStep on macOS for VoiceOver or Windows for NVDA.");
     if (this.options.url && !isLoopbackUrl(this.options.url)) throw new RawstepError("backend-precondition", "Default runs require a loopback AT Driver endpoint on the browser host. A remote endpoint needs an explicitly paired browserSessionFactory.");
-    if (context.headless) throw new RawstepError("backend-precondition", "Native AT Driver runs require a visible browser; headless is unsupported.");
+    if (context.surface.headless) throw new RawstepError("backend-precondition", "Native AT Driver runs require a visible browser; headless is unsupported.");
   }
 
   constructor(private readonly options: AtDriverBackendOptions) {

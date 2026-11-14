@@ -1,19 +1,21 @@
-import { REDACTED } from '@rawstep/core/redacted';
-import { isActivation } from '@rawstep/core/actions';
-import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
-import { collectBrowserDiagnostics, verifyLiveProfile, ProfileApplicationError, resolveEnvironmentProfile, type EnvironmentProfile } from '../profiles/index.js';
+import { REDACTED } from '../redacted.js';
+import { isActivation } from '../actions.js';
+import { RAWSTEP_DEFAULTS } from '../defaults.js';
+import { resolveEnvironmentProfile } from '../profiles/schema.js';
+import type { EnvironmentProfile } from '../profiles/types.js';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { mkdir } from 'node:fs/promises';
-import { createBrowserSession, focusIsEditable, isBotCheckPage, isBotCheckUrl, settlePage, watchPageActivity, BrowserSetupError, BrowserAccessBlockedError, BLOCKED_NEXT, type BrowserSession, type CreateBrowserSessionOptions } from '../browser/index.js';
-import { describeInputs, flattenVerifyRules, resolveTask, STOP_SOURCES, type ActionExecution, type AllowedActions, type Backend, type BackendEvent, type BackendReceipt, type Decision, type DecisionPolicy, type HistoryEntry, type Observation, type PolicyAction, type Task, type VerificationRecord, type VerificationWitness, type VerifyRule } from '@rawstep/core/contracts';
-import { TraceRecorder, createRedactor, type RunOutcome, type RunStage, type RunTrace, type TraceEvent } from '@rawstep/core/trace';
-import { RawstepError, findRawstepError } from '@rawstep/core/errors';
-import { verifyTask, type VerificationContext } from '../verify/index.js';
-import type { ObserverEvent, ObserverOptions } from '../observer/index.js';
+import { describeInputs, flattenVerifyRules, resolveTask, STOP_SOURCES, type ActionExecution, type AllowedActions, type Backend, type BackendEvent, type BackendReceipt, type Decision, type DecisionPolicy, type HistoryEntry, type Observation, type Task, type VerificationRecord, type VerificationWitness, type VerifyRule } from '../contracts/index.js';
+import { TraceRecorder, createRedactor, type RunOutcome, type RunStage, type RunTrace, type TraceEvent } from '../trace/index.js';
+import { RawstepError, findRawstepError } from '../errors.js';
+import type { Surface, SurfaceContext, SurfaceOpener, SurfaceVerificationContext } from './surface.js';
+export type { Surface, SurfaceContext, SurfaceOpener, SurfaceVerificationContext } from './surface.js';
 
 export type RunOptions = {
   backend: Backend;
+  /** Where the run takes place: a web page (`webSurface` from `@rawstep/browser/surface`) or another surface. */
+  surface: SurfaceOpener;
   profile?: EnvironmentProfile | string;
   /** Cooperative cancellation; already dispatched native commands cannot be undone. */
   signal?: AbortSignal;
@@ -36,52 +38,32 @@ export type RunOptions = {
   silentPressWaitMs?: number;
   /** Explicit opt-in: raw input keystrokes and echoed speech may expose secrets. */
   includeSensitiveInputValues?: boolean;
-  /** Whether the launched browser is headless (default false: a real screen reader needs a visible one; `runMockVoiceOverTask` defaults to true). */
-  headless?: boolean;
-  browserExecutablePath?: string;
-  /** Connect to a browser the person started with a remote debugging port instead of launching one (see `cdpEndpoint`). */
-  browserEndpoint?: string;
   /**
    * How long one decision may take, in milliseconds. Waiting for the policy is not page time, so the task's time limit does not bound
    * it; this does, for a policy that hangs. Default 30 minutes: a planner call is already bounded by its connection's limit.
    */
   policyTimeoutMs?: number;
-  /** With `browserEndpoint`: start each run with a copy of that browser's sign-in (see `copySignIn`). */
-  copySignIn?: boolean;
-  proxyServer?: string;
-  browserSessionFactory?: (url: string, options: CreateBrowserSessionOptions) => Promise<BrowserSession>;
   /** Receives every stored (redacted) trace event as it is recorded, e.g. for a live dashboard. */
   onEvent?: (event: TraceEvent) => void;
   /** The experiment conditions this run was made with (model combo, action set, environments, run rules), recorded at `run.started`. */
   conditions?: Record<string, unknown>;
-  /** Page observer for hints; on by default. Never visible to the policy. */
-  observe?: boolean | ObserverOptions;
-  verifier?: (task: Task, browser: BrowserSession, context?: VerificationContext) => Promise<VerificationRecord>;
-  /**
-   * A person passes the site's own human checks: the run uses a visible browser with this kept profile, and whenever the page
-   * shows a check it waits (up to `timeoutMs`, default 5 minutes) until the page is the site again. The wait does not count
-   * against the task's time budget. Rawstep never answers a check itself.
-   */
-  personCheck?: { userDataDir?: string; timeoutMs?: number };
 };
-const PERSON_CHECK_TIMEOUT_MS = 5 * 60_000, PERSON_CHECK_POLL_MS = 1000, PERSON_CHECK_CLEAR_MS = 3000;
 /** The longest one policy decision may take (see `policyTimeoutMs`). */
 const POLICY_TIMEOUT_MS = 30 * 60_000;
-/** Chromium cannot capture taller images reliably, and pins far down a page are found from the step screenshots instead. */
-const START_PAGE_MAX_HEIGHT = 16_000;
 const SILENCE_POLL_MS = 250;
 /** Text entry found no editable focused field; recorded as the `not-editable` failure the model may see. */
 class NotEditableError extends Error { constructor() { super('Text entry requires an editable focused field.'); this.name = 'NotEditableError'; } }
 class BudgetExceeded extends Error { constructor() { super('Run time budget exceeded.'); this.name = 'BudgetExceeded'; } }
 class RunAborted extends Error { constructor(readonly signal: 'SIGINT' | 'SIGTERM' | 'requested') { super(`Run cancelled (${signal}).`); this.name = 'RunAborted'; } }
 
-/** The runner owns budgets, action restrictions and independent completion verification. */
+/** The runner owns budgets, action restrictions and independent completion verification; the surface owns the place it runs in. */
 export async function runWithPolicy(source: Task, options: RunOptions): Promise<RunTrace> {
   const task = resolveTask({ ...source, ...(options.profile ? { profile: resolveEnvironmentProfile(options.profile) } : {}) });
   const simulation = options.backend.evidenceProvenance === 'simulation';
   const speechSource = simulation ? 'simulation' : 'screen-reader';
   const observationProvenance = options.backend.evidenceProvenance ?? 'unspecified';
   if (!options.policy || typeof options.policy.decide !== 'function') throw new Error('A DecisionPolicy is required.');
+  if (!options.surface || typeof options.surface.open !== 'function') throw new Error('A surface is required: where the run takes place.');
   const allowedActions = resolveAllowedActions(task, options);
   const inputDescriptors = describeInputs(task);
   // What the policy observes: sensitive values are masked here.
@@ -97,15 +79,13 @@ export async function runWithPolicy(source: Task, options: RunOptions): Promise<
     if (withheldObservations.has(value)) { const { announcements: _withheld, ...bare } = rest; return { ...bare, speech: ['[typed input withheld]'] }; }
     return { ...rest, speech: value.speech.map(line => maskForPolicy(line).value), ...(title ? { title: maskForPolicy(title).value } : {}), ...(value.announcements ? { announcements: value.announcements.map(line => maskForPolicy(line).value) } : {}) };
   };
-  /** Page titles the screen reader has actually spoken; only those reach the policy, never one read from the DOM unheard. */
+  /** Titles the screen reader has actually spoken; only those reach the policy, never one read from the surface unheard. */
   const heardTitles = new Set<string>();
   const trace = new TraceRecorder({ ...task, id: task.id ?? randomUUID() }, options.outDir, { includeSensitiveInputValues: options.includeSensitiveInputValues, environment: { observationProvenance }, ...(options.onEvent ? { onEvent: options.onEvent } : {}) });
   await trace.initialize();
   const controller = new AbortController();
   // Page time only: moved later by the time a person spends passing a human check and the time spent waiting for the policy.
   let deadline = Date.now() + task.timeoutMs!;
-  // A real screen reader needs a visible browser, so that is this runner's default; the simulation's own entry point passes headless.
-  const headless = options.headless ?? false;
   let stage: RunStage = 'initialization';
   let activeStep = 0;
   let evidenceFailure: Error | undefined;
@@ -126,17 +106,17 @@ export async function runWithPolicy(source: Task, options: RunOptions): Promise<
     if (Date.now() >= deadline) { const error = new BudgetExceeded(); controller.abort(error); throw error; }
   };
   /**
-   * Waiting for the policy (a planner model can take a minute) is not page time: the deadline moves by that wait. Cancellation and
-   * the connection's own call limit still stop it.
+   * Time that is not page time (waiting for the policy, a person passing a check): the deadline moves by that wait. Cancellation still
+   * stops it, and `limitMs`, when given, bounds it.
    */
-  const outsideBudget = async <T>(work: () => Promise<T> | T): Promise<T> => {
+  const offClock = async <T>(work: () => Promise<T> | T, limitMs?: number): Promise<T> => {
     throwIfStopped();
     const started = Date.now();
     try {
       return await new Promise<T>((resolve, reject) => {
         const cleanup = () => { clearTimeout(timer); controller.signal.removeEventListener('abort', abort); };
         const abort = () => { cleanup(); reject(evidenceFailure ?? controller.signal.reason); };
-        const timer = setTimeout(() => controller.abort(new BudgetExceeded()), options.policyTimeoutMs ?? POLICY_TIMEOUT_MS);
+        const timer = limitMs === undefined ? undefined : setTimeout(() => controller.abort(new BudgetExceeded()), limitMs);
         controller.signal.addEventListener('abort', abort, { once: true });
         Promise.resolve().then(work).then(value => { cleanup(); resolve(value); }, error => { cleanup(); reject(error); });
       });
@@ -157,21 +137,21 @@ export async function runWithPolicy(source: Task, options: RunOptions): Promise<
   /** What ends the run whatever it was doing: a cancel, the time budget, or a trace that can no longer be written. */
   const endsRun = (error: unknown): boolean => controller.signal.aborted || !!evidenceFailure || error instanceof BudgetExceeded;
   /**
-   * A look at the page the run can do without (the title, where focus is, whether a check is showing): when it fails the run goes on
-   * with `fallback`. What ends the run is never swallowed with it. The one rule for every such look.
+   * A look the run can do without (the title, where focus is, whether a check is showing): when it fails the run goes on with
+   * `fallback`. What ends the run is never swallowed with it. The one rule for every such look.
    */
   const bestEffort = <T, F>(work: () => Promise<T> | T, fallback: F): Promise<T | F> => withinBudget(work).catch((error: unknown) => { if (endsRun(error)) throw error; return fallback; });
-  let browser: BrowserSession | undefined;
+  let surface: Surface | undefined;
   let unsubscribe: (() => void) | undefined;
   let active = true;
   /**
-   * Set while a secret is being typed: everything recorded then (keystroke payloads, the character echo, page diagnostics) is withheld,
-   * because those echoes cannot be matched as whole values. The trace masks the secret's whole value everywhere on its own, so with the
-   * simulation, whose speech is exact text, the record opens again once the typing step's speech has been taken. A real screen reader
-   * can echo late and in its own words, so there it stays withheld for the rest of the run.
+   * Set while a secret is being typed: everything recorded then (keystroke payloads, the character echo, surface diagnostics) is
+   * withheld, because those echoes cannot be matched as whole values. The trace masks the secret's whole value everywhere on its own,
+   * so with the simulation, whose speech is exact text, the record opens again once the typing step's speech has been taken. A real
+   * screen reader can echo late and in its own words, so there it stays withheld for the rest of the run.
    */
   let inputTainted = false;
-  /** A secret has been typed: screenshots from then on hide form fields, and are left out when the page shows the secret. */
+  /** A secret has been typed: screenshots from then on hide form fields, and are left out when the screen shows the secret. */
   let secretTyped = false;
   let outcome: RunOutcome = { status: 'inconclusive', reason: 'maxSteps' };
   /** The goal as of its last check, and whether the user heard so. An action that undoes it clears it. */
@@ -183,15 +163,19 @@ export async function runWithPolicy(source: Task, options: RunOptions): Promise<
   const goalHolds = (stop?: string): RunOutcome => ({ status: 'success', reason: 'verified', ...(stop ? { policyStop: stop } : {}), ...((stop ? stop !== 'success' : reached?.heard === false) ? { goalConfirmed: false } : {}), ...(reached && reached.step < steps ? { goalStep: reached.step } : {}) });
   let steps = 0;
   const history: HistoryEntry[] = [];
-  let latestActivation: VerificationContext['latestActivation'];
+  let latestActivation: SurfaceVerificationContext['latestActivation'];
   const outputEventIds = new Map<number, string>();
-  // Observer changes keep their structure after text entry so hints still work; only words are withheld.
-  // The unredacted timeline stays in memory for goal rules; only the trace copy is redacted.
-  const timeline: ObserverEvent[] = [];
-  // Without a working observer there is no timeline at all, so event rules report "unavailable" rather than "nothing happened".
-  const observedTimeline = (): { timeline?: readonly ObserverEvent[] } => browser?.observer?.available ? { timeline } : {};
-  const drainObserver = () => { for (const event of browser?.observer?.take() ?? []) timeline.push(event), append(`observer.${event.kind}`, inputTainted ? redactObserverEvent(event) : event, { source: 'browser-diagnostic', timestamp: event.at, redacted: inputTainted }); };
-  const recordBrowserDiagnostic = (type: string, data: unknown) => append(type, inputTainted ? { message: REDACTED, reason: 'Browser diagnostics may contain delayed or form-encoded task input.' } : data, { source: 'browser-diagnostic', redacted: inputTainted });
+  let backendEnvironment: SurfaceContext['backend']['environment'];
+  const context: SurfaceContext = {
+    outDir: options.outDir, signal: controller.signal, append, tainted: () => inputTainted,
+    updateEnvironment: (fields, appendOptions) => { trace.updateEnvironment(fields, appendOptions); },
+    withinBudget, bestEffort, offClock: work => offClock(work),
+    backend: {
+      attach: async session => { await options.backend.attachSession?.(session); },
+      get environment() { return backendEnvironment; },
+      native: options.backend.evidenceProvenance === 'native',
+    },
+  };
   try {
     unsubscribe = options.backend.subscribe(event => {
       if (!active) return;
@@ -217,131 +201,27 @@ export async function runWithPolicy(source: Task, options: RunOptions): Promise<
     const metadata = await withinBudget(() => options.backend.start({ signal: controller.signal }));
     append('backend.metadata', metadata, { source: 'runner' });
     // Each backend owns its host, visibility and pairing rules; the runner only supplies the facts.
-    await withinBudget(() => options.backend.preflight?.({ headless: headless, platform: process.platform, customBrowserSession: !!options.browserSessionFactory }));
+    await withinBudget(() => options.backend.preflight?.({ platform: process.platform, surface: options.surface.facts }));
     // A backend written outside TypeScript can still return anything: only an object's `environment` is read.
     const reader = metadata && typeof metadata === 'object' && metadata.environment && typeof metadata.environment === 'object' ? metadata.environment : undefined;
+    backendEnvironment = reader;
     if (reader) trace.updateEnvironment({
       screenReader: typeof reader.atName === 'string' ? reader.atName : 'unknown',
       screenReaderVersion: typeof reader.atVersion === 'string' ? reader.atVersion : 'unknown',
       ...(simulation ? { simulationEnvironment: reader } : { native: reader })
     });
-    // A launch that completes after the deadline still owns resources and must close them.
-    stage = 'browser-start';
-    browser = await withinBudget(async () => {
-      const opened = await (options.browserSessionFactory ?? createBrowserSession)(task.url, { headless: options.personCheck ? false : headless, ...(options.personCheck ? { personCheck: true, ...(options.personCheck.userDataDir && !options.browserEndpoint ? { userDataDir: options.personCheck.userDataDir } : {}) } : {}), executablePath: options.browserExecutablePath, ...(options.browserEndpoint ? { cdpEndpoint: options.browserEndpoint, ...(options.copySignIn ? { copySignIn: true } : {}) } : {}), proxyServer: options.proxyServer, ...(options.observe !== undefined ? { observe: options.observe } : {}), navigation: task.navigation, verify: task.verify, profile: task.profile });
-      if (controller.signal.aborted) { await opened.close(); throw controller.signal.reason; }
-      // A page opened bare for a human check gets its guards and the backend only after the check is passed.
-      if (!opened.armGuards) try { await options.backend.attachSession?.(opened); } catch (error) { await opened.close(); throw error; }
-      return opened;
-    });
-    await withinBudget(() => browser!.page.bringToFront());
-    const taskOrigin = new URL(task.url).origin;
-    /**
-     * While the page shows a human check, wait for the person to pass it in the visible window. The check counts as passed only
-     * after it has been gone for PERSON_CHECK_CLEAR_MS in a row (a check page reloading with a new token is not a pass). A page that
-     * leaves for neither the task's site nor a check host, or a check nobody passes in time, ends the run as access-blocked. The
-     * waiting is recorded and added back to the time budget. On a page opened bare, the guards and the backend are attached only
-     * now, and a site that shows its check again once they are attached rejects this browser.
-     */
-    const checkedPages = new Set<string>();
-    const waitForPerson = async (step: number) => {
-      if (!options.personCheck) {
-        // Without a person to pass it, a check that comes up mid-run ends the run as blocked. The start page was checked when the
-        // browser opened; a check comes with a page of its own, so only a page the run has not been on yet is looked at.
-        const at = typeof browser!.page.url === 'function' ? browser!.page.url() : undefined;
-        if (step === 0 || !at || checkedPages.has(at)) { if (at) checkedPages.add(at); return; }
-        checkedPages.add(at);
-        if (await bestEffort(() => isBotCheckPage(browser!.page), false))
-          throw new BrowserAccessBlockedError(at, undefined, `The site showed a bot check after step ${step}. ${BLOCKED_NEXT}`);
-        return;
-      }
-      const bare = !!browser!.armGuards;
-      let waited = false;
-      if (await withinBudget(() => isBotCheckPage(browser!.page))) {
-        waited = true;
-        const started = Date.now(), limit = options.personCheck.timeoutMs ?? PERSON_CHECK_TIMEOUT_MS;
-        append('run.waiting-for-person', { step, reason: 'bot-check', timeoutMs: limit }, { source: 'runner' });
-        let clearSince: number | undefined;
-        for (;;) {
-          if (evidenceFailure) throw evidenceFailure;
-          controller.signal.throwIfAborted();
-          await new Promise(resolve => setTimeout(resolve, PERSON_CHECK_POLL_MS));
-          const at = browser!.page.url();
-          if (/^https?:/.test(at) && new URL(at).origin !== taskOrigin && !isBotCheckUrl(at)) {
-            append('run.person-check-left', { step, host: new URL(at).host }, { source: 'runner' });
-            throw new BrowserAccessBlockedError(at, undefined, 'The human check sent the page away from the task site; Rawstep does not follow it.');
-          }
-          if (await isBotCheckPage(browser!.page).catch(() => true)) clearSince = undefined;
-          else if ((clearSince ??= Date.now()) <= Date.now() - PERSON_CHECK_CLEAR_MS) break;
-          if (Date.now() - started > limit) {
-            append('run.person-check-timeout', { step, waitedMs: Date.now() - started }, { source: 'runner' });
-            throw new BrowserAccessBlockedError(at, undefined, 'The human check was not passed in time; Rawstep does not answer checks itself.');
-          }
-        }
-        const waitedMs = Date.now() - started;
-        deadline += waitedMs;
-        append('run.person-resumed', { step, waitedMs }, { source: 'runner' });
-      }
-      if (bare) {
-        await withinBudget(() => browser!.armGuards!());
-        if (await withinBudget(() => isBotCheckPage(browser!.page))) {
-          append('run.person-check-rejected', { step }, { source: 'runner' });
-          throw new BrowserAccessBlockedError(browser!.page.url(), undefined, 'The site showed its human check again once Rawstep attached to the page; it rejects this browser.');
-        }
-        await withinBudget(() => options.backend.attachSession?.(browser!));
-        append('run.guards-armed', { step }, { source: 'runner' });
-      }
-      if (bare || waited) await withinBudget(() => settlePage(browser!.page));
-    };
-    await waitForPerson(0);
-    // Keys must reach the page, not browser UI or another window. A real user starts on the document with nothing focused
-    // (unless the page uses autofocus), so the runner never moves focus to an element itself.
-    const readInitialFocus = () => browser!.page.evaluate(() => {
-      let active = document.activeElement;
-      while (active?.shadowRoot?.activeElement) active = active.shadowRoot.activeElement;
-      const element = active && active !== document.body && active !== document.documentElement ? active : null;
-      return { documentHasFocus: document.hasFocus(), focused: element ? { tag: element.tagName.toLowerCase(), role: element.getAttribute('role'), autofocus: element.hasAttribute('autofocus') } : null };
-    });
-    // Best effort: a session that cannot evaluate scripts simply records nothing; cancellation and budgets still apply.
-    const tryInitialFocus = (): Promise<unknown> => bestEffort(readInitialFocus, undefined);
-    let initialFocus: unknown = await tryInitialFocus();
-    if (initialFocus && typeof initialFocus === 'object' && (initialFocus as { documentHasFocus?: unknown }).documentHasFocus === false) {
-      await bestEffort(() => browser!.page.evaluate(() => window.focus()), undefined);
-      const retried = await tryInitialFocus();
-      initialFocus = retried && typeof retried === 'object' ? { ...retried, focusRequested: true } : initialFocus;
-      // Native screen readers send real OS keys: without page focus they would land in browser UI or another window.
-      if ((initialFocus as { documentHasFocus?: unknown }).documentHasFocus === false && options.backend.evidenceProvenance === 'native') throw new RawstepError('backend-precondition', 'The browser page does not have keyboard focus; native key presses would reach browser UI or another window.');
-    }
-    if (initialFocus && typeof initialFocus === 'object') append('browser.initial-focus', initialFocus, { source: 'browser-diagnostic' });
-    trace.updateEnvironment({ browser: 'chromium', browserVersion: browser.browser?.version?.() ?? 'unknown' });
-    if (task.profile) {
-      if (!browser.appliedProfile) throw new Error('Browser factory did not verify the requested environment profile.');
-      append('browser.profile', browser.appliedProfile, { source: 'browser-diagnostic' });
-      trace.updateEnvironment({ profile: browser.appliedProfile });
-      if (task.profile.at) {
-        const actual = reader;
-        const matches = actual?.atName === task.profile.at.name && (!task.profile.at.version || actual?.atVersion === task.profile.at.version);
-        append('browser.at-profile', { requested: task.profile.at, actual: actual ?? null, verified: matches }, { source: 'browser-diagnostic' });
-        if (!matches && task.profile.requireApplied) throw new ProfileApplicationError({...browser.appliedProfile,supported:false,settings:[...browser.appliedProfile.settings,{name:'at',requested:task.profile.at,observed:actual??null,status:'mismatch',mechanism:'metadata',detail:'Requested AT name/version is not proved by the backend handshake.'}]});
-      }
-    }
-    if (browser.observer) append('observer.metadata', { available: browser.observer.available, world: 'isolated', policyVisible: false, ...(browser.observer.unavailableReason ? { reason: browser.observer.unavailableReason } : {}), limitations: ['Accessible names are approximated in the page and truncated; form values are never read.', 'Cross-origin iframes running in another process are not observed.'] }, { source: 'browser-diagnostic' });
-    append('browser.metadata', { name: 'chromium', version: browser.browser?.version?.() ?? 'unknown', headless: browser.connected || options.personCheck ? false : headless, ...(browser.connected ? { connected: true } : options.personCheck ? { keptProfile: true } : {}) }, { source: 'browser-diagnostic' });
+    // An open that completes after the deadline still owns resources: the surface closes itself when the run was stopped.
+    stage = 'surface-start';
+    surface = await withinBudget(() => options.surface.open(task, context));
+    const opened = surface;
+    await opened.prepare();
     append('run.started', { maxSteps: task.maxSteps, timeoutMs: task.timeoutMs, allowedActions, ...(options.conditions ? { conditions: structuredClone(options.conditions) } : {}) });
-    /** A page that cannot answer (navigating, closed) has no focused field. */
-    const focusInField = () => bestEffort(() => isEditable(browser!), false);
+    /** A surface that cannot answer (navigating, closed) has no focused field. */
+    const focusInField = () => bestEffort(() => opened.focusIsEditable(), false);
     /** `pressed`: if the press said nothing, keep listening without pressing anything. A press that put focus in a field has no more to say. */
     const observe = async (pressed = false): Promise<Observation> => {
       stage = 'observation';
-      if (task.profile) {
-        const settings = await withinBudget(() => verifyLiveProfile(browser!.page, task.profile!));
-        append('browser.profile-check', inputTainted ? { step: activeStep, verified:settings.every(s=>s.status==='applied'), details: REDACTED } : { step: activeStep, verified:settings.every(s=>s.status==='applied'), settings }, { source:'browser-diagnostic', redacted:inputTainted });
-        if (task.profile.requireApplied && settings.some(s=>s.status==='mismatch')) throw new ProfileApplicationError({ ...browser!.appliedProfile!, settings, supported:false, verifiedAt:new Date().toISOString() });
-      }
-      if (task.profile?.diagnostics) {
-        const diagnostic = await withinBudget(() => collectBrowserDiagnostics(browser!.page));
-        append('browser.accessibility-diagnostic', inputTainted ? { step: activeStep, details: REDACTED } : { step: activeStep, diagnostic }, { source: 'browser-diagnostic', redacted: inputTainted });
-      }
+      await opened.inspect?.(activeStep);
       let collected = await withinBudget(() => options.backend.observe({ signal: controller.signal }));
       const silent = () => !collected.speech.some(line => line.trim());
       if (pressed && options.silentPressWaitMs && silent() && !await focusInField()) {
@@ -358,11 +238,11 @@ export async function runWithPolicy(source: Task, options: RunOptions): Promise<
         }
         return id;
       });
-      // A screen reader announces the title when a page loads. The title is passed on only once it was heard in the speech, so the
-      // planner never knows more than the simulated user; a page that cannot answer (navigating, closed) simply has none.
-      const pageTitle = typeof browser?.page.title === 'function' ? (await bestEffort(() => browser!.page.title(), undefined))?.trim() : undefined;
-      if (pageTitle && collected.speech.some(line => line.includes(pageTitle))) heardTitles.add(pageTitle);
-      const title = pageTitle && heardTitles.has(pageTitle) ? pageTitle : undefined;
+      // A screen reader announces the title when a document loads. The title is passed on only once it was heard in the speech, so the
+      // planner never knows more than the simulated user; a surface that cannot answer (navigating, closed) simply has none.
+      const surfaceTitle = (await bestEffort(() => opened.title(), undefined))?.trim();
+      if (surfaceTitle && collected.speech.some(line => line.includes(surfaceTitle))) heardTitles.add(surfaceTitle);
+      const title = surfaceTitle && heardTitles.has(surfaceTitle) ? surfaceTitle : undefined;
       // The simulation marks what a live region said; a real screen reader's output does not say.
       const announcements = collected.outputs.filter(output => output.announcement === 'live-region').map(output => output.text);
       const observation: Observation = { kind: 'screenreader', ...(options.backend.evidenceProvenance ? { provenance: options.backend.evidenceProvenance } : {}), speech: [...collected.speech], outputEventIds: ids, window: { id: collected.windowId, startedAt: collected.startedAt, endedAt: collected.endedAt, reason: collected.reason },
@@ -377,11 +257,11 @@ export async function runWithPolicy(source: Task, options: RunOptions): Promise<
      * moved focus, or VoiceOver went in by itself) is the backend's to tell: page focus says nothing about where VoiceOver's cursor is.
      * Each new document is looked at once; one that cannot answer yet is looked at after the next action.
      */
-    let enteredDocument: number | undefined;
+    let enteredDocument: string | number | undefined;
     const enterPage = async (step: number) => {
       if (!options.backend.enterPage) return;
-      const loaded = await bestEffort(() => browser!.page.evaluate(() => performance.timeOrigin), undefined);
-      if (typeof loaded !== 'number' || loaded === enteredDocument) return;
+      const loaded = await bestEffort(() => opened.documentId(), undefined);
+      if (loaded === undefined || loaded === enteredDocument) return;
       enteredDocument = loaded;
       stage = 'page-entry';
       const entry = await withinBudget(() => options.backend.enterPage!({ signal: controller.signal }));
@@ -389,38 +269,27 @@ export async function runWithPolicy(source: Task, options: RunOptions): Promise<
     };
     await enterPage(0);
     let observation = await observe();
-    drainObserver();
-    /** A screenshot for people only (`policyVisible: false`), never after text entry. Step 0 is the page before the first action. */
+    opened.flush();
+    /** A screenshot for people only (`policyVisible: false`), never after text entry. Step 0 is the screen before the first action. */
     const diagnosticScreenshot = async (step: number) => {
-      if (!options.diagnosticScreenshots) return;
-      const omitted = (reason: string) => append('browser.screenshot-redacted', { step, policyVisible: false, reason }, { source: 'browser-diagnostic', redacted: true });
+      if (!options.diagnosticScreenshots || !opened.screenshot) return;
+      const omitted = (reason: string) => append('surface.screenshot-omitted', { step, policyVisible: false, reason }, { source: 'surface', redacted: true });
       if (inputTainted) { omitted('Diagnostic screenshot omitted while a secret was being typed.'); return; }
-      // The page's text is compared here, not in the page, so the secret never reaches page scripts.
-      if (secretTyped && await secretOnScreen()) { omitted('Diagnostic screenshot omitted: the page shows a typed secret.'); return; }
-      await mkdir(join(options.outDir, 'diagnostics'), { recursive: true });
-      const path = join(options.outDir, 'diagnostics', `step-${step}.png`);
-      const fields = secretTyped && typeof browser!.page.locator === 'function' ? { mask: [browser!.page.locator('input, textarea, select, [contenteditable]:not([contenteditable="false"])')] } : {};
-      await withinBudget(() => browser!.page.screenshot({ path, ...fields }));
-      append('browser.screenshot', { step, path: `diagnostics/step-${step}.png`, policyVisible: false }, { source: 'browser-diagnostic' });
+      // The screen's text is compared here, not on the surface, so the secret never reaches page scripts.
+      if (secretTyped && await secretOnScreen()) { omitted('Diagnostic screenshot omitted: the screen shows a typed secret.'); return; }
+      const path = `diagnostics/step-${step}.png`;
+      await withinBudget(async () => { await mkdir(join(options.outDir, 'diagnostics'), { recursive: true }); await opened.screenshot!(join(options.outDir, path), { maskFields: secretTyped }); });
+      append('surface.screenshot', { step, path, policyVisible: false }, { source: 'surface' });
     };
+    /** A surface that cannot say what it shows is treated as showing the secret. */
     const secretOnScreen = async (): Promise<boolean> => {
       if (!secretValues.length) return false;
-      const text = await bestEffort(() => browser!.page.evaluate(() => document.body?.innerText ?? ''), undefined);
+      const text = opened.visibleText ? await bestEffort(() => opened.visibleText!(), undefined) : undefined;
       return typeof text !== 'string' || secretValues.some(value => text.includes(value));
-    };
-    /** The whole start page, to show where on it runs got stuck. Very long pages are cut at START_PAGE_MAX_HEIGHT. */
-    const startPageScreenshot = async () => {
-      if (!options.diagnosticScreenshots || inputTainted || typeof browser!.page.evaluate !== 'function' || typeof browser!.page.url !== 'function') return;
-      const size = await withinBudget(() => browser!.page.evaluate(() => ({ width: document.documentElement.scrollWidth, height: document.documentElement.scrollHeight })).catch(() => undefined));
-      if (!size) return;
-      const height = Math.min(size.height, START_PAGE_MAX_HEIGHT), path = join(options.outDir, 'diagnostics', 'start-page.png');
-      await withinBudget(() => browser!.page.screenshot({ path, fullPage: true, clip: { x: 0, y: 0, width: size.width, height } }));
-      append('browser.start-page', { path: 'diagnostics/start-page.png', width: size.width, height, pageHeight: size.height, url: browser!.page.url(), policyVisible: false }, { source: 'browser-diagnostic' });
     };
     const verify = async (step: number): Promise<VerificationRecord> => {
       stage = 'verification';
-      drainObserver();
-      const result = await withinBudget(() => (options.verifier ?? verifyTask)(task, browser!, { latestActivation, ...observedTimeline() }));
+      const result = await withinBudget(() => opened.verify({ latestActivation }));
       const rules = result.rules?.map(({ witnesses, failure, ...rule }) => ({
         ...rule, ...(failure ? { failure: inputTainted ? 'Verification rule failed; details redacted after text entry.' : failure } : {}),
         evidenceEventIds: witnesses.map(witness => append('verifier.evidence', {
@@ -435,10 +304,9 @@ export async function runWithPolicy(source: Task, options: RunOptions): Promise<
       return result;
     };
     // Baseline: which goal rules already hold before any action. Recorded for hints; it never decides the outcome.
-    // Built-in verifier only: custom verifiers may have side effects or remote calls, and run only when deciding.
-    if (!options.verifier) try {
+    if (opened.baseline) try {
       stage = 'verification';
-      const baseline = await withinBudget(() => verifyTask(task, browser!, observedTimeline()));
+      const baseline = await withinBudget(() => opened.baseline!());
       append('verifier.baseline', { passed: baseline.passed, rules: (baseline.rules ?? []).map(({ ruleIndex, ruleType, passed }) => ({ ruleIndex, ruleType, passed })) }, { source: 'verifier' });
     } catch (error) {
       if (endsRun(error)) throw error;
@@ -446,7 +314,11 @@ export async function runWithPolicy(source: Task, options: RunOptions): Promise<
       append('verifier.baseline', { error: error instanceof Error ? error.name : 'Error' }, { source: 'verifier' });
     }
     await diagnosticScreenshot(0);
-    await startPageScreenshot();
+    if (options.diagnosticScreenshots && !inputTainted && opened.startScreenshot) {
+      const path = 'diagnostics/start.png';
+      const picture = await withinBudget(async () => { await mkdir(join(options.outDir, 'diagnostics'), { recursive: true }); return opened.startScreenshot!(join(options.outDir, path)); });
+      if (picture) append('surface.start-screenshot', { ...picture, path, policyVisible: false }, { source: 'surface' });
+    }
     const grace = Math.max(0, Math.floor(options.confirmationGrace ?? 0));
     for (let step = 1; step <= task.maxSteps!; step++) {
       activeStep = step;
@@ -459,7 +331,7 @@ export async function runWithPolicy(source: Task, options: RunOptions): Promise<
           append('policy.evidence', inputTainted ? { step, details: REDACTED, reason: 'Model evidence omitted after text entry.', summary: evidenceSummary(evidence) } : { step, evidence }, { source: 'policy', redacted: inputTainted });
         }
       };
-      const deciding = outsideBudget(() => options.policy.decide({ goal: task.goal, ...(task.context ? { context: task.context } : {}), observation: structuredClone(policyView(observation)), history: structuredClone(history.map(entry => ({ ...entry, observation: policyView(entry.observation) }))), allowedActions: structuredClone(allowedActions), inputs: inputDescriptors, signal: controller.signal, onPlannerCall }));
+      const deciding = offClock(() => options.policy.decide({ goal: task.goal, ...(task.context ? { context: task.context } : {}), observation: structuredClone(policyView(observation)), history: structuredClone(history.map(entry => ({ ...entry, observation: policyView(entry.observation) }))), allowedActions: structuredClone(allowedActions), inputs: inputDescriptors, signal: controller.signal, onPlannerCall }), options.policyTimeoutMs ?? POLICY_TIMEOUT_MS);
       const decision = await deciding.catch((error: unknown) => { bestEffortEvidence(recordEvidence); throw error; });
       recordEvidence();
       try { validateDecision(decision, allowedActions); }
@@ -479,14 +351,13 @@ export async function runWithPolicy(source: Task, options: RunOptions): Promise<
       }
       const action = decision.action;
       let execution: ActionExecution, receipt: BackendReceipt | void = undefined;
-      // Watched from before the action, so a request sent at the moment of the click counts.
-      const activity = isActivation(action) && typeof browser.page.on === 'function' ? watchPageActivity(browser.page) : undefined;
+      // Told before the action, so what starts at the moment of the press (a request) counts.
+      opened.beforeAction(step, action);
       try {
         stage = 'action';
-        browser.observer?.setStep(step);
         if (action.kind === 'typeText' || action.kind === 'replaceText') {
-          const editable = await withinBudget(() => isEditable(browser!));
-          append('browser.input-gate', { step, editable }, { source: 'browser-diagnostic' });
+          const editable = await withinBudget(() => opened.focusIsEditable());
+          append('action.input-gate', { step, editable }, { source: 'runner' });
           if (!editable) throw new NotEditableError();
           // Only a secret's echo has to be hidden; typing a value marked not sensitive (a search term) keeps the record readable.
           if (!options.includeSensitiveInputValues && inputDescriptors[action.input]!.sensitive) {
@@ -508,17 +379,15 @@ export async function runWithPolicy(source: Task, options: RunOptions): Promise<
       const namesPress = execution.ok && isActivation(action), pressed = namesPress && !(receipt && typeof receipt === 'object' && receipt.pressed === false);
       append('action.result', { step, action, ...execution, ...(namesPress && !pressed ? { pressed: false } : {}) });
       history.push({ step, decision, observation, execution });
-      // An activation may start a route change that renders a moment later: settle on what the page does, not on a fixed wait.
-      if (execution.ok) { stage = 'settling'; await withinBudget(() => settlePage(browser!.page, activity)); } else activity?.stop();
-      await waitForPerson(step);
+      // An activation may start a change that shows a moment later: the surface settles on what it does, not on a fixed wait.
+      if (execution.ok) stage = 'settling';
+      await opened.afterAction(step, execution.ok);
       if (execution.ok) await enterPage(step);
       observation = await observe(pressed);
       // Character-by-character echoes of a sensitive value cannot be matched; withhold that step's speech from the policy.
       if (execution.ok && (action.kind === 'typeText' || action.kind === 'replaceText') && inputDescriptors[action.input]!.sensitive) withheldObservations.add(observation);
       if (pressed) latestActivation = { step, action, observation };
-      drainObserver();
-      for (const blocked of browser.takeBlockedNavigations()) recordBrowserDiagnostic('browser.navigation-blocked', blocked);
-      for (const warning of browser.takeNavigationGuardWarnings()) recordBrowserDiagnostic('browser.navigation-warning', warning);
+      opened.flush();
       await diagnosticScreenshot(step);
       const verification = await verify(step);
       if (inputTainted && simulation) { inputTainted = false; append('privacy.input-taint-ended', { step }, { source: 'runner' }); }
@@ -543,22 +412,7 @@ export async function runWithPolicy(source: Task, options: RunOptions): Promise<
     // The step limit cut the grace short: the goal still held at the last check, so the run reached it.
     if (reached !== undefined && outcome.reason === 'maxSteps') outcome = goalHolds();
   } catch (error) {
-    bestEffortEvidence(() => {
-    if (error instanceof BrowserSetupError) {
-      for (const blocked of error.blockedNavigations) recordBrowserDiagnostic('browser.navigation-blocked', blocked);
-      for (const warning of error.warnings) recordBrowserDiagnostic('browser.navigation-warning', warning);
-    }
-    });
-    const accessError = error instanceof BrowserAccessBlockedError ? error : error instanceof Error && error.cause instanceof BrowserAccessBlockedError ? error.cause : undefined;
-    if(accessError)bestEffortEvidence(()=>recordBrowserDiagnostic('browser.access-blocked',{url:accessError.url,status:accessError.status,reason:accessError.message}));
-    const profileError = error instanceof ProfileApplicationError ? error : error instanceof Error && error.cause instanceof ProfileApplicationError ? error.cause : undefined;
-    if (profileError) bestEffortEvidence(() => {
-      // Profile measurements are page-derived and can contain arbitrary delayed or
-      // encoded input echoes. Error paths follow the same taint rule as observe().
-      const profile = inputTainted ? { supported: false, details: REDACTED, reason: 'Profile details omitted after text entry.' } : profileError.appliedProfile;
-      append('browser.profile', profile, { source: 'browser-diagnostic', redacted: inputTainted });
-      trace.updateEnvironment({ profile }, { redacted: inputTainted });
-    });
+    bestEffortEvidence(() => options.surface.recordFailure?.(error, context));
     if (error instanceof RunAborted && !evidenceFailure) {
       const cancellation = { signal: error.signal, stage, step: activeStep };
       outcome = { status: 'aborted', reason: 'aborted', stage, step: activeStep, cancellation };
@@ -577,17 +431,9 @@ export async function runWithPolicy(source: Task, options: RunOptions): Promise<
   } finally {
     options.signal?.removeEventListener('abort', onExternalAbort);
     controller.abort();
-    bestEffortEvidence(() => {
-    if (browser) {
-      drainObserver();
-      const dropped = browser.observer?.dropped() ?? {};
-      if (Object.keys(dropped).length) append('observer.dropped', { perStep: dropped, reason: 'Per-step observer cap reached; later changes in those steps were not recorded.' }, { source: 'browser-diagnostic' });
-      for (const blocked of browser.takeBlockedNavigations()) recordBrowserDiagnostic('browser.navigation-blocked', blocked);
-      for (const warning of browser.takeNavigationGuardWarnings()) recordBrowserDiagnostic('browser.navigation-warning', warning);
-    }
-    });
+    bestEffortEvidence(() => surface?.flush({ final: true }));
     // Bound cleanup too. A server disconnect never turns an observed success into failure.
-    for (const [name, close] of [['backend', () => options.backend.close()], ['browser', () => browser?.close()]] as const) {
+    for (const [name, close] of [['backend', () => options.backend.close()], ['surface', () => surface?.close()]] as const) {
       let timer: ReturnType<typeof setTimeout> | undefined;
       try { await Promise.race([Promise.resolve().then(close), new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error(`${name} cleanup timed out`)), name === 'backend' ? options.backend.cleanupTimeoutMs ?? RAWSTEP_DEFAULTS.cleanupTimeoutMs.default : RAWSTEP_DEFAULTS.cleanupTimeoutMs.default); })]); }
       catch (error) { bestEffortEvidence(() => append('run.cleanup-warning', { resource: name, message: inputTainted ? 'Cleanup failed; raw error redacted.' : errorMessage(error) }, { redacted: inputTainted })); }
@@ -644,9 +490,6 @@ function evidenceSummary(evidence: unknown): Record<string, unknown> {
   return out;
 }
 function errorMessage(error: unknown): string { return error instanceof Error ? error.message : String(error); }
-async function isEditable(browser: BrowserSession): Promise<boolean> {
-  return browser.page.evaluate(focusIsEditable, null);
-}
 
 function rejectedDecisionDetails(decision: unknown, tainted: boolean): Record<string, unknown> {
   if (!decision || typeof decision !== 'object') return { action: { kind: 'invalid' } };
@@ -656,12 +499,6 @@ function rejectedDecisionDetails(decision: unknown, tainted: boolean): Record<st
   const kind = ['key', 'intent', 'typeText', 'replaceText'].includes(String(action.kind)) ? action.kind : 'invalid';
   if (tainted) return { action: { kind, details: REDACTED } };
   return { action: { kind, ...Object.fromEntries(['key', 'intent', 'input'].filter(key => typeof action[key] === 'string').map(key => [key, action[key]])) } };
-}
-
-function redactObserverEvent(event: ObserverEvent): Record<string, unknown> {
-  const safe: Record<string, unknown> = { ...event };
-  for (const key of ['name', 'text', 'value', 'url'] as const) if (safe[key] !== undefined && safe[key] !== null) safe[key] = REDACTED;
-  return safe;
 }
 
 function redactVerificationWitness(witness: VerificationWitness): Record<string, unknown> {
@@ -700,4 +537,3 @@ export function confirmationHeard(task: Pick<Task, 'verify'>, observation: Obser
   const said = observation.speech.join('\n').toLowerCase();
   return texts.some(text => said.includes(text));
 }
-

@@ -231,7 +231,7 @@ export class RunViews {
     if (known) return known;
     let startPage: RunFacts['startPage'];
     for (const event of await this.events(experimentId, runId)) {
-      if (event.type === 'browser.start-page' && isRecord(event.data) && typeof event.data.width === 'number' && typeof event.data.height === 'number' && typeof event.data.url === 'string')
+      if (event.type === 'surface.start-screenshot' && isRecord(event.data) && typeof event.data.width === 'number' && typeof event.data.height === 'number' && typeof event.data.url === 'string')
         startPage = { eventId: event.id, width: event.data.width, height: event.data.height, url: event.data.url };
     }
     const result = startPage ? { startPage } : {};

@@ -1,7 +1,7 @@
 export { BrowserAccessBlockedError, BrowserSetupError, createBrowserSession } from './browser/index.js';
 export type { BlockedNavigationRecord, BrowserSession, CreateBrowserSessionOptions, DomEventRecord, NavigationGuardWarningRecord, NetworkLog, NetworkRequestRecord, NetworkResponseRecord } from './browser/index.js';
-export { runWithPolicy } from './runner/index.js';
-export type { RunOptions } from './runner/index.js';
+export { webSurface } from './surface/index.js';
+export type { WebSurfaceOptions } from './surface/index.js';
 export { evaluateVerifyRule, verifyTask } from './verify/index.js';
 export type { VerificationContext } from './verify/index.js';
 export { applyProfile, BUILTIN_PROFILES, collectBrowserDiagnostics, DEFAULT_PROFILE, ProfileApplicationError, resolveEnvironmentProfile, verifyLiveProfile } from './profiles/index.js';

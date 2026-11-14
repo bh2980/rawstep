@@ -1,5 +1,6 @@
 import { RAWSTEP_DEFAULTS } from '@rawstep/core/defaults';
-import { runWithPolicy } from '@rawstep/browser/runner';
+import { runWithPolicy } from '@rawstep/core/runner';
+import { webSurface, type WebSurfaceOptions } from '@rawstep/browser/surface';
 import { runMockVoiceOverTask } from '@rawstep/screenreaders/mock-voiceover';
 import { AtDriverBackend } from '@rawstep/screenreaders/at-driver';
 import { FixedPlanner, OrchestratedSpeechPolicy, renderPlanMarkdown, type PlanDraft, type Planner } from '@rawstep/policies/policy';
@@ -75,7 +76,8 @@ export const executeRun: RunExecutor = async ({ task, settings, environment, bac
     const browser = task.browser ?? { mode: 'launch' as const };
     const opened = browserOpenOf(machine, browser.mode === 'connect'), endpoint = 'cdpEndpoint' in opened ? opened.cdpEndpoint : '';
     if (browser.mode === 'connect' && !endpoint) throw new ProjectError('browser-endpoint-missing', 'This task runs in a Chrome you started yourself, but this computer has no address for it (machine.browserEndpoint).');
-    const common = { policy, outDir, signal, allowedActions: permissions, confirmationGrace: rules.confirmationGrace, silentPressWaitMs: RAWSTEP_DEFAULTS.silentPressWaitMs, ...(onEvent ? { onEvent } : {}), ...(conditions ? { conditions } : {}),
+    const common = { policy, outDir, signal, allowedActions: permissions, confirmationGrace: rules.confirmationGrace, silentPressWaitMs: RAWSTEP_DEFAULTS.silentPressWaitMs, diagnosticScreenshots: true, ...(onEvent ? { onEvent } : {}), ...(conditions ? { conditions } : {}) };
+    const page: WebSurfaceOptions = {
       headless: backend !== 'simulation' ? false : machine.headless,
       ...('cdpEndpoint' in opened ? { browserEndpoint: opened.cdpEndpoint, ...(browser.copySignIn ? { copySignIn: true } : {}) }
         : { browserExecutablePath: opened.executablePath, ...(opened.proxyServer ? { proxyServer: opened.proxyServer } : {}) }),
@@ -88,12 +90,12 @@ export const executeRun: RunExecutor = async ({ task, settings, environment, bac
     // Runs keep a screenshot per step for people reading the run; the model never sees it.
     let releaseReader: (() => Promise<void>) | undefined;
     try {
-      if (backend === 'simulation') return await runMockVoiceOverTask(resolvedTask, { ...common, diagnosticScreenshots: true, warn: () => {} });
+      if (backend === 'simulation') return await runMockVoiceOverTask(resolvedTask, { ...common, browser: page, warn: () => {} });
       // One desktop has one screen reader: native runs take turns across Rawstep processes too. Held around the AT Driver server as
       // well, so the run that started the server never stops it under another run.
       releaseReader = await lockScreenReader(screenReaderLockDir);
       const url = atEndpointOf(machine, backend), driver = await ensureAtDriver({ endpoint: url, command: atDriverCommand, signal: setupSignal });
-      try { return await runWithPolicy(resolvedTask, { ...common, diagnosticScreenshots: true, backend: new AtDriverBackend({ profile: backend, url }) }); }
+      try { return await runWithPolicy(resolvedTask, { ...common, surface: webSurface(page), backend: new AtDriverBackend({ profile: backend, url }) }); }
       finally { await driver.stop(); }
     } finally { await savePlan(policy, outDir); await releaseReader?.(); await release?.(); }
   }

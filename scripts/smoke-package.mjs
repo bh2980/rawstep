@@ -110,12 +110,12 @@ try {
   command(process.execPath, ['--input-type=module', '-e', `
     import assert from 'node:assert/strict';
     import { runTask, aggregateHints, readTrace } from 'rawstep';
-    import { runWithPolicy } from 'rawstep/runner';
+    import { runWithPolicy, webSurface } from 'rawstep/runner';
     import { ProjectStore } from 'rawstep/project';
     import { extractHints } from 'rawstep/hints';
     import { runCli } from 'rawstep/cli';
     assert.equal(typeof runTask, 'function'); assert.equal(typeof aggregateHints, 'function'); assert.equal(typeof readTrace, 'function');
-    assert.equal(typeof runWithPolicy, 'function');
+    assert.equal(typeof runWithPolicy, 'function'); assert.equal(typeof webSurface, 'function');
     assert.equal(typeof ProjectStore, 'function'); assert.equal(typeof extractHints, 'function'); assert.equal(typeof runCli, 'function');
     for (const name of ${JSON.stringify(exportedModules)}) await import(name === '.' ? 'rawstep' : 'rawstep/' + name.slice(2));
   `]);

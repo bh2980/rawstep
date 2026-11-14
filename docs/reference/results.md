@@ -14,11 +14,11 @@ Every run or suite execution saves structured artifacts under `.rawstep/experime
         ├── summary.json              # BatchSummary (Schema 1.0) across all tasks & profiles in this batch
         └── <run-id>/                 # One folder per individual run (named by the run's UUID)
             ├── trace.jsonl           # Append-only crash-safe event stream
-            ├── trace.json            # Finalized RunTrace (Schema 3.0)
-            ├── diagnostics/          # Diagnostic PNGs: step-<N>.png after each step, start-page.png of the full page at start
+            ├── trace.json            # Finalized RunTrace (Schema 4.0)
+            ├── diagnostics/          # Diagnostic PNGs: step-<N>.png after each step, start.png of the full page at start
             ├── plan.json             # Final PlanDocument with phases, tasks, criteria, assumptions, and revisions (planner-driven runs)
             ├── plan.md               # Human-readable Markdown rendering of plan.json
-            ├── hints.json            # Extracted HintReport (Schema 3.0)
+            ├── hints.json            # Extracted HintReport (Schema 4.0)
             ├── analysis.json         # Post-run deterministic or LLM analysis report
             ├── report.json           # Combined summary data for report.html
             └── report.html           # Standalone single-file HTML report

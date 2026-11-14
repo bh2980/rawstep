@@ -59,9 +59,9 @@ describe('public API surface', () => {
       "evaluateVerifyRule",
       "installPageObserver",
       "resolveEnvironmentProfile",
-      "runWithPolicy",
       "verifyLiveProfile",
       "verifyTask",
+      "webSurface",
     ]
   `); });
   it('pins the screenreaders root', async () => { expect(await exportNames('@rawstep/screenreaders')).toMatchInlineSnapshot(`

@@ -1,6 +1,7 @@
 import type { Task } from '@rawstep/core/contracts';
 import { MockVoiceOverBackend } from '../mock-voiceover/backend.js';
-import { runWithPolicy, type RunOptions } from '@rawstep/browser/runner';
+import { runWithPolicy, type RunOptions } from '@rawstep/core/runner';
+import { webSurface, type WebSurfaceOptions } from '@rawstep/browser/surface';
 import { formatCorpusSpeech, type CorpusProfile } from './learned.js';
 import { UnsupportedCorpusPatternError } from './unsupported.js';
 export type CorpusMockOptions = { profile:CorpusProfile; sourceFixturePath:string };
@@ -14,7 +15,7 @@ export function createCorpusMockBackend(input:CorpusMockOptions):MockVoiceOverBa
     return {speech:result.speech!,evidence:{...result,referenceProfile:options.profile,sourceCommand:context.sourceCommand,initialObservationConvention:'first isolated object uses next_item wording; no native command was sent'}};
   }});
 }
-export function runCorpusMockTask(task:Task,options:Omit<RunOptions,'backend'> & { corpus:CorpusMockOptions }){
+export function runCorpusMockTask(task:Task,{corpus,browser,...options}:Omit<RunOptions,'backend'|'surface'> & { browser?:WebSurfaceOptions; corpus:CorpusMockOptions }){
   // The runner hands the opened session to the backend itself.
-  return runWithPolicy(task,{...options,backend:createCorpusMockBackend(options.corpus),headless:options.headless??true});
+  return runWithPolicy(task,{...options,backend:createCorpusMockBackend(corpus),surface:webSurface({...browser,headless:browser?.headless??true})});
 }

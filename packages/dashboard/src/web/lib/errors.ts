@@ -30,7 +30,7 @@ export type ErrorView = {
 };
 
 // The runner's stages (core's `RUN_STAGES`), split by whether the run had got going. A stage the runner adds fails to compile here until it is placed.
-const START_STAGES = ['initialization', 'backend-start', 'browser-start'] as const satisfies readonly RunStage[];
+const START_STAGES = ['initialization', 'backend-start', 'surface-start'] as const satisfies readonly RunStage[];
 const RUNTIME_STAGES = ['page-entry', 'observation', 'policy', 'action', 'settling', 'verification'] as const satisfies readonly RunStage[];
 type Stage = (typeof START_STAGES)[number] | (typeof RUNTIME_STAGES)[number];
 const _everyStagePlaced: Exclude<RunStage, Stage> extends never ? true : never = true; void _everyStagePlaced;
@@ -81,7 +81,7 @@ function failureView(run: Pick<RunRecord, 'state' | 'outcome' | 'error' | 'error
   if (reason === 'unsupported-profile') return { kind: 'setup', what: t('errors.run.environmentWhat'), progress: t('errors.run.progressNone'), next: t('errors.run.environmentNext'), link: goConditions(), raw };
   if (reason === 'unsupported-pattern') return { kind: 'setup', what: t('errors.run.patternWhat'), progress: progressOf(run), next: t('errors.run.patternNext'), raw };
   if (reason === 'error' && isStart(stage)) {
-    return { kind: 'start', ...stageText(stage), progress: t('errors.run.progressNone'), link: stage === 'browser-start' || stage === 'backend-start' ? goMachine() : undefined, raw };
+    return { kind: 'start', ...stageText(stage), progress: t('errors.run.progressNone'), link: stage === 'surface-start' || stage === 'backend-start' ? goMachine() : undefined, raw };
   }
   if (reason === 'error' && isRuntime(stage)) {
     return { kind: 'runtime', ...stageText(stage), progress: progressOf(run), link: stage === 'policy' ? goModels() : stage === 'verification' ? { to: { task: run.taskId, tab: 'check' }, label: t('errors.go.check') } : undefined, raw };

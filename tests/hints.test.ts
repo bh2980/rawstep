@@ -9,7 +9,7 @@ const timestamp = "2026-01-01T00:00:00.000Z";
 /** Builds a trace whose events are the given (type, data) pairs with sequential ids. */
 function trace(pairs: readonly Pair[], outcome?: RunOutcome, overrides: Partial<RunTrace> = {}): RunTrace {
   return {
-    schemaVersion: "3.0", runId: "hints-test", task: { id: "hints" },
+    schemaVersion: "4.0", runId: "hints-test", task: { id: "hints" },
     environment: { platform: "test", platformVersion: "1", browser: "test", browserVersion: "1", screenReader: "none", screenReaderVersion: "0" },
     startedAt: timestamp, endedAt: "2026-01-01T00:00:05.000Z",
     events: pairs.map(([type, data], index): TraceEvent => ({

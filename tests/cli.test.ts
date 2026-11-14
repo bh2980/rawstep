@@ -34,7 +34,7 @@ function output(cwd: string) {
 const text = (mock: ReturnType<typeof vi.fn>) => mock.mock.calls.flat().join("");
 function fixtureTrace(status: "success" | "failure" = "success"): RunTrace {
   return {
-    schemaVersion: "3.0", runId: "cli-test", task: { id: "task" },
+    schemaVersion: "4.0", runId: "cli-test", task: { id: "task" },
     environment: { platform: "test", platformVersion: "unknown", browser: "test", browserVersion: "unknown", screenReader: "test", screenReaderVersion: "unknown" },
     startedAt: "2026-01-01T00:00:00.000Z", endedAt: "2026-01-01T00:00:01.000Z",
     events: [], outcome: { status }, privacy: { inputValues: "redacted", redactionApplied: false },
@@ -195,9 +195,9 @@ describe("run", () => {
     for (const key of ["profile", "runRules"]) expect(runTask.mock.calls[3]![1]).not.toHaveProperty(key);
   });
   it("shows why a run broke and does not count it as a try", () => {
-    const broke = { ...where, runId: "r1", outDir: "/p/run-1", outcome: { status: "failure" as const, reason: "error", stage: "browser-start", error: "page.goto: net::ERR_FILE_NOT_FOUND at file:///p/page.html\nCall log: ..." }, hints: { ...result.runs[0]!.hints, steps: 0, hints: [] } };
+    const broke = { ...where, runId: "r1", outDir: "/p/run-1", outcome: { status: "failure" as const, reason: "error", stage: "surface-start", error: "page.goto: net::ERR_FILE_NOT_FOUND at file:///p/page.html\nCall log: ..." }, hints: { ...result.runs[0]!.hints, steps: 0, hints: [] } };
     const out = formatRunResult({ ...result, runs: [broke], findings: [] });
-    expect(out).toContain("  Error (browser-start): page.goto: net::ERR_FILE_NOT_FOUND at file:///p/page.html\n");
+    expect(out).toContain("  Error (surface-start): page.goto: net::ERR_FILE_NOT_FOUND at file:///p/page.html\n");
     expect(out).not.toContain("Call log");
     expect(out).toContain("Could a first-time user do it? not known: the run ended before the user could try (see the error above)");
     expect(formatRunResult({ ...result, runs: [result.runs[0]!, broke] })).toMatch(/reached the goal in \d of 1 runs.* · 1 more ended on an error \(not counted\)/);
@@ -341,7 +341,7 @@ describe("run", () => {
     expect(await run([reached, unmeasured])).toBe(3);
     expect(await run([withOutcome({ status: "failure", reason: "timeout" })])).toBe(3);
     expect(await run([withOutcome({ status: "failure", reason: "access-blocked" })])).toBe(3);
-    expect(await run([withOutcome({ status: "failure", reason: "error", stage: "browser-start", error: "boom" })])).toBe(1);
+    expect(await run([withOutcome({ status: "failure", reason: "error", stage: "surface-start", error: "boom" })])).toBe(1);
     // An error wins over a run that was only not measured.
     expect(await run([unmeasured, withOutcome({ status: "failure", reason: "trace-persistence-error" })])).toBe(1);
     // 2 stays bad usage.
@@ -404,7 +404,7 @@ describe("offline analysis and reports", () => {
   it("refuses analysis from a different run", async () => {
     const directory = await temporaryDirectory();
     await writeFile(join(directory, "trace.json"), JSON.stringify(fixtureTrace()));
-    await writeFile(join(directory, "analysis.json"), JSON.stringify({ schemaVersion: "1.0", traceSchemaVersion: "3.0", runId: "another-run", status: "completed", findings: [] }));
+    await writeFile(join(directory, "analysis.json"), JSON.stringify({ schemaVersion: "1.0", traceSchemaVersion: "4.0", runId: "another-run", status: "completed", findings: [] }));
     const io = output(directory);
     expect(await runCli(["report", "trace.json", "--analysis", "analysis.json"], io)).toBe(1);
     expect(text(io.stderr)).toMatch(/run|trace/i);

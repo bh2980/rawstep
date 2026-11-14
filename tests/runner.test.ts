@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Backend, BackendAction, BackendEvent, Task, DecisionPolicy, VerificationRecord } from '@rawstep/core/contracts';
 import { BrowserAccessBlockedError, type BrowserSession } from '@rawstep/browser/browser';
-import { runWithPolicy } from '@rawstep/browser/runner';
+import { runOnWebPage } from './helpers/web-run.js';
 import type { ObserverEvent, PageObserver } from '@rawstep/browser/observer';
 import { ScriptedPolicy } from '@rawstep/policies/policy';
 import { TraceRecorder } from '@rawstep/core/trace';
@@ -37,14 +37,14 @@ describe('human checks passed by a person',()=>{
   const checking=(f:ReturnType<typeof fixture>,challengeCalls:number,branded=false)=>{let calls=0;const inPage=f.browser.page.evaluate;Object.assign(f.browser.page,{url:()=>++calls<=challengeCalls&&!branded?'https://example.com/task?__cf_chl_rt_tk=x':'https://example.com/task',frames:()=>[],mainFrame:()=>undefined,title:async()=>'Shop',waitForLoadState:async()=>{},evaluate:vi.fn(async(fn:unknown,...rest:unknown[])=>String(fn).includes('challenge-platform')?branded&&calls<=challengeCalls:(inPage as any)(fn,...rest))});};
   it('connects to it instead of a kept profile, keeps the person check, and records the connection',async()=>{
     const f=fixture();checking(f,0);Object.assign(f.browser,{connected:true});
-    const trace=await runWithPolicy(task,{...f,headless:true,outDir:await out(),browserEndpoint:'http://localhost:9222',personCheck:{userDataDir:'/tmp/profile'},policy:new ScriptedPolicy([{stop:'success'}])});
+    const trace=await runOnWebPage(task,{...f,headless:true,outDir:await out(),browserEndpoint:'http://localhost:9222',personCheck:{userDataDir:'/tmp/profile'},policy:new ScriptedPolicy([{stop:'success'}])});
     const options=(f.browserSessionFactory.mock.calls as unknown[][])[0]![1];
     expect(options).toMatchObject({cdpEndpoint:'http://localhost:9222',personCheck:true});expect(options).not.toHaveProperty('userDataDir');
     expect(trace.events.find(e=>e.type==='browser.metadata')?.data).toMatchObject({connected:true,headless:false});
   });
   it('opens a kept profile in a visible browser, waits while the page is a check, then continues and adds the wait back to the budget',async()=>{
     const f=fixture();checking(f,2);
-    const trace=await runWithPolicy(task,{...f,headless:true,outDir:await out(),personCheck:{userDataDir:'/tmp/profile'},policy:new ScriptedPolicy([{stop:'success'}])});
+    const trace=await runOnWebPage(task,{...f,headless:true,outDir:await out(),personCheck:{userDataDir:'/tmp/profile'},policy:new ScriptedPolicy([{stop:'success'}])});
     expect(f.browserSessionFactory).toHaveBeenCalledWith(task.url,expect.objectContaining({userDataDir:'/tmp/profile',headless:false}));
     expect(trace.events.map(e=>e.type)).toEqual(expect.arrayContaining(['run.waiting-for-person','run.person-resumed']));
     expect(trace.events.find(e=>e.type==='run.person-resumed')?.data).toMatchObject({step:0});
@@ -52,13 +52,13 @@ describe('human checks passed by a person',()=>{
   });
   it('ends the run as access-blocked when nobody passes the check in time, and never answers it',async()=>{
     const f=fixture();checking(f,1000);
-    const trace=await runWithPolicy(task,{...f,outDir:await out(),personCheck:{userDataDir:'/tmp/profile',timeoutMs:1200},policy:new ScriptedPolicy([{stop:'success'}])});
+    const trace=await runOnWebPage(task,{...f,outDir:await out(),personCheck:{userDataDir:'/tmp/profile',timeoutMs:1200},policy:new ScriptedPolicy([{stop:'success'}])});
     expect(trace.events.some(e=>e.type==='run.person-check-timeout')).toBe(true);
     expect(trace.outcome).toMatchObject({status:'inconclusive',reason:'access-blocked'});
   });
   it('recognises a site-branded challenge page by its challenge script or Ray ID, not only by address or title',async()=>{
     const f=fixture();checking(f,1000,true);
-    const trace=await runWithPolicy(task,{...f,outDir:await out(),personCheck:{userDataDir:'/tmp/profile',timeoutMs:1200},policy:new ScriptedPolicy([{stop:'success'}])});
+    const trace=await runOnWebPage(task,{...f,outDir:await out(),personCheck:{userDataDir:'/tmp/profile',timeoutMs:1200},policy:new ScriptedPolicy([{stop:'success'}])});
     expect(trace.events.some(e=>e.type==='run.waiting-for-person')).toBe(true);
     expect(trace.outcome).toMatchObject({status:'inconclusive',reason:'access-blocked'});
   });
@@ -75,7 +75,7 @@ describe('human checks passed by a person',()=>{
   };
   it('opens the page bare and arms guards, then the backend, only after the check has been gone for three seconds',async()=>{
     const f=fixture();const order=scripted(f,[[0,'check'],[1500,'site']]);
-    const trace=await runWithPolicy({...task,timeoutMs:20000},{...f,outDir:await out(),personCheck:{userDataDir:'/tmp/profile'},policy:new ScriptedPolicy([{stop:'success'}])});
+    const trace=await runOnWebPage({...task,timeoutMs:20000},{...f,outDir:await out(),personCheck:{userDataDir:'/tmp/profile'},policy:new ScriptedPolicy([{stop:'success'}])});
     expect(order).toEqual(['arm','attach']);
     const types=trace.events.map(e=>e.type);
     expect(types.indexOf('run.person-resumed')).toBeLessThan(types.indexOf('run.guards-armed'));
@@ -85,26 +85,26 @@ describe('human checks passed by a person',()=>{
   });
   it('does not take a check page that reloads with a new token for a pass',async()=>{
     const f=fixture();const order=scripted(f,[[0,'check'],[1000,'site'],[2500,'check'],[3500,'site'],[5000,'check']]);
-    const trace=await runWithPolicy({...task,timeoutMs:20000},{...f,outDir:await out(),personCheck:{userDataDir:'/tmp/profile',timeoutMs:6000},policy:new ScriptedPolicy([{stop:'success'}])});
+    const trace=await runOnWebPage({...task,timeoutMs:20000},{...f,outDir:await out(),personCheck:{userDataDir:'/tmp/profile',timeoutMs:6000},policy:new ScriptedPolicy([{stop:'success'}])});
     expect(order).toEqual([]);expect(trace.events.some(e=>e.type==='run.person-resumed')).toBe(false);
     expect(trace.outcome).toMatchObject({status:'inconclusive',reason:'access-blocked'});
   });
   it('ends as access-blocked when the check sends the page to another site, without arming anything',async()=>{
     const f=fixture();const order=scripted(f,[[0,'check'],[1500,'https://example.org/']]);
-    const trace=await runWithPolicy({...task,timeoutMs:20000},{...f,outDir:await out(),personCheck:{userDataDir:'/tmp/profile'},policy:new ScriptedPolicy([{stop:'success'}])});
+    const trace=await runOnWebPage({...task,timeoutMs:20000},{...f,outDir:await out(),personCheck:{userDataDir:'/tmp/profile'},policy:new ScriptedPolicy([{stop:'success'}])});
     expect(order).toEqual([]);expect(trace.events.find(e=>e.type==='run.person-check-left')?.data).toMatchObject({host:'example.org'});
     expect(trace.outcome).toMatchObject({status:'inconclusive',reason:'access-blocked'});
   });
   it('ends as access-blocked when the site shows its check again once guards are attached',async()=>{
     const f=fixture();const order=scripted(f,[[0,'site']]);
     (f.browser as any).armGuards=vi.fn(async()=>{order.push('arm');delete (f.browser as any).armGuards;Object.assign(f.browser.page,{url:()=>'https://example.com/task?__cf_chl_rt_tk=y'});});
-    const trace=await runWithPolicy({...task,timeoutMs:20000},{...f,outDir:await out(),personCheck:{userDataDir:'/tmp/profile'},policy:new ScriptedPolicy([{stop:'success'}])});
+    const trace=await runOnWebPage({...task,timeoutMs:20000},{...f,outDir:await out(),personCheck:{userDataDir:'/tmp/profile'},policy:new ScriptedPolicy([{stop:'success'}])});
     expect(order).toEqual(['arm']);expect(trace.events.some(e=>e.type==='run.person-check-rejected')).toBe(true);
     expect(trace.outcome).toMatchObject({status:'inconclusive',reason:'access-blocked'});
   });
   it('does not look for checks without the setting',async()=>{
     const f=fixture();checking(f,1000);
-    const trace=await runWithPolicy(task,{...f,outDir:await out(),policy:new ScriptedPolicy([{stop:'success'}])});
+    const trace=await runOnWebPage(task,{...f,outDir:await out(),policy:new ScriptedPolicy([{stop:'success'}])});
     expect(trace.events.some(e=>e.type==='run.waiting-for-person')).toBe(false);
   });
 });
@@ -114,7 +114,7 @@ describe('model-neutral runner',()=>{
       const f=fixture(),seen:unknown[]=[];
       Object.assign(f.browser.page,{title:async()=>'Shop'});
       vi.mocked(f.backend.observe).mockImplementation(async()=>({windowId:'w',startedAt:new Date().toISOString(),endedAt:new Date().toISOString(),reason:'quiet',outputs:[],speech:[spoken]}));
-      await runWithPolicy(task,{...f,outDir:await out(),policy:{decide:async(input:any)=>{seen.push(input.observation.title);return {stop:'stuck'};}}});
+      await runOnWebPage(task,{...f,outDir:await out(),policy:{decide:async(input:any)=>{seen.push(input.observation.title);return {stop:'stuck'};}}});
       return seen;
     };
     expect(await titles('Real captured utterance')).toEqual([undefined]);
@@ -124,25 +124,25 @@ describe('model-neutral runner',()=>{
     const unfocused=(f:ReturnType<typeof fixture>,afterFocus:boolean)=>{let focused=false;vi.mocked(f.browser.page.evaluate).mockImplementation((async(fn:unknown)=>{const source=String(fn);if(source.includes('window.focus')){focused=afterFocus;return undefined;}if(source.includes('documentHasFocus'))return {documentHasFocus:focused,focused:null};return true;}) as never);};
     it('records that the document has focus and nothing is focused, without moving focus to an element',async()=>{
       const f=fixture();vi.mocked(f.browser.page.evaluate).mockImplementation((async(fn:unknown)=>String(fn).includes('documentHasFocus')?{documentHasFocus:true,focused:null}:true) as never);
-      const trace=await runWithPolicy(task,{...f,outDir:await out(),policy:new ScriptedPolicy([{stop:'success'}])});
+      const trace=await runOnWebPage(task,{...f,outDir:await out(),policy:new ScriptedPolicy([{stop:'success'}])});
       expect(trace.events.find(e=>e.type==='browser.initial-focus')?.data).toEqual({documentHasFocus:true,focused:null});
       expect(vi.mocked(f.browser.page.evaluate).mock.calls.some(([fn])=>String(fn).includes('window.focus'))).toBe(false);
     });
     it('focuses the page window when needed and records it',async()=>{
       const f=fixture();unfocused(f,true);
-      const trace=await runWithPolicy(task,{...f,outDir:await out(),policy:new ScriptedPolicy([{stop:'success'}])});
+      const trace=await runOnWebPage(task,{...f,outDir:await out(),policy:new ScriptedPolicy([{stop:'success'}])});
       expect(trace.events.find(e=>e.type==='browser.initial-focus')?.data).toEqual({documentHasFocus:true,focused:null,focusRequested:true});
       expect(trace.outcome?.status).toBe('success');
     });
     it('refuses a native screen-reader run whose keys would reach browser UI or another window',async()=>{
       const f=fixture();Object.defineProperty(f.backend,'evidenceProvenance',{value:'native'});unfocused(f,false);
-      const trace=await runWithPolicy(task,{...f,outDir:await out(),policy:new ScriptedPolicy([{action:{kind:'intent',intent:'next'}}])});
+      const trace=await runOnWebPage(task,{...f,outDir:await out(),policy:new ScriptedPolicy([{action:{kind:'intent',intent:'next'}}])});
       expect(trace.outcome).toMatchObject({status:'failure',reason:'error'});expect(String(trace.outcome?.error)).toMatch(/does not have keyboard focus/);
       expect(f.backend.execute).not.toHaveBeenCalled();
     });
     it('lets a simulated run continue when page focus cannot be confirmed',async()=>{
       const f=fixture();unfocused(f,false);
-      const trace=await runWithPolicy(task,{...f,outDir:await out(),policy:new ScriptedPolicy([{stop:'success'}])});
+      const trace=await runOnWebPage(task,{...f,outDir:await out(),policy:new ScriptedPolicy([{stop:'success'}])});
       expect(trace.outcome?.status).toBe('success');expect(trace.events.find(e=>e.type==='browser.initial-focus')?.data).toMatchObject({documentHasFocus:false,focusRequested:true});
     });
   });
@@ -156,57 +156,57 @@ describe('model-neutral runner',()=>{
       return original.call(this,...args);
     });
     try {
-      const trace=await runWithPolicy(task,{...f,outDir:await out(),policy:new ScriptedPolicy([{stop:'success'}])});
+      const trace=await runOnWebPage(task,{...f,outDir:await out(),policy:new ScriptedPolicy([{stop:'success'}])});
       expect(trace.outcome?.reason).toBe('trace-persistence-error');expect(trace.outcome?.status).toBe('failure');
       expect(f.backend.execute).not.toHaveBeenCalled();expect(f.browser.close).toHaveBeenCalled();
     } finally { failing.mockRestore(); }
   });
   it('runs without an LLM and completes only on independent verification',async()=>{
-    const f=fixture(); const trace=await runWithPolicy(task,{...f,outDir:await out(),policy:new ScriptedPolicy([{action:{kind:'intent',intent:'activate'}}])});
+    const f=fixture(); const trace=await runOnWebPage(task,{...f,outDir:await out(),policy:new ScriptedPolicy([{action:{kind:'intent',intent:'activate'}}])});
     expect(trace.outcome?.status).toBe('success'); expect(f.verifier).toHaveBeenCalled(); expect(f.backend.close).toHaveBeenCalled(); expect(f.browser.close).toHaveBeenCalled();
     expect(trace.events.filter(e=>e.source==='screen-reader').length).toBeGreaterThan(0);
   });
   it('records why a model reply was rejected next to the error, never the provider text',async()=>{
     const f=fixture(); const modelFailure={kind:'schema',issues:[{path:'assumptions',message:'Too big'}],reply:'{"assumptions":[]}'};
     const policy:DecisionPolicy={decide:async()=>{throw new Error('Planner failed',{cause:new RawstepError('llm-failed','LLM call failed.',{detail:{modelFailure}})});}};
-    const trace=await runWithPolicy(task,{...f,outDir:await out(),policy});
+    const trace=await runOnWebPage(task,{...f,outDir:await out(),policy});
     expect(trace.outcome).toMatchObject({status:'failure',reason:'error'});
     expect(trace.events.find(e=>e.type==='run.error')?.data).toMatchObject({message:expect.any(String),modelFailure});
   });
   it('does not accept a policy success claim as verification',async()=>{
     const f=fixture(); f.verifier.mockResolvedValue({passed:false,failures:['missing']});
-    const trace=await runWithPolicy(task,{...f,outDir:await out(),policy:new ScriptedPolicy([{stop:'success'}])});
+    const trace=await runOnWebPage(task,{...f,outDir:await out(),policy:new ScriptedPolicy([{stop:'success'}])});
     expect(trace.outcome?.reason).toBe('verification-failed'); expect(f.backend.execute).not.toHaveBeenCalled();
   });
   it('keeps verifier and browser diagnostics out of every policy observation and history',async()=>{
     const f=fixture(); f.verifier.mockResolvedValue({passed:false,failures:['secret selector #ground-truth']});
     const seen: unknown[]=[]; let n=0;
     const policy:DecisionPolicy={decide:input=>{seen.push(input);return ++n===1?{action:{kind:'intent',intent:'next'}}:{stop:'stuck'};}};
-    const trace=await runWithPolicy(task,{...f,outDir:await out(),policy,diagnosticScreenshots:true});
+    const trace=await runOnWebPage(task,{...f,outDir:await out(),policy,diagnosticScreenshots:true});
     expect(JSON.stringify(seen)).not.toMatch(/ground-truth|browserVersion|screenshot|domFocus/);
     expect(JSON.stringify(trace)).toContain('secret selector');
   });
   it('rejects unallowed action before execution and closes resources',async()=>{
-    const f=fixture(); const trace=await runWithPolicy(task,{...f,outDir:await out(),policy:new ScriptedPolicy([{action:{kind:'key',key:'Control+L'}}])});
+    const f=fixture(); const trace=await runOnWebPage(task,{...f,outDir:await out(),policy:new ScriptedPolicy([{action:{kind:'key',key:'Control+L'}}])});
     expect(trace.outcome?.status).toBe('failure');expect(f.backend.execute).not.toHaveBeenCalled();expect(f.backend.close).toHaveBeenCalled();
     expect(trace.events.find(e=>e.type==='policy.rejected')?.data).toMatchObject({step:1,action:{kind:'key',key:'Control+L'},reasonCode:'action-not-allowed'});
   });
   it('allows only named task inputs, gates editability, and redacts input values on disk',async()=>{
     const f=fixture();const dir=await out();
-    const trace=await runWithPolicy({...task,input:{email:'private@example.test'}},{...f,outDir:dir,policy:new ScriptedPolicy([{action:{kind:'typeText',input:'email'}}])});
+    const trace=await runOnWebPage({...task,input:{email:'private@example.test'}},{...f,outDir:dir,policy:new ScriptedPolicy([{action:{kind:'typeText',input:'email'}}])});
     expect(f.backend.execute).toHaveBeenCalledWith({kind:'typeText',text:'private@example.test'}, {signal:expect.any(AbortSignal)});
     expect(await readFile(join(dir,'trace.json'),'utf8')).not.toContain('private@example.test');expect(trace.privacy.inputValues).toBe('redacted');
   });
   it('fails text-entry safely for a noneditable target',async()=>{
     const f=fixture();vi.mocked(f.browser.page.evaluate).mockResolvedValue(false);f.verifier.mockResolvedValue({passed:false,failures:['missing']});
-    const trace=await runWithPolicy({...task,input:{q:'search'}},{...f,outDir:await out(),policy:new ScriptedPolicy([{action:{kind:'typeText',input:'q'}},{stop:'stuck'}])});
+    const trace=await runOnWebPage({...task,input:{q:'search'}},{...f,outDir:await out(),policy:new ScriptedPolicy([{action:{kind:'typeText',input:'q'}},{stop:'stuck'}])});
     expect(f.backend.execute).not.toHaveBeenCalled();expect(trace.events.some(e=>e.type==='action.result'&&JSON.stringify(e.data).includes('editable'))).toBe(true);
   });
   it('rejects text entry when browser chrome has focus despite a stale active input',async()=>{
     const f=fixture();vi.stubGlobal('document',{hasFocus:()=>false,get activeElement(){throw new Error('Do not inspect stale field when document is unfocused');}});
     vi.mocked(f.browser.page.evaluate).mockImplementation(async(fn:any)=>fn());
     f.verifier.mockResolvedValue({passed:false,failures:['missing']});
-    await runWithPolicy({...task,input:{q:'secret'}},{...f,outDir:await out(),policy:new ScriptedPolicy([{action:{kind:'typeText',input:'q'}},{stop:'stuck'}])});
+    await runOnWebPage({...task,input:{q:'secret'}},{...f,outDir:await out(),policy:new ScriptedPolicy([{action:{kind:'typeText',input:'q'}},{stop:'stuck'}])});
     expect(f.backend.execute).not.toHaveBeenCalled();
   });
   it('redacts form-encoded and partial input from browser diagnostics after entry, including final drain',async()=>{
@@ -215,7 +215,7 @@ describe('model-neutral runner',()=>{
     f.browser.takeBlockedNavigations=()=>entered?[{url:'https://example.test?q=Ada+Lovelace',fromUrl:'https://example.test?q=Ada',reason:'Typed Ada+Lovelace',timestamp:new Date().toISOString()}]:[];
     f.browser.takeNavigationGuardWarnings=()=>entered?[{scope:'navigationGuard',level:'warn',code:'NAVIGATION_GUARD_INSTALL_WARNING',message:++drains>1?'Late Ada+Lovelace':'Partial Ada'}]:[];
     f.verifier.mockResolvedValue({passed:false,failures:['missing']});
-    const trace=await runWithPolicy({...task,input:{name:'Ada Lovelace'}},{...f,outDir:dir,policy:new ScriptedPolicy([{action:{kind:'typeText',input:'name'}},{stop:'stuck'}])});
+    const trace=await runOnWebPage({...task,input:{name:'Ada Lovelace'}},{...f,outDir:dir,policy:new ScriptedPolicy([{action:{kind:'typeText',input:'name'}},{stop:'stuck'}])});
     const stored=await readFile(join(dir,'trace.json'),'utf8');
     expect(stored).not.toContain('Ada+Lovelace');expect(stored).not.toContain('Partial Ada');expect(stored).not.toContain('?q=Ada');
     expect(trace.events.filter(e=>e.type.startsWith('browser.navigation-')).every(e=>e.redacted)).toBe(true);
@@ -223,7 +223,7 @@ describe('model-neutral runner',()=>{
   it('redacts access-barrier error diagnostics after named text entry',async()=>{
     const f=fixture(),directory=await out(),secret='PRIVATE_ACCESS_INPUT',encoded=Buffer.from(secret).toString('base64');
     f.verifier.mockRejectedValue(new BrowserAccessBlockedError(`https://example.test/${encoded}`,403,`Blocked ${encoded}`));
-    const trace=await runWithPolicy({...task,input:{secret}},{...f,outDir:directory,policy:new ScriptedPolicy([{action:{kind:'typeText',input:'secret'}}])});
+    const trace=await runOnWebPage({...task,input:{secret}},{...f,outDir:directory,policy:new ScriptedPolicy([{action:{kind:'typeText',input:'secret'}}])});
     expect(trace.outcome).toMatchObject({status:'inconclusive',reason:'access-blocked'});
     expect(trace.events.find(e=>e.type==='browser.access-blocked')?.redacted).toBe(true);
     for(const path of ['trace.json','trace.jsonl'])expect(await readFile(join(directory,path),'utf8')).not.toContain(encoded);
@@ -232,7 +232,7 @@ describe('model-neutral runner',()=>{
     const f=fixture();const dir=await out();const seen:unknown[]=[];
     f.verifier.mockResolvedValue({passed:false,failures:['Echo A z'],rules:[{ruleIndex:0,ruleType:'responseSeen',passed:false,failure:'Echo A z',witnesses:[{kind:'response',url:'https://example.test?q=A',method:'POST',status:409,ok:false,timestamp:'2026-01-01T00:00:00.000Z'}]}]});
     let n=0;
-    const trace=await runWithPolicy({...task,input:{q:'Az',id:'event'}},{...f,outDir:dir,policy:{decide:input=>{seen.push(input);return ++n===1?{action:{kind:'typeText',input:'q'}}:{stop:'stuck'};}}});
+    const trace=await runOnWebPage({...task,input:{q:'Az',id:'event'}},{...f,outDir:dir,policy:{decide:input=>{seen.push(input);return ++n===1?{action:{kind:'typeText',input:'q'}}:{stop:'stuck'};}}});
     const evidence=trace.events.filter(e=>e.type==='verifier.evidence');
     expect(evidence.length).toBe(2);expect(evidence.every(e=>e.redacted)).toBe(true);
     expect(evidence[0]?.data).toMatchObject({step:1,ruleIndex:0,ruleType:'responseSeen',passed:false,witness:{kind:'response',status:409,ok:false,timestamp:'2026-01-01T00:00:00.000Z',details:'[REDACTED]'}});
@@ -243,25 +243,25 @@ describe('model-neutral runner',()=>{
   });
   it('redacts a rejected decision after input while retaining the attempted step and reason',async()=>{
     const f=fixture();f.verifier.mockResolvedValue({passed:false,failures:['missing']});
-    const trace=await runWithPolicy({...task,input:{q:'Az'}},{...f,outDir:await out(),policy:new ScriptedPolicy([{action:{kind:'typeText',input:'q'}},{action:{kind:'key',key:'Echo A z'}}])});
+    const trace=await runOnWebPage({...task,input:{q:'Az'}},{...f,outDir:await out(),policy:new ScriptedPolicy([{action:{kind:'typeText',input:'q'}},{action:{kind:'key',key:'Echo A z'}}])});
     const rejected=trace.events.find(e=>e.type==='policy.rejected');
     expect(rejected?.redacted).toBe(true);expect(rejected?.data).toMatchObject({step:2,action:{kind:'key',details:'[REDACTED]'},reasonCode:'action-not-allowed'});
     expect(JSON.stringify(trace)).not.toContain('Echo A z');
   });
   it('bounds a hung policy by its own limit, not page time, and aborts its signal',async()=>{
     const f=fixture();let signal:AbortSignal|undefined;
-    const trace=await runWithPolicy({...task,timeoutMs:20},{...f,outDir:await out(),policyTimeoutMs:60,policy:{decide:input=>{signal=input.signal;return new Promise(()=>{});}}});
+    const trace=await runOnWebPage({...task,timeoutMs:20},{...f,outDir:await out(),policyTimeoutMs:60,policy:{decide:input=>{signal=input.signal;return new Promise(()=>{});}}});
     expect(trace.outcome?.reason).toBe('timeout');expect(signal?.aborted).toBe(true);expect(f.backend.close).toHaveBeenCalled();
   });
   it('does not count time spent waiting for the policy against the task time limit',async()=>{
     const f=fixture();let calls=0;f.verifier.mockResolvedValue({passed:false,failures:['missing']});
-    const trace=await runWithPolicy({...task,timeoutMs:1000},{...f,outDir:await out(),policy:{decide:async()=>{calls++;await new Promise(resolve=>setTimeout(resolve,450));return calls<3?{action:{kind:'intent',intent:'next'}}:{stop:'stuck'};}}});
+    const trace=await runOnWebPage({...task,timeoutMs:1000},{...f,outDir:await out(),policy:{decide:async()=>{calls++;await new Promise(resolve=>setTimeout(resolve,450));return calls<3?{action:{kind:'intent',intent:'next'}}:{stop:'stuck'};}}});
     expect(trace.outcome?.reason).toBe('policy-stuck');expect(calls).toBe(3);
   });
   it.each(['SIGINT','SIGTERM'])('saves an aborted outcome and interruption point for %s without waiting for budget',async(signal)=>{
     const f=fixture();const controller=new AbortController();let ready!:()=>void;
     const started=new Promise<void>(resolve=>{ready=resolve;});
-    const running=runWithPolicy({...task,timeoutMs:5000},{...f,outDir:await out(),signal:controller.signal,policy:{decide:()=>{ready();return new Promise(()=>{});}}});
+    const running=runOnWebPage({...task,timeoutMs:5000},{...f,outDir:await out(),signal:controller.signal,policy:{decide:()=>{ready();return new Promise(()=>{});}}});
     await started;controller.abort(signal);
     const trace=await running;
     expect(trace.outcome).toMatchObject({status:'aborted',reason:'aborted',stage:'policy',step:1,cancellation:{signal,stage:'policy',step:1}});
@@ -270,17 +270,17 @@ describe('model-neutral runner',()=>{
   });
   it('does not start a backend for a pre-aborted run and preserves metadata with short inputs',async()=>{
     const f=fixture();const controller=new AbortController();controller.abort('SIGINT');
-    const trace=await runWithPolicy({...task,input:{q:'a'}},{...f,outDir:await out(),signal:controller.signal,policy:new ScriptedPolicy([])});
+    const trace=await runOnWebPage({...task,input:{q:'a'}},{...f,outDir:await out(),signal:controller.signal,policy:new ScriptedPolicy([])});
     expect(trace.outcome).toMatchObject({status:'aborted',reason:'aborted',stage:'backend-start',step:0,cancellation:{signal:'SIGINT'}});
     expect(f.backend.start).not.toHaveBeenCalled();
   });
   it('ends at the action budget',async()=>{
     const f=fixture();f.verifier.mockResolvedValue({passed:false,failures:['missing']});
-    const trace=await runWithPolicy({...task,maxSteps:1},{...f,outDir:await out(),policy:new ScriptedPolicy([{action:{kind:'intent',intent:'next'}}])});
+    const trace=await runOnWebPage({...task,maxSteps:1},{...f,outDir:await out(),policy:new ScriptedPolicy([{action:{kind:'intent',intent:'next'}}])});
     expect(trace.outcome?.reason).toBe('maxSteps');expect(f.backend.execute).toHaveBeenCalledTimes(1);
   });
   it('retains the outcome when an optional later analyzer fails',async()=>{
-    const f=fixture();const trace=await runWithPolicy(task,{...f,outDir:await out(),policy:new ScriptedPolicy([{stop:'success'}])});
+    const f=fixture();const trace=await runOnWebPage(task,{...f,outDir:await out(),policy:new ScriptedPolicy([{stop:'success'}])});
     const before=JSON.stringify(trace.outcome);const report=await analyzeTrace(trace,{id:'broken',analyze:()=>{throw new Error('provider down');}});
     expect(report.status).toBe('failed');expect(JSON.stringify(trace.outcome)).toBe(before);
   });
@@ -297,7 +297,7 @@ describe('model-neutral runner',()=>{
         {kind:'state',step:1,at,frame:'main',role:'textbox',name:'Secret Value',text:'typed Secret Value',attr:'aria-invalid',value:'true',url:'https://example.test/?q=Secret+Value'},
         {kind:'appeared',step:1,at,frame:'main',role:'status',name:'Unrelated label',text:'Unrelated text'});return {};});
       f.verifier.mockResolvedValue({passed:false,failures:['missing']});
-      const trace=await runWithPolicy({...task,input:{field:'Secret Value'}},{...f,outDir:dir,policy:new ScriptedPolicy([{action:{kind:'typeText',input:'field'}},{stop:'stuck'}])});
+      const trace=await runOnWebPage({...task,input:{field:'Secret Value'}},{...f,outDir:dir,policy:new ScriptedPolicy([{action:{kind:'typeText',input:'field'}},{stop:'stuck'}])});
       const events=trace.events.filter(e=>e.type.startsWith('observer.')&&e.type!=='observer.metadata'&&e.type!=='observer.dropped');
       const focus=events.find(e=>e.type==='observer.focus')!;
       expect(focus.data).toMatchObject({kind:'focus',step:1,role:'textbox',name:'Search field'});expect(focus.redacted).toBe(false);
@@ -314,7 +314,7 @@ describe('model-neutral runner',()=>{
     it('keeps observer events readable when no text was entered',async()=>{
       const f=fixture(),queue:ObserverEvent[]=[{kind:'focus',step:1,at,frame:'main',role:'button',name:'Start'}];withObserver(f,queue);
       f.verifier.mockResolvedValue({passed:false,failures:['missing']});
-      const trace=await runWithPolicy(task,{...f,outDir:await out(),policy:new ScriptedPolicy([{stop:'stuck'}])});
+      const trace=await runOnWebPage(task,{...f,outDir:await out(),policy:new ScriptedPolicy([{stop:'stuck'}])});
       const focus=trace.events.find(e=>e.type==='observer.focus')!;
       expect(focus.data).toMatchObject({name:'Start'});expect(focus.redacted).toBe(false);
       expect(trace.events.some(e=>e.type==='observer.dropped')).toBe(false);
@@ -333,7 +333,7 @@ describe('model-neutral runner',()=>{
     const types=(trace:{events:{type:string}[]})=>trace.events.map(e=>e.type);
     it('records which rules held once, before the first policy decision, using the built-in verifier',async()=>{
       const {f}=builtIn(async()=>'Done page',[{kind:'live-region',step:0,at,frame:'main',role:'status',text:'Added to cart'}]);
-      const trace=await runWithPolicy({...task,verify:{all:rules}},{...f,outDir:await out(),policy:new ScriptedPolicy([{stop:'stuck'}])});
+      const trace=await runOnWebPage({...task,verify:{all:rules}},{...f,outDir:await out(),policy:new ScriptedPolicy([{stop:'stuck'}])});
       const baselines=trace.events.filter(e=>e.type==='verifier.baseline');
       expect(baselines).toHaveLength(1);
       // Initial-load events never satisfy an event rule, so the baseline shows the goal is not yet met.
@@ -348,7 +348,7 @@ describe('model-neutral runner',()=>{
     });
     it('does not let the baseline decide the outcome even when every rule already holds',async()=>{
       const {f}=builtIn(async()=>'Done page');
-      const trace=await runWithPolicy({...task,verify:{all:[{titleIncludes:'Done'},{not:{event:{kind:'focus-lost'}}}]}},{...f,outDir:await out(),policy:new ScriptedPolicy([{action:{kind:'intent',intent:'activate'}}])});
+      const trace=await runOnWebPage({...task,verify:{all:[{titleIncludes:'Done'},{not:{event:{kind:'focus-lost'}}}]}},{...f,outDir:await out(),policy:new ScriptedPolicy([{action:{kind:'intent',intent:'activate'}}])});
       expect(trace.events.find(e=>e.type==='verifier.baseline')!.data).toMatchObject({passed:true});
       expect(f.backend.execute).toHaveBeenCalledTimes(1);
       expect(trace.outcome).toMatchObject({status:'success',reason:'verified'});
@@ -357,7 +357,7 @@ describe('model-neutral runner',()=>{
     it('feeds the in-memory timeline to later verifications and passes an event rule that happened after step 0',async()=>{
       const {f,queue}=builtIn(async()=>'Other',[{kind:'live-region',step:0,at,frame:'main',text:'Added'}]);
       vi.mocked(f.backend.execute).mockImplementation(async()=>{queue.push({kind:'live-region',step:1,at,frame:'main',role:'status',text:'Added to cart'});return {};});
-      const trace=await runWithPolicy({...task,verify:{all:[{event:{kind:'live-region',role:'status',text:'Added'}}]}},{...f,outDir:await out(),policy:new ScriptedPolicy([{action:{kind:'intent',intent:'activate'}}])});
+      const trace=await runOnWebPage({...task,verify:{all:[{event:{kind:'live-region',role:'status',text:'Added'}}]}},{...f,outDir:await out(),policy:new ScriptedPolicy([{action:{kind:'intent',intent:'activate'}}])});
       expect(trace.events.find(e=>e.type==='verifier.baseline')!.data).toEqual({passed:false,rules:[{ruleIndex:0,ruleType:'event',passed:false}]});
       expect(trace.outcome).toMatchObject({status:'success',reason:'verified'});
       const evidence=trace.events.find(e=>e.type==='verifier.evidence')!;
@@ -367,7 +367,7 @@ describe('model-neutral runner',()=>{
       let calls=0;
       // The first title() is the page title of the first screen reader observation; the second is the goal baseline.
       const {f}=builtIn(async()=>{if(++calls===2)throw new TypeError('secret https://example.test/?q=Private');return 'Done page';});
-      const trace=await runWithPolicy(task,{...f,outDir:await out(),policy:new ScriptedPolicy([{stop:'success'}])});
+      const trace=await runOnWebPage(task,{...f,outDir:await out(),policy:new ScriptedPolicy([{stop:'success'}])});
       const baseline=trace.events.find(e=>e.type==='verifier.baseline')!;
       expect(baseline.data).toEqual({error:'TypeError'});expect(JSON.stringify(baseline)).not.toMatch(/secret|Private/);
       expect(types(trace).indexOf('verifier.baseline')).toBeLessThan(types(trace).indexOf('policy.decision'));
@@ -375,7 +375,7 @@ describe('model-neutral runner',()=>{
     });
     it('never runs a custom verifier for the baseline',async()=>{
       const f=fixture();
-      const trace=await runWithPolicy(task,{...f,outDir:await out(),policy:new ScriptedPolicy([{action:{kind:'intent',intent:'activate'}}])});
+      const trace=await runOnWebPage(task,{...f,outDir:await out(),policy:new ScriptedPolicy([{action:{kind:'intent',intent:'activate'}}])});
       expect(trace.events.some(e=>e.type==='verifier.baseline')).toBe(false);
       expect(f.verifier).toHaveBeenCalledTimes(1);
       expect(f.verifier).toHaveBeenCalledWith(expect.objectContaining({goal:task.goal}),f.browser,expect.anything());
@@ -386,7 +386,7 @@ describe('model-neutral runner',()=>{
       const {f,queue}=builtIn(async()=>'Other');
       vi.mocked(f.backend.execute).mockImplementation(async()=>{queue.push({kind:'appeared',step:1,at,frame:'main',role:'status',name:'Welcome Secret Value',text:'Hi Secret Value'});return {};});
       const dir=await out();
-      const trace=await runWithPolicy({...task,input:{field:'Secret Value'},verify:{all:[{event:{kind:'appeared',role:'status',name:'Secret Value'}}]}},{...f,outDir:dir,policy:new ScriptedPolicy([{action:{kind:'typeText',input:'field'}}])});
+      const trace=await runOnWebPage({...task,input:{field:'Secret Value'},verify:{all:[{event:{kind:'appeared',role:'status',name:'Secret Value'}}]}},{...f,outDir:dir,policy:new ScriptedPolicy([{action:{kind:'typeText',input:'field'}}])});
       expect(trace.outcome).toMatchObject({status:'success',reason:'verified'});
       const evidence=trace.events.find(e=>e.type==='verifier.evidence')!;
       expect(evidence.redacted).toBe(true);
@@ -415,7 +415,7 @@ describe('getting a screen reader into a newly loaded page', () => {
   const script = (steps: number) => new ScriptedPolicy([...Array(steps).fill(next), { stop: 'stuck' as const }]);
   it('goes in at the start and again only when another document has loaded, without counting it as a move', async () => {
     const { f, enterPage } = loading([1, 1, 2]);
-    const trace = await runWithPolicy(task, { ...f, outDir: await out(), policy: script(2) });
+    const trace = await runOnWebPage(task, { ...f, outDir: await out(), policy: script(2) });
     expect(enterPage).toHaveBeenCalledTimes(2);
     expect(trace.events.filter(e => e.type === 'screen-reader.page-entry').map(e => e.data)).toEqual([{ step: 0, entered: true, moves: 1 }, { step: 2, entered: true, moves: 1 }]);
     expect(trace.outcome).toMatchObject({ steps: 3 }); // Two moves and the stop: going in is not among them.
@@ -424,19 +424,19 @@ describe('getting a screen reader into a newly loaded page', () => {
   it('leaves it to the screen reader whether its cursor is already in, and records why nothing was pressed', async () => {
     const { f, enterPage } = loading([1]);
     enterPage.mockResolvedValue({ entered: false, moves: 0, reason: 'VoiceOver was already in the page' });
-    const trace = await runWithPolicy(task, { ...f, outDir: await out(), policy: script(1) });
+    const trace = await runOnWebPage(task, { ...f, outDir: await out(), policy: script(1) });
     expect(enterPage).toHaveBeenCalledTimes(1);
     expect(trace.events.find(e => e.type === 'screen-reader.page-entry')?.data).toEqual({ step: 0, entered: false, moves: 0, reason: 'VoiceOver was already in the page' });
   });
   it('looks again after the next action when the page cannot answer yet', async () => {
     const { f, enterPage } = loading([new Error('Execution context was destroyed'), 1]);
-    await runWithPolicy(task, { ...f, outDir: await out(), policy: script(1) });
+    await runOnWebPage(task, { ...f, outDir: await out(), policy: script(1) });
     expect(enterPage).toHaveBeenCalledTimes(1);
   });
   it('ends the run on an error when the reader cannot get in, since the run could then say nothing about the page', async () => {
     const { f, enterPage } = loading([1]);
     enterPage.mockRejectedValue(new Error("VoiceOver's cursor did not reach the web content within 8 moves"));
-    const trace = await runWithPolicy(task, { ...f, outDir: await out(), policy: script(1) });
+    const trace = await runOnWebPage(task, { ...f, outDir: await out(), policy: script(1) });
     expect(trace.outcome).toMatchObject({ status: 'failure', reason: 'error', stage: 'page-entry', error: expect.stringContaining('web content') });
     expect(f.backend.execute).not.toHaveBeenCalled();
   });
@@ -444,7 +444,7 @@ describe('getting a screen reader into a newly loaded page', () => {
 describe('a goal reached without the user hearing so', () => {
   const shop: Task = { ...task, maxSteps: 10, verify: { all: [{ textVisible: 'Added to cart' }] } };
   const next = { action: { kind: 'intent' as const, intent: 'next' } };
-  const run = async (f: ReturnType<typeof fixture>, confirmationGrace?: number) => runWithPolicy(shop, { ...f, outDir: await out(), policy: new ScriptedPolicy(Array(10).fill(next)), ...(confirmationGrace !== undefined ? { confirmationGrace } : {}) });
+  const run = async (f: ReturnType<typeof fixture>, confirmationGrace?: number) => runOnWebPage(shop, { ...f, outDir: await out(), policy: new ScriptedPolicy(Array(10).fill(next)), ...(confirmationGrace !== undefined ? { confirmationGrace } : {}) });
   it('goes on for the grace when the confirmation was only shown, and records when it was reached', async () => {
     const trace = await run(fixture(), 2);
     expect(trace.outcome).toMatchObject({ status: 'success', reason: 'verified', steps: 3, goalStep: 1, goalConfirmed: false });
@@ -468,15 +468,15 @@ describe('a goal reached without the user hearing so', () => {
     expect(trace.events.find(e => e.type === 'goal.heard')?.data).toMatchObject({ step: 2, reachedAt: 1 });
   });
   it('leaves the goal unconfirmed when a limit or the guard stops the run, and when the time limit cuts the grace short', async () => {
-    const stopped = await runWithPolicy(shop, { ...fixture('Nothing about it'), outDir: await out(), policy: new ScriptedPolicy([{ stop: 'stuck', stopSource: 'exploration-guard' }]) });
+    const stopped = await runOnWebPage(shop, { ...fixture('Nothing about it'), outDir: await out(), policy: new ScriptedPolicy([{ stop: 'stuck', stopSource: 'exploration-guard' }]) });
     expect(stopped.outcome).toMatchObject({ status: 'success', policyStopSource: 'exploration-guard', goalConfirmed: false });
     const f = fixture(); let presses = 0;
     vi.mocked(f.backend.execute).mockImplementation(async (action: BackendAction) => { if (++presses > 1) await new Promise(() => {}); return { id: 'command-1', action }; });
-    const timed = await runWithPolicy({ ...shop, timeoutMs: 400 }, { ...f, outDir: await out(), confirmationGrace: 5, policy: new ScriptedPolicy(Array(10).fill(next)) });
+    const timed = await runOnWebPage({ ...shop, timeoutMs: 400 }, { ...f, outDir: await out(), confirmationGrace: 5, policy: new ScriptedPolicy(Array(10).fill(next)) });
     expect(timed.outcome).toMatchObject({ status: 'success', reason: 'verified', goalConfirmed: false });
   });
   it('tells a user who stopped not knowing from one who said they were done', async () => {
-    const stopping = async (stop: 'stuck' | 'success') => runWithPolicy(shop, { ...fixture(), outDir: await out(), confirmationGrace: 5, policy: new ScriptedPolicy([next, { stop }]) });
+    const stopping = async (stop: 'stuck' | 'success') => runOnWebPage(shop, { ...fixture(), outDir: await out(), confirmationGrace: 5, policy: new ScriptedPolicy([next, { stop }]) });
     expect((await stopping('stuck')).outcome).toMatchObject({ status: 'success', policyStop: 'stuck', goalConfirmed: false });
     const done = await stopping('success');
     expect(done.outcome).toMatchObject({ status: 'success', policyStop: 'success' });
@@ -512,7 +512,7 @@ describe('listening on after a press that said nothing', () => {
   const notYet = () => vi.fn(async (): Promise<VerificationRecord> => ({ passed: false, failures: [] }));
   it('waits for the late answer without pressing anything, and records one observation for the move', async () => {
     const f = answering('Start', '', '', 'Completed');
-    const trace = await runWithPolicy(noTask, { ...f, verifier: notYet(), outDir: await out(), silentPressWaitMs: 2000, policy: new ScriptedPolicy([press, { stop: 'stuck' }]) });
+    const trace = await runOnWebPage(noTask, { ...f, verifier: notYet(), outDir: await out(), silentPressWaitMs: 2000, policy: new ScriptedPolicy([press, { stop: 'stuck' }]) });
     expect(heard(trace)).toEqual([['Start'], ['Completed']]);
     expect(f.backend.execute).toHaveBeenCalledTimes(1);
     expect(f.backend.observe).toHaveBeenCalledTimes(4);
@@ -520,18 +520,18 @@ describe('listening on after a press that said nothing', () => {
   it('does not wait after a press that put focus in a text field: the user types next', async () => {
     const f = answering('Start');
     f.browser.page.evaluate = vi.fn(async () => true) as never;
-    await runWithPolicy(noTask, { ...f, verifier: notYet(), outDir: await out(), silentPressWaitMs: 60_000, policy: new ScriptedPolicy([press, { stop: 'stuck' }]) });
+    await runOnWebPage(noTask, { ...f, verifier: notYet(), outDir: await out(), silentPressWaitMs: 60_000, policy: new ScriptedPolicy([press, { stop: 'stuck' }]) });
     expect(f.backend.observe).toHaveBeenCalledTimes(2);
   });
   it('stops waiting after the limit, and costs no wait when the press said something, after a move, or by default', async () => {
     const silent = answering('Start');
     const started = Date.now();
-    const trace = await runWithPolicy(noTask, { ...silent, verifier: notYet(), outDir: await out(), silentPressWaitMs: 300, policy: new ScriptedPolicy([press, { stop: 'stuck' }]) });
+    const trace = await runOnWebPage(noTask, { ...silent, verifier: notYet(), outDir: await out(), silentPressWaitMs: 300, policy: new ScriptedPolicy([press, { stop: 'stuck' }]) });
     expect(heard(trace)).toEqual([['Start'], []]);
     expect(Date.now() - started).toBeGreaterThanOrEqual(300);
     for (const [replies, decision, wait] of [[['Start', 'Dialog'], press, 60_000], [['Start'], move, 60_000], [['Start'], press, undefined]] as const) {
       const f = answering(...replies);
-      await runWithPolicy(noTask, { ...f, verifier: notYet(), outDir: await out(), ...(wait ? { silentPressWaitMs: wait } : {}), policy: new ScriptedPolicy([decision, { stop: 'stuck' }]) });
+      await runOnWebPage(noTask, { ...f, verifier: notYet(), outDir: await out(), ...(wait ? { silentPressWaitMs: wait } : {}), policy: new ScriptedPolicy([decision, { stop: 'stuck' }]) });
       expect(f.backend.observe).toHaveBeenCalledTimes(2);
     }
   });
@@ -545,7 +545,7 @@ describe('what a policy did before it failed to decide', () => {
       async decide() { evidence = [{ kind: 'orchestration-plan', trigger: 'initial', version: 1 }, { kind: 'orchestration-cue', verified: true }]; throw new Error('planner unreachable'); },
       takeDecisionEvidence() { return evidence.splice(0); },
     };
-    const trace = await runWithPolicy(task, { ...f, verifier: vi.fn(async (): Promise<VerificationRecord> => ({ passed: false, failures: ['not yet'] })), outDir: await out(), policy });
+    const trace = await runOnWebPage(task, { ...f, verifier: vi.fn(async (): Promise<VerificationRecord> => ({ passed: false, failures: ['not yet'] })), outDir: await out(), policy });
     expect(trace.outcome).toMatchObject({ status: 'failure', reason: 'error', stage: 'policy' });
     expect(trace.events.filter(e => e.type === 'policy.evidence').map(e => e.data)).toEqual([
       { step: 1, evidence: { kind: 'orchestration-plan', trigger: 'initial', version: 1 } }, { step: 1, evidence: { kind: 'orchestration-cue', verified: true } },
@@ -558,13 +558,13 @@ describe('an activate that pressed nothing', () => {
     const f = fixture();
     (f.backend.execute as ReturnType<typeof vi.fn>).mockImplementation(async () => ({ pressed: false }));
     const verifier = vi.fn(async (_task: Task, _browser: unknown, context?: { latestActivation?: unknown }): Promise<VerificationRecord> => ({ passed: false, failures: [context?.latestActivation ? 'had an activation' : 'no activation yet'] }));
-    const trace = await runWithPolicy(task, { ...f, verifier, outDir: await out(), policy: new ScriptedPolicy([{ action: { kind: 'intent', intent: 'activate' } }, { stop: 'stuck' }]) });
+    const trace = await runOnWebPage(task, { ...f, verifier, outDir: await out(), policy: new ScriptedPolicy([{ action: { kind: 'intent', intent: 'activate' } }, { stop: 'stuck' }]) });
     expect(trace.events.find(e => e.type === 'action.result')?.data).toMatchObject({ step: 1, ok: true, pressed: false });
     expect(trace.events.filter(e => e.type === 'verifier.result').map(e => (e.data as { failures: string[] }).failures[0])).not.toContain('had an activation');
     // The same action from a backend that says nothing is a press, as its name says.
     const pressing = fixture(), seen: string[] = [];
     const verify = vi.fn(async (_task: Task, _browser: unknown, context?: { latestActivation?: unknown }): Promise<VerificationRecord> => { seen.push(context?.latestActivation ? 'activation' : 'none'); return { passed: false, failures: ['not yet'] }; });
-    const pressed = await runWithPolicy(task, { ...pressing, verifier: verify, outDir: await out(), policy: new ScriptedPolicy([{ action: { kind: 'intent', intent: 'activate' } }, { stop: 'stuck' }]) });
+    const pressed = await runOnWebPage(task, { ...pressing, verifier: verify, outDir: await out(), policy: new ScriptedPolicy([{ action: { kind: 'intent', intent: 'activate' } }, { stop: 'stuck' }]) });
     expect(pressed.events.find(e => e.type === 'action.result')?.data).not.toHaveProperty('pressed');
     expect(seen).toContain('activation');
   });

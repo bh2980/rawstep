@@ -44,6 +44,11 @@
       "import": "./dist/trace/index.js",
       "default": "./dist/trace/index.js"
     },
+    "./runner": {
+      "types": "./dist/runner/index.d.ts",
+      "import": "./dist/runner/index.js",
+      "default": "./dist/runner/index.js"
+    },
     "./package.json": "./package.json",
     "./actions": {
       "types": "./dist/actions.d.ts",

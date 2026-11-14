@@ -7,7 +7,7 @@ import { createTestBrowserSession } from './helpers/browser.js';
 import { collectBrowserDiagnostics, resolveEnvironmentProfile, verifyLiveProfile } from '@rawstep/browser/profiles';
 import { runMockVoiceOverTask } from '@rawstep/screenreaders/mock-voiceover';
 import { FixedPlanner, OrchestratedSpeechPolicy, ScriptedPolicy, planFileSchema, type PlanDraft, type PlanRequest, type Planner } from '@rawstep/policies/policy';
-import { runWithPolicy } from '@rawstep/browser/runner';
+import { runOnWebPage } from './helpers/web-run.js';
 import type { CreateBrowserSessionOptions } from '@rawstep/browser/browser';
 import type { Backend, Decision } from '@rawstep/core/contracts';
 const cleanups:(()=>Promise<unknown>)[]=[];afterEach(async()=>{for(const fn of cleanups.splice(0).reverse())await fn()});
@@ -39,21 +39,21 @@ describe('actual browser environment profiles and isolated diagnostics',()=>{
     const plan=planFileSchema.parse({strategy:'Fill in the email',criteria:[{id:'C1',text:'The email is typed'}],assumptions:[],phases:[{title:'Email',tasks:[{goal:'Move to the email field',done:'Hear edit text',cue:'edit text',activates:false,moves:['form.next']},{goal:'Type the email',done:'The email is typed',cue:'',types:'email'}]}]}) as PlanDraft;
     const fixed=new FixedPlanner(plan,{file:'plan.json',sha256:'f'.repeat(64)});
     const planner:Planner={plan:async request=>{requests.push(structuredClone(request));return fixed.plan(request)}};
-    const trace=await runMockVoiceOverTask({id:'privacy',url:fixture,goal:'Inspect',maxSteps:8,input:{email:'PRIVATE_PROFILE_INPUT'},verify:{all:[{titleIncludes:'Never'}]}},{profile:'default',outDir:out,browserSessionFactory:createTestBrowserSession,warn:quiet,policy:new OrchestratedSpeechPolicy(planner)});
+    const trace=await runMockVoiceOverTask({id:'privacy',url:fixture,goal:'Inspect',maxSteps:8,input:{email:'PRIVATE_PROFILE_INPUT'},verify:{all:[{titleIncludes:'Never'}]}},{profile:'default',outDir:out,browser:{browserSessionFactory:createTestBrowserSession},warn:quiet,policy:new OrchestratedSpeechPolicy(planner)});
     expect(trace.events.filter(e=>e.type==='browser.accessibility-diagnostic').at(-1)?.redacted).toBe(true);expect(await readFile(join(out,'trace.json'),'utf8')).not.toContain('PRIVATE_PROFILE_INPUT');expect(JSON.stringify(requests)).not.toMatch(/independent-browser-diagnostic|focus-center-occluded|"profile"|"editable"|PRIVATE_PROFILE_INPUT/);expect(trace.outcome).toMatchObject({status:'failure',reason:'policy-stuck',policyStopSource:'user-gave-up'});
   });
   it('verifies live text-style drift and stops rather than silently running the wrong profile',async()=>{
     const d=await dir(),file=join(d,'drift.html');await writeFile(file,'<!doctype html><button autofocus onclick="document.body.style.setProperty(\'font-size\',\'7px\',\'important\')">Change style</button>');
-    const trace=await runMockVoiceOverTask({url:pathToFileURL(file).href,goal:'Inspect',maxSteps:3,verify:{all:[{titleIncludes:'Never'}]}},{profile:'text-200',outDir:join(d,'run'),browserSessionFactory:createTestBrowserSession,warn:quiet,policy:new ScriptedPolicy([key('Enter')])});expect(trace.outcome?.reason).toBe('unsupported-profile');
+    const trace=await runMockVoiceOverTask({url:pathToFileURL(file).href,goal:'Inspect',maxSteps:3,verify:{all:[{titleIncludes:'Never'}]}},{profile:'text-200',outDir:join(d,'run'),browser:{browserSessionFactory:createTestBrowserSession},warn:quiet,policy:new ScriptedPolicy([key('Enter')])});expect(trace.outcome?.reason).toBe('unsupported-profile');
   });
   it('lets a backend refuse the host before the browser opens and the opened session before observation or dispatch',async()=>{
     const make=(hooks:Partial<Backend>):Backend=>({capabilities:{intents:[],keys:[],textEntry:false,replaceText:false},start:async()=>({}),subscribe:()=>()=>{},close:async()=>{},execute:async()=>{throw Error('must not dispatch')},observe:async()=>{throw Error('must not observe')},...hooks});
     let opened=0,closed=0;const contexts:unknown[]=[];
     const browserSessionFactory=async(url:string,options:CreateBrowserSessionOptions)=>{opened++;const s=await createTestBrowserSession(url,options);const close=s.close;s.close=async()=>{closed++;await close()};return s};
-    const host=await runWithPolicy({url:fixture,goal:'Inspect',verify:{all:[{titleIncludes:'Never'}]}},{backend:make({preflight:context=>{contexts.push(context);throw new Error('host refused')}}),policy:new ScriptedPolicy([]),outDir:await dir(),browserSessionFactory});
+    const host=await runOnWebPage({url:fixture,goal:'Inspect',verify:{all:[{titleIncludes:'Never'}]}},{backend:make({preflight:context=>{contexts.push(context);throw new Error('host refused')}}),policy:new ScriptedPolicy([]),outDir:await dir(),browserSessionFactory});
     expect(host.outcome?.error).toMatch(/host refused/);expect(opened).toBe(0);
-    expect(contexts).toEqual([{headless:false,platform:process.platform,customBrowserSession:true}]);
-    const session=await runWithPolicy({url:fixture,goal:'Inspect',verify:{all:[{titleIncludes:'Never'}]}},{backend:make({attachSession:()=>{throw new Error('session refused')}}),policy:new ScriptedPolicy([]),outDir:await dir(),browserSessionFactory});
+    expect(contexts).toEqual([{platform:process.platform,surface:{kind:"web",headless:false,customSession:true}}]);
+    const session=await runOnWebPage({url:fixture,goal:'Inspect',verify:{all:[{titleIncludes:'Never'}]}},{backend:make({attachSession:()=>{throw new Error('session refused')}}),policy:new ScriptedPolicy([]),outDir:await dir(),browserSessionFactory});
     expect(session.outcome?.error).toMatch(/session refused/);expect(opened).toBe(1);expect(closed).toBe(1);
   });
 });
@@ -82,7 +82,7 @@ describe('profile mismatch privacy after named text entry',()=>{
     const d=await dir(),file=join(d,'tainted-profile.html'),secret='PRIVATE_PROFILE_INPUT';
     await writeFile(file,`<!doctype html><input autofocus oninput="window.__rawstepMeasureProfile=()=>({unprofiledNodes:0,samples:[{baseline:10,actual:btoa(this.value)}],spacing:null})">`);
     const outDir=join(d,'run');
-    const trace=await runMockVoiceOverTask({id:'tainted-profile',url:pathToFileURL(file).href,goal:'Inspect',input:{secret},verify:{all:[{titleIncludes:'Never'}]}},{profile:'text-200',outDir,browserSessionFactory:createTestBrowserSession,warn:quiet,policy:new ScriptedPolicy([{action:{kind:'typeText',input:'secret'}}])});
+    const trace=await runMockVoiceOverTask({id:'tainted-profile',url:pathToFileURL(file).href,goal:'Inspect',input:{secret},verify:{all:[{titleIncludes:'Never'}]}},{profile:'text-200',outDir,browser:{browserSessionFactory:createTestBrowserSession},warn:quiet,policy:new ScriptedPolicy([{action:{kind:'typeText',input:'secret'}}])});
     expect(trace.outcome).toMatchObject({status:'inconclusive',reason:'unsupported-profile'});
     expect(trace.environment.profile).toMatchObject({supported:false,details:'[REDACTED]'});
     expect(trace.events.filter(e=>e.type==='browser.profile').at(-1)).toMatchObject({redacted:true,data:{supported:false,details:'[REDACTED]'}});

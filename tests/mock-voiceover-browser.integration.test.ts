@@ -20,7 +20,7 @@ async function fixture(html: string) {
   const events: unknown[] = [];
   backend.subscribe(event => events.push(event));
   const metadata = await backend.start();
-  backend.attachSession({ page: page });
+  backend.attachSession({ kind: 'web', page });
   cleanup.push(() => backend.close());
   // The page-title announcement on load has its own test; the others start from the first object on the page.
   const loaded = await backend.observe(), titled = (loaded.outputs[0]?.raw as { announcement?: string } | undefined)?.announcement === 'page-title';
@@ -79,7 +79,7 @@ describe('browser-backed simulated English VoiceOver profile in real Chromium', 
     await page.goto('http://fixture.test/');
     const backend = new MockVoiceOverBackend();
     await backend.start();
-    backend.attachSession({ page });
+    backend.attachSession({ kind: 'web', page });
     cleanup.push(() => backend.close());
     await backend.observe();
     await backend.execute({ kind: 'intent', intent: 'activate' });

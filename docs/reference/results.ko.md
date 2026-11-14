@@ -14,8 +14,8 @@
         ├── summary.json              # 배치 내 모든 태스크·프로필 요약 (BatchSummary 스키마 1.0)
         └── <run-id>/                 # 개별 실행마다 생성되는 폴더 (실행 UUID 이름)
             ├── trace.jsonl           # 비정상 종료에도 유실되지 않는 실시간 이벤트 스트림
-            ├── trace.json            # 실행 완료 후 확정된 RunTrace (스키마 3.0)
-            ├── diagnostics/          # 진단 이미지: 단계마다 step-<N>.png, 시작 시 전체 페이지 start-page.png
+            ├── trace.json            # 실행 완료 후 확정된 RunTrace (스키마 4.0)
+            ├── diagnostics/          # 진단 이미지: 단계마다 step-<N>.png, 시작 시 전체 페이지 start.png
             ├── plan.json             # 단계, 세부 작업, 완료 기준, 가정, 수정 이력이 담긴 최종 PlanDocument (플래너가 이끄는 실행)
             ├── plan.md               # 사람이 읽기 편하게 렌더링한 마크다운 계획 문서
             ├── hints.json            # 추출된 마찰 힌트 보고서 (HintReport 스키마 3.0)

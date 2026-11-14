@@ -982,7 +982,7 @@ describe('real VoiceOver speech', () => {
     const { screen, cursorLocator } = onScreen(IN);
     const { backend: driver } = await backend('voiceover', { cursorLocator });
     await settle(driver);
-    driver.attachSession({ page: {}, browserProcessId: 4242 });
+    driver.attachSession({ kind: 'web', page: {}, browserProcessId: 4242 });
     await finish(driver.enterPage());
     expect(screen.pids).toEqual([4242]);
   });
@@ -1050,15 +1050,16 @@ describe('VoiceOver helpers outside AT Driver', () => {
 
 describe('AT Driver host preconditions', () => {
   const make = (url: string, profile: 'voiceover' | 'nvda' = 'voiceover') => new AtDriverBackend({ url, profile, webSocketFactory: () => { throw new Error('preflight must not connect'); } });
-  const ok = { platform: 'darwin', headless: false, customBrowserSession: false };
+  const web = (headless: boolean, customSession: boolean) => ({ kind: 'web' as const, headless, customSession });
+  const ok = { platform: 'darwin', surface: web(false, false) };
   it('requires the same supported host, a loopback endpoint and a visible browser unless a session factory is paired', () => {
     expect(() => make('ws://localhost/session').preflight(ok)).not.toThrow();
     expect(() => make('ws://localhost/session').preflight({ ...ok, platform: 'win32' })).toThrow(/same supported host/);
     expect(() => make('ws://localhost/session', 'nvda').preflight({ ...ok, platform: 'win32' })).not.toThrow();
     expect(() => make('ws://example.test/session').preflight(ok)).toThrow(expect.objectContaining({ code: 'backend-precondition', message: expect.stringMatching(/loopback AT Driver endpoint/) }));
-    expect(() => make('ws://localhost/session').preflight({ ...ok, headless: true })).toThrow(/headless is unsupported/);
-    expect(() => make('ws://example.test/session', 'nvda').preflight({ platform: 'linux', headless: true, customBrowserSession: true })).not.toThrow();
-    expect(() => make('ws://localhost/session').preflight({ platform: 'linux', headless: true, customBrowserSession: true })).not.toThrow();
+    expect(() => make('ws://localhost/session').preflight({ ...ok, surface: web(true, false) })).toThrow(/headless is unsupported/);
+    expect(() => make('ws://example.test/session', 'nvda').preflight({ platform: 'linux', surface: web(true, true) })).not.toThrow();
+    expect(() => make('ws://localhost/session').preflight({ platform: 'linux', surface: web(true, true) })).not.toThrow();
   });
   it('takes what a reader needs of its host from the profile: VoiceOver has helpers for this machine, NVDA needs none, and the backend follows the contract', () => {
     const voiceover = getAtDriverProfile('voiceover'), nvda = getAtDriverProfile('nvda');
@@ -1070,7 +1071,7 @@ describe('AT Driver host preconditions', () => {
     expect(make('ws://localhost/session').cleanupTimeoutMs).toBe(5_000);
   });
   it('refuses a paired VoiceOver on another machine unless the helpers that reach that Mac are passed in', () => {
-    const paired = { platform: 'linux', headless: true, customBrowserSession: true };
+    const paired = { platform: 'linux', surface: web(true, true) };
     expect(() => make('ws://example.test/session').preflight(paired)).toThrow(expect.objectContaining({ code: 'backend-precondition', message: expect.stringMatching(/cursorLocator, commander and clipboard/) }));
     const helpers = { cursorLocator: { page: async () => undefined, cursor: async () => ({ x: 0, y: 0, width: 1, height: 1 }) }, commander: async () => {}, clipboard: async () => {} };
     const remote = new AtDriverBackend({ url: 'ws://example.test/session', profile: 'voiceover', webSocketFactory: () => { throw new Error('preflight must not connect'); }, ...helpers });
