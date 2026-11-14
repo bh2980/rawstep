@@ -83,8 +83,8 @@ describe('dashboard API and sequential queue', () => {
     const app = await startDashboard({ projectDir: dir, port: 0, execute: async (_run, actual, out) => {
       const trace = new TraceRecorder({ ...actual, id: 'fixture' }, out); await trace.initialize();
       await mkdir(join(out, 'diagnostics'), { recursive: true }); await writeFile(join(out, 'diagnostics', 'step-0.png'), png);
-      trace.append('browser.screenshot', { step: 0, path: 'diagnostics/step-0.png', policyVisible: false }, { source: 'browser-diagnostic' });
-      trace.append('browser.screenshot', { step: 0, path: '../task.json', policyVisible: false }, { source: 'browser-diagnostic' });
+      trace.append('surface.screenshot', { step: 0, path: 'diagnostics/step-0.png', policyVisible: false }, { source: 'surface' });
+      trace.append('surface.screenshot', { step: 0, path: '../task.json', policyVisible: false }, { source: 'surface' });
       return trace.finalize({ status: 'success', steps: 0 });
     } }); apps.push(app);
     const created = await fetch(app.url + '/api/experiments', { method: 'POST', headers: { 'content-type': 'application/json', origin: app.url }, body: JSON.stringify({ ...request, profileIds: ['default'] }) });
@@ -92,7 +92,7 @@ describe('dashboard API and sequential queue', () => {
     await waitFor(async () => app.queue.find(experiment.id, run.id).reportStatus === 'complete');
     const base = app.url + '/api/experiments/' + experiment.id + '/runs/' + run.id;
     const events = await (await fetch(base + '/events')).json() as { id: string; type: string; data: { path?: string } }[];
-    const [shot, escape] = events.filter(e => e.type === 'browser.screenshot');
+    const [shot, escape] = events.filter(e => e.type === 'surface.screenshot');
     const image = await fetch(base + '/png/' + shot!.id);
     expect(image.headers.get('content-type')).toBe('image/png'); expect(Buffer.from(await image.arrayBuffer()).equals(png)).toBe(true);
     expect((await fetch(base + '/png/' + escape!.id)).status).toBe(404);
@@ -205,7 +205,7 @@ describe('dashboard run views and live events', () => {
   /** One recorded run: a key per step, each followed by a distinct diagnostic screenshot, ending with the given outcome. */
   const script = (keys: string[], status: 'success' | 'failure') => async (trace: TraceRecorder, out: string) => {
     await mkdir(join(out, 'diagnostics'), { recursive: true });
-    const shot = async (step: number) => { await writeFile(join(out, 'diagnostics', `step-${step}.png`), png('step' + step)); trace.append('browser.screenshot', { step, path: `diagnostics/step-${step}.png`, policyVisible: false }, { source: 'browser-diagnostic' }); };
+    const shot = async (step: number) => { await writeFile(join(out, 'diagnostics', `step-${step}.png`), png('step' + step)); trace.append('surface.screenshot', { step, path: `diagnostics/step-${step}.png`, policyVisible: false }, { source: 'surface' }); };
     await shot(0);
     for (const [i, key] of keys.entries()) {
       trace.append('policy.decision', { step: i + 1, decision: { action: { kind: 'key', key } } }, { source: 'policy' });

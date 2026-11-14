@@ -594,7 +594,7 @@ describe('orchestrated speech policy carrying out the plan', () => {
 describe('orchestrated policy inside the runner', () => {
   it('records the plan, task changes and followed actions as policy evidence while the runner verifies', async () => {
     const { mkdtemp, rm, readFile } = await import('node:fs/promises'), { tmpdir } = await import('node:os'), { join } = await import('node:path');
-    const { runWithPolicy } = await import('@rawstep/browser/runner');
+    const { runOnWebPage } = await import('./helpers/web-run.js');
     const dir = await mkdtemp(join(tmpdir(), 'rawstep-orchestration-'));
     try {
       let pressed = 0;
@@ -603,7 +603,7 @@ describe('orchestrated policy inside the runner', () => {
         observe: async () => ({ windowId: 'w', startedAt: '2026-10-01T00:00:00Z', endedAt: '2026-10-01T00:00:01Z', reason: 'fixture', outputs: [], speech: [pressed ? 'Added to cart' : 'Add to cart, button'] }) };
       const session = { page: { bringToFront: async () => {} }, browser: { version: () => 'fake' }, takeBlockedNavigations: () => [], takeNavigationGuardWarnings: () => [], close: async () => {} };
       const p = planner({ ...draft({}), phases: [{ title: 'Buy', tasks: [{ goal: 'Activate Add to cart', done: 'The cart confirms', cue: 'Added to cart', activates: true }] }] });
-      const trace = await runWithPolicy({ url: 'https://example.test', goal: 'Add to cart', verify: { all: [{ titleIncludes: 'Done' }] } }, {
+      const trace = await runOnWebPage({ url: 'https://example.test', goal: 'Add to cart', verify: { all: [{ titleIncludes: 'Done' }] } }, {
         backend, policy: new OrchestratedSpeechPolicy(p.planner), outDir: dir, browserSessionFactory: async () => session as never,
         verifier: async () => ({ passed: pressed > 0, failures: pressed > 0 ? [] : ['not yet'] }) });
       expect(trace.outcome?.status).toBe('success');

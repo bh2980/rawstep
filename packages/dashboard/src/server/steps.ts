@@ -20,7 +20,7 @@ function cursorOf(value: unknown): StepView['cursor'] {
   return [x, y, width, height, w, h].every(n => typeof n === 'number' && Number.isFinite(n)) ? { rect: { x: x as number, y: y as number, width: width as number, height: height as number }, viewport: { w: w as number, h: h as number } } : undefined;
 }
 /** Where the runner writes a run's diagnostic screenshots, relative to the run directory. */
-export const DIAGNOSTIC_PATH = /^diagnostics\/(step-\d{1,5}|start-page)\.png$/;
+export const DIAGNOSTIC_PATH = /^diagnostics\/(step-\d{1,5}|start)\.png$/;
 /** Hosts and markers of bot checks a run cannot get past; Rawstep never tries to. */
 const BOT_CHECK = /(^|\.)(challenges\.cloudflare\.com|hcaptcha\.com|recaptcha\.net)$|^www\.google\.com$/;
 const hostOf = (url: unknown) => { try { return typeof url === 'string' ? new URL(url).hostname : undefined; } catch { return undefined; } };
@@ -197,7 +197,7 @@ export function buildSteps({ experimentId, runId, events, hints = [], live }: St
       } else if (text(decision.stop)) target.stop = { stop: text(decision.stop)!, ...(text(decision.stopSource) ? { source: text(decision.stopSource)! } : {}) };
     } else if (event.type === 'action.result') {
       target.ok = data.ok === true;
-    } else if (event.type === 'browser.screenshot' && !event.redacted && text(data.path) && DIAGNOSTIC_PATH.test(text(data.path)!)) {
+    } else if (event.type === 'surface.screenshot' && !event.redacted && text(data.path) && DIAGNOSTIC_PATH.test(text(data.path)!)) {
       if (!target.screenshot) target.screenshot = { eventId: event.id };
     } else if (event.type === 'screen-reader.observation' || event.type === 'simulation.observation') {
       const lines = Array.isArray(data.speech) ? data.speech.map(text).filter((l): l is string => !!l) : [];

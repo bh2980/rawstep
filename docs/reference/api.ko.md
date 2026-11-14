@@ -12,13 +12,13 @@ Rawstep은 단일 패키지(`rawstep`)로 배포되며 기능별 서브패스(`r
 | **`rawstep/project`** | `runTask`, `runSuite`, `ProjectStore`, `initProject`, `parseConfig`, `defaultConfig`, `PROVIDERS`, `ProjectError`. |
 | **`rawstep/contracts`** | `resolveTask`, `validateNavigation`, `describeInputs`, `matchesText`, `flattenVerifyRules`, `Task`, `VerifyRule`, `DecisionPolicy`, `Backend`, `ScreenReaderObservation`. |
 | **`rawstep/policy`** | `OrchestratedSpeechPolicy`, `FixedPlanner`, `followPlan`, `applyDraft`, `renderPlanMarkdown`, `speechChoices`, `ScriptedPolicy`, `loadPolicy`. |
-| **`rawstep/runner`** | 저수준 실행 함수 `runWithPolicy(task, options)`, `RunOptions`, `validateDecision`, `confirmationHeard`. |
+| **`rawstep/runner`** | 저수준 실행 함수 `runWithPolicy(task, options)`, `RunOptions`, `validateDecision`, `confirmationHeard`. 실행할 곳은 `options.surface`로 정합니다. `webSurface(options)`는 웹 페이지를 엽니다(헤드리스 여부, 직접 띄운 Chrome, 직접 만든 `browserSessionFactory`나 `verifier`). 다른 실행 환경이 구현할 내용은 `Surface`와 `SurfaceOpener` 타입에 있습니다. |
 | **`rawstep/mock-voiceover`** | `MockVoiceOverBackend`, `runMockVoiceOverTask`, `formatSimulatedSpeech`, `MOCK_VOICEOVER_PROFILE`. |
 | **`rawstep/at-driver`** | `AtDriverBackend`, `AtDriverClient`, `getAtDriverProfile`, `AT_DRIVER_KEYS`, `AtDriverError`. |
 | **`rawstep/hints`** | `extractHints`, `aggregateHints`, `writeHints`, `selectReference`, `summarizeRun`, `runEnding`, `runBroke`, `isMeasured`, `DEFAULT_HINT_THRESHOLDS`, `HINTS_SCHEMA_VERSION` (`"3.0"`), `buildBatchSummary`, `compareSummaries`, `measuredRuns`, `ranRuns`, `SUMMARY_SCHEMA_VERSION` (`"1.0"`). |
 | **`rawstep/report`** | `renderReportHtml`, `writeReport`, `summarizeTrace`. |
 | **`rawstep/analyze`** | `analyzeTrace`, `analyzeSavedTrace`, `deterministicAnalyzer`, `LlmTraceAnalyzer`, `readAnalysis`. |
-| **`rawstep/trace`** | `TraceRecorder`, `FileTraceSink`, `MemoryTraceSink`, `readTrace`, `validateTrace`, `createRedactor`, `TRACE_SCHEMA_VERSION` (`"3.0"`), `OUTCOME_REASONS`, `RUN_STAGES`. |
+| **`rawstep/trace`** | `TraceRecorder`, `FileTraceSink`, `MemoryTraceSink`, `readTrace`, `validateTrace`, `createRedactor`, `TRACE_SCHEMA_VERSION` (`"4.0"`), `OUTCOME_REASONS`, `RUN_STAGES`. |
 | **`rawstep/verify`** | `verifyTask`, `evaluateVerifyRule`, `runScriptCheck`, `formatVerificationFeedback`. |
 | **`rawstep/browser`** | `createBrowserSession`, `closeBrowserSession`, `settlePage`, `isBotCheckPage`, `watchPageActivity`. |
 | **`rawstep/profiles`** | `resolveEnvironmentProfile`, `BUILTIN_PROFILES`, `DEFAULT_PROFILE`, `applyProfile`, `verifyLiveProfile`, `collectBrowserDiagnostics`. |

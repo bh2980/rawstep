@@ -13,7 +13,7 @@ afterEach(async () => { await Promise.all(directories.splice(0).map(directory =>
 const timestamp = "2026-01-01T00:00:00.000Z";
 function fixture(events: Array<Pick<TraceEvent, "type" | "data"> & Partial<TraceEvent>>): RunTrace {
   return {
-    schemaVersion: "3.0", runId: "report-test", task: { id: "report" },
+    schemaVersion: "4.0", runId: "report-test", task: { id: "report" },
     environment: { platform: "test", platformVersion: "unknown", browser: "test", browserVersion: "unknown", screenReader: "test", screenReaderVersion: "unknown" },
     startedAt: timestamp, endedAt: timestamp, outcome: { status: "failure", reason: "verification-failed", stage: "verification", step: 1 },
     privacy: { inputValues: "redacted", redactionApplied: events.some(event => event.redacted) },
@@ -105,8 +105,8 @@ describe("evidence-first report", () => {
 
   it("counts real output and diagnostic screenshots, including the ones omitted for privacy", () => {
     const trace = fixture([
-      { type: "browser.screenshot", source: "browser-diagnostic", data: { path: "diagnostics/step-1.png" } },
-      { type: "browser.screenshot-redacted", source: "browser-diagnostic", redacted: true, data: { step: 2, reason: "Input privacy" } },
+      { type: "surface.screenshot", source: "surface", data: { path: "diagnostics/step-1.png" } },
+      { type: "surface.screenshot-omitted", source: "surface", redacted: true, data: { step: 2, reason: "Input privacy" } },
       { type: "backend.response", source: "screen-reader", data: { speech: ["Not actual output"] } },
     ]);
     expect(summarizeTrace(trace)).toMatchObject({ counts: {

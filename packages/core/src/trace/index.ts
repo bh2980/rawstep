@@ -9,11 +9,11 @@ import { platform, release } from "node:os";
 import { isDeepStrictEqual } from "node:util";
 
 /** The saved trace format; readers refuse any other version. */
-export const TRACE_SCHEMA_VERSION = "3.0" as const;
+export const TRACE_SCHEMA_VERSION = "4.0" as const;
 export { REDACTED } from "../redacted.js";
 import { REDACTED } from "../redacted.js";
 
-export type TraceSource = "simulation" | "screen-reader" | "runner" | "browser-diagnostic" | "verifier" | "policy";
+export type TraceSource = "simulation" | "screen-reader" | "runner" | "surface" | "verifier" | "policy";
 export type TraceEventType = string;
 export interface CollectionWindow { startedAt: string; endedAt: string }
 export interface TraceEvent {
@@ -33,10 +33,9 @@ export interface TraceEvent {
 export interface TraceEnvironment {
   platform: string;
   platformVersion: string;
-  browser: string;
-  browserVersion: string;
   screenReader: string;
   screenReaderVersion: string;
+  /** What the surface says about itself (a web page records `browser` and `browserVersion`). */
   [key: string]: unknown;
 }
 export interface TraceTaskMetadata {
@@ -49,7 +48,7 @@ export interface TraceTaskMetadata {
   inputOptions?: unknown;
 }
 /** Where a run was when it ended or broke. The one list: the runner sets these, the recorder keeps them through redaction. */
-export const RUN_STAGES = ['initialization', 'backend-start', 'browser-start', 'page-entry', 'observation', 'policy', 'action', 'settling', 'verification'] as const;
+export const RUN_STAGES = ['initialization', 'backend-start', 'surface-start', 'page-entry', 'observation', 'policy', 'action', 'settling', 'verification'] as const;
 export type RunStage = typeof RUN_STAGES[number];
 /**
  * Why a run ended, as the runner records it. The one list: the recorder keeps these through redaction, and `runEnding`
@@ -142,7 +141,7 @@ export function createRedactor(values: readonly string[]): <T>(value: T) => { va
 function sourceFor(type: string): TraceSource {
   if (/^simulation[.:-]/.test(type)) return "simulation";
   if (/^(screen-reader|screenreader|sr)[.:-]/.test(type)) return "screen-reader";
-  if (/^(browser|diagnostic)[.:-]/.test(type)) return "browser-diagnostic";
+  if (/^(surface|browser|observer)[.:-]/.test(type)) return "surface";
   if (/^(verify|verifier)[.:-]/.test(type)) return "verifier";
   if (/^policy[.:-]/.test(type)) return "policy";
   return "runner";
@@ -239,7 +238,7 @@ export class TraceRecorder {
     const safeTask = this.redact(task);
     const safeEnvironment = this.redact<TraceEnvironment>({
       // AT Driver can target another host. Do not claim the recorder OS is the AT host.
-      platform: "unknown", platformVersion: "unknown", browser: "unknown", browserVersion: "unknown",
+      platform: "unknown", platformVersion: "unknown",
       screenReader: "unknown", screenReaderVersion: "unknown",
       recorderPlatform: platform(), recorderPlatformVersion: release(), ...options.environment
     });
@@ -340,7 +339,7 @@ function validTimestamp(value: unknown): value is string {
 function validateEvent(value: unknown, expectedSequence: number): asserts value is TraceEvent {
   if (!isRecord(value) || value.seq !== expectedSequence || typeof value.id !== "string" || !value.id ||
       !validTimestamp(value.timestamp) || typeof value.type !== "string" || !value.type.trim() ||
-      !["simulation", "screen-reader", "runner", "browser-diagnostic", "verifier", "policy"].includes(String(value.source)) ||
+      !["simulation", "screen-reader", "runner", "surface", "verifier", "policy"].includes(String(value.source)) ||
       typeof value.redacted !== "boolean" || !("data" in value)) {
     throw new Error(`Invalid trace event or event ordering at sequence ${expectedSequence}.`);
   }
@@ -369,7 +368,7 @@ export function validateTrace(value: unknown): asserts value is RunTrace {
       !value.task.id || !validTimestamp(value.startedAt) || !Array.isArray(value.events) || !isRecord(value.environment)) {
     throw new Error("Invalid trace metadata.");
   }
-  for (const key of ["platform", "platformVersion", "browser", "browserVersion", "screenReader", "screenReaderVersion"]) {
+  for (const key of ["platform", "platformVersion", "screenReader", "screenReaderVersion"]) {
     if (typeof value.environment[key] !== "string" || !value.environment[key]) throw new Error(`Missing trace environment field: ${key}. Use 'unknown' when unavailable.`);
   }
   if (!isRecord(value.privacy) || !["redacted", "included-by-explicit-opt-in"].includes(String(value.privacy.inputValues)) ||

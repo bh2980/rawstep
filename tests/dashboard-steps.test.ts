@@ -8,7 +8,7 @@ const events = (pairs: readonly Pair[]): TraceEvent[] => pairs.map(([type, data,
 }));
 const build = (pairs: readonly Pair[], options: Partial<Parameters<typeof buildSteps>[0]> = {}) => buildSteps({ experimentId: 'x', runId: 'r', events: events(pairs), live: false, ...options });
 /** A diagnostic screenshot the runner saved after a step, for people reading the run. */
-const shot = (step: number, path = `diagnostics/step-${step}.png`): Pair => ['browser.screenshot', { step, path, policyVisible: false }];
+const shot = (step: number, path = `diagnostics/step-${step}.png`): Pair => ['surface.screenshot', { step, path, policyVisible: false }];
 
 describe('dashboard step view', () => {
   it('folds a run into steps with actions, results, screenshots, the actions Rawstep chose among, changes and verification', () => {
@@ -109,7 +109,7 @@ describe('dashboard step view', () => {
       ['policy.decision', { step: 1, decision: { action: { kind: 'typeText', input: 'email' } } }],
       ['privacy.input-taint', { step: 1, reason: 'redacted after input' }, true],
       ['action.result', { step: 1, ok: true, action: { kind: 'typeText', input: 'email' } }],
-      ['browser.screenshot', { step: 1, path: 'diagnostics/step-1.png', policyVisible: false }, true],
+      ['surface.screenshot', { step: 1, path: 'diagnostics/step-1.png', policyVisible: false }, true],
       ['observer.state', { kind: 'state', step: 1, role: 'textbox', name: '[REDACTED]', text: '[REDACTED]', value: '[REDACTED]', url: '[REDACTED]' }, true],
       ['simulation.observation', { kind: 'screenreader', speech: ['[REDACTED]'] }, true],
       ['policy.evidence', { step: 2, details: '[REDACTED]', reason: 'Model evidence omitted after text entry.' }, true],

@@ -272,7 +272,7 @@ export async function startDashboard(options: DashboardServerOptions = {}) {
         const event = (await views.events(experimentId!, runId)).find(e => e.id === decodeURIComponent(eventId ?? ''));
         const diagnostic = asRecord(event?.data).path;
         // A diagnostic screenshot is a plain file whose path the runner wrote and the pattern pins, never a path from the client.
-        const file = (event?.type === 'browser.screenshot' || event?.type === 'browser.start-page') && typeof diagnostic === 'string' && DIAGNOSTIC_PATH.test(diagnostic)
+        const file = (event?.type === 'surface.screenshot' || event?.type === 'surface.start-screenshot') && typeof diagnostic === 'string' && DIAGNOSTIC_PATH.test(diagnostic)
           ? await readFile(await store.file(prefix + diagnostic, true)).catch(() => undefined) : undefined;
         if (event?.redacted || !file) throw new HttpError(404, 'screenshot-missing');
         res.writeHead(200, { 'content-type': 'image/png', 'cache-control': 'no-store' }); return res.end(file);

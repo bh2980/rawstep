@@ -12,13 +12,13 @@ Rawstep is published as a single package (`rawstep`) with modular subpath export
 | **`rawstep/project`** | `runTask`, `runSuite`, `ProjectStore`, `initProject`, `parseConfig`, `defaultConfig`, `PROVIDERS`, `ProjectError`. |
 | **`rawstep/contracts`** | `resolveTask`, `validateNavigation`, `describeInputs`, `matchesText`, `flattenVerifyRules`, `Task`, `VerifyRule`, `DecisionPolicy`, `Backend`, `ScreenReaderObservation`. |
 | **`rawstep/policy`** | `OrchestratedSpeechPolicy`, `FixedPlanner`, `followPlan`, `applyDraft`, `renderPlanMarkdown`, `speechChoices`, `ScriptedPolicy`, `loadPolicy`. |
-| **`rawstep/runner`** | Low-level `runWithPolicy(task, options)`, `RunOptions`, `validateDecision`, `confirmationHeard`. |
+| **`rawstep/runner`** | Low-level `runWithPolicy(task, options)`, `RunOptions`, `validateDecision`, `confirmationHeard`. `options.surface` says where the run takes place: `webSurface(options)` opens a web page (headless or not, a Chrome you started, a custom `browserSessionFactory` or `verifier`). The `Surface` and `SurfaceOpener` types describe what another surface implements. |
 | **`rawstep/mock-voiceover`** | `MockVoiceOverBackend`, `runMockVoiceOverTask`, `formatSimulatedSpeech`, `MOCK_VOICEOVER_PROFILE`. |
 | **`rawstep/at-driver`** | `AtDriverBackend`, `AtDriverClient`, `getAtDriverProfile`, `AT_DRIVER_KEYS`, `AtDriverError`. |
 | **`rawstep/hints`** | `extractHints`, `aggregateHints`, `writeHints`, `selectReference`, `summarizeRun`, `runEnding`, `runBroke`, `isMeasured`, `DEFAULT_HINT_THRESHOLDS`, `HINTS_SCHEMA_VERSION` (`"3.0"`), `buildBatchSummary`, `compareSummaries`, `measuredRuns`, `ranRuns`, `SUMMARY_SCHEMA_VERSION` (`"1.0"`). |
 | **`rawstep/report`** | `renderReportHtml`, `writeReport`, `summarizeTrace`. |
 | **`rawstep/analyze`** | `analyzeTrace`, `analyzeSavedTrace`, `deterministicAnalyzer`, `LlmTraceAnalyzer`, `readAnalysis`. |
-| **`rawstep/trace`** | `TraceRecorder`, `FileTraceSink`, `MemoryTraceSink`, `readTrace`, `validateTrace`, `createRedactor`, `TRACE_SCHEMA_VERSION` (`"3.0"`), `OUTCOME_REASONS`, `RUN_STAGES`. |
+| **`rawstep/trace`** | `TraceRecorder`, `FileTraceSink`, `MemoryTraceSink`, `readTrace`, `validateTrace`, `createRedactor`, `TRACE_SCHEMA_VERSION` (`"4.0"`), `OUTCOME_REASONS`, `RUN_STAGES`. |
 | **`rawstep/verify`** | `verifyTask`, `evaluateVerifyRule`, `runScriptCheck`, `formatVerificationFeedback`. |
 | **`rawstep/browser`** | `createBrowserSession`, `closeBrowserSession`, `settlePage`, `isBotCheckPage`, `watchPageActivity`. |
 | **`rawstep/profiles`** | `resolveEnvironmentProfile`, `BUILTIN_PROFILES`, `DEFAULT_PROFILE`, `applyProfile`, `verifyLiveProfile`, `collectBrowserDiagnostics`. |

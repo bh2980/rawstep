@@ -4,7 +4,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { AtDriverBackend, AT_DRIVER_KEYS, ScriptedPolicy, readTrace, resolveTask } from "rawstep";
-import { runWithPolicy } from "rawstep/runner";
+import { runWithPolicy, webSurface } from "rawstep/runner";
 import { runMockVoiceOverTask } from "rawstep/mock-voiceover";
 import { runCli } from "rawstep/cli";
 import { FixedPlanner, OrchestratedSpeechPolicy, planFileSchema } from 'rawstep/policy';
@@ -34,8 +34,7 @@ try {
     policy: new ScriptedPolicy([{ action: { kind: "intent", intent: "activate" } }]), outDir: out,
     // This explicit fake browser/verifier proves packaging and the real wire path,
     // not native screen-reader accuracy, browser accessibility, or OS integration.
-    browserSessionFactory: async () => fakeBrowser,
-    verifier: async () => ({ passed: true, failures: [] }),
+    surface: webSurface({ browserSessionFactory: async () => fakeBrowser, verifier: async () => ({ passed: true, failures: [] }) }),
   });
   const result = wireTrace.outcome?.status === "success" ? 0 : 1;
   assert.equal(result, 0, stderr.join("\n"));
@@ -77,9 +76,9 @@ try {
     await writeFile("mock-decisions.json", JSON.stringify([{ action: { kind: "intent", intent: "activate" } }]));
     await writeFile("mock-task.json", JSON.stringify({ id: "installed-mock-browser", url: pathToFileURL(join(process.cwd(), "browser-fixture.html")).href, goal: "Activate Start", verify: { all: [{ titleIncludes: "Completed" }] } }));
     const mockOut = join(process.cwd(), "installed-mock-browser");
-    await runMockVoiceOverTask(resolveTask(JSON.parse(await readFile("mock-task.json", "utf8")), process.cwd()), { policy: new ScriptedPolicy(JSON.parse(await readFile("mock-decisions.json", "utf8"))), outDir: mockOut, browserExecutablePath: process.env.RAWSTEP_TEST_BROWSER_PATH, warn: () => {} });
+    await runMockVoiceOverTask(resolveTask(JSON.parse(await readFile("mock-task.json", "utf8")), process.cwd()), { policy: new ScriptedPolicy(JSON.parse(await readFile("mock-decisions.json", "utf8"))), outDir: mockOut, browser: { browserExecutablePath: process.env.RAWSTEP_TEST_BROWSER_PATH }, warn: () => {} });
     const mockTrace = await readTrace(mockOut);
-    assert.equal(mockTrace.schemaVersion, "3.0");
+    assert.equal(mockTrace.schemaVersion, "4.0");
     assert.equal(mockTrace.outcome.status, "success");
     assert.equal(mockTrace.environment.observationProvenance, "simulation");
     assert.equal(mockTrace.events.filter(event => event.source === "screen-reader").length, 0);
@@ -95,7 +94,7 @@ try {
       { goal: 'Move to Start', done: 'Hear Start', cue: { name: 'Start', role: 'button' }, activates: false, moves: ['next'] },
       { goal: 'Press Start', done: 'The page says it completed', cue: '', activates: true }] }] });
     const planOut = join(process.cwd(), 'installed-plan');
-    await runMockVoiceOverTask(resolveTask(JSON.parse(await readFile("mock-task.json", "utf8")), process.cwd()), { policy: new OrchestratedSpeechPolicy(new FixedPlanner(draft, { file: 'inline', sha256: 'inline' })), outDir: planOut, browserExecutablePath: process.env.RAWSTEP_TEST_BROWSER_PATH, warn: () => {} });
+    await runMockVoiceOverTask(resolveTask(JSON.parse(await readFile("mock-task.json", "utf8")), process.cwd()), { policy: new OrchestratedSpeechPolicy(new FixedPlanner(draft, { file: 'inline', sha256: 'inline' })), outDir: planOut, browser: { browserExecutablePath: process.env.RAWSTEP_TEST_BROWSER_PATH }, warn: () => {} });
     const planTrace = await readTrace(planOut);
     assert.equal(planTrace.outcome.status, 'success');
     const followed = planTrace.events.filter(event => event.type === 'policy.evidence' && event.data.kind === 'orchestration-follow').length;

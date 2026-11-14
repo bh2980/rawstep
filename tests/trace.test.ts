@@ -53,13 +53,13 @@ describe("versioned evidence trace", () => {
     recorder.append("screen-reader.output", { text: "  Save\nbutton  " }, { commandId: "cmd-2", timestamp: "2026-01-01T00:00:00.100Z" });
     await recorder.finalize({ status: "success", reason: "verified" });
     const trace = await readTrace(dir);
-    expect(trace.schemaVersion).toBe("3.0");
+    expect(trace.schemaVersion).toBe("4.0");
     expect(trace.events.map((event) => event.seq)).toEqual([1, 2]);
     expect(trace.events[0]).toMatchObject({ id: first.id, collectionWindow: window, association: "temporal-only", source: "screen-reader" });
     expect(trace.events[0]!.data).toEqual({ text: "  Save\nbutton  ", payload: ["Save", "Save"] });
     expect(trace.events[1]!.timestamp < trace.events[0]!.timestamp).toBe(true);
     expect((await readFile(join(dir, "trace.jsonl"), "utf8")).trim().split("\n")).toHaveLength(2);
-    expect(trace.environment).toMatchObject({ browserVersion: "unknown", screenReader: "unknown", screenReaderVersion: "unknown" });
+    expect(trace.environment).toMatchObject({ platform: "unknown", screenReader: "unknown", screenReaderVersion: "unknown" }); expect(trace.environment).not.toHaveProperty("browser");
   });
 
   it("redacts task input values recursively from raw events, metadata, outcomes, and both disk artifacts", async () => {

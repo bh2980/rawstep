@@ -136,10 +136,10 @@ export function summarizeTraceEvidence(trace: Readonly<RunTrace>): TraceEvidence
     redactedSimulationOutputEvents: simulationOutputs.filter((event) => event.redacted),
     readableVerifierEvidenceEvents: evidence.filter((event) => !event.redacted),
     redactedVerifierEvidenceEvents: evidence.filter((event) => event.redacted),
-    diagnosticScreenshotEvents: trace.events.filter((event) => event.source === 'browser-diagnostic' &&
-      event.type === 'browser.screenshot' && typeof dataOf(event).path === 'string' && !event.redacted),
-    redactedDiagnosticScreenshotEvents: trace.events.filter((event) => event.source === 'browser-diagnostic' &&
-      event.type === 'browser.screenshot-redacted'),
+    diagnosticScreenshotEvents: trace.events.filter((event) => event.source === 'surface' &&
+      event.type === 'surface.screenshot' && typeof dataOf(event).path === 'string' && !event.redacted),
+    redactedDiagnosticScreenshotEvents: trace.events.filter((event) => event.source === 'surface' &&
+      event.type === 'surface.screenshot-omitted'),
     redactedEvents: trace.events.filter((event) => event.redacted)
   };
 }
@@ -150,7 +150,7 @@ export const deterministicAnalyzer: TraceAnalyzer = {
   analyze(trace) {
     const findings: AnalysisFinding[] = [];
     const policyBlocks = trace.events.filter((event) =>
-      (event.source === 'browser-diagnostic' && event.type === 'browser.navigation-blocked') ||
+      (event.source === 'surface' && event.type === 'browser.navigation-blocked') ||
       (event.source === "policy" && (event.type === 'policy.rejected' ||
         dataOf(event).allowed === false || dataOf(event).blocked === true || /blocked|denied|violation/.test(event.type))));
     if (policyBlocks.length) findings.push({

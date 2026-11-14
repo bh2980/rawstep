@@ -92,6 +92,7 @@ export class MockVoiceOverBackend implements Backend {
   private listeners = new Set<(event: BackendEvent) => void>();
 
   attachSession(session: BackendSession): void {
+    if (session.kind !== 'web') throw new Error(`Mock VoiceOver reads a Chromium page, not a ${String(session.kind)} surface.`);
     const page = session.page as Page;
     if (this.state === 'closed') throw new Error('Mock VoiceOver backend is closed.');
     if (this.page && this.page !== page) throw new Error('Mock VoiceOver backend is already attached to a page.');

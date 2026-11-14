@@ -187,14 +187,22 @@ export type BackendSpeechObservation = { kind?: 'screenreader'; windowId: string
 export type BackendObservation = BackendSpeechObservation;
 /** Generic backend boundary: transport and platform semantics belong in adapters. */
 export type BackendOperationOptions = { signal?: AbortSignal };
-/** What the runner knows about this run's host and browser, for a backend's own preconditions. */
-export type BackendRunContext = { headless: boolean; platform: string; customBrowserSession: boolean };
-/** The opened browser session as a backend sees it; `page` is the automation page (Playwright in Rawstep's browser package). */
-export type BackendSession = { readonly page: unknown; readonly browserProcessId?: number };
+/**
+ * What a run's surface is, known before it opens. `web`: a page in a browser; `headless` says the browser shows no window,
+ * `customSession` that the caller opens the browser itself (it may be on another machine).
+ */
+export type SurfaceFacts = { kind: 'web'; headless: boolean; customSession: boolean };
+/** What the runner knows about this run's host and surface, for a backend's own preconditions. */
+export type BackendRunContext = { platform: string; surface: SurfaceFacts };
+/**
+ * The opened surface as a backend sees it. `web`: `page` is the automation page (Playwright in Rawstep's browser package) and
+ * `browserProcessId` the browser's process when it could say. A backend refuses a kind it cannot drive.
+ */
+export type BackendSession = { readonly kind: 'web'; readonly page: unknown; readonly browserProcessId?: number };
 export interface Backend {
   /** Called after start(): throw when this run cannot proceed here (platform, visibility, session pairing). */
   preflight?(context: BackendRunContext): void | Promise<void>;
-  /** Receives the opened browser session before the first observation; throw to refuse a session this backend cannot drive. */
+  /** Receives the opened surface before the first observation; throw to refuse a session this backend cannot drive. */
   attachSession?(session: BackendSession): void | Promise<void>;
   /** Budget for close(); a native bridge sets a longer one to release OS state (`RAWSTEP_DEFAULTS.cleanupTimeoutMs.nativeBackend`). */
   readonly cleanupTimeoutMs?: number;

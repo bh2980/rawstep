@@ -24,7 +24,7 @@ describe('error states', () => {
   it('tells the five kinds of trouble apart from how a run ended', () => {
     // Start failure: the executor threw before any trace existed, or the runner stopped while starting.
     expect(describeRunFailure(run('failure', undefined, RUN_ERROR.start))?.kind).toBe('start');
-    expect(describeRunFailure(run('failure', { status: 'failure', reason: 'error', stage: 'browser-start' }))).toMatchObject({ kind: 'start', link: { to: { view: 'settings' } } });
+    expect(describeRunFailure(run('failure', { status: 'failure', reason: 'error', stage: 'surface-start' }))).toMatchObject({ kind: 'start', link: { to: { view: 'settings' } } });
     expect(describeRunFailure(run('inconclusive', { status: 'inconclusive', reason: 'access-blocked' }))?.kind).toBe('start');
     // Runtime failure: it got going and stopped, and says how far.
     const runtime = describeRunFailure(run('failure', { status: 'failure', reason: 'error', stage: 'policy', step: 4, steps: 4 }));
@@ -39,10 +39,10 @@ describe('error states', () => {
   });
 
   it('says what happened, how far it got and what to do, always in Korean', () => {
-    const view = describeRunFailure(run('failure', { status: 'failure', reason: 'error', stage: 'browser-start' }))!;
+    const view = describeRunFailure(run('failure', { status: 'failure', reason: 'error', stage: 'surface-start' }))!;
     for (const text of [view.what, view.progress!, view.next]) expect(text).toMatch(hangul);
     expect(view.progress).toContain('첫 행동 전');
-    expect(view.raw).toContain('stage: browser-start');
+    expect(view.raw).toContain('stage: surface-start');
   });
 
   it('leaves runs that simply ended alone: a limit, a stop the model chose, a goal not reached', () => {

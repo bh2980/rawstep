@@ -209,7 +209,7 @@ describe("independent post-run analysis and reports", () => {
     const dir = await mkdtemp(join(tmpdir(), 'rawstep-policy-analysis-'));
     const recorder = new TraceRecorder({ id: 'policy-boundaries' }, dir);
     await recorder.initialize();
-    const navigation = recorder.append('browser.navigation-blocked', { url: 'https://elsewhere.test', reason: 'outside navigation policy' }, { source: 'browser-diagnostic' });
+    const navigation = recorder.append('browser.navigation-blocked', { url: 'https://elsewhere.test', reason: 'outside navigation policy' }, { source: 'surface' });
     const rejection = recorder.append('policy.rejected', { step: 2, action: { kind: 'intent', intent: 'forbidden' }, reasonCode: 'unsupported-intent' }, { source: 'policy' });
     recorder.append('policy.rejected', { passed: false }, { source: 'verifier' });
     const trace = await recorder.finalize({ status: 'failure' });
@@ -223,8 +223,8 @@ describe("independent post-run analysis and reports", () => {
     const recorder = new TraceRecorder({ id: 'diagnostic-privacy' }, dir);
     await recorder.initialize();
     recorder.append('screen-reader.output', { text: 'Save button' }, { source: 'screen-reader' });
-    const diagnostic = recorder.append('browser.screenshot', { step: 1, path: 'diagnostics/step-1.png', policyVisible: false }, { source: 'browser-diagnostic' });
-    const omitted = recorder.append('browser.screenshot-redacted', { step: 2, policyVisible: false }, { source: 'browser-diagnostic', redacted: true });
+    const diagnostic = recorder.append('surface.screenshot', { step: 1, path: 'diagnostics/step-1.png', policyVisible: false }, { source: 'surface' });
+    const omitted = recorder.append('surface.screenshot-omitted', { step: 2, policyVisible: false }, { source: 'surface', redacted: true });
     const trace = await recorder.finalize({ status: 'success' });
     const inventory = summarizeTraceEvidence(trace);
     expect(inventory.diagnosticScreenshotEvents.map((event) => event.id)).toEqual([diagnostic.id]);

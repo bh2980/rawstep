@@ -26,7 +26,7 @@ it('executes the real Runner over HTTP with two run profiles/two page environmen
     // Rawstep carried out the plan file: each action is a follow event, and no model was asked.
     expect(trace.events.some(e => e.type === 'policy.evidence' && (e.data as { evidence?: { kind?: string } }).evidence?.kind === 'orchestration-follow')).toBe(true);
     // Diagnostic screenshots are kept for people reading the run; the trace holds their paths only.
-    expect(trace.events.some(e => e.type === 'browser.screenshot')).toBe(true); expect(JSON.stringify(trace)).not.toContain('pngBase64');
+    expect(trace.events.some(e => e.type === 'surface.screenshot')).toBe(true); expect(JSON.stringify(trace)).not.toContain('pngBase64');
     expect(trace.events.some(e => e.type === 'verifier.result' && (e.data as { passed?: boolean }).passed)).toBe(true);
     expect(await readFile(join(dir, '.rawstep/experiments', experiment.id, run.id, 'report.html'), 'utf8')).toContain('success');
   }

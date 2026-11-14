@@ -34,7 +34,7 @@ function trace(): RunTrace {
   add('backend.response', { raw: { id: 3, result: {} } }, '3');
   add('action.result', { action: { kind: 'intent', intent: 'activate' }, ok: true });
   add('verifier.result', { passed: true });
-  return { schemaVersion: '3.0', runId: 'test-only', task: { id: 'test' }, environment: { platform: 'test', platformVersion: 'test', browser: 'test', browserVersion: 'test', screenReader: 'VoiceOver', screenReaderVersion: 'test', observationProvenance: 'native' },
+  return { schemaVersion: '4.0', runId: 'test-only', task: { id: 'test' }, environment: { platform: 'test', platformVersion: 'test', browser: 'test', browserVersion: 'test', screenReader: 'VoiceOver', screenReaderVersion: 'test', observationProvenance: 'native' },
     startedAt: 'start', endedAt: 'end', events, outcome: { status: 'success', reason: 'verified' }, privacy: { inputValues: 'redacted', redactionApplied: false } };
 }
 const foreground = [{ commandId: '1', matched: true }, { commandId: '2', matched: true }, { commandId: '3', matched: true }];

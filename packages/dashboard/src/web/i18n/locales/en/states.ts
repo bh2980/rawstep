@@ -60,7 +60,7 @@ export const states: LocaleShape<typeof ko> = {
     stage: {
       initialization: { what: 'It stopped while preparing the run.', next: 'Check the task settings and the model connection, then run again.' },
       'backend-start': { what: 'The screen reader driver could not start.', next: 'Check the driver in Settings › This computer.' },
-      'browser-start': { what: 'The browser could not start.', next: 'Check the browser in Settings › This computer.' },
+      'surface-start': { what: 'The page under test could not be opened.', next: 'Check the browser in Settings › This computer.' },
       observation: { what: 'It stopped while reading the screen or speech.', next: 'Run again with the same conditions. If it repeats, check Settings › This computer.' },
       policy: { what: 'It stopped while the model was choosing the next move.', next: 'Check the model connection and API key, then run again.' },
       action: { what: 'It stopped while carrying out the chosen move.', next: 'Run again with the same conditions. If it repeats on the same move, check whether the page has changed.' },

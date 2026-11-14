@@ -12,9 +12,9 @@ describe('actual browser mock runner integration',()=>{
  it('supports an actually focused open-shadow input through the shared runner guard and redacts persisted output',async()=>{
   const {dir,path}=await setup('<title>Before</title><div id="host"></div><script>const root=document.querySelector("#host").attachShadow({mode:"open"});root.innerHTML=`<input aria-label="Name">`;const field=root.querySelector("input");field.addEventListener("input",()=>document.title=field.value==="Az"?"Done":"Partial");</script>');
   const out=join(dir,'run');const observations:Observation[]=[];const policy=new ScriptedPolicy([{action:{kind:'intent',intent:'activate'}},{action:{kind:'typeText',input:'name'}}]);
-  const trace=await runMockVoiceOverTask({url:path,goal:'Enter provided Name',input:{name:'Az'},verify:{all:[{titleIncludes:'Done'}]}},{outDir:out,headless:true,browserExecutablePath:process.env.RAWSTEP_TEST_BROWSER_PATH,warn:()=>{},policy:{decide:input=>{observations.push(input.observation);return policy.decide();}}});
+  const trace=await runMockVoiceOverTask({url:path,goal:'Enter provided Name',input:{name:'Az'},verify:{all:[{titleIncludes:'Done'}]}},{outDir:out,browser:{headless:true,browserExecutablePath:process.env.RAWSTEP_TEST_BROWSER_PATH},warn:()=>{},policy:{decide:input=>{observations.push(input.observation);return policy.decide();}}});
   expect(trace.outcome?.status).toBe('success');expect(trace.environment.observationProvenance).toBe('simulation');
-  expect(trace.events.filter(event=>event.type==='browser.input-gate').map(event=>(event.data as any).editable)).toEqual([true]);
+  expect(trace.events.filter(event=>event.type==='action.input-gate').map(event=>(event.data as any).editable)).toEqual([true]);
   expect(observations.every(observation=>observation.kind==='screenreader'&&observation.provenance==='simulation')).toBe(true);
   expect(JSON.stringify(observations)).not.toMatch(/backendDOMNodeId|selector|semanticSource/);
   expect(await readFile(join(out,'trace.json'),'utf8')).not.toContain('Az');

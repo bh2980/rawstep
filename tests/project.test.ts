@@ -5,7 +5,7 @@ import { basename, dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createServer } from 'node:http';
 import { speechChoices } from '@rawstep/policies/policy';
-import { validateDecision } from '@rawstep/browser/runner';
+import { validateDecision } from '@rawstep/core/runner';
 import { TraceRecorder, readTrace } from '@rawstep/core/trace';
 import {
   CONFIG_FILE, comboPlanner, configProblems, configSchema, credentialId, credentialRequirements, defaultConfig, defaultProfile,

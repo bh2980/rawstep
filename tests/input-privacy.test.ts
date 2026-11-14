@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { describeInputs, resolveTask } from '@rawstep/core/contracts';
 import type { Backend, BackendAction, Decision, DecisionPolicy, Task, VerificationRecord } from '@rawstep/core/contracts';
 import type { BrowserSession } from '@rawstep/browser/browser';
-import { runWithPolicy } from '@rawstep/browser/runner';
+import { runOnWebPage } from './helpers/web-run.js';
 
 const verify = { all: [{ titleIncludes: 'Done' }] };
 const base = { url: 'https://example.test/', goal: 'Sign in with the stored credentials', verify };
@@ -133,7 +133,7 @@ describe('runner input privacy', () => {
   it('never gives the policy a sensitive value; a value marked not sensitive is shown so the model knows what it types', async () => {
     const f = screenReaderFixture(n => [`Edit text, entered ${n}`]);
     const { policy, calls } = recordingPolicy([type('email'), type('nick'), tab, { stop: 'stuck' }]);
-    await runWithPolicy(task, { ...f, outDir: await out(), policy });
+    await runOnWebPage(task, { ...f, outDir: await out(), policy });
     expect(calls.length).toBe(4);
     for (const call of calls) {
       expect(call.inputs).toEqual({ email: { sensitive: true, description: 'Account email' }, nick: { sensitive: false, value: 'rawstep-user' } });
@@ -144,13 +144,13 @@ describe('runner input privacy', () => {
 
   it('keeps a run readable after typing a value marked not sensitive, and redacts only after typing a secret', async () => {
     const f = screenReaderFixture(n => [`Edit text, entered ${n}`]);
-    const nickOnly = await runWithPolicy(task, { ...f, outDir: await out(), policy: recordingPolicy([type('nick'), tab, { stop: 'stuck' }]).policy });
+    const nickOnly = await runOnWebPage(task, { ...f, outDir: await out(), policy: recordingPolicy([type('nick'), tab, { stop: 'stuck' }]).policy });
     expect(nickOnly.events.some(e => e.type === 'privacy.input-taint')).toBe(false);
     expect(nickOnly.events.filter(e => e.redacted)).toEqual([]);
     expect(JSON.stringify(nickOnly.task)).toContain('rawstep-user');
     expect(JSON.stringify(nickOnly)).not.toContain(secret);
     const g = screenReaderFixture(n => [`Edit text, entered ${n}`]);
-    const withSecret = await runWithPolicy(task, { ...g, outDir: await out(), policy: recordingPolicy([type('email'), tab, { stop: 'stuck' }]).policy });
+    const withSecret = await runOnWebPage(task, { ...g, outDir: await out(), policy: recordingPolicy([type('email'), tab, { stop: 'stuck' }]).policy });
     expect(withSecret.events.some(e => e.type === 'privacy.input-taint')).toBe(true);
     expect(JSON.stringify(withSecret)).not.toContain(secret);
   });
@@ -159,14 +159,14 @@ describe('runner input privacy', () => {
     const speech = (n: number) => n === 2 ? [`Signed in as ${secret}`, 'Welcome back, heading level 1'] : [`Item ${n}`];
     const simulated = screenReaderFixture(speech);
     (simulated.backend as { evidenceProvenance?: string }).evidenceProvenance = 'simulation';
-    const sim = await runWithPolicy(task, { ...simulated, outDir: await out(), policy: recordingPolicy([type('email'), tab, { stop: 'stuck' }]).policy });
+    const sim = await runOnWebPage(task, { ...simulated, outDir: await out(), policy: recordingPolicy([type('email'), tab, { stop: 'stuck' }]).policy });
     expect(sim.events.find(e => e.type === 'privacy.input-taint')?.data).toMatchObject({ until: 'end-of-step' });
     expect(sim.events.some(e => e.type === 'privacy.input-taint-ended')).toBe(true);
     const after = sim.events.filter(e => e.type === 'simulation.observation').at(-1)!.data as { speech: string[] };
     expect(after.speech).toEqual(['Signed in as [REDACTED]', 'Welcome back, heading level 1']);
     expect(JSON.stringify(sim)).not.toContain(secret);
     const native = screenReaderFixture(speech);
-    const real = await runWithPolicy(task, { ...native, outDir: await out(), policy: recordingPolicy([type('email'), tab, { stop: 'stuck' }]).policy });
+    const real = await runOnWebPage(task, { ...native, outDir: await out(), policy: recordingPolicy([type('email'), tab, { stop: 'stuck' }]).policy });
     expect(real.events.find(e => e.type === 'privacy.input-taint')?.data).toMatchObject({ until: 'end-of-run' });
     const last = real.events.filter(e => e.type.endsWith('.observation')).at(-1)!.data as { speech: string[] };
     expect(last.speech).toEqual(['[REDACTED]']);
@@ -174,18 +174,18 @@ describe('runner input privacy', () => {
 
   it('gives the backend the text to type and nothing about whether it is a secret: withholding is the runner\'s own work', async () => {
     const f = screenReaderFixture();
-    await runWithPolicy(task, { ...f, outDir: await out(), policy: recordingPolicy([type('email'), type('nick'), { stop: 'stuck' }]).policy });
+    await runOnWebPage(task, { ...f, outDir: await out(), policy: recordingPolicy([type('email'), type('nick'), { stop: 'stuck' }]).policy });
     expect(f.backend.execute).toHaveBeenNthCalledWith(1, { kind: 'typeText', text: secret }, expect.anything());
     expect(f.backend.execute).toHaveBeenNthCalledWith(2, { kind: 'typeText', text: 'rawstep-user' }, expect.anything());
     const replacing = screenReaderFixture();
-    await runWithPolicy({ ...task, inputOptions: undefined }, { ...replacing, outDir: await out(), policy: recordingPolicy([{ action: { kind: 'replaceText', input: 'nick' } }, { stop: 'stuck' }]).policy });
+    await runOnWebPage({ ...task, inputOptions: undefined }, { ...replacing, outDir: await out(), policy: recordingPolicy([{ action: { kind: 'replaceText', input: 'nick' } }, { stop: 'stuck' }]).policy });
     expect(replacing.backend.execute).toHaveBeenCalledWith({ kind: 'replaceText', text: 'rawstep-user' }, expect.anything());
   });
 
   it('withholds the speech right after a sensitive typing step and passes it through for sensitive:false', async () => {
     const f = screenReaderFixture(n => n === 0 ? ['Edit text, blank'] : [`Edit text, ${n === 1 ? secret : 'rawstep-user'} entered`]);
     const { policy, calls } = recordingPolicy([type('email'), type('nick'), { stop: 'stuck' }]);
-    await runWithPolicy(task, { ...f, outDir: await out(), policy });
+    await runOnWebPage(task, { ...f, outDir: await out(), policy });
     expect(speechOf(calls[0]!.observation)).toEqual(['Edit text, blank']);
     expect(speechOf(calls[1]!.observation)).toEqual(['[typed input withheld]']);
     expect(speechOf(calls[2]!.observation)).toEqual(['Edit text, rawstep-user entered']);
@@ -197,7 +197,7 @@ describe('runner input privacy', () => {
     const speech = [['Ready'], ['typing echo h u n t e r'], [`Greeting: ${secret} saved`, 'Next'], [`Welcome back ${secret} and ${secret}`], ['Done']];
     const f = screenReaderFixture(n => speech[n]!);
     const { policy, calls } = recordingPolicy([type('email'), tab, tab, tab, { stop: 'stuck' }]);
-    await runWithPolicy({ ...task, maxSteps: 5 }, { ...f, outDir: await out(), policy });
+    await runOnWebPage({ ...task, maxSteps: 5 }, { ...f, outDir: await out(), policy });
     expect(speechOf(calls[1]!.observation)).toEqual(['[typed input withheld]']);
     expect(speechOf(calls[2]!.observation)).toEqual(['Greeting: [REDACTED] saved', 'Next']);
     expect(speechOf(calls[3]!.observation)).toEqual(['Welcome back [REDACTED] and [REDACTED]']);
@@ -209,14 +209,14 @@ describe('runner input privacy', () => {
     const value = 'p@ss word 99';
     const f = screenReaderFixture(n => n < 2 ? ['Ready'] : [`Link: /login?pw=${encodeURIComponent(value)}`]);
     const { policy, calls } = recordingPolicy([type('email'), tab, { stop: 'stuck' }]);
-    await runWithPolicy({ ...task, input: { email: value }, inputOptions: undefined }, { ...f, outDir: await out(), policy });
+    await runOnWebPage({ ...task, input: { email: value }, inputOptions: undefined }, { ...f, outDir: await out(), policy });
     expect(speechOf(calls[2]!.observation)).toEqual(['Link: /login?pw=[REDACTED]']);
   });
 
   it('does not mask the value in later speech when the input is sensitive:false', async () => {
     const f = screenReaderFixture(n => n < 2 ? ['Ready'] : [`Saved ${secret}`]);
     const { policy, calls } = recordingPolicy([type('email'), tab, { stop: 'stuck' }]);
-    await runWithPolicy({ ...task, inputOptions: { email: { sensitive: false } } }, { ...f, outDir: await out(), policy });
+    await runOnWebPage({ ...task, inputOptions: { email: { sensitive: false } } }, { ...f, outDir: await out(), policy });
     expect(speechOf(calls[1]!.observation)).toEqual(['Ready']);
     expect(speechOf(calls[2]!.observation)).toEqual([`Saved ${secret}`]);
     expect(f.backend.execute).toHaveBeenCalledWith({ kind: 'typeText', text: secret }, expect.anything());
@@ -227,7 +227,7 @@ describe('runner input privacy', () => {
     const speech = [['Ready'], [`Field now ${value}`], [`Item ${value} of 10 about ${value}`], ['Done']];
     const f = screenReaderFixture(n => speech[n]!);
     const { policy, calls } = recordingPolicy([type('email'), tab, { stop: 'stuck' }]);
-    await runWithPolicy({ ...task, input: { email: value }, inputOptions: undefined }, { ...f, outDir: await out(), policy });
+    await runOnWebPage({ ...task, input: { email: value }, inputOptions: undefined }, { ...f, outDir: await out(), policy });
     expect(speechOf(calls[1]!.observation)).toEqual(['[typed input withheld]']);
     expect(speechOf(calls[2]!.observation)).toEqual([`Item ${value} of 10 about ${value}`]);
     expect(f.backend.execute).toHaveBeenCalledWith({ kind: 'typeText', text: value }, expect.anything());
@@ -236,7 +236,7 @@ describe('runner input privacy', () => {
   it('masks a value of exactly 4 characters', async () => {
     const f = screenReaderFixture(n => n < 2 ? ['Ready'] : ['PIN is 1234 ok']);
     const { policy, calls } = recordingPolicy([type('email'), tab, { stop: 'stuck' }]);
-    await runWithPolicy({ ...task, input: { email: '1234' }, inputOptions: undefined }, { ...f, outDir: await out(), policy });
+    await runOnWebPage({ ...task, input: { email: '1234' }, inputOptions: undefined }, { ...f, outDir: await out(), policy });
     expect(speechOf(calls[2]!.observation)).toEqual(['PIN is [REDACTED] ok']);
   });
 
@@ -244,7 +244,7 @@ describe('runner input privacy', () => {
     const f = screenReaderFixture(n => [`Observation ${n}`]);
     vi.mocked(f.backend.execute).mockRejectedValue(new Error('backend refused'));
     const { policy, calls } = recordingPolicy([type('email'), { stop: 'stuck' }]);
-    await runWithPolicy(task, { ...f, outDir: await out(), policy });
+    await runOnWebPage(task, { ...f, outDir: await out(), policy });
     expect(speechOf(calls[1]!.observation)).toEqual(['Observation 1']);
   });
 });

@@ -20,8 +20,8 @@ async function runLab(observe?: boolean) {
     verify: { all: [{ titleIncludes: 'Checkout' }] } };
   const scripted = new ScriptedPolicy(decisions);
   const inputs: unknown[] = [];
-  const trace = await runMockVoiceOverTask(task, { outDir: await directory(), headless: true, allowedActions: { keys: ['Tab', 'Enter', 'Space'] }, browserExecutablePath: process.env.RAWSTEP_TEST_BROWSER_PATH, warn: () => {},
-    ...(observe === undefined ? {} : { observe }), policy: { decide: (input) => { inputs.push(input); return scripted.decide(); } } });
+  const trace = await runMockVoiceOverTask(task, { outDir: await directory(), browser: { headless: true, browserExecutablePath: process.env.RAWSTEP_TEST_BROWSER_PATH, ...(observe === undefined ? {} : { observe }) }, allowedActions: { keys: ['Tab', 'Enter', 'Space'] }, warn: () => {},
+    policy: { decide: (input) => { inputs.push(input); return scripted.decide(); } } });
   return { trace, inputs };
 }
 const observerEvents = (trace: RunTrace, kind: string) => trace.events.filter(event => event.type === `observer.${kind}`).map(event => event.data as Record<string, unknown>);
@@ -51,7 +51,7 @@ describe('page observer in real Chromium', () => {
     const boxed = observerEvents(trace, 'focus').filter(event => event.frame === 'main' && event.rect !== undefined);
     expect(boxed.length).toBeGreaterThan(0);
     for (const event of boxed) expect(event.rect).toEqual({ x: expect.any(Number), y: expect.any(Number), width: expect.any(Number), height: expect.any(Number) });
-    expect(trace.events.filter(event => event.type.startsWith('observer.')).every(event => event.source === 'browser-diagnostic')).toBe(true);
+    expect(trace.events.filter(event => event.type.startsWith('observer.')).every(event => event.source === 'surface')).toBe(true);
 
     expect(inputs.length).toBeGreaterThan(0);
     for (const input of inputs) {
@@ -86,7 +86,7 @@ describe('timeline goal rules in real Chromium', () => {
   it('verifies a live-region announcement from the observer timeline and flags a goal that held before any action', async () => {
     const task: Task = { url: pathToFileURL(resolve('fixtures/friction-lab.html')).href, goal: 'Add the item to the cart', maxSteps: 8, verify };
     const scripted = new ScriptedPolicy(['Tab', 'Tab', 'Tab', 'Enter'].map(key).concat({ stop: 'success' }));
-    const trace = await runMockVoiceOverTask(task, { outDir: await directory(), headless: true, allowedActions: { keys: ['Tab', 'Enter'] }, browserExecutablePath: process.env.RAWSTEP_TEST_BROWSER_PATH, warn: () => {}, policy: { decide: () => scripted.decide() } });
+    const trace = await runMockVoiceOverTask(task, { outDir: await directory(), browser: { headless: true, browserExecutablePath: process.env.RAWSTEP_TEST_BROWSER_PATH }, allowedActions: { keys: ['Tab', 'Enter'] }, warn: () => {}, policy: { decide: () => scripted.decide() } });
     expect(trace.outcome).toMatchObject({ status: 'success', reason: 'verified', steps: 4 });
 
     // The cart announcement happens on step 4; earlier checks fail on the event rule only.
